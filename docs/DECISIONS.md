@@ -77,4 +77,11 @@ M7-017 introduces `ISharedStateDocumentStore` and a real SQL Server backend that
 
 Shared writes use bounded valid JSON documents and optimistic compare/exchange under SQL `SERIALIZABLE` + `UPDLOCK/HOLDLOCK`. Stale writers conflict rather than overwrite. Provider errors are redacted. Readiness exposes provider/schema status only.
 
-A READY M7-017 provider is **not** permission to enable MultiNode. M7-018 must migrate required repositories and distributed coordination first.
+A READY shared-state provider is **not** permission to enable MultiNode. Required repositories, coordination, security state and cache/delivery prerequisites must all pass the deployment readiness gate.
+
+## ADR-034 — Shared key rings are encrypted before control-plane persistence and credential rotation is test-before-commit
+B100-011..020 separates Data Protection key-ring location from SQL credential values. `LocalFile` remains the backward-compatible single-node default. Explicit `SharedState` key-ring mode writes only AES-256-GCM ciphertext to the dedicated Monitor control-plane provider; a 256-bit key-encryption key is read directly from a named process environment variable and is never stored in Monitor state, source, UI or audit. Missing, invalid or wrong key material fails closed and SharedState mode never falls back to local key files.
+
+HA credential readiness additionally requires new Monitor-owned `local:v1` credential creation to be disabled and no registration to retain a local-owned reference. Existing external secret providers remain the credential-value boundary.
+
+Credential reference replacement is an explicit Administrator command. The candidate external reference is resolved and passes the existing bounded Test Connection **before** registration metadata changes. Failure preserves the old registration and owned secret. Success commits the opaque reference first, then removes the previous Monitor-owned secret if it became orphaned. Cleanup is ownership-scoped and never mutates external provider secrets. Audit stores actor/action/registration/outcome metadata only and excludes old/new references, usernames, passwords, provider errors and connection strings.
