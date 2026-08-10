@@ -75,3 +75,11 @@ M5-026 enriches the existing incident transition audit without changing the work
 M4-007 through M4-013 add the only advisor request path: an authorized antiforgery-protected POST by incident ID. Server-side context flows through single-flight, evidence-version cache, timeout and circuit boundaries. The provider remains disabled unless explicitly replaced; results remain advisory and disconnected from SQL execution.
 
 M6 introduces the first complete real-server journey. Login routes an empty estate to Connections. The administrator submits safe endpoint metadata plus Integrated Security, a process-memory SQL Login credential, or an external secret reference. The backend registers, tests, collects and observes the first snapshot in order. Only a successful test reaches collection. Estate and Dashboard reads show all registrations and preserve unavailable targets without mixing demo cards into a real estate.
+
+## M7 registration persistence
+
+M7-001 preserves `IServerRegistrationRepository` as the application boundary and adds a file-backed implementation for durable Monitor-owned registration metadata. The default file is `App_Data/registrations.json` under the application content root and the startup wiring rejects any configured path that resolves under `wwwroot`.
+
+The file store serializes endpoint metadata, authentication mode, enabled/created metadata and the opaque `ConnectionSecretReference`. It never has access to SQL username/password values or a full connection string. Runtime credential values remain in `ConfigurationConnectionSecretStore` process memory and intentionally disappear on restart; a persisted runtime reference therefore becomes unresolved rather than causing a credential value to be written to disk.
+
+Mutations are serialized, written to a same-directory temporary file with write-through and flush-to-disk, then moved over the durable store. Failed persistence rolls the in-memory mutation back. Startup treats malformed JSON, unsupported format versions, duplicate IDs and invalid domain data as fatal configuration-state errors instead of silently replacing the estate with an empty repository. This local store is a single-node production-readiness step; a shared/HA store can later replace it behind the unchanged repository interface.
