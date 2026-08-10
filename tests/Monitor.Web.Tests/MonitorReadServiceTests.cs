@@ -129,5 +129,10 @@ public sealed class MonitorReadServiceTests
                 ? Task.FromResult(result!)
                 : Task.FromException<SnapshotCacheResult>(exception);
         }
+
+        public Task<SnapshotCacheResult> RefreshAsync(
+            ServerRegistration registration,
+            CancellationToken cancellationToken = default) =>
+            GetAsync(registration, cancellationToken);
     }
 }

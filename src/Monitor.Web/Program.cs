@@ -17,6 +17,7 @@ builder.Services.AddSingleton<ISqlSnapshotQuery, SqlSnapshotQuery>();
 builder.Services.AddSingleton<ISqlServerSnapshotCollector, SqlServerSnapshotCollector>();
 builder.Services.AddSingleton<IServerHealthSnapshotCache, ServerHealthSnapshotCache>();
 builder.Services.AddSingleton<IMonitorReadService, MonitorReadService>();
+builder.Services.AddSingleton<ISnapshotRefreshService, SnapshotRefreshService>();
 
 builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)

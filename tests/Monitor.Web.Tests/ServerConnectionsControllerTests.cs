@@ -28,7 +28,8 @@ public sealed class ServerConnectionsControllerTests
         var tester = new FakeTester();
         var controller = new ServerConnectionsController(
             new InMemoryServerRegistrationRepository(),
-            tester);
+            tester,
+            new FakeRefreshService());
 
         var response = await controller.TestConnection(Guid.NewGuid(), CancellationToken.None);
 
@@ -52,5 +53,15 @@ public sealed class ServerConnectionsControllerTests
                 "Connection succeeded.",
                 1));
         }
+    }
+
+    private sealed class FakeRefreshService : ISnapshotRefreshService
+    {
+        public Task<SnapshotRefreshResult> RefreshAsync(
+            Guid registrationId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new SnapshotRefreshResult(
+                SnapshotRefreshStatus.RegistrationNotFound,
+                "Server registration was not found."));
     }
 }

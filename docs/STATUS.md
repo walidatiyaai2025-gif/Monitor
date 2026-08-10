@@ -1,11 +1,20 @@
 # Project Status
 
 **Updated:** 2026-08-10 11:41 +03:00  
-**Branch:** `agent/m1-real-snapshot-ui`  
-**Target:** `M1-005`  
+**Branch:** `agent/m1-throttled-refresh`  
+**Target:** `M1-006`  
 **Issue:** TBD  
-**PR:** #13  
-**Overall:** 🟢 M1-005 VERIFIED — READY TO MERGE
+**PR:** TBD  
+**Overall:** 🟡 M1-006 IMPLEMENTED — LOCAL VERIFICATION COMPLETE
+
+## M1-006 — Backend-controlled throttled refresh
+
+- Administrator-only POST endpoint protected by antiforgery.
+- Atomic 15-second per-server refresh throttle.
+- Throttled calls return HTTP 429 without invoking cache collection.
+- Accepted refreshes reuse cache single-flight and safe stale fallback.
+- Endpoint accepts only registration ID and returns fixed redacted results.
+- 32 total tests pass locally.
 
 ## M1-005 — First real snapshot in the UI
 
@@ -110,7 +119,7 @@
 - UI-003 CI run `31366381962`: SUCCESS.
 - `dotnet restore`: ✅ VERIFIED by GitHub Actions.
 - `dotnet build --configuration Release --no-restore --warnaserror`: ✅ VERIFIED by GitHub Actions.
-- `dotnet test Monitor.sln --configuration Release --no-build`: ✅ 30 PASSED locally.
+- `dotnet test Monitor.sln --configuration Release --no-build`: ✅ 32 PASSED locally.
 - visual acceptance: ✅ USER ACCEPTED on 2026-08-10.
 
 ## Merge gate
@@ -119,4 +128,4 @@ M0 PR #2 merged to stable `main` at `dfbfa19`.
 
 ## Next action
 
-Merge PR #13, then begin M1-006 throttled refresh.
+Push M1-006, verify CI and merge, then complete M1-007 SignalR evaluation.

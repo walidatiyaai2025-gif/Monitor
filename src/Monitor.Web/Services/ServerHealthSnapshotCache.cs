@@ -3,12 +3,6 @@ using Monitor.Web.Models;
 
 namespace Monitor.Web.Services;
 
-public enum SnapshotFreshness
-{
-    Fresh,
-    Stale
-}
-
 public sealed record SnapshotCacheResult(
     ServerHealthSnapshot Snapshot,
     SnapshotFreshness Freshness,
@@ -17,6 +11,10 @@ public sealed record SnapshotCacheResult(
 public interface IServerHealthSnapshotCache
 {
     Task<SnapshotCacheResult> GetAsync(
+        ServerRegistration registration,
+        CancellationToken cancellationToken = default);
+
+    Task<SnapshotCacheResult> RefreshAsync(
         ServerRegistration registration,
         CancellationToken cancellationToken = default);
 }
@@ -33,7 +31,18 @@ public sealed class ServerHealthSnapshotCache(
 
     public async Task<SnapshotCacheResult> GetAsync(
         ServerRegistration registration,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        await GetCoreAsync(registration, forceRefresh: false, cancellationToken);
+
+    public async Task<SnapshotCacheResult> RefreshAsync(
+        ServerRegistration registration,
+        CancellationToken cancellationToken = default) =>
+        await GetCoreAsync(registration, forceRefresh: true, cancellationToken);
+
+    private async Task<SnapshotCacheResult> GetCoreAsync(
+        ServerRegistration registration,
+        bool forceRefresh,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(registration);
         cancellationToken.ThrowIfCancellationRequested();
@@ -47,7 +56,7 @@ public sealed class ServerHealthSnapshotCache(
 
         _snapshots.TryGetValue(registration.Id, out var existing);
         var existingAge = existing is null ? TimeSpan.MaxValue : Age(existing);
-        if (existing is not null && existingAge <= FreshFor)
+        if (!forceRefresh && existing is not null && existingAge <= FreshFor)
         {
             return new SnapshotCacheResult(existing, SnapshotFreshness.Fresh, existingAge);
         }
