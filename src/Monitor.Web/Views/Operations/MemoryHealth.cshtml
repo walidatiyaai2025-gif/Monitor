@@ -1,13 +1,88 @@
 @model IReadOnlyList<ServerCard>
 @{
     ViewData["Title"] = "Memory Health";
+    var reachable = Model.Where(server => server.State != HealthState.Offline).ToList();
+    var averageMemory = reachable.Count == 0 ? 0 : (int)Math.Round(reachable.Average(server => server.MemoryPercent));
+    var peakServer = reachable.OrderByDescending(server => server.MemoryPercent).FirstOrDefault();
+    var peakMemory = peakServer?.MemoryPercent ?? 0;
+    var pressureCount = reachable.Count(server => server.MemoryPercent >= 85);
+    var elevatedCount = reachable.Count(server => server.MemoryPercent >= 75 && server.MemoryPercent < 85);
+    var offlineCount = Model.Count(server => server.State == HealthState.Offline);
 }
-<div class="data-banner"><strong>DEVELOPMENT DATA</strong><span>Memory values are preview snapshot values, not live SQL measurements.</span></div>
-<div class="section-heading"><div><span class="eyebrow">MEMORY PRESSURE</span><h2>Estate memory profile</h2></div><span class="snapshot-note">Latest collected snapshot</span></div>
-<section class="memory-grid">
-@foreach (var server in Model)
-{
-    var state = server.MemoryPercent >= 85 ? "warning" : server.State == HealthState.Offline ? "offline" : "healthy";
-    <article class="glass-panel memory-card"><div class="memory-head"><div><strong>@server.Name</strong><small>@server.Version</small></div><span class="severity severity-@state">@server.MemoryPercent%</span></div><div class="memory-gauge"><span style="width:@server.MemoryPercent%"></span></div><div class="memory-scale"><span>0%</span><span>Warning 85%</span><span>100%</span></div><div class="card-link">Snapshot age · @server.LastScanSecondsAgo sec</div></article>
-}
+<div class="data-banner"><strong>DEVELOPMENT DATA</strong><span>Memory percentages are cached preview snapshot values. Visual gauges and freshness timers do not trigger SQL collection.</span></div>
+
+<section class="health-command-summary">
+    <article class="health-command-card hero state-@(pressureCount > 0 ? "warning" : "healthy")">
+        <div><small>ESTATE MEMORY PRESSURE</small><strong>@averageMemory%</strong><span>Average across @reachable.Count reachable instance(s)</span></div>
+        <div class="availability-orbit" style="--availability:@averageMemory%"><b>@averageMemory%</b></div>
+    </article>
+    <article class="health-command-card state-@(peakMemory >= 85 ? "warning" : "healthy")"><small>PEAK UTILIZATION</small><strong>@peakMemory%</strong><span>@(peakServer?.Name ?? "No reachable instance")</span></article>
+    <article class="health-command-card state-@(pressureCount > 0 ? "warning" : "healthy")"><small>PRESSURE ≥ 85%</small><strong>@pressureCount</strong><span>Threshold exceeded</span></article>
+    <article class="health-command-card state-@(elevatedCount > 0 ? "warning" : "healthy")"><small>ELEVATED 75–84%</small><strong>@elevatedCount</strong><span>Watch list</span></article>
+    <article class="health-command-card state-@(offlineCount > 0 ? "offline" : "healthy")"><small>UNKNOWN / OFFLINE</small><strong>@offlineCount</strong><span>No current memory snapshot</span></article>
 </section>
+
+<div class="section-heading"><div><span class="eyebrow">MEMORY OPERATIONS</span><h2>Estate pressure map</h2></div><span class="snapshot-note">Current cached snapshot · threshold warning at 85%</span></div>
+
+<section class="memory-command-grid">
+    <article class="glass-panel memory-heatmap">
+        <div class="panel-heading"><div><span class="eyebrow">INSTANCE HEATMAP</span><h3>Memory pressure by SQL Server</h3></div><span class="snapshot-note">Click a node for server context</span></div>
+        <div class="memory-heat-grid">
+            @foreach (var server in Model)
+            {
+                var isOffline = server.State == HealthState.Offline;
+                var memoryState = isOffline ? "offline" : server.MemoryPercent >= 85 ? "warning" : server.MemoryPercent >= 75 ? "warning" : "healthy";
+                <a class="memory-node state-@memoryState @(isOffline ? "is-offline" : string.Empty)" asp-action="ServerDetails" asp-route-id="@server.Id">
+                    <div class="memory-node-head">
+                        <div><strong>@server.Name</strong><small>@server.Version · @server.Edition</small></div>
+                        <b>@(isOffline ? "—" : $"{server.MemoryPercent}%")</b>
+                    </div>
+                    <div class="memory-pressure-track"><span style="width:@(isOffline ? 0 : server.MemoryPercent)%"></span></div>
+                    <div class="memory-thresholds"><span>0</span><span>75 elevated</span><span>85 warning</span><span>100</span></div>
+                    <div class="memory-node-footer">
+                        <span class="memory-freshness"><i></i><span>@(isOffline ? "Snapshot unavailable" : "Snapshot available")</span></span>
+                        <span data-health-age="@server.LastScanSecondsAgo">@server.LastScanSecondsAgo sec ago</span>
+                    </div>
+                </a>
+            }
+        </div>
+    </article>
+
+    <article class="glass-panel memory-diagnosis">
+        <div class="panel-heading"><div><span class="eyebrow">PRESSURE INTERPRETATION</span><h3>DBA memory triage</h3></div></div>
+        <div class="pressure-index">
+            <div class="pressure-index-ring" style="--pressure:@averageMemory%"><strong>@averageMemory%</strong></div>
+            <div><small>ESTATE PRESSURE INDEX</small><strong>@(pressureCount > 0 ? "Attention required" : elevatedCount > 0 ? "Elevated watch" : "Within preview threshold")</strong><span>Aggregate display only. Root-cause diagnosis will use real SQL memory clerks, OS counters and pressure signals in later milestones.</span></div>
+        </div>
+        <div class="memory-legend">
+            <div class="state-healthy"><small>NORMAL</small><strong>&lt; 75%</strong></div>
+            <div class="state-warning"><small>ELEVATED</small><strong>75–84%</strong></div>
+            <div class="state-warning"><small>WARNING</small><strong>≥ 85%</strong></div>
+        </div>
+        <div class="memory-insight-list">
+            @foreach (var server in Model.OrderByDescending(item => item.State == HealthState.Offline ? 101 : item.MemoryPercent))
+            {
+                var isOffline = server.State == HealthState.Offline;
+                var needsAttention = isOffline || server.MemoryPercent >= 85;
+                var state = isOffline ? "offline" : server.MemoryPercent >= 85 ? "warning" : "healthy";
+                <a class="memory-insight-item state-@state" asp-action="ServerDetails" asp-route-id="@server.Id">
+                    <span>@(isOffline ? "?" : server.MemoryPercent >= 85 ? "!" : "✓")</span>
+                    <div><strong>@server.Name · @(isOffline ? "Memory unknown" : $"{server.MemoryPercent}% used")</strong><p>@(isOffline ? "Restore collection before interpreting memory state." : server.MemoryPercent >= 85 ? "Inspect SQL max server memory, OS headroom and query workload once real counters are connected." : server.MemoryPercent >= 75 ? "Elevated but below warning threshold; watch trend and available OS memory." : "No preview memory pressure threshold is currently crossed.")</p></div>
+                    <em>@(needsAttention ? "REVIEW" : "OK")</em>
+                </a>
+            }
+        </div>
+    </article>
+</section>
+
+<article class="glass-panel ops-panel">
+    <div class="panel-heading"><div><span class="eyebrow">COLLECTION BOUNDARY</span><h3>What this screen will diagnose with real data</h3></div><span class="snapshot-note">Planned progressive enrichment</span></div>
+    <div class="definition-grid">
+        <div><small>SQL process memory</small><strong>Current snapshot</strong><span class="server-mini-note">Working set and SQL memory utilization.</span></div>
+        <div><small>OS available memory</small><strong>Planned</strong><span class="server-mini-note">Host headroom and system pressure.</span></div>
+        <div><small>Max server memory</small><strong>Planned</strong><span class="server-mini-note">Configuration vs physical memory.</span></div>
+        <div><small>Memory clerks</small><strong>Planned</strong><span class="server-mini-note">Where SQL Server is consuming memory.</span></div>
+        <div><small>PLE / grants</small><strong>Planned</strong><span class="server-mini-note">Pressure evidence and query grant stress.</span></div>
+        <div><small>Recommendation</small><strong>Planned</strong><span class="server-mini-note">Evidence-backed DBA action and diagnostic query suggestion.</span></div>
+    </div>
+</article>
