@@ -26,10 +26,10 @@ public sealed class IncidentTransitionAuditEnrichmentTests
 
         Assert.IsType<RedirectToActionResult>(response);
         Assert.Equal(IncidentStatus.Acknowledged, repository.GetById(incident.Id)!.Status);
-        var auditEvent = Assert.Single(audit.Read());
-        Assert.Equal(AuditTime, auditEvent.TimestampUtc);
+        var auditEvent = Assert.Single(audit.Read(0, 100));
+        Assert.Equal(AuditTime, auditEvent.OccurredAtUtc);
         Assert.Equal("DOMAIN\\operator.one", auditEvent.Actor);
-        Assert.Equal("incident.acknowledge", auditEvent.Action);
+        Assert.Equal("incident.transition", auditEvent.Action);
         Assert.Equal(incident.Id, auditEvent.Target);
         Assert.Equal("Open->Acknowledged", auditEvent.Outcome);
     }
@@ -46,7 +46,7 @@ public sealed class IncidentTransitionAuditEnrichmentTests
 
         Assert.IsType<ForbidResult>(response);
         Assert.Equal(IncidentStatus.Open, repository.GetById(incident.Id)!.Status);
-        Assert.Empty(audit.Read());
+        Assert.Empty(audit.Read(0, 100));
     }
 
     [Fact]
@@ -61,9 +61,9 @@ public sealed class IncidentTransitionAuditEnrichmentTests
 
         Assert.IsType<ConflictObjectResult>(response);
         Assert.Equal(IncidentStatus.Open, repository.GetById(incident.Id)!.Status);
-        var auditEvent = Assert.Single(audit.Read());
+        var auditEvent = Assert.Single(audit.Read(0, 100));
         Assert.Equal("operator.two", auditEvent.Actor);
-        Assert.Equal("incident.reopen", auditEvent.Action);
+        Assert.Equal("incident.transition", auditEvent.Action);
         Assert.Equal("rejected:current=Open", auditEvent.Outcome);
         Assert.DoesNotContain("bounded evidence", auditEvent.Outcome, StringComparison.Ordinal);
     }
