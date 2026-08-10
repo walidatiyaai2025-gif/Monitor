@@ -14,9 +14,14 @@
 | Settings | M0 | Verified | Read-only preview |
 | UI design system | M0 | Verified | CSS tokens/components |
 | Controlled motion | M0 | Verified | Client only; no data calls |
-| Server registration model | M1 | CI verified | Validated endpoint/auth metadata; in-memory repository |
-| Connection secret boundary | M1 | CI verified | Opaque reference; values only from User Secrets/environment |
-| Real SQL connection | M1 | Planned | First vertical slice |
+| Server registration model | M1 | Verified | Validated endpoint/auth metadata; in-memory repository; PR #4 |
+| Connection secret boundary | M1 | Verified | Opaque reference; values only from User Secrets/environment |
+| SQL Connection Lab | M1 | CI verified / visual review pending | Admin UI for safe metadata registration and manual connection testing |
+| Test Connection backend | M1 | CI verified / visual review pending | Bounded non-pooled SqlClient probe with sanitized results |
+| Connection profile factory | M1 | CI verified | Integrated Security or externally resolved SQL Login secret; no browser connection string |
+| Connection-test security tests | M1 | CI verified | 11 total tests passing; secret fail-closed + failure sanitization coverage |
+| Lightweight SQL identity collector | M1 | Planned | Name/version/edition/instance/uptime/database counts |
+| Real SQL snapshot | M1 | Planned | First vertical slice displayed in Command Center |
 | Backups | M2 | Planned | Coming soon in UI |
 | Jobs | M2 | Planned | Coming soon in UI |
 | Storage | M2 | Planned | Coming soon in UI |
