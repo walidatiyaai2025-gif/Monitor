@@ -22,6 +22,7 @@
 | Real snapshot UI card | M1 | CI verified | First configured server replaces one demo card; mixed data labeled |
 | Throttled snapshot refresh | M1 | CI verified | Admin POST, 15s per-server throttle, shared cache flight |
 | SignalR snapshot delivery | M1 | Evaluated / deferred | Revisit after scheduled backend publication exists |
+| Memory snapshot projection | M2 | Local verified | System/process memory from the existing single collector query |
 | Real SQL connection | M1 | Planned | First vertical slice |
 | Backups | M2 | Planned | Coming soon in UI |
 | Jobs | M2 | Planned | Coming soon in UI |

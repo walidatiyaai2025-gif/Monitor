@@ -9,7 +9,17 @@ public sealed record ServerHealthSnapshot(
     long UptimeSeconds,
     int DatabaseTotal,
     int DatabaseOnline,
-    DateTimeOffset CollectedAtUtc);
+    DateTimeOffset CollectedAtUtc,
+    MemoryHealthSnapshot? Memory = null);
+
+public sealed record MemoryHealthSnapshot(
+    long TotalPhysicalMemoryKb,
+    long AvailablePhysicalMemoryKb,
+    long SqlProcessPhysicalMemoryKb,
+    int SqlProcessMemoryUtilizationPercent,
+    bool IsPhysicalMemoryLow,
+    bool IsVirtualMemoryLow,
+    string SystemMemoryState);
 
 public enum SnapshotCollectionFailure
 {

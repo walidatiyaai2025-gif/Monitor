@@ -91,6 +91,45 @@ public sealed class SqlServerSnapshotCollectorTests
         Assert.Contains("sys.databases", sql, StringComparison.Ordinal);
         Assert.Contains("sys.dm_os_sys_info", sql, StringComparison.Ordinal);
         Assert.Contains("DatabaseOnline", sql, StringComparison.Ordinal);
+        Assert.Contains("sys.dm_os_sys_memory", sql, StringComparison.Ordinal);
+        Assert.Contains("sys.dm_os_process_memory", sql, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CollectAsync_MapsValidatedMemorySnapshot()
+    {
+        var row = new SqlSnapshotRow(
+            "SQL01", "17", "Enterprise", null, 10, 2, 2,
+            new SqlMemoryRow(32_000_000, 8_000_000, 12_000_000, 92, true, false, "Available physical memory is low"));
+        var collector = new SqlServerSnapshotCollector(
+            new FakeSecretStore(new SqlLoginSecret("user", "password")),
+            new FakeQuery(row),
+            new FixedTimeProvider(CollectedAt));
+
+        var snapshot = await collector.CollectAsync(SqlLoginRegistration());
+
+        Assert.NotNull(snapshot.Memory);
+        Assert.Equal(32_000_000, snapshot.Memory.TotalPhysicalMemoryKb);
+        Assert.Equal(92, snapshot.Memory.SqlProcessMemoryUtilizationPercent);
+        Assert.True(snapshot.Memory.IsPhysicalMemoryLow);
+    }
+
+    [Fact]
+    public async Task InvalidMemoryRange_FailsSafely()
+    {
+        var row = new SqlSnapshotRow(
+            "SQL01", "17", "Enterprise", null, 10, 2, 2,
+            new SqlMemoryRow(100, 101, 50, 50, false, false, "Available"));
+        var collector = new SqlServerSnapshotCollector(
+            new FakeSecretStore(new SqlLoginSecret("user", "password")),
+            new FakeQuery(row),
+            new FixedTimeProvider(CollectedAt));
+
+        var exception = await Assert.ThrowsAsync<SnapshotCollectionException>(
+            () => collector.CollectAsync(SqlLoginRegistration()));
+
+        Assert.Equal(SnapshotCollectionFailure.Failed, exception.Failure);
+        Assert.Equal("Snapshot collection failed.", exception.Message);
     }
 
     private static int Count(string value, string token) =>

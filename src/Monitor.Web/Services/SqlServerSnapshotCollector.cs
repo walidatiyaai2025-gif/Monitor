@@ -11,7 +11,17 @@ internal sealed record SqlSnapshotRow(
     string? InstanceName,
     long UptimeSeconds,
     long DatabaseTotal,
-    long DatabaseOnline);
+    long DatabaseOnline,
+    SqlMemoryRow? Memory = null);
+
+internal sealed record SqlMemoryRow(
+    long TotalPhysicalMemoryKb,
+    long AvailablePhysicalMemoryKb,
+    long SqlProcessPhysicalMemoryKb,
+    int SqlProcessMemoryUtilizationPercent,
+    bool IsPhysicalMemoryLow,
+    bool IsVirtualMemoryLow,
+    string SystemMemoryState);
 
 internal interface ISqlSnapshotQuery
 {
@@ -69,6 +79,30 @@ internal sealed class SqlServerSnapshotCollector(
                 throw new InvalidDataException("Invalid snapshot row.");
             }
 
+            MemoryHealthSnapshot? memory = null;
+            if (row.Memory is not null)
+            {
+                var value = row.Memory;
+                if (value.TotalPhysicalMemoryKb < 0 ||
+                    value.AvailablePhysicalMemoryKb < 0 ||
+                    value.AvailablePhysicalMemoryKb > value.TotalPhysicalMemoryKb ||
+                    value.SqlProcessPhysicalMemoryKb < 0 ||
+                    value.SqlProcessMemoryUtilizationPercent is < 0 or > 100 ||
+                    string.IsNullOrWhiteSpace(value.SystemMemoryState))
+                {
+                    throw new InvalidDataException("Invalid memory snapshot row.");
+                }
+
+                memory = new MemoryHealthSnapshot(
+                    value.TotalPhysicalMemoryKb,
+                    value.AvailablePhysicalMemoryKb,
+                    value.SqlProcessPhysicalMemoryKb,
+                    value.SqlProcessMemoryUtilizationPercent,
+                    value.IsPhysicalMemoryLow,
+                    value.IsVirtualMemoryLow,
+                    value.SystemMemoryState);
+            }
+
             return new ServerHealthSnapshot(
                 registration.Id,
                 row.ServerName,
@@ -78,7 +112,8 @@ internal sealed class SqlServerSnapshotCollector(
                 row.UptimeSeconds,
                 total,
                 online,
-                timeProvider.GetUtcNow());
+                timeProvider.GetUtcNow(),
+                memory);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
@@ -124,9 +159,25 @@ internal sealed class SqlSnapshotQuery : ISqlSnapshotQuery
             DATEDIFF_BIG(SECOND, osi.sqlserver_start_time, SYSDATETIME()) AS UptimeSeconds,
             COUNT_BIG(*) AS DatabaseTotal,
             SUM(CASE WHEN d.state = 0 THEN CONVERT(bigint, 1) ELSE CONVERT(bigint, 0) END) AS DatabaseOnline
+            ,osm.total_physical_memory_kb AS TotalPhysicalMemoryKb
+            ,osm.available_physical_memory_kb AS AvailablePhysicalMemoryKb
+            ,pm.physical_memory_in_use_kb AS SqlProcessPhysicalMemoryKb
+            ,pm.memory_utilization_percentage AS SqlProcessMemoryUtilizationPercent
+            ,pm.process_physical_memory_low AS IsPhysicalMemoryLow
+            ,pm.process_virtual_memory_low AS IsVirtualMemoryLow
+            ,osm.system_memory_state_desc AS SystemMemoryState
         FROM sys.databases AS d
         CROSS JOIN sys.dm_os_sys_info AS osi
-        GROUP BY osi.sqlserver_start_time
+        CROSS JOIN sys.dm_os_sys_memory AS osm
+        CROSS JOIN sys.dm_os_process_memory AS pm
+        GROUP BY osi.sqlserver_start_time,
+            osm.total_physical_memory_kb,
+            osm.available_physical_memory_kb,
+            pm.physical_memory_in_use_kb,
+            pm.memory_utilization_percentage,
+            pm.process_physical_memory_low,
+            pm.process_virtual_memory_low,
+            osm.system_memory_state_desc
         """;
 
     public async Task<SqlSnapshotRow> ExecuteAsync(
@@ -162,7 +213,15 @@ internal sealed class SqlSnapshotQuery : ISqlSnapshotQuery
                 reader.IsDBNull(3) ? null : reader.GetString(3),
                 reader.GetInt64(4),
                 reader.GetInt64(5),
-                reader.GetInt64(6));
+                reader.GetInt64(6),
+                new SqlMemoryRow(
+                    reader.GetInt64(7),
+                    reader.GetInt64(8),
+                    reader.GetInt64(9),
+                    reader.GetInt32(10),
+                    reader.GetBoolean(11),
+                    reader.GetBoolean(12),
+                    reader.GetString(13)));
         }
         catch (SqlException exception)
         {

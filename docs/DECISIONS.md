@@ -51,3 +51,7 @@ Snapshot refresh is an administrator POST accepting only a registration ID. A 15
 ## ADR-013 — SignalR delivery is deferred until snapshots are published independently
 
 SignalR is not added in M1 because snapshots are currently produced on request and there is no backend scheduler or snapshot-published event. A hub would add transport complexity without new information. Revisit when multiple consumers need independently produced updates or measured polling load justifies push. SignalR, if adopted, is delivery-only and must never invoke collectors or alter refresh frequency.
+
+## ADR-014 — Memory health extends the existing collector row
+
+M2 memory data is projected from `sys.dm_os_sys_memory` and `sys.dm_os_process_memory` inside the existing bounded collector command. It does not add a widget query or second connection. The snapshot stores raw validated facts; thresholds, alerts, UI and history remain later tasks.
