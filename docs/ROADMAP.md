@@ -30,8 +30,10 @@ The first complete operator journey is CI verified: login -> Connections -> regi
 
 ## M7 — Production Persistence & Deployment Readiness — ACTIVE
 
-M7-001 adds durable local server-registration metadata persistence behind the existing repository contract. The store is outside `wwwroot`, uses atomic writes, persists only safe registration metadata plus opaque secret references, and fails closed on corrupt data. Runtime SQL credential values remain process-memory only and are intentionally not persisted.
+M7-001 adds durable local server-registration metadata persistence behind the existing repository contract. The store is outside `wwwroot`, uses atomic writes, persists only safe registration metadata plus opaque secret references, and fails closed on corrupt data.
 
-M7-002 adds the first external secret-provider routing path behind `IConnectionSecretStore`. Durable references of the form `env:<alias>` resolve only from strict process-environment variables named `MONITOR_SQL_SECRET_<ALIAS>_USERNAME` and `_PASSWORD`. A recognized `env:` reference that is missing or partial fails closed and never falls back to `ConnectionSecrets` configuration. Existing runtime and non-`env:` legacy references remain backward compatible.
+M7-002 adds external secret-provider routing behind `IConnectionSecretStore`. `env:<alias>` resolves only from strict process-environment variables and a recognized provider-owned reference never falls back to a less-specific configuration source.
 
-Next production-readiness priorities after M7-002: durable/shared operational stores for audit/history/incidents, HA/shared-state strategy, deployment configuration validation, backup/restore of Monitor-owned state, and production observability.
+M7-003 makes Monitor-owned audit, snapshot history and incident lifecycle state durable behind their existing interfaces. The three stores use independent versioned files under one operational-state root, preserve bounded semantics and fail closed on corrupt state. This is single-node durability; no monitored SQL Server is used as a persistence target.
+
+Next production-readiness priorities after M7-003: shared-state/HA strategy, deployment configuration validation, backup/restore of Monitor-owned state, and production observability.

@@ -38,17 +38,18 @@
 | Deterministic recommendations | M3 | CI verified | Rule-owned advisory steps; no execution; CI 31375034604 |
 | AI Advisor boundary | M4 | CI verified | Normalized backend context; provider disabled by default; CI 31375034604 |
 | Guarded Advisor request | M4 | CI verified | Explicit POST, single-flight, TTL cache, timeout, circuit and audit; CI 31376448363 |
-| Snapshot history | M5 | CI verified | Allowlisted 24-hour in-memory aggregate retention; CI 31375034604 |
+| Snapshot history | M5 | CI verified | Allowlisted 24-hour aggregate retention; durable in M7-003 |
 | Collection cycle | M5 | CI verified | Backend-only deterministic refresh cycle; CI 31375034604 |
 | Snapshot trends | M5 | CI verified | Fixed 1h/6h/24h read-only windows; CI 31375034604 |
 | Scheduled collection runtime | M5 | CI verified | Disabled by default; bounded parallelism, backoff and status; CI 31376448363 |
-| Audit trail | M5 | CI verified | Bounded append-only authentication/operator/advisor metadata; CI 31376448363 |
+| Audit trail | M5 | CI verified | Bounded append-only metadata; durable in M7-003 |
 | Policy-based RBAC | M5 | CI verified | Viewer, Operator and Administrator authorization policies; CI 31376448363 |
 | Web security baseline | M5 | CI verified | Strict cookie, CSP/frame/nosniff/referrer headers and login limiting; CI 31376448363 |
-| Incident transition audit enrichment | M5 | CI verified | Canonical `incident.transition`; authenticated actor, bounded before/after state, legacy fallback; CI 31379998409 |
+| Incident transition audit enrichment | M5 | CI verified | Canonical `incident.transition`; authenticated actor, bounded before/after state; CI 31379998409 |
 | Real SQL onboarding journey | M6 | CI verified | Login → register → test → first snapshot → real estate; CI 31378848889 |
 | Runtime SQL credential boundary | M6 | CI verified | Process-memory only; external reference remains available; CI 31378848889 |
 | Multi-server real estate | M6 | CI verified | All registered targets shown; unavailable never replaced by demo; CI 31378848889 |
 | Real Dashboard projection | M6 | CI verified | Cache-backed servers, database totals and incidents; CI 31378848889 |
 | Durable registration metadata | M7 | CI verified | Atomic file store outside `wwwroot`; opaque secret references only; CI 31380699808 |
-| Environment-injected external SQL secret provider | M7 | CI verified | `env:<alias>` reads direct process environment; recognized refs never fall back to config; CI 31381465706 |
+| Environment-injected external SQL secret provider | M7 | CI verified | `env:<alias>` direct process environment; no config fallback; CI 31381465706 |
+| Durable Monitor-owned operational state | M7 | CI verified | Independent atomic audit/history/incident files; 89/89 tests; CI 31382770932 |

@@ -6,9 +6,9 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllersWithViews();
 builder.Services.Configure<AdminCredentialOptions>(
     builder.Configuration.GetSection(AdminCredentialOptions.SectionName));
+builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<IAdminCredentialVerifier, AdminCredentialVerifier>();
 builder.Services.AddSingleton<ILoginAttemptLimiter, LoginAttemptLimiter>();
-builder.Services.AddSingleton<IAuditStore, InMemoryAuditStore>();
 builder.Services.AddSingleton<IDemoMonitorService, DemoMonitorService>();
 
 var registrationStoreOptions = builder.Configuration
@@ -40,23 +40,45 @@ builder.Services.AddSingleton<IServerRegistrationRepository>(_ =>
     return new FileServerRegistrationRepository(storePath);
 });
 
+var operationalStoreOptions = builder.Configuration
+    .GetSection(OperationalStoreOptions.SectionName)
+    .Get<OperationalStoreOptions>() ?? new OperationalStoreOptions();
+operationalStoreOptions.Validate();
+builder.Services.AddSingleton(operationalStoreOptions);
+var operationalRoot = operationalStoreOptions.Mode == OperationalStoreMode.File
+    ? OperationalStorePath.ResolveOutsideWebRoot(
+        operationalStoreOptions.RootPath,
+        builder.Environment.ContentRootPath,
+        builder.Environment.WebRootPath)
+    : null;
+
+builder.Services.AddSingleton<IAuditStore>(provider =>
+    operationalRoot is null
+        ? new InMemoryAuditStore(provider.GetRequiredService<TimeProvider>())
+        : new FileAuditStore(Path.Combine(operationalRoot, "audit.json"), provider.GetRequiredService<TimeProvider>()));
+builder.Services.AddSingleton<IHealthIncidentRepository>(_ =>
+    operationalRoot is null
+        ? new InMemoryHealthIncidentRepository()
+        : new FileHealthIncidentRepository(Path.Combine(operationalRoot, "incidents.json")));
+builder.Services.AddSingleton<ISnapshotHistoryStore>(provider =>
+    operationalRoot is null
+        ? new InMemorySnapshotHistoryStore(provider.GetRequiredService<TimeProvider>())
+        : new FileSnapshotHistoryStore(Path.Combine(operationalRoot, "history.json"), provider.GetRequiredService<TimeProvider>()));
+
 builder.Services.AddSingleton<IExternalConnectionSecretProvider, EnvironmentConnectionSecretProvider>();
 builder.Services.AddSingleton<IConnectionSecretStore, ConfigurationConnectionSecretStore>();
 builder.Services.AddSingleton<IRuntimeCredentialWriter>(provider => (IRuntimeCredentialWriter)provider.GetRequiredService<IConnectionSecretStore>());
 builder.Services.AddSingleton<ISqlConnectionProbe, SqlConnectionProbe>();
 builder.Services.AddSingleton<IServerConnectionTester, ServerConnectionTester>();
-builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<ISqlSnapshotQuery, SqlSnapshotQuery>();
 builder.Services.AddSingleton<ISqlServerSnapshotCollector, SqlServerSnapshotCollector>();
 builder.Services.AddSingleton<IServerHealthSnapshotCache, ServerHealthSnapshotCache>();
 builder.Services.AddSingleton<IHealthRuleEvaluator, HealthRuleEvaluator>();
-builder.Services.AddSingleton<IHealthIncidentRepository, InMemoryHealthIncidentRepository>();
 builder.Services.AddSingleton<IRecommendationEngine, RecommendationEngine>();
 builder.Services.AddSingleton<IAdvisorContextBuilder, AdvisorContextBuilder>();
 builder.Services.AddSingleton<IAdvisorProvider, DisabledAdvisorProvider>();
 builder.Services.AddSingleton<IIncidentWorkflowService, IncidentWorkflowService>();
 builder.Services.AddSingleton<IAdvisorRequestService, AdvisorRequestService>();
-builder.Services.AddSingleton<ISnapshotHistoryStore, InMemorySnapshotHistoryStore>();
 builder.Services.AddSingleton<ISnapshotObserver, SnapshotObserver>();
 builder.Services.AddSingleton<ISnapshotCollectionCycle, SnapshotCollectionCycle>();
 builder.Services.AddSingleton<ITrendReadService, TrendReadService>();

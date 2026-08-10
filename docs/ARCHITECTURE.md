@@ -91,3 +91,13 @@ M7-002 preserves `IConnectionSecretStore` as the SQL credential boundary and int
 Resolution order is explicit: process-memory runtime credentials first; then the first external provider that owns the reference; then legacy `ConnectionSecrets:<reference>` configuration only when no external provider claims the reference. Provider ownership is fail-closed: when an external provider recognizes a prefix, a null result never falls through to another less-specific source.
 
 `EnvironmentConnectionSecretProvider` owns `env:<alias>`. Aliases are limited to 64 ASCII letters/digits/underscore characters and normalize to uppercase. `env:FINANCE_PROD` maps only to `MONITOR_SQL_SECRET_FINANCE_PROD_USERNAME` and `MONITOR_SQL_SECRET_FINANCE_PROD_PASSWORD`. Values are read directly via the process environment rather than `IConfiguration`, so appsettings cannot impersonate an `env:` secret. Missing or partial values remain unresolved. No provider error, username/password or full connection string crosses the established redacted connection boundary.
+
+## M7 durable operational state
+
+M7-003 keeps `IAuditStore`, `ISnapshotHistoryStore` and `IHealthIncidentRepository` unchanged and selects either their existing in-memory implementations or file-backed implementations from `OperationalStore:Mode`. File mode defaults to `App_Data/operational`, and startup rejects a root that resolves inside `wwwroot`.
+
+Audit, snapshot history and incidents use independent versioned files (`audit.json`, `history.json`, `incidents.json`) rather than one shared JSON document. Each mutation is prepared as candidate state, written to a same-directory temporary file with write-through and disk flush, atomically moved into place, and only then published as the live in-process state. A failed durable write therefore cannot leave memory ahead of disk.
+
+The file-backed audit store preserves its 1,000-event bound, field bounds and newest-first reads. The history store persists only allowlisted aggregate facts, deduplicates by registration/timestamp, enforces 24-hour retention and keeps at most 288 points per server. The incident store preserves deterministic registration/rule identity, ignores older evidence, reconciles only from fresh evidence and retains compare-and-set operator status transitions.
+
+Malformed JSON, unsupported format versions, duplicate identities and domain-invalid bounded state fail closed during construction. The operational files contain Monitor-owned bounded state only: no SQL credentials, SQL text, monitored-server endpoints, provider errors, job commands or arbitrary request payloads. These file stores provide single-node durability; M7-004 owns the shared-state/HA deployment boundary.
