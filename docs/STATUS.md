@@ -54,6 +54,15 @@ Run GitHub Actions on the final docs head. Confirm `main` has not introduced an 
 - Server Details exposes a policy-protected, antiforgery-protected POST refresh with PRG feedback.
 - Registered targets without a snapshot are labeled `REGISTERED · NOT COLLECTED`, never stale.
 
+## M7-005..M7-016 — Protected local SQL credentials — LOCAL VERIFIED
+
+- SQL Login credentials entered in Connections now receive server-generated `local:v1` references.
+- Username/password payloads are encrypted with ASP.NET Data Protection and reference-scoped purposes.
+- The encrypted file and Data Protection key ring persist outside `wwwroot`; restarts with the same key ring can resolve credentials.
+- A missing/different key ring or tampered ciphertext fails closed and never falls back to configuration.
+- Writes use a same-directory candidate file and atomic replacement; persisted JSON contains ciphertext only.
+- Existing `env:` and legacy external references remain compatible.
+
 ## Next action
 
-Push M8, verify GitHub Actions, then continue M7-004 shared-state/HA without weakening the zero-SQL GET invariant.
+Push the protected-credential slice, verify GitHub Actions, then add credential replacement/recovery and lifecycle commands before M7-004 HA work.

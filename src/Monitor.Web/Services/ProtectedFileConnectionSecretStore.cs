@@ -1,0 +1,161 @@
+using System.Text.Json;
+using Microsoft.AspNetCore.DataProtection;
+using Monitor.Web.Models;
+
+namespace Monitor.Web.Services;
+
+public sealed class SecretStoreOptions
+{
+    public const string SectionName = "SecretStore";
+    public string Path { get; set; } = "App_Data/secrets.json";
+    public string KeyRingPath { get; set; } = "App_Data/keyring";
+}
+
+internal sealed class ProtectedFileConnectionSecretStore : IConnectionSecretStore, IRuntimeCredentialWriter
+{
+    private const string Prefix = "local:v1:";
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { WriteIndented = true };
+    private readonly string _path;
+    private readonly IDataProtector _protector;
+    private readonly IConfiguration _configuration;
+    private readonly IExternalConnectionSecretProvider[] _externalProviders;
+    private readonly object _gate = new();
+    private Dictionary<string, string> _entries;
+
+    public ProtectedFileConnectionSecretStore(
+        string path,
+        IDataProtectionProvider protectionProvider,
+        IConfiguration configuration,
+        IEnumerable<IExternalConnectionSecretProvider> externalProviders)
+    {
+        _path = Path.GetFullPath(path);
+        _protector = protectionProvider.CreateProtector("Monitor.SqlSecrets.v1");
+        _configuration = configuration;
+        _externalProviders = externalProviders.ToArray();
+        _entries = Load();
+    }
+
+    public async ValueTask<SqlLoginSecret?> ResolveAsync(ConnectionSecretReference reference, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (reference.Value.StartsWith(Prefix, StringComparison.Ordinal))
+        {
+            string? protectedPayload;
+            lock (_gate) _entries.TryGetValue(reference.Value, out protectedPayload);
+            if (protectedPayload is null) return null;
+            try
+            {
+                var payload = JsonSerializer.Deserialize<SecretPayload>(
+                    _protector.CreateProtector(reference.Value).Unprotect(protectedPayload), JsonOptions);
+                return payload is null || string.IsNullOrWhiteSpace(payload.Username) || string.IsNullOrEmpty(payload.Password)
+                    ? null
+                    : new SqlLoginSecret(payload.Username, payload.Password);
+            }
+            catch (Exception exception) when (exception is System.Security.Cryptography.CryptographicException or JsonException)
+            {
+                return null;
+            }
+        }
+
+        var provider = _externalProviders.FirstOrDefault(candidate => candidate.Handles(reference));
+        if (provider is not null) return await provider.ResolveAsync(reference, cancellationToken);
+        var section = _configuration.GetSection($"ConnectionSecrets:{reference.Value}");
+        var username = section["Username"];
+        var password = section["Password"];
+        return string.IsNullOrWhiteSpace(username) || string.IsNullOrEmpty(password)
+            ? null
+            : new SqlLoginSecret(username.Trim(), password);
+    }
+
+    public ValueTask<ConnectionSecretReference> StoreAsync(string username, string password, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (string.IsNullOrWhiteSpace(username) || username.Trim().Length > 128 || string.IsNullOrEmpty(password) || password.Length > 1024)
+            throw new ArgumentException("SQL credentials are outside the supported bounds.");
+        var reference = new ConnectionSecretReference($"{Prefix}{Guid.NewGuid():N}");
+        var plaintext = JsonSerializer.Serialize(new SecretPayload(username.Trim(), password), JsonOptions);
+        var protectedPayload = _protector.CreateProtector(reference.Value).Protect(plaintext);
+        lock (_gate)
+        {
+            var candidate = new Dictionary<string, string>(_entries, StringComparer.Ordinal) { [reference.Value] = protectedPayload };
+            Persist(candidate);
+            _entries = candidate;
+        }
+        return ValueTask.FromResult(reference);
+    }
+
+    public ValueTask StoreAsync(ConnectionSecretReference reference, SqlLoginSecret secret, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!reference.Value.StartsWith(Prefix, StringComparison.Ordinal))
+            return ValueTask.FromException(new InvalidOperationException("Only Monitor-owned local references are writable."));
+        var plaintext = JsonSerializer.Serialize(new SecretPayload(secret.Username, secret.Password), JsonOptions);
+        lock (_gate)
+        {
+            var candidate = new Dictionary<string, string>(_entries, StringComparer.Ordinal)
+            {
+                [reference.Value] = _protector.CreateProtector(reference.Value).Protect(plaintext)
+            };
+            Persist(candidate);
+            _entries = candidate;
+        }
+        return ValueTask.CompletedTask;
+    }
+
+    public ValueTask DeleteAsync(ConnectionSecretReference reference, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!reference.Value.StartsWith(Prefix, StringComparison.Ordinal)) return ValueTask.CompletedTask;
+        lock (_gate)
+        {
+            var candidate = new Dictionary<string, string>(_entries, StringComparer.Ordinal);
+            if (candidate.Remove(reference.Value))
+            {
+                Persist(candidate);
+                _entries = candidate;
+            }
+        }
+        return ValueTask.CompletedTask;
+    }
+
+    private Dictionary<string, string> Load()
+    {
+        if (!File.Exists(_path)) return new(StringComparer.Ordinal);
+        try
+        {
+            var envelope = JsonSerializer.Deserialize<SecretEnvelope>(File.ReadAllText(_path), JsonOptions);
+            if (envelope?.Version != 1 || envelope.Entries is null) throw new InvalidOperationException();
+            return new(envelope.Entries, StringComparer.Ordinal);
+        }
+        catch (Exception exception) when (exception is JsonException or IOException or InvalidOperationException)
+        {
+            throw new InvalidOperationException("The protected SQL secret store is invalid.", exception);
+        }
+    }
+
+    private void Persist(Dictionary<string, string> entries)
+    {
+        var directory = Path.GetDirectoryName(_path)!;
+        Directory.CreateDirectory(directory);
+        var temporary = Path.Combine(directory, $".{Path.GetFileName(_path)}.{Guid.NewGuid():N}.tmp");
+        try
+        {
+            var bytes = JsonSerializer.SerializeToUtf8Bytes(new SecretEnvelope(1, entries), JsonOptions);
+            using (var stream = new FileStream(
+                temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None,
+                16 * 1024, FileOptions.WriteThrough))
+            {
+                stream.Write(bytes);
+                stream.Flush(flushToDisk: true);
+            }
+            File.Move(temporary, _path, true);
+        }
+        finally
+        {
+            if (File.Exists(temporary)) File.Delete(temporary);
+        }
+    }
+
+    private sealed record SecretPayload(string Username, string Password);
+    private sealed record SecretEnvelope(int Version, Dictionary<string, string> Entries);
+}

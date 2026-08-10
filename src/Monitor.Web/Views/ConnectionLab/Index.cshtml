@@ -4,7 +4,7 @@
     var sqlLogin = Model.Input.AuthenticationMode == SqlAuthenticationMode.SqlLogin;
 }
 
-<div class="data-banner"><strong>CONNECT A REAL SQL SERVER</strong><span>Register → Test → Collect snapshot → View health. Runtime credentials stay only in server memory and disappear on restart.</span></div>
+<div class="data-banner"><strong>CONNECT A REAL SQL SERVER</strong><span>Register → Test → Collect snapshot → View health. Credentials entered here are write-only and encrypted at rest with Monitor's protected local key ring.</span></div>
 
 @if (TempData["ConnectionLabMessage"] is string message)
 {
@@ -48,7 +48,7 @@
                 @Html.ValidationMessage("SqlUsername", null, new { @class = "field-error" })
                 <label for="SqlPassword">SQL password</label>
                 <input id="SqlPassword" name="SqlPassword" type="password" maxlength="256" autocomplete="new-password" />
-                <small>Runtime option only: write-only to this request, stored only in this Monitor process, never repopulated, and lost on restart.</small>
+                <small>Write-only to this request, encrypted at rest, never returned to the browser, and never repopulated.</small>
                 <label for="SecretReference">External secret reference</label>
                 <input id="SecretReference" name="SecretReference" value="@Model.Input.SecretReference" maxlength="128" placeholder="env:FINANCE_PROD" />
                 <small>Recommended production pattern: <code>env:FINANCE_PROD</code> resolves only from <code>MONITOR_SQL_SECRET_FINANCE_PROD_USERNAME</code> and <code>MONITOR_SQL_SECRET_FINANCE_PROD_PASSWORD</code>. These values are read directly from the process environment and never from appsettings for an <code>env:</code> reference. Existing non-<code>env:</code> references remain compatible with <code>ConnectionSecrets:&lt;reference&gt;</code>.</small>
