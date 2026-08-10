@@ -29,7 +29,8 @@ public sealed record ServerCard(
     int JobsHealthy,
     int JobsTotal,
     int LastScanSecondsAgo,
-    ServerDataSource Source = ServerDataSource.Demo);
+    ServerDataSource Source = ServerDataSource.Demo,
+    DatabaseHealthDetailSnapshot? DatabaseHealth = null);
 
 public sealed record MetricCard(string Name, string Value, string Detail, HealthState State);
 public sealed record ActivityItem(string Time, string Message, HealthState State);
