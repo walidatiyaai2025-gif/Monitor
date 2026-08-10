@@ -27,7 +27,7 @@ This is the canonical execution plan. Update it in the same PR as material imple
 | M1-002 | Test Connection workflow | VERIFIED — CI RUN 31368995784 |
 | M1-003 | Lightweight collector: name/version/edition/instance/uptime/database counts | VERIFIED — CI RUN 31369800023 |
 | M1-004 | `ServerHealthSnapshot` domain contract + cache | VERIFIED — CI RUN 31370422613 |
-| M1-005 | Replace one demo server with real snapshot data | PLANNED |
+| M1-005 | Replace one demo server with real snapshot data | IMPLEMENTED — LOCAL VERIFIED |
 | M1-006 | Backend-controlled/throttled refresh | PLANNED |
 | M1-007 | SignalR snapshot delivery evaluation | PLANNED |
 

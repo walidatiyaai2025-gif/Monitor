@@ -12,7 +12,14 @@
     var jobsTotal = Model.Sum(server => server.JobsTotal);
 }
 
-<div class="data-banner"><strong>DEVELOPMENT DATA</strong><span>Operational estate preview from one shared snapshot. Search, filtering and freshness movement are client-side only.</span></div>
+@if (Model.Any(server => server.Source != ServerDataSource.Demo))
+{
+    <div class="data-banner"><strong>MIXED DATA</strong><span>One cached SQL snapshot is shown with clearly separated development fallback cards. Search and freshness movement are client-side only.</span></div>
+}
+else
+{
+    <div class="data-banner"><strong>DEVELOPMENT DATA</strong><span>No live server is configured or available. Operational estate values are preview data.</span></div>
+}
 
 <section class="estate-summary">
     <article class="estate-summary-card state-healthy"><small>Reachable</small><strong>@reachableCount / @Model.Count</strong><span>SQL instances responding</span></article>
@@ -60,7 +67,7 @@
     <a class="server-card server-card-v2 glass-panel state-@stateName" data-server-card data-state="@stateName" data-name="@server.Name.ToLowerInvariant()" asp-action="ServerDetails" asp-route-id="@server.Id">
         <div class="server-card-v2-inner">
             <div class="server-card-head">
-                <div><span class="health-orb state-@stateName"></span><span class="status-word">@server.State</span></div>
+                <div><span class="health-orb state-@stateName"></span><span class="status-word">@server.State · @(server.Source == ServerDataSource.Demo ? "DEMO" : server.Source == ServerDataSource.LiveFresh ? "LIVE CACHED" : "STALE CACHED")</span></div>
                 <span class="snapshot-freshness"><span class="freshness-dot state-@stateName"></span><span class="snapshot-note" data-snapshot-age data-initial-age="@server.LastScanSecondsAgo">@server.LastScanSecondsAgo sec ago</span></span>
             </div>
 

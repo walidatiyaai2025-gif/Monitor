@@ -1,11 +1,21 @@
 # Project Status
 
-**Updated:** 2026-08-10 11:29 +03:00  
-**Branch:** `agent/m1-snapshot-cache`  
-**Target:** `M1-004`  
+**Updated:** 2026-08-10 11:41 +03:00  
+**Branch:** `agent/m1-real-snapshot-ui`  
+**Target:** `M1-005`  
 **Issue:** TBD  
-**PR:** #12  
-**Overall:** 🟢 M1-004 VERIFIED — READY TO MERGE
+**PR:** TBD  
+**Overall:** 🟡 M1-005 IMPLEMENTED — LOCAL VERIFICATION COMPLETE
+
+## M1-005 — First real snapshot in the UI
+
+- Optional `Monitor:PrimaryServer` metadata bootstrap with no stored credentials.
+- First enabled registration replaces only the first demo estate card.
+- Fresh and stale cached data are labeled per card and in page banners.
+- Collection failure safely preserves the clearly labeled development fallback.
+- Real details use identity/database values only; CPU, memory and jobs are Not collected.
+- MVC reads through the cache once per request and never calls SQL directly.
+- 30 total tests pass, including live mapping, stale labeling, fallback and configuration security.
 
 ## M1-004 — ServerHealthSnapshot contract and cache
 
@@ -99,7 +109,7 @@
 - UI-003 CI run `31366381962`: SUCCESS.
 - `dotnet restore`: ✅ VERIFIED by GitHub Actions.
 - `dotnet build --configuration Release --no-restore --warnaserror`: ✅ VERIFIED by GitHub Actions.
-- `dotnet test Monitor.sln --configuration Release --no-build`: ✅ 25 PASSED locally.
+- `dotnet test Monitor.sln --configuration Release --no-build`: ✅ 30 PASSED locally.
 - visual acceptance: ✅ USER ACCEPTED on 2026-08-10.
 
 ## Merge gate
@@ -108,4 +118,4 @@ M0 PR #2 merged to stable `main` at `dfbfa19`.
 
 ## Next action
 
-Merge PR #12, then begin M1-005 real snapshot UI replacement.
+Push M1-005, verify CI, open a focused PR, then begin M1-006 throttled refresh.

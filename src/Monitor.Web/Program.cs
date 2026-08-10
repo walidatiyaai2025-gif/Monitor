@@ -16,6 +16,7 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<ISqlSnapshotQuery, SqlSnapshotQuery>();
 builder.Services.AddSingleton<ISqlServerSnapshotCollector, SqlServerSnapshotCollector>();
 builder.Services.AddSingleton<IServerHealthSnapshotCache, ServerHealthSnapshotCache>();
+builder.Services.AddSingleton<IMonitorReadService, MonitorReadService>();
 
 builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
@@ -33,6 +34,14 @@ builder.Services
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
+
+var configuredRegistration = ConfiguredServerRegistrationLoader.Load(
+    app.Configuration,
+    app.Services.GetRequiredService<TimeProvider>());
+if (configuredRegistration is not null)
+{
+    app.Services.GetRequiredService<IServerRegistrationRepository>().Upsert(configuredRegistration);
+}
 
 if (!app.Environment.IsDevelopment())
 {
