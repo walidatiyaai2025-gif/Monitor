@@ -1,0 +1,92 @@
+@model ConnectionLabViewModel
+@{
+    ViewData["Title"] = "SQL Connection Lab";
+    var sqlLogin = Model.Input.AuthenticationMode == SqlAuthenticationMode.SqlLogin;
+}
+
+<div class="data-banner"><strong>M1 REAL CONNECTION WORKFLOW</strong><span>Passwords stay outside the application UI. SQL Login uses an opaque secret reference resolved only by the backend.</span></div>
+
+@if (TempData["ConnectionLabMessage"] is string message)
+{
+    <div class="lab-success"><span>✓</span><strong>@message</strong></div>
+}
+
+<section class="lab-hero glass-panel">
+    <div><span class="eyebrow">M1-002A · CONTROLLED CONNECTIVITY</span><h2>Register metadata. Test through the secure backend.</h2><p>One deliberate Test Connection action uses the verified M1-002 service. The browser never receives a SQL password, connection string or raw provider exception.</p></div>
+    <div class="lab-flow"><span>Browser</span><i>→</i><span>Registration</span><i>→</i><span>Secret boundary</span><i>→</i><span>SQL probe</span></div>
+</section>
+
+<div asp-validation-summary="ModelOnly" class="lab-validation"></div>
+
+<section class="lab-grid">
+    <article class="glass-panel lab-panel">
+        <div class="panel-heading"><div><span class="eyebrow">REGISTER SQL TARGET</span><h3>Safe connection metadata</h3></div><span class="snapshot-note">Administrator only</span></div>
+        <form asp-controller="ConnectionLab" asp-action="Register" method="post" class="lab-form" autocomplete="off">
+            <div class="lab-field full"><label for="DisplayName">Display name</label><input id="DisplayName" name="DisplayName" value="@Model.Input.DisplayName" maxlength="80" placeholder="Finance Production SQL" />@Html.ValidationMessage("DisplayName", null, new { @class = "field-error" })</div>
+            <div class="lab-field full"><label for="Host">Server / host</label><input id="Host" name="Host" value="@Model.Input.Host" maxlength="253" placeholder="DA-SQL01 or sql01.contoso.local" />@Html.ValidationMessage("Host", null, new { @class = "field-error" })</div>
+            <div class="lab-field"><label for="InstanceName">Named instance</label><input id="InstanceName" name="InstanceName" value="@Model.Input.InstanceName" maxlength="128" placeholder="APP01" /><small>Leave empty when a TCP port is used.</small>@Html.ValidationMessage("InstanceName", null, new { @class = "field-error" })</div>
+            <div class="lab-field"><label for="Port">TCP port</label><input id="Port" name="Port" type="number" min="1" max="65535" value="@Model.Input.Port" placeholder="1433" /><small>Port and named instance are mutually exclusive.</small>@Html.ValidationMessage("Port", null, new { @class = "field-error" })</div>
+            <div class="lab-field full">
+                <label for="AuthenticationMode">Authentication mode</label>
+                <select id="AuthenticationMode" name="AuthenticationMode" data-lab-auth>
+                    @if (sqlLogin)
+                    {
+                        <option value="IntegratedSecurity">Windows Integrated Security</option>
+                        <option value="SqlLogin" selected>SQL Login via external secret reference</option>
+                    }
+                    else
+                    {
+                        <option value="IntegratedSecurity" selected>Windows Integrated Security</option>
+                        <option value="SqlLogin">SQL Login via external secret reference</option>
+                    }
+                </select>
+                @Html.ValidationMessage("AuthenticationMode", null, new { @class = "field-error" })
+            </div>
+            <div class="lab-field full @(sqlLogin ? string.Empty : "is-hidden")" data-lab-secret-field>
+                <label for="SecretReference">External secret reference</label>
+                <input id="SecretReference" name="SecretReference" value="@Model.Input.SecretReference" maxlength="128" placeholder="finance-prod-monitor" />
+                <small>Configure <code>ConnectionSecrets:&lt;reference&gt;:Username</code> and <code>Password</code> through User Secrets or environment configuration. The actual credential never enters this page.</small>
+                @Html.ValidationMessage("SecretReference", null, new { @class = "field-error" })
+            </div>
+            <div class="lab-options full">
+                <label><input type="checkbox" name="Encrypt" value="true" checked="@Model.Input.Encrypt" /><span><strong>Encrypt</strong><small>Keep TLS enabled for normal operation.</small></span></label>
+                <label><input type="checkbox" name="TrustServerCertificate" value="true" checked="@Model.Input.TrustServerCertificate" /><span><strong>Trust server certificate</strong><small>Use only when your SQL TLS policy requires it.</small></span></label>
+            </div>
+            <div class="lab-actions full"><a class="secondary-button" asp-controller="Operations" asp-action="Servers">Back to Servers</a><button class="primary-button" type="submit">Register target</button></div>
+        </form>
+    </article>
+
+    <aside class="glass-panel lab-panel">
+        <div class="panel-heading"><div><span class="eyebrow">SECURITY BOUNDARY</span><h3>What this UI cannot expose</h3></div></div>
+        <div class="lab-rule state-healthy"><span>01</span><div><strong>No password control</strong><p>SQL Login credentials are external configuration. The form only accepts an opaque reference name.</p></div></div>
+        <div class="lab-rule state-healthy"><span>02</span><div><strong>No connection string output</strong><p>The verified backend constructs it transiently immediately before opening the connection.</p></div></div>
+        <div class="lab-rule state-healthy"><span>03</span><div><strong>Sanitized diagnostics</strong><p>Only fixed status, elapsed time and safe server version metadata can return to this page.</p></div></div>
+        <div class="lab-rule state-warning"><span>04</span><div><strong>Manual probe only</strong><p>This screen adds no polling, collector timer or background SQL activity.</p></div></div>
+    </aside>
+</section>
+
+<div class="section-heading"><div><span class="eyebrow">REGISTERED TARGETS</span><h2>@Model.Registrations.Count connection profile(s)</h2></div><span class="snapshot-note">Safe application metadata · secrets external</span></div>
+
+@if (Model.Registrations.Count == 0)
+{
+    <div class="lab-empty glass-panel"><strong>No real SQL target registered yet</strong><span>Create the first connection profile above. The Command Center remains on DEVELOPMENT DATA until the real snapshot milestone.</span></div>
+}
+else
+{
+    <section class="lab-target-grid">
+        @foreach (var registration in Model.Registrations)
+        {
+            var result = Model.TestedRegistrationId == registration.Id ? Model.TestResult : null;
+            var resultState = result?.Succeeded == true ? "healthy" : result is null ? "unknown" : "critical";
+            <article class="glass-panel lab-target state-@resultState">
+                <div class="lab-target-head"><div><span class="health-orb state-@(registration.IsEnabled ? "healthy" : "offline")"></span><div><strong>@registration.DisplayName</strong><small>@registration.Target</small></div></div><span class="lab-auth">@(registration.AuthenticationMode == SqlAuthenticationMode.IntegratedSecurity ? "WINDOWS" : "SQL LOGIN")</span></div>
+                <div class="lab-target-meta"><span>Encrypt<strong>@(registration.Encrypt ? "ON" : "OFF")</strong></span><span>Trust cert<strong>@(registration.TrustServerCertificate ? "YES" : "NO")</strong></span><span>Credential<strong>@(registration.HasSecretReference ? "EXTERNAL" : "WINDOWS")</strong></span></div>
+                @if (result is not null)
+                {
+                    <div class="lab-result state-@resultState"><div><span>@(result.Succeeded ? "✓" : "!")</span><div><strong>@result.Status</strong><p>@result.Message</p></div></div><div class="lab-result-meta"><span><small>Elapsed</small><strong>@result.ElapsedMilliseconds ms</strong></span>@if (!string.IsNullOrWhiteSpace(result.ServerVersion)){<span><small>Server version</small><strong>@result.ServerVersion</strong></span>}</div></div>
+                }
+                <form asp-controller="ConnectionLab" asp-action="Test" asp-route-id="@registration.Id" method="post" class="lab-test"><span>Created @registration.CreatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span><button class="primary-button" type="submit" disabled="@(!registration.IsEnabled)">Test Connection</button></form>
+            </article>
+        }
+    </section>
+}
