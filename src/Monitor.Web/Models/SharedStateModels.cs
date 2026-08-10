@@ -31,7 +31,7 @@ public sealed record SharedStateReadinessViewModel(
             SharedStateReadinessStatus.Ready,
             SharedStorageReady: true,
             SchemaVersion: schemaVersion,
-            Message: "Dedicated Monitor shared-state SQL provider is reachable and schema-compatible. Multi-node remains blocked until application repositories and distributed coordination are migrated.");
+            Message: "Dedicated Monitor shared-state SQL provider is reachable and schema-compatible. Deployment readiness is evaluated separately against repository, coordination, credential and security-state requirements.");
 
     public static SharedStateReadinessViewModel SchemaMismatch(int? schemaVersion) =>
         new(

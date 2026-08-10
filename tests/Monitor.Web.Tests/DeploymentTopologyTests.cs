@@ -31,17 +31,44 @@ public sealed class DeploymentTopologyTests
     }
 
     [Fact]
-    public void MultiNode_FailsClosedUntilSharedStateAndCoordinationExist()
+    public void MultiNode_SyntaxIsValidButCrossFieldGateFailsClosed()
     {
-        var options = new DeploymentTopologyOptions { Mode = DeploymentTopology.MultiNode };
+        var deployment = new DeploymentTopologyOptions { Mode = DeploymentTopology.MultiNode };
 
-        var exception = Assert.Throws<InvalidOperationException>(options.Validate);
+        deployment.Validate();
+        var readiness = DeploymentReadinessEvaluator.Evaluate(
+            deployment,
+            new SharedStateOptions(),
+            new HaStateOptions(),
+            new DistributedCoordinationOptions());
 
-        Assert.Contains("MultiNode", exception.Message, StringComparison.Ordinal);
-        Assert.Contains("shared", exception.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("coordination", exception.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("password", exception.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("connection string", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.False(readiness.Ready);
+        Assert.Equal("Multi-node blocked", readiness.Status);
+        Assert.Contains("shared-state provider", readiness.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("distributed coordination", readiness.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("password", readiness.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("connection string", readiness.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void MultiNode_SharedBatchOneCapabilitiesStillExposeRemainingSecurityBlockers()
+    {
+        var readiness = DeploymentReadinessEvaluator.Evaluate(
+            new DeploymentTopologyOptions { Mode = DeploymentTopology.MultiNode },
+            new SharedStateOptions { Provider = SharedStateProviderKind.SqlServer },
+            new HaStateOptions
+            {
+                UseSharedRegistrations = true,
+                UseSharedOperationalState = true
+            },
+            new DistributedCoordinationOptions { Enabled = true });
+
+        Assert.False(readiness.Ready);
+        Assert.DoesNotContain("Registration metadata store", readiness.NodeLocalState);
+        Assert.DoesNotContain("Audit, history and incident operational stores", readiness.NodeLocalState);
+        Assert.Contains("Protected local SQL credential store and key ring", readiness.NodeLocalState);
+        Assert.Contains("Snapshot cache values", readiness.NodeLocalState);
+        Assert.Contains("shared credential/key-ring strategy", readiness.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
