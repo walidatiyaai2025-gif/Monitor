@@ -21,6 +21,7 @@ builder.Services.AddSingleton<IHealthIncidentRepository, InMemoryHealthIncidentR
 builder.Services.AddSingleton<IRecommendationEngine, RecommendationEngine>();
 builder.Services.AddSingleton<IAdvisorContextBuilder, AdvisorContextBuilder>();
 builder.Services.AddSingleton<IAdvisorProvider, DisabledAdvisorProvider>();
+builder.Services.AddSingleton<IOperatorAuditTrail, InMemoryOperatorAuditTrail>();
 builder.Services.AddSingleton<IIncidentWorkflowService, IncidentWorkflowService>();
 builder.Services.AddSingleton<ISnapshotHistoryStore, InMemorySnapshotHistoryStore>();
 builder.Services.AddSingleton<ISnapshotObserver, SnapshotObserver>();
