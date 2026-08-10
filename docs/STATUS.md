@@ -1,11 +1,20 @@
 # Project Status
 
 **Updated:** 2026-08-10 11:41 +03:00  
-**Branch:** `agent/m1-signalr-evaluation`  
-**Target:** `M1-007`  
+**Branch:** `agent/m2-memory-snapshot`  
+**Target:** `M2-001`  
 **Issue:** TBD  
 **PR:** TBD  
-**Overall:** 🟢 M1 COMPLETE — SIGNALR EVALUATED / DEFERRED
+**Overall:** 🟡 M2-001 IMPLEMENTED — LOCAL VERIFICATION COMPLETE
+
+## M2-001 — Memory snapshot contract and projection
+
+- Optional immutable `MemoryHealthSnapshot` added to the canonical server snapshot.
+- Total/available physical memory and SQL process memory captured.
+- SQL process utilization and physical/virtual low-memory flags captured.
+- Existing single collector query extended; no extra SQL call or browser query.
+- Strict range validation and the existing redacted failure boundary.
+- 34 total tests pass locally, including mapping, single-query and invalid-range cases.
 
 ## M1-007 — SignalR snapshot delivery evaluation
 
@@ -128,7 +137,7 @@
 - UI-003 CI run `31366381962`: SUCCESS.
 - `dotnet restore`: ✅ VERIFIED by GitHub Actions.
 - `dotnet build --configuration Release --no-restore --warnaserror`: ✅ VERIFIED by GitHub Actions.
-- `dotnet test Monitor.sln --configuration Release --no-build`: ✅ 32 PASSED locally.
+- `dotnet test Monitor.sln --configuration Release --no-build`: ✅ 34 PASSED locally.
 - visual acceptance: ✅ USER ACCEPTED on 2026-08-10.
 
 ## Merge gate
@@ -137,4 +146,4 @@ M0 PR #2 merged to stable `main` at `dfbfa19`.
 
 ## Next action
 
-Merge the M1-007 decision, then begin M2-001 memory snapshot contract and projection.
+Push M2-001, verify CI, open a focused PR, then implement M2-002 memory UI mapping.

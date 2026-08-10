@@ -31,6 +31,15 @@ This is the canonical execution plan. Update it in the same PR as material imple
 | M1-006 | Backend-controlled/throttled refresh | VERIFIED — CI RUN 31371676834 |
 | M1-007 | SignalR snapshot delivery evaluation | VERIFIED — DEFERRED BY ADR-013 |
 
+## M2 — Health Modules
+
+| Task | Description | State |
+|---|---|---|
+| M2-001 | Memory snapshot contract + collector projection | IMPLEMENTED — LOCAL VERIFIED |
+| M2-002 | Memory health UI from cached snapshot | PLANNED |
+| M2-003 | Database health detail contract + projection | PLANNED |
+| M2-004 | Backups, jobs, storage and blocking modules | PLANNED |
+
 ## Delivery loop
 
 Plan -> Design -> Implement -> Show -> Connect Real Data -> Verify -> Commit -> Push -> Update Plan.
