@@ -6,7 +6,7 @@
 
 M0 through M6 are CI verified. M7 production-readiness includes durable registration metadata, fail-closed external secret routing, durable bounded operational state, protected local SQL Login credentials, a topology guard and a dedicated Monitor shared-state SQL capability. M8 enforces zero-SQL monitoring GETs for monitored targets.
 
-BATCH-100 is the active enterprise hardening program. Batch 1 adds shared registration/audit/history/incident state plus distributed scheduler/manual-refresh coordination. Batch 2 adds shared encrypted Data Protection key management and safe SQL credential-reference migration/rotation. Batch 3 adds checksummed operational backup/export, mutation-free dry-run validation and rollback-capable File/Shared restore. Batch 4 adds production health probes, bounded runtime telemetry, strict correlation IDs and an Administrator observability surface without creating a monitored-SQL read path. `docs/BATCH_100.md` is the 100-task execution ledger.
+BATCH-100 is the active enterprise hardening program. Batch 1 adds shared registration/audit/history/incident state plus distributed scheduler/manual-refresh coordination. Batch 2 adds shared encrypted Data Protection key management and safe SQL credential-reference migration/rotation. Batch 3 adds checksummed operational backup/export, mutation-free dry-run validation and rollback-capable File/Shared restore. Batch 4 adds production health probes, bounded runtime telemetry, strict correlation IDs and an Administrator observability surface without creating a monitored-SQL read path. Batch 5 adds explicit performance/scale budgets for cache capacity, paging, refresh concurrency, scheduler batching/jitter and monitored-collector connection pooling. `docs/BATCH_100.md` is the 100-task execution ledger.
 
 ## Run
 
@@ -36,6 +36,32 @@ Batch 4 adds three safe probe routes:
 Administrator `/observability` exposes aggregate collector/cache/scheduler/incident/authentication telemetry. Telemetry never stores SQL text, request bodies, usernames, passwords, IP addresses, secret references, connection strings, provider endpoints or raw provider exceptions. Collector failure telemetry is a strict allowlist of known `SnapshotCollectionFailure` values plus `Unexpected`; arbitrary values are reduced to `Unknown`.
 
 `X-Correlation-ID` accepts only a bounded alphanumeric/`.`/`_`/`-` token. Unsafe or missing values are replaced with a server-generated ID. Structured completion logs record correlation scope, HTTP method, response status and elapsed time only.
+
+Batch 5 completes the runtime integration for these services in `Program.cs`: telemetry/readiness DI, collector/cache/cycle/incident decorators, correlation middleware and authentication-outcome middleware are production-wired.
+
+## Performance & scale governance
+
+The default operating budgets are explicit and validated:
+
+```json
+"PerformanceScale": {
+  "SnapshotCacheMaxEntries": 512,
+  "HistoryMaxReadPoints": 100,
+  "AuditMaxPageSize": 100,
+  "IncidentMaxPageSize": 100,
+  "ServerDefaultPageSize": 50,
+  "ServerMaxPageSize": 100,
+  "ManualRefreshMaxConcurrency": 4,
+  "SqlMaxPoolSize": 4,
+  "SqlPoolLifetimeSeconds": 300
+}
+```
+
+The snapshot cache evicts the oldest retained snapshot once capacity is exceeded. Server estate navigation is paged and Peeks cached state only for the requested page. History/audit/incident projections are bounded. Manual refresh uses an application-wide concurrency permit in addition to per-registration throttling and distributed single-flight. Scheduler cycles use bounded deterministic jitter plus round-robin maximum-target batches.
+
+Monitored background snapshot collection uses an explicitly capped SQL connection pool. **Test Connection remains non-pooled** so credential testing/rotation cannot appear valid because a previously authenticated pooled connection was reused.
+
+CI uses deterministic budget tests for capacity, output/page limits, cache read counts, refresh concurrency, round-robin batching and pool configuration rather than machine-dependent microbenchmark timings.
 
 ## Deployment topology
 
@@ -121,8 +147,9 @@ Restore targets the persistence backend currently selected by deployment configu
 
 - Browser/UI components never connect directly to monitored SQL Servers.
 - Monitoring GETs and health/observability GETs are cache/control-plane only and never initiate monitored SQL collection.
-- Manual monitored-SQL refresh/collection is explicit, authorized and backend-controlled.
-- Snapshot cache remains the shared monitored-evidence/read boundary.
+- Estate paging reads only the requested cache page; paging never widens monitored-SQL collection.
+- Manual monitored-SQL refresh/collection is explicit, authorized, concurrency-bounded and backend-controlled.
+- Snapshot cache remains the shared monitored-evidence/read boundary and has an explicit capacity limit.
 - Recommendations and Advisor output remain advisory-only and cannot execute production SQL.
 - Secret-provider routing stays behind `IConnectionSecretStore`.
 - Shared-state SQL is a separate Monitor-owned control-plane database, never an implicitly reused monitored target.
