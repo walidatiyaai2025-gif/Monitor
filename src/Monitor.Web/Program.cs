@@ -15,6 +15,7 @@ builder.Services.AddSingleton<IServerConnectionTester, ServerConnectionTester>()
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<ISqlSnapshotQuery, SqlSnapshotQuery>();
 builder.Services.AddSingleton<ISqlServerSnapshotCollector, SqlServerSnapshotCollector>();
+builder.Services.AddSingleton<IServerHealthSnapshotCache, ServerHealthSnapshotCache>();
 
 builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)

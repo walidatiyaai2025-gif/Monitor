@@ -1,11 +1,22 @@
 # Project Status
 
-**Updated:** 2026-08-10 11:21 +03:00  
-**Branch:** `agent/m1-lightweight-collector`  
-**Target:** `M1-003`  
+**Updated:** 2026-08-10 11:29 +03:00  
+**Branch:** `agent/m1-snapshot-cache`  
+**Target:** `M1-004`  
 **Issue:** TBD  
-**PR:** #9  
-**Overall:** 🟢 M1-003 VERIFIED — READY TO MERGE
+**PR:** #12  
+**Overall:** 🟢 M1-004 VERIFIED — READY TO MERGE
+
+## M1-004 — ServerHealthSnapshot contract and cache
+
+- Canonical immutable `ServerHealthSnapshot` contract.
+- Per-registration cache with 30-second fresh window and five-minute stale fallback.
+- Single-flight collection prevents duplicate SQL calls from concurrent consumers.
+- Refresh failure preserves the last good snapshot and labels it Stale.
+- Caller cancellation does not cancel shared collection required by other callers.
+- Newer collection timestamps win; future-clock ages clamp safely to zero.
+- 25 total tests pass, including concurrency, freshness, stale fallback and cancellation.
+- CI run `31370422613`: SUCCESS (Release build + 25 tests).
 
 ## M1-003 — Lightweight SQL collector
 
@@ -88,7 +99,7 @@
 - UI-003 CI run `31366381962`: SUCCESS.
 - `dotnet restore`: ✅ VERIFIED by GitHub Actions.
 - `dotnet build --configuration Release --no-restore --warnaserror`: ✅ VERIFIED by GitHub Actions.
-- `dotnet test Monitor.sln --configuration Release --no-build`: ✅ 21 PASSED locally.
+- `dotnet test Monitor.sln --configuration Release --no-build`: ✅ 25 PASSED locally.
 - visual acceptance: ✅ USER ACCEPTED on 2026-08-10.
 
 ## Merge gate
@@ -97,4 +108,4 @@ M0 PR #2 merged to stable `main` at `dfbfa19`.
 
 ## Next action
 
-Merge PR #9, then begin M1-004 snapshot contract and cache.
+Merge PR #12, then begin M1-005 real snapshot UI replacement.

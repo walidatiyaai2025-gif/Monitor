@@ -1,6 +1,6 @@
 namespace Monitor.Web.Models;
 
-public sealed record SqlServerIdentitySnapshot(
+public sealed record ServerHealthSnapshot(
     Guid RegistrationId,
     string ServerName,
     string ProductVersion,
