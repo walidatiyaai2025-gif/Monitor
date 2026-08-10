@@ -31,7 +31,8 @@ public sealed class OperationsController : Controller
     }
 
     [HttpGet("/database-health")]
-    public IActionResult DatabaseHealth() => View(_monitor.GetServers());
+    public async Task<IActionResult> DatabaseHealth(CancellationToken cancellationToken) =>
+        View(await _readService.GetServersAsync(cancellationToken));
 
     [HttpGet("/memory-health")]
     public async Task<IActionResult> MemoryHealth(CancellationToken cancellationToken) =>
