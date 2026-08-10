@@ -169,16 +169,18 @@ Batch 9 makes production deployment repeatable and reviewable. It adds a secret-
 
 | Task | Description | Status |
 |---|---|---|
-| B100-091 | Maintenance-window model | PLANNED |
-| B100-092 | Server tags/groups | PLANNED |
-| B100-093 | Environment classification | PLANNED |
-| B100-094 | Alert suppression windows | PLANNED |
-| B100-095 | Incident ownership/assignee metadata | PLANNED |
-| B100-096 | Bounded incident operator notes | PLANNED |
-| B100-097 | Recommendation acknowledgment state | PLANNED |
-| B100-098 | Safe CSV report export | PLANNED |
-| B100-099 | Redacted diagnostics package | PLANNED |
-| B100-100 | Release-candidate acceptance suite | PLANNED |
+| B100-091 | Maintenance-window model | CI VERIFIED — RUN 31442930470 |
+| B100-092 | Server tags/groups | CI VERIFIED — RUN 31442930470 |
+| B100-093 | Environment classification | CI VERIFIED — RUN 31442930470 |
+| B100-094 | Alert suppression windows | CI VERIFIED — RUN 31442930470 |
+| B100-095 | Incident ownership/assignee metadata | CI VERIFIED — RUN 31442930470 |
+| B100-096 | Bounded incident operator notes | CI VERIFIED — RUN 31442930470 |
+| B100-097 | Recommendation acknowledgment state | CI VERIFIED — RUN 31442930470 |
+| B100-098 | Safe CSV report export | CI VERIFIED — RUN 31442930470 |
+| B100-099 | Redacted diagnostics package | CI VERIFIED — RUN 31442930470 |
+| B100-100 | Release-candidate acceptance suite | CI VERIFIED — RUN 31442930470 |
+
+Batch 10 verification run `31442930470` passed Release warnings-as-errors build and the complete test suite (229/229 passed; 0 failed). BATCH-100 is **100/100 CI VERIFIED**. Enterprise operator governance remains separate bounded state; report/diagnostic GETs remain control-plane/cache-only and no autonomous execution path was added.
 
 ## Delivery rule
 

@@ -124,6 +124,13 @@ builder.Services.AddSingleton<IHealthIncidentRepository>(provider =>
 builder.Services.AddSingleton<ISnapshotHistoryStore>(provider => haStateOptions.UseSharedOperationalState
     ? new SharedSnapshotHistoryStore(provider.GetRequiredService<ISharedStateDocumentStore>(), provider.GetRequiredService<TimeProvider>())
     : operationalRoot is null ? new InMemorySnapshotHistoryStore(provider.GetRequiredService<TimeProvider>()) : new FileSnapshotHistoryStore(Path.Combine(operationalRoot, "history.json"), provider.GetRequiredService<TimeProvider>()));
+builder.Services.AddSingleton<IOperatorMetadataStore>(provider => haStateOptions.UseSharedOperationalState
+    ? new SharedOperatorMetadataStore(provider.GetRequiredService<ISharedStateDocumentStore>(), provider.GetRequiredService<TimeProvider>())
+    : operationalRoot is null
+        ? new InMemoryOperatorMetadataStore(provider.GetRequiredService<TimeProvider>())
+        : new FileOperatorMetadataStore(Path.Combine(operationalRoot, "operator-metadata.json"), provider.GetRequiredService<TimeProvider>()));
+builder.Services.AddSingleton<ISafeCsvReportService, SafeCsvReportService>();
+builder.Services.AddSingleton<IRedactedDiagnosticsPackageService, RedactedDiagnosticsPackageService>();
 
 var secretStoreOptions = builder.Configuration.GetSection(SecretStoreOptions.SectionName).Get<SecretStoreOptions>() ?? new();
 var secretFilePath = OperationalStorePath.ResolveOutsideWebRoot(secretStoreOptions.Path, builder.Environment.ContentRootPath, builder.Environment.WebRootPath);
