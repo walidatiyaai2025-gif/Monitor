@@ -63,12 +63,27 @@ public sealed class MonitorReadService(
             Server = card,
             Metrics =
             [
-                new("CPU", "Not collected", "Outside the M1 identity snapshot", HealthState.Unknown),
+                new("CPU", "Not collected", "Outside the current snapshot", HealthState.Unknown),
                 new("Memory", $"{card.MemoryPercent}%", "SQL process memory utilization", card.MemoryPercent >= 85 ? HealthState.Warning : HealthState.Healthy),
-                new("Databases", $"{card.DatabaseOnline} / {card.DatabaseTotal}", "Online databases", card.State),
-                new("SQL Agent", "Not collected", "Outside the M1 identity snapshot", HealthState.Unknown)
+                new("Databases", $"{card.DatabaseOnline} / {card.DatabaseTotal}", DatabaseDetail(card), card.State),
+                new("SQL Agent", "Not surfaced yet", "Collected summary is reserved for the M2 jobs UI", HealthState.Unknown)
             ]
         };
+    }
+
+    private static string DatabaseDetail(ServerCard card)
+    {
+        var detail = card.DatabaseHealth;
+        if (detail is null)
+        {
+            return "Online databases";
+        }
+
+        var recovery = detail.Restoring + detail.Recovering + detail.RecoveryPending;
+        var critical = detail.Suspect + detail.Emergency + detail.OfflineOrOther;
+        return recovery == 0 && critical == 0
+            ? "No non-online database states in the cached detail"
+            : $"{recovery} recovery-state · {critical} critical/offline-state";
     }
 
     private async Task<ServerCard?> TryGetLiveCardAsync(
@@ -104,7 +119,8 @@ public sealed class MonitorReadService(
                 (int)Math.Clamp(result.Age.TotalSeconds, 0, int.MaxValue),
                 result.Freshness == SnapshotFreshness.Fresh
                     ? ServerDataSource.LiveFresh
-                    : ServerDataSource.LiveStale);
+                    : ServerDataSource.LiveStale,
+                snapshot.Databases);
         }
         catch (SnapshotCollectionException)
         {
