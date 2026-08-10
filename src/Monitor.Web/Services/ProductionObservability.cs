@@ -55,6 +55,11 @@ public interface IMonitorTelemetry
 
 public sealed class MonitorTelemetry(TimeProvider timeProvider) : IMonitorTelemetry
 {
+    private static readonly HashSet<string> AllowedCollectorFailureCategories =
+        Enum.GetNames<SnapshotCollectionFailure>()
+            .Append("Unexpected")
+            .ToHashSet(StringComparer.Ordinal);
+
     private long _collectorAttempts;
     private long _collectorSucceeded;
     private long _collectorFailed;
@@ -177,12 +182,10 @@ public sealed class MonitorTelemetry(TimeProvider timeProvider) : IMonitorTeleme
         }
     }
 
-    private static string BoundCategory(string value)
-    {
-        if (string.IsNullOrWhiteSpace(value)) return "Unknown";
-        var safe = new string(value.Where(character => char.IsAsciiLetterOrDigit(character) || character is '.' or '_' or '-').Take(48).ToArray());
-        return string.IsNullOrWhiteSpace(safe) ? "Unknown" : safe;
-    }
+    private static string BoundCategory(string value) =>
+        !string.IsNullOrWhiteSpace(value) && AllowedCollectorFailureCategories.Contains(value)
+            ? value
+            : "Unknown";
 }
 
 public sealed class TelemetrySqlServerSnapshotCollector(
