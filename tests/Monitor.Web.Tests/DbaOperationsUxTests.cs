@@ -187,7 +187,13 @@ public sealed class DbaOperationsUxTests
 
     private sealed class FakeReadService : IMonitorReadService
     {
-        public DashboardViewModel Dashboard { get; } = new();
+        public DashboardViewModel Dashboard { get; } = new()
+        {
+            Servers = [],
+            Metrics = [],
+            Activity = [],
+            Incidents = []
+        };
         public int DashboardCalls { get; private set; }
         public Task<IReadOnlyList<ServerCard>> GetServersAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<ServerCard>>([]);
         public Task<ServerEstatePage> GetServersPageAsync(int offset, int limit, CancellationToken cancellationToken = default) => Task.FromResult(new ServerEstatePage([], 0, 50, 0));
