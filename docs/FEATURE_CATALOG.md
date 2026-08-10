@@ -29,5 +29,9 @@
 | HA credential creation policy | B100 | CI verified | New Monitor-owned local credentials can be prohibited explicitly; CI 31391446513 |
 | Credential reference migration/rotation | B100 | CI verified | Resolve -> Test -> commit -> owned cleanup; metadata-only audit; CI 31391446513 |
 | Credential HA readiness | B100 | CI verified | Aggregate counts/key-ring mode only; current references never rendered; CI 31391446513 |
+| Versioned operational backup bundle | B100 | CI verified | Safe registrations/incidents/history/audit + SHA-256 manifest; CI 31393040135 |
+| Backup dry-run validation | B100 | CI verified | Format/hash/bounds/referential-integrity validation before mutation; CI 31393040135 |
+| Rollback-capable operational restore | B100 | CI verified | File/Shared persistence, staged apply + reverse rollback on failure; CI 31393040135 |
+| Backup retention/readiness UI | B100 | CI verified | Atomic files outside `wwwroot`, bounded retention, Admin POST controls; CI 31393040135 |
 | Zero-SQL monitored GETs | M8 | CI verified | Cache/Peek-only browser monitoring reads; CI 31383991126 |
 | Explicit observed manual refresh | M8 | CI verified | Operator/Admin POST; successful refresh observed once |
