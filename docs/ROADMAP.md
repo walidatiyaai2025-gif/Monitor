@@ -32,4 +32,6 @@ The first complete operator journey is CI verified: login -> Connections -> regi
 
 M7-001 adds durable local server-registration metadata persistence behind the existing repository contract. The store is outside `wwwroot`, uses atomic writes, persists only safe registration metadata plus opaque secret references, and fails closed on corrupt data. Runtime SQL credential values remain process-memory only and are intentionally not persisted.
 
-Next production-readiness priorities after M7-001: enterprise secret-provider integration, durable/shared operational stores for audit/history/incidents, HA/shared-state strategy, deployment configuration validation, backup/restore of Monitor-owned state, and production observability.
+M7-002 adds the first external secret-provider routing path behind `IConnectionSecretStore`. Durable references of the form `env:<alias>` resolve only from strict process-environment variables named `MONITOR_SQL_SECRET_<ALIAS>_USERNAME` and `_PASSWORD`. A recognized `env:` reference that is missing or partial fails closed and never falls back to `ConnectionSecrets` configuration. Existing runtime and non-`env:` legacy references remain backward compatible.
+
+Next production-readiness priorities after M7-002: durable/shared operational stores for audit/history/incidents, HA/shared-state strategy, deployment configuration validation, backup/restore of Monitor-owned state, and production observability.
