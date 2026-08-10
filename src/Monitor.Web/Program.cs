@@ -175,6 +175,7 @@ var deploymentReadiness = DeploymentReadinessEvaluator.Evaluate(deploymentTopolo
 if (deploymentTopologyOptions.Mode == DeploymentTopology.MultiNode && !deploymentReadiness.Ready) throw new InvalidOperationException(deploymentReadiness.Message);
 builder.Services.AddSingleton(deploymentReadiness);
 builder.Services.AddSingleton<IApplicationReadinessService, ApplicationReadinessService>();
+builder.Services.AddSingleton<IDbaOperationsSurfaceService, DbaOperationsSurfaceService>();
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme).AddCookie(options =>
 {
