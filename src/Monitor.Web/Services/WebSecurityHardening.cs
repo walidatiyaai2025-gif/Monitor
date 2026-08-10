@@ -5,6 +5,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.WebUtilities;
 
@@ -132,7 +133,7 @@ public static class SecurityInput
     internal static bool LooksSecretBearing(string value)
     {
         if (string.IsNullOrEmpty(value)) return false;
-        ReadOnlySpan<string> markers = [
+        string[] markers = [
             "password=", "pwd=", "user id=", "uid=", "connection string", "data source=", "server=", "initial catalog="
         ];
         return markers.Any(marker => value.Contains(marker, StringComparison.OrdinalIgnoreCase));
