@@ -5,96 +5,56 @@ using Monitor.Web.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllersWithViews();
-builder.Services.Configure<AdminCredentialOptions>(
-    builder.Configuration.GetSection(AdminCredentialOptions.SectionName));
+builder.Services.Configure<AdminCredentialOptions>(builder.Configuration.GetSection(AdminCredentialOptions.SectionName));
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<IAdminCredentialVerifier, AdminCredentialVerifier>();
 builder.Services.AddSingleton<ILoginAttemptLimiter, LoginAttemptLimiter>();
 builder.Services.AddSingleton<IDemoMonitorService, DemoMonitorService>();
 
-var deploymentTopologyOptions = builder.Configuration
-    .GetSection(DeploymentTopologyOptions.SectionName)
-    .Get<DeploymentTopologyOptions>() ?? new DeploymentTopologyOptions();
+var deploymentTopologyOptions = builder.Configuration.GetSection(DeploymentTopologyOptions.SectionName).Get<DeploymentTopologyOptions>() ?? new();
 deploymentTopologyOptions.Validate();
 builder.Services.AddSingleton(deploymentTopologyOptions);
 
-var sharedStateOptions = builder.Configuration
-    .GetSection(SharedStateOptions.SectionName)
-    .Get<SharedStateOptions>() ?? new SharedStateOptions();
+var sharedStateOptions = builder.Configuration.GetSection(SharedStateOptions.SectionName).Get<SharedStateOptions>() ?? new();
 sharedStateOptions.Validate();
 builder.Services.AddSingleton(sharedStateOptions);
-builder.Services.AddSingleton<ISharedStateDocumentStore>(_ =>
-    sharedStateOptions.Provider == SharedStateProviderKind.SqlServer
-        ? new SqlServerSharedStateDocumentStore(sharedStateOptions)
-        : new DisabledSharedStateDocumentStore());
+builder.Services.AddSingleton<ISharedStateDocumentStore>(_ => sharedStateOptions.Provider == SharedStateProviderKind.SqlServer ? new SqlServerSharedStateDocumentStore(sharedStateOptions) : new DisabledSharedStateDocumentStore());
 builder.Services.AddSingleton<ISharedStateReadinessService, SharedStateReadinessService>();
 
-var haStateOptions = builder.Configuration
-    .GetSection(HaStateOptions.SectionName)
-    .Get<HaStateOptions>() ?? new HaStateOptions();
+var haStateOptions = builder.Configuration.GetSection(HaStateOptions.SectionName).Get<HaStateOptions>() ?? new();
 haStateOptions.Validate();
 builder.Services.AddSingleton(haStateOptions);
 
-var coordinationOptions = builder.Configuration
-    .GetSection(DistributedCoordinationOptions.SectionName)
-    .Get<DistributedCoordinationOptions>() ?? new DistributedCoordinationOptions();
+var coordinationOptions = builder.Configuration.GetSection(DistributedCoordinationOptions.SectionName).Get<DistributedCoordinationOptions>() ?? new();
 coordinationOptions.Validate();
 builder.Services.AddSingleton(coordinationOptions);
 
-var keyStoreOptions = builder.Configuration
-    .GetSection(DataProtectionKeyStoreOptions.SectionName)
-    .Get<DataProtectionKeyStoreOptions>() ?? new DataProtectionKeyStoreOptions();
+var keyStoreOptions = builder.Configuration.GetSection(DataProtectionKeyStoreOptions.SectionName).Get<DataProtectionKeyStoreOptions>() ?? new();
 keyStoreOptions.Validate();
 builder.Services.AddSingleton(keyStoreOptions);
-
-var credentialPolicy = builder.Configuration
-    .GetSection(CredentialPolicyOptions.SectionName)
-    .Get<CredentialPolicyOptions>() ?? new CredentialPolicyOptions();
+var credentialPolicy = builder.Configuration.GetSection(CredentialPolicyOptions.SectionName).Get<CredentialPolicyOptions>() ?? new();
 builder.Services.AddSingleton(credentialPolicy);
 
-if ((haStateOptions.UseSharedRegistrations ||
-     haStateOptions.UseSharedOperationalState ||
-     coordinationOptions.Enabled ||
-     keyStoreOptions.Mode == DataProtectionKeyStoreMode.SharedState) &&
-    sharedStateOptions.Provider != SharedStateProviderKind.SqlServer)
-{
-    throw new InvalidOperationException(
-        "Shared application state, coordination and shared key management require the dedicated Monitor shared-state SQL provider.");
-}
+if ((haStateOptions.UseSharedRegistrations || haStateOptions.UseSharedOperationalState || coordinationOptions.Enabled || keyStoreOptions.Mode == DataProtectionKeyStoreMode.SharedState) && sharedStateOptions.Provider != SharedStateProviderKind.SqlServer)
+    throw new InvalidOperationException("Shared application state, coordination and shared key management require the dedicated Monitor shared-state SQL provider.");
 
 var nodeIdentity = NodeIdentity.Resolve(coordinationOptions);
 builder.Services.AddSingleton(nodeIdentity);
-builder.Services.AddSingleton<IDistributedLeaseManager>(provider =>
-    coordinationOptions.Enabled
-        ? new SharedStateDistributedLeaseManager(
-            provider.GetRequiredService<ISharedStateDocumentStore>(),
-            nodeIdentity,
-            provider.GetRequiredService<TimeProvider>(),
-            coordinationOptions)
-        : new DisabledDistributedLeaseManager());
+builder.Services.AddSingleton<IDistributedLeaseManager>(provider => coordinationOptions.Enabled
+    ? new SharedStateDistributedLeaseManager(provider.GetRequiredService<ISharedStateDocumentStore>(), nodeIdentity, provider.GetRequiredService<TimeProvider>(), coordinationOptions)
+    : new DisabledDistributedLeaseManager());
 
-var registrationStoreOptions = builder.Configuration
-    .GetSection(RegistrationStoreOptions.SectionName)
-    .Get<RegistrationStoreOptions>() ?? new RegistrationStoreOptions();
+var registrationStoreOptions = builder.Configuration.GetSection(RegistrationStoreOptions.SectionName).Get<RegistrationStoreOptions>() ?? new();
 registrationStoreOptions.Validate();
 builder.Services.AddSingleton(registrationStoreOptions);
 
 string ResolveRegistrationStorePath()
 {
-    var storePath = Path.IsPathRooted(registrationStoreOptions.Path)
-        ? Path.GetFullPath(registrationStoreOptions.Path)
-        : Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, registrationStoreOptions.Path));
-    var webRoot = Path.GetFullPath(builder.Environment.WebRootPath
-        ?? Path.Combine(builder.Environment.ContentRootPath, "wwwroot"));
+    var storePath = Path.IsPathRooted(registrationStoreOptions.Path) ? Path.GetFullPath(registrationStoreOptions.Path) : Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, registrationStoreOptions.Path));
+    var webRoot = Path.GetFullPath(builder.Environment.WebRootPath ?? Path.Combine(builder.Environment.ContentRootPath, "wwwroot"));
     var relativeToWebRoot = Path.GetRelativePath(webRoot, storePath);
-    if (relativeToWebRoot == "." ||
-        (!relativeToWebRoot.StartsWith($"..{Path.DirectorySeparatorChar}", StringComparison.Ordinal) &&
-         !string.Equals(relativeToWebRoot, "..", StringComparison.Ordinal) &&
-         !Path.IsPathRooted(relativeToWebRoot)))
-    {
+    if (relativeToWebRoot == "." || (!relativeToWebRoot.StartsWith($"..{Path.DirectorySeparatorChar}", StringComparison.Ordinal) && !string.Equals(relativeToWebRoot, "..", StringComparison.Ordinal) && !Path.IsPathRooted(relativeToWebRoot)))
         throw new InvalidOperationException("RegistrationStore:Path must be outside wwwroot.");
-    }
-
     return storePath;
 }
 
@@ -102,101 +62,43 @@ builder.Services.AddSingleton<IServerRegistrationRepository>(provider =>
 {
     if (haStateOptions.UseSharedRegistrations)
     {
-        var shared = new SharedServerRegistrationRepository(
-            provider.GetRequiredService<ISharedStateDocumentStore>());
+        var shared = new SharedServerRegistrationRepository(provider.GetRequiredService<ISharedStateDocumentStore>());
         if (haStateOptions.ImportLocalRegistrationsWhenSharedEmpty)
         {
             var legacyPath = ResolveRegistrationStorePath();
-            if (File.Exists(legacyPath))
-            {
-                shared.ImportIfEmpty(new FileServerRegistrationRepository(legacyPath).GetAll());
-            }
+            if (File.Exists(legacyPath)) shared.ImportIfEmpty(new FileServerRegistrationRepository(legacyPath).GetAll());
         }
-
         return shared;
     }
-
-    if (registrationStoreOptions.Mode == RegistrationStoreMode.InMemory)
-    {
-        return new InMemoryServerRegistrationRepository();
-    }
-
-    return new FileServerRegistrationRepository(ResolveRegistrationStorePath());
+    return registrationStoreOptions.Mode == RegistrationStoreMode.InMemory ? new InMemoryServerRegistrationRepository() : new FileServerRegistrationRepository(ResolveRegistrationStorePath());
 });
 
-var operationalStoreOptions = builder.Configuration
-    .GetSection(OperationalStoreOptions.SectionName)
-    .Get<OperationalStoreOptions>() ?? new OperationalStoreOptions();
+var operationalStoreOptions = builder.Configuration.GetSection(OperationalStoreOptions.SectionName).Get<OperationalStoreOptions>() ?? new();
 operationalStoreOptions.Validate();
 builder.Services.AddSingleton(operationalStoreOptions);
-var operationalRoot = !haStateOptions.UseSharedOperationalState &&
-                      operationalStoreOptions.Mode == OperationalStoreMode.File
-    ? OperationalStorePath.ResolveOutsideWebRoot(
-        operationalStoreOptions.RootPath,
-        builder.Environment.ContentRootPath,
-        builder.Environment.WebRootPath)
+var operationalRoot = !haStateOptions.UseSharedOperationalState && operationalStoreOptions.Mode == OperationalStoreMode.File
+    ? OperationalStorePath.ResolveOutsideWebRoot(operationalStoreOptions.RootPath, builder.Environment.ContentRootPath, builder.Environment.WebRootPath)
     : null;
 
-builder.Services.AddSingleton<IAuditStore>(provider =>
-{
-    if (haStateOptions.UseSharedOperationalState)
-    {
-        return new SharedAuditStore(
-            provider.GetRequiredService<ISharedStateDocumentStore>(),
-            provider.GetRequiredService<TimeProvider>());
-    }
-
-    return operationalRoot is null
-        ? new InMemoryAuditStore(provider.GetRequiredService<TimeProvider>())
-        : new FileAuditStore(
-            Path.Combine(operationalRoot, "audit.json"),
-            provider.GetRequiredService<TimeProvider>());
-});
-builder.Services.AddSingleton<IHealthIncidentRepository>(provider =>
-{
-    if (haStateOptions.UseSharedOperationalState)
-    {
-        return new SharedHealthIncidentRepository(
-            provider.GetRequiredService<ISharedStateDocumentStore>());
-    }
-
-    return operationalRoot is null
-        ? new InMemoryHealthIncidentRepository()
-        : new FileHealthIncidentRepository(Path.Combine(operationalRoot, "incidents.json"));
-});
-builder.Services.AddSingleton<ISnapshotHistoryStore>(provider =>
-{
-    if (haStateOptions.UseSharedOperationalState)
-    {
-        return new SharedSnapshotHistoryStore(
-            provider.GetRequiredService<ISharedStateDocumentStore>(),
-            provider.GetRequiredService<TimeProvider>());
-    }
-
-    return operationalRoot is null
-        ? new InMemorySnapshotHistoryStore(provider.GetRequiredService<TimeProvider>())
-        : new FileSnapshotHistoryStore(
-            Path.Combine(operationalRoot, "history.json"),
-            provider.GetRequiredService<TimeProvider>());
-});
+builder.Services.AddSingleton<IAuditStore>(provider => haStateOptions.UseSharedOperationalState
+    ? new SharedAuditStore(provider.GetRequiredService<ISharedStateDocumentStore>(), provider.GetRequiredService<TimeProvider>())
+    : operationalRoot is null ? new InMemoryAuditStore(provider.GetRequiredService<TimeProvider>()) : new FileAuditStore(Path.Combine(operationalRoot, "audit.json"), provider.GetRequiredService<TimeProvider>()));
+builder.Services.AddSingleton<IHealthIncidentRepository>(provider => haStateOptions.UseSharedOperationalState
+    ? new SharedHealthIncidentRepository(provider.GetRequiredService<ISharedStateDocumentStore>())
+    : operationalRoot is null ? new InMemoryHealthIncidentRepository() : new FileHealthIncidentRepository(Path.Combine(operationalRoot, "incidents.json")));
+builder.Services.AddSingleton<ISnapshotHistoryStore>(provider => haStateOptions.UseSharedOperationalState
+    ? new SharedSnapshotHistoryStore(provider.GetRequiredService<ISharedStateDocumentStore>(), provider.GetRequiredService<TimeProvider>())
+    : operationalRoot is null ? new InMemorySnapshotHistoryStore(provider.GetRequiredService<TimeProvider>()) : new FileSnapshotHistoryStore(Path.Combine(operationalRoot, "history.json"), provider.GetRequiredService<TimeProvider>()));
 
 var secretStoreOptions = builder.Configuration.GetSection(SecretStoreOptions.SectionName).Get<SecretStoreOptions>() ?? new();
-var secretFilePath = OperationalStorePath.ResolveOutsideWebRoot(
-    secretStoreOptions.Path, builder.Environment.ContentRootPath, builder.Environment.WebRootPath);
-var keyRingPath = OperationalStorePath.ResolveOutsideWebRoot(
-    secretStoreOptions.KeyRingPath, builder.Environment.ContentRootPath, builder.Environment.WebRootPath);
+var secretFilePath = OperationalStorePath.ResolveOutsideWebRoot(secretStoreOptions.Path, builder.Environment.ContentRootPath, builder.Environment.WebRootPath);
+var keyRingPath = OperationalStorePath.ResolveOutsideWebRoot(secretStoreOptions.KeyRingPath, builder.Environment.ContentRootPath, builder.Environment.WebRootPath);
 var dataProtection = builder.Services.AddDataProtection().SetApplicationName("Monitor.SqlSecrets.v1");
 if (keyStoreOptions.Mode == DataProtectionKeyStoreMode.SharedState)
 {
     var kek = Environment.GetEnvironmentVariable(keyStoreOptions.KeyEncryptionKeyEnvironmentVariable);
-    if (string.IsNullOrWhiteSpace(kek))
-    {
-        throw new InvalidOperationException("Shared Data Protection key encryption key is unavailable.");
-    }
-
-    var sharedKeyRepository = new SharedEncryptedDataProtectionXmlRepository(
-        new SqlServerSharedStateDocumentStore(sharedStateOptions),
-        kek);
+    if (string.IsNullOrWhiteSpace(kek)) throw new InvalidOperationException("Shared Data Protection key encryption key is unavailable.");
+    var sharedKeyRepository = new SharedEncryptedDataProtectionXmlRepository(new SqlServerSharedStateDocumentStore(sharedStateOptions), kek);
     dataProtection.AddKeyManagementOptions(options => options.XmlRepository = sharedKeyRepository);
 }
 else
@@ -207,12 +109,7 @@ else
 
 builder.Services.AddSingleton(secretStoreOptions);
 builder.Services.AddSingleton<IExternalConnectionSecretProvider, EnvironmentConnectionSecretProvider>();
-builder.Services.AddSingleton<IConnectionSecretStore>(provider => new ProtectedFileConnectionSecretStore(
-    secretFilePath,
-    provider.GetRequiredService<IDataProtectionProvider>(),
-    provider.GetRequiredService<IConfiguration>(),
-    provider.GetServices<IExternalConnectionSecretProvider>(),
-    credentialPolicy));
+builder.Services.AddSingleton<IConnectionSecretStore>(provider => new ProtectedFileConnectionSecretStore(secretFilePath, provider.GetRequiredService<IDataProtectionProvider>(), provider.GetRequiredService<IConfiguration>(), provider.GetServices<IExternalConnectionSecretProvider>(), credentialPolicy));
 builder.Services.AddSingleton<IRuntimeCredentialWriter>(provider => (IRuntimeCredentialWriter)provider.GetRequiredService<IConnectionSecretStore>());
 builder.Services.AddSingleton<ISqlConnectionProbe, SqlConnectionProbe>();
 builder.Services.AddSingleton<IServerConnectionTester, ServerConnectionTester>();
@@ -234,38 +131,33 @@ var scheduleOptions = builder.Configuration.GetSection(SnapshotScheduleOptions.S
 scheduleOptions.Validate();
 builder.Services.AddSingleton(scheduleOptions);
 builder.Services.AddSingleton<ICollectionBackoffPolicy, CollectionBackoffPolicy>();
-builder.Services.AddSingleton<ISchedulerStatusStore>(provider =>
-    haStateOptions.UseSharedOperationalState
-        ? new SharedSchedulerStatusStore(provider.GetRequiredService<ISharedStateDocumentStore>())
-        : new SchedulerStatusStore());
+builder.Services.AddSingleton<ISchedulerStatusStore>(provider => haStateOptions.UseSharedOperationalState ? new SharedSchedulerStatusStore(provider.GetRequiredService<ISharedStateDocumentStore>()) : new SchedulerStatusStore());
 builder.Services.AddHostedService<SnapshotSchedulerService>();
 builder.Services.AddSingleton<IMonitorReadService, MonitorReadService>();
 builder.Services.AddSingleton<ISnapshotRefreshService, SnapshotRefreshService>();
 
-var deploymentReadiness = DeploymentReadinessEvaluator.Evaluate(
-    deploymentTopologyOptions,
-    sharedStateOptions,
-    haStateOptions,
-    coordinationOptions);
-if (deploymentTopologyOptions.Mode == DeploymentTopology.MultiNode && !deploymentReadiness.Ready)
-{
-    throw new InvalidOperationException(deploymentReadiness.Message);
-}
+var backupOptions = builder.Configuration.GetSection(BackupStoreOptions.SectionName).Get<BackupStoreOptions>() ?? new();
+backupOptions.Validate();
+var backupRoot = OperationalStorePath.ResolveOutsideWebRoot(backupOptions.RootPath, builder.Environment.ContentRootPath, builder.Environment.WebRootPath);
+builder.Services.AddSingleton(backupOptions);
+builder.Services.AddSingleton<IOperationalRestoreWriter>(provider => new OperationalRestoreWriter(registrationStoreOptions, operationalStoreOptions, haStateOptions, provider.GetRequiredService<ISharedStateDocumentStore>(), provider.GetRequiredService<IServerRegistrationRepository>(), builder.Environment.ContentRootPath, builder.Environment.WebRootPath));
+builder.Services.AddSingleton<IOperationalBackupService>(provider => new OperationalBackupService(provider.GetRequiredService<IServerRegistrationRepository>(), provider.GetRequiredService<IHealthIncidentRepository>(), provider.GetRequiredService<ISnapshotHistoryStore>(), provider.GetRequiredService<IAuditStore>(), provider.GetRequiredService<IOperationalRestoreWriter>(), backupOptions, backupRoot, provider.GetRequiredService<TimeProvider>()));
+
+var deploymentReadiness = DeploymentReadinessEvaluator.Evaluate(deploymentTopologyOptions, sharedStateOptions, haStateOptions, coordinationOptions);
+if (deploymentTopologyOptions.Mode == DeploymentTopology.MultiNode && !deploymentReadiness.Ready) throw new InvalidOperationException(deploymentReadiness.Message);
 builder.Services.AddSingleton(deploymentReadiness);
 
-builder.Services
-    .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-    .AddCookie(options =>
-    {
-        options.LoginPath = "/login";
-        options.AccessDeniedPath = "/login";
-        options.Cookie.Name = "Monitor.Auth";
-        options.Cookie.HttpOnly = true;
-        options.Cookie.SameSite = SameSiteMode.Strict;
-        options.Cookie.SecurePolicy = builder.Environment.IsDevelopment() ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.Always;
-        options.SlidingExpiration = true;
-        options.ExpireTimeSpan = TimeSpan.FromHours(8);
-    });
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme).AddCookie(options =>
+{
+    options.LoginPath = "/login";
+    options.AccessDeniedPath = "/login";
+    options.Cookie.Name = "Monitor.Auth";
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SameSite = SameSiteMode.Strict;
+    options.Cookie.SecurePolicy = builder.Environment.IsDevelopment() ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.Always;
+    options.SlidingExpiration = true;
+    options.ExpireTimeSpan = TimeSpan.FromHours(8);
+});
 
 builder.Services.AddAuthorization(options =>
 {
@@ -276,30 +168,12 @@ builder.Services.AddAuthorization(options =>
 });
 
 var app = builder.Build();
+var configuredRegistration = ConfiguredServerRegistrationLoader.Load(app.Configuration, app.Services.GetRequiredService<TimeProvider>());
+if (configuredRegistration is not null) app.Services.GetRequiredService<IServerRegistrationRepository>().Upsert(configuredRegistration);
+if (deploymentTopologyOptions.Mode == DeploymentTopology.MultiNode && !app.Services.GetRequiredService<ICredentialReadinessService>().Get().MultiNodeCredentialReady)
+    throw new InvalidOperationException("Multi-node startup is blocked by credential/key-management readiness.");
 
-var configuredRegistration = ConfiguredServerRegistrationLoader.Load(
-    app.Configuration,
-    app.Services.GetRequiredService<TimeProvider>());
-if (configuredRegistration is not null)
-{
-    app.Services.GetRequiredService<IServerRegistrationRepository>().Upsert(configuredRegistration);
-}
-
-if (deploymentTopologyOptions.Mode == DeploymentTopology.MultiNode)
-{
-    var credentialReadiness = app.Services.GetRequiredService<ICredentialReadinessService>().Get();
-    if (!credentialReadiness.MultiNodeCredentialReady)
-    {
-        throw new InvalidOperationException("Multi-node startup is blocked by credential/key-management readiness.");
-    }
-}
-
-if (!app.Environment.IsDevelopment())
-{
-    app.UseExceptionHandler("/login");
-    app.UseHsts();
-}
-
+if (!app.Environment.IsDevelopment()) { app.UseExceptionHandler("/login"); app.UseHsts(); }
 app.UseHttpsRedirection();
 app.Use(async (context, next) =>
 {
@@ -313,9 +187,5 @@ app.UseStaticFiles();
 app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
-
-app.MapControllerRoute(
-    name: "default",
-    pattern: "{controller=Account}/{action=Login}/{id?}");
-
+app.MapControllerRoute(name: "default", pattern: "{controller=Account}/{action=Login}/{id?}");
 app.Run();
