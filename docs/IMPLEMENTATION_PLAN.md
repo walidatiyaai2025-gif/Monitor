@@ -56,13 +56,13 @@ This is the canonical execution plan. Update it in the same PR as material imple
 | Batch 5 | B100-041..050 | Performance & scale governance | CI VERIFIED — 31399632281 |
 | Batch 6 | B100-051..060 | DBA UX & operations surfaces | CI VERIFIED — 31402491011 |
 | Batch 7 | B100-061..070 | Web/application security hardening | CI VERIFIED — 31439153733 |
-| Batch 8 | B100-071..080 | Reliability & concurrency verification | NEXT |
-| Batch 9 | B100-081..090 | Deployment & operations tooling/docs | PLANNED |
+| Batch 8 | B100-071..080 | Reliability & concurrency verification | CI VERIFIED — 31439886994 |
+| Batch 9 | B100-081..090 | Deployment & operations tooling/docs | NEXT |
 | Batch 10 | B100-091..100 | Enterprise operator features & RC acceptance | PLANNED |
 
-Current progress: **70/100 tasks CI verified**. Batch 7 merge-result validation on PR #69 completed with a Release build at **0 warnings / 0 errors** and **199/199 tests passed**. The final canonical-docs head must remain Green before merge.
+Current progress: **80/100 tasks CI verified**. Batch 8 branch validation completed with a Release build at **0 warnings / 0 errors** and **209/209 tests passed**. The new acceptance harness verifies shared-state write failure/recovery, lease expiry/re-election, dedicated state-provider outage/recovery, restart-safe migration retry, concurrent incident/audit/history/registration behavior, distributed refresh single-flight and a deterministic three-node soak simulation.
 
-The next executable batch after Batch 7 is merged is **B100-071..080 — reliability & concurrency verification**.
+The next executable batch after Batch 8 is merged is **B100-081..090 — deployment & operations documentation/tooling**.
 
 ## Delivery loop
 
