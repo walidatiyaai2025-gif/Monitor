@@ -150,7 +150,7 @@ internal sealed class SqlClientConnectionProbe : ISqlConnectionProbe
         message.Contains("TLS", StringComparison.OrdinalIgnoreCase);
 }
 
-public sealed class SqlConnectionTester(
+internal sealed class SqlConnectionTester(
     IServerRegistrationRepository registrations,
     IConnectionProfileFactory profileFactory,
     ISqlConnectionProbe probe) : ISqlConnectionTester
