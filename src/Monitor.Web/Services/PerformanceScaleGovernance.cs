@@ -23,7 +23,7 @@ public sealed class PerformanceScaleOptions
         if (AuditMaxPageSize is < 10 or > 100) throw new InvalidOperationException("PerformanceScale:AuditMaxPageSize must be between 10 and 100.");
         if (IncidentMaxPageSize is < 10 or > 100) throw new InvalidOperationException("PerformanceScale:IncidentMaxPageSize must be between 10 and 100.");
         if (ServerDefaultPageSize is < 10 or > 100) throw new InvalidOperationException("PerformanceScale:ServerDefaultPageSize must be between 10 and 100.");
-        if (ServerMaxPageSize is < ServerDefaultPageSize or > 250) throw new InvalidOperationException("PerformanceScale:ServerMaxPageSize must be at least the default and no more than 250.");
+        if (ServerMaxPageSize < ServerDefaultPageSize || ServerMaxPageSize > 250) throw new InvalidOperationException("PerformanceScale:ServerMaxPageSize must be at least the default and no more than 250.");
         if (ManualRefreshMaxConcurrency is < 1 or > 16) throw new InvalidOperationException("PerformanceScale:ManualRefreshMaxConcurrency must be between 1 and 16.");
         if (SqlMaxPoolSize is < 1 or > 32) throw new InvalidOperationException("PerformanceScale:SqlMaxPoolSize must be between 1 and 32.");
         if (SqlPoolLifetimeSeconds is < 30 or > 3600) throw new InvalidOperationException("PerformanceScale:SqlPoolLifetimeSeconds must be between 30 and 3600 seconds.");
