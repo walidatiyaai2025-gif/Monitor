@@ -26,10 +26,10 @@ Login -> Connections -> Register -> Test -> Collect -> Observe -> real multi-ser
 - **M7-001 — VERIFIED:** durable registration metadata outside `wwwroot`; opaque references only.
 - **M7-002 — VERIFIED:** fail-closed external secret-provider routing; `env:<alias>` reads direct process environment.
 - **M7-003 — VERIFIED:** durable independent audit/history/incident state with atomic candidate commit.
-- **M7-004 — CI VERIFIED:** explicit `SingleNode` topology guard; `MultiNode` startup rejected until shared state + distributed coordination exist. Post-protected-credential CI `31385935255`.
-- **M7-005..M7-016 — CI VERIFIED:** protected local SQL Login credential store, persisted Data Protection key ring, `local:v1` references, versioned encrypted envelope, reference-scoped protection, atomic ciphertext replacement, restart resolution, fail-closed key/ciphertext behavior, compatibility, validation and deletion. CI `31384727247`.
-- **M7-017 — PLANNED / Issue #52:** generic shared-state document capability plus first real dedicated Monitor SQL Server provider with optimistic compare/exchange. This does not enable MultiNode.
-- **M7-018 — PLANNED:** migrate required repositories/coordination and add distributed scheduler ownership/cross-node single-flight before MultiNode can be enabled.
+- **M7-004 — VERIFIED:** explicit `SingleNode` topology guard; `MultiNode` startup rejected until shared state + distributed coordination exist. CI `31385935255`.
+- **M7-005..M7-016 — VERIFIED:** protected local SQL Login credential persistence with Data Protection, persistent key ring, `local:v1` references and fail-closed tamper/key behavior. CI `31384727247`.
+- **M7-017 — CI VERIFIED:** generic shared-state versioned-document capability plus dedicated Monitor SQL Server provider. Environment-only connection material, schema v1 deployment script, bounded JSON payloads and transactional optimistic compare/exchange. CI `31386867949` — 120/120 tests.
+- **M7-018 — NEXT:** migrate required Monitor repositories to shared state and add distributed scheduler ownership/cross-node single-flight. Only M7-018 may make `MultiNode` eligible for enablement.
 
 ## M8 — Zero-SQL Reads & Operator Refresh — CI VERIFIED
-Monitoring GET/navigation surfaces are cache/Peek-only. Explicit Operator/Admin refresh remains POST + antiforgery; successful refresh observation occurs once. CI `31383991126` (91/91 tests).
+Monitoring GET/navigation surfaces are cache/Peek-only for monitored SQL. Explicit Operator/Admin refresh remains POST + antiforgery; successful refresh observation occurs once. CI `31383991126`.
