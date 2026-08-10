@@ -174,6 +174,15 @@ This is the canonical execution plan. Update it in the same PR as material imple
 | M6-049 | Failed Test/no-collection recovery journey test | VERIFIED — CI RUN 31378848889 |
 | M6-050 | Multi-server live/unavailable/no-demo acceptance test | VERIFIED — CI RUN 31378848889 |
 
+## M7 — Production Persistence & Deployment Readiness
+
+| Task | Description | State |
+|---|---|---|
+| M7-001 | Durable local server-registration metadata store with atomic writes and corruption fail-closed behavior | VERIFIED — CI RUN 31380699808 |
+| M7-002 | Enterprise secret-provider integration behind the existing secret-store boundary | PLANNED |
+| M7-003 | Durable Monitor-owned audit/history/incident operational store | PLANNED |
+| M7-004 | Shared-state / HA deployment strategy and implementation slice | PLANNED |
+
 ## Delivery loop
 
 Plan -> Design -> Implement -> Show -> Connect Real Data -> Verify -> Commit -> Push -> Update Plan.
