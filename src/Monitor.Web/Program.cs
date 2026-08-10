@@ -4,10 +4,13 @@ using Monitor.Web.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllersWithViews();
+builder.Services.AddDataProtection();
 builder.Services.Configure<AdminCredentialOptions>(
     builder.Configuration.GetSection(AdminCredentialOptions.SectionName));
 builder.Services.AddSingleton<IAdminCredentialVerifier, AdminCredentialVerifier>();
 builder.Services.AddSingleton<IDemoMonitorService, DemoMonitorService>();
+builder.Services.AddSingleton<IConnectionSecretProtector, DataProtectionConnectionSecretProtector>();
+builder.Services.AddSingleton<IServerRegistrationService, ServerRegistrationService>();
 
 builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
