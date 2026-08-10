@@ -45,7 +45,7 @@
             @if (User.IsInRole(Monitor.Web.Services.MonitorRoles.Administrator))
             {
                 <span class="nav-section">ADMINISTRATION</span>
-                <a class="@Active("/observability")" asp-controller="Health" asp-action="Observability"><span class="nav-icon" aria-hidden="true">◎</span>Observability</a>
+                <a class="@Active("/observability")" asp-controller="Observability" asp-action="Index"><span class="nav-icon" aria-hidden="true">◎</span>Observability</a>
             }
         </nav>
 
