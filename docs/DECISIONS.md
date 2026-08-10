@@ -27,3 +27,7 @@ Future AI integration will receive normalized evidence and propose explanations/
 ## ADR-007 — Registration metadata is separate from connection secrets
 
 Server registrations may contain endpoint and authentication-mode metadata, but never passwords or full connection strings. Secret values are resolved through a backend-only boundary from external secret configuration. Registration JSON omits even the opaque secret reference, and missing secrets fail closed.
+
+## ADR-008 — Test Connection is bounded and redacted
+
+Test Connection accepts a server registration ID only and runs exclusively in the authorized backend. It uses `Microsoft.Data.SqlClient`, explicit connection/overall timeouts, cancellation, no pooling, and fixed safe result messages. Raw provider exceptions, credentials and connection strings are never returned to the browser.
