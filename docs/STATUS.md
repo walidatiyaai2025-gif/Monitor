@@ -1,69 +1,47 @@
 # Project Status
 
-**Updated:** 2026-08-10 12:42 +03:00  
-**Branch:** `agent/m3-m5-ci-reconciliation-final`  
-**Target:** PR #28 CI reconciliation + next hardening slice  
-**Issue:** #30  
+**Updated:** 2026-08-10 12:49 +03:00  
+**Branch:** `agent/m5-008-operator-audit-trail`  
+**Target:** M5-008 — Operator audit trail  
+**Issue:** #32  
 **PR:** TBD  
-**Overall:** 🟢 M3 THROUGH M5-007 CI VERIFIED — M5-008 PLANNED
+**Overall:** 🟡 M5-008 IMPLEMENTED — CI PENDING
 
-## PR #28 — M3/M4/M5 batch — CI VERIFIED
+## M5-008 — Operator audit trail
 
-- Stable PR #28 completed 25 tracked tasks from M3-005 through M5-007.
-- Incident workflow now supports bounded queries, summaries, filters, details and administrator-only antiforgery-protected acknowledge/resolve/reopen transitions.
-- Deterministic recommendations are rule-owned, human-reviewed and have no SQL execution path.
-- The AI Advisor backend boundary is normalized and registered with a disabled-by-default provider; no external network/model call is enabled.
-- Snapshot history is bounded to allowlisted aggregate facts with 24-hour / 288-point retention, timestamp dedupe and per-server isolation.
-- Collection cycle and fixed-window trends exist, while background scheduling remains disabled and no hosted timer is registered.
-- CI run `31375034604`: SUCCESS — Release build 0 warnings / 0 errors; 54/54 tests passed; Razor views compiled in Release.
+- Added immutable `OperatorAuditEvent` and allowlisted `OperatorAuditAction` contracts.
+- Added a thread-safe in-memory append-only trail bounded to 1,000 events with newest-first reads.
+- Successful incident acknowledge/resolve/reopen transitions now record authenticated actor, UTC timestamp, action, incident resource ID and before/after state.
+- Missing operator identity fails closed; rejected or stale transitions create no success audit event.
+- Audit events intentionally have no incident evidence, credentials, SQL text, endpoints, provider errors, job commands or arbitrary request payload fields.
+- Transition authorization and antiforgery protections remain in the existing Administrator controller boundary.
+- Added Administrator-only `/audit` read view with governance summary, retention visibility and transition table.
+- The Audit Trail read path consumes only the in-memory audit repository; it does not call the snapshot cache, collector or monitored SQL Servers.
+- Navigation was reconciled so completed Backups/Jobs/Storage modules are no longer duplicated as coming-soon items.
+- Tests cover before/after audit sequence, authenticated actor, no event on missing actor/rejected transition, bounded retention/order and sensitive-field exclusion.
+- ADR-021 records the successful-transition audit boundary.
 
-## M3 — Incidents and Recommendations — VERIFIED THROUGH M3-016
+## Verified baseline
 
-- M3-001 through M3-004: CI `31373849952`.
-- M3-005 through M3-016: CI `31375034604`.
-- Operator transitions remain explicit commands and recommendations remain advisory-only.
-
-## M4 — AI Advisor Boundary — VERIFIED THROUGH M4-006
-
-- M4-001 through M4-006: CI `31375034604`.
-- Provider remains disabled by default.
-- No AI output can reach SQL execution, incident mutation or collector configuration.
-
-## M5 — History and Operational Hardening
-
-- M5-001 through M5-007: CI `31375034604`.
-- History/trend reads are bounded and read-only.
-- Scheduler policy is validated but disabled; no hosted background timer is active.
-- **Next:** M5-008 — immutable operator audit trail for protected incident transitions.
-
-## Earlier verified baseline
-
-- M2-003 through M2-007: CI `31372957383` — 38/38 tests, 0 build warnings/errors.
+- M3-005 through M3-016, M4-001 through M4-006 and M5-001 through M5-007: CI `31375034604` — 54/54 tests, 0 build warnings/errors.
 - M2-008 through M2-013 and M3-001 through M3-004: CI `31373849952` — 45/45 tests, 0 build warnings/errors.
+- M2-003 through M2-007: CI `31372957383` — 38/38 tests, 0 build warnings/errors.
 - M1 first real SQL vertical slice is verified; SignalR remains intentionally deferred by ADR-013.
-- SQL Connection Lab is merged into stable `main` and preserves the external-secret boundary.
 
 ## Stable architecture guardrails
 
 - Browser/UI components never connect directly to monitored SQL Servers.
 - Credentials remain outside browser models and repository registrations.
 - Snapshot cache is the shared read boundary for monitoring and incident evidence.
-- Stale/failed evidence cannot resolve incidents.
-- Recommendations and Advisor output are human-review only and cannot execute production SQL.
-- History excludes endpoints, credentials, SQL text, provider errors and other sensitive/raw payloads.
-- Mock/development values are never presented as production facts.
-
-## Verification evidence
-
-- PR #20 CI `31372957383`: 38 passed; 0 failed; Release build 0 warnings / 0 errors.
-- PR #24 CI `31373849952`: 45 passed; 0 failed; Release build 0 warnings / 0 errors.
-- PR #28 CI `31375034604`: 54 passed; 0 failed; 0 skipped; Release build 0 warnings / 0 errors.
-- M0 visual acceptance: USER ACCEPTED on 2026-08-10.
+- Recommendations and Advisor output remain human-review only and cannot execute production SQL.
+- Audit records are bounded governance metadata, not copies of incident evidence or request payloads.
+- Audit reads cannot trigger collection or mutate incident state.
+- Background scheduling and the external Advisor provider remain disabled by default.
 
 ## Merge gate
 
-This reconciliation is documentation-only. Run GitHub Actions on the final docs head, confirm the branch remains clean against `main`, then merge.
+Open the M5-008 PR and require GitHub Actions restore, Release build with warnings-as-errors, Razor compilation and all tests to pass. Reconcile against any newer `main` change before merge.
 
 ## Next action
 
-Begin M5-008 after reconciliation: create an immutable bounded audit trail for successful protected incident state transitions, capturing authenticated operator identity and before/after state without storing credentials, SQL text, provider errors or unrestricted evidence.
+Run CI on M5-008, fix any DI/Razor/test regression, record the receipt, then merge only when the branch is clean against stable `main`.
