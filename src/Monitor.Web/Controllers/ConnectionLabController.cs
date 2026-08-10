@@ -12,10 +12,12 @@ public sealed class ConnectionLabController(
     IRuntimeCredentialWriter credentialWriter,
     IServerHealthSnapshotCache cache,
     ISnapshotObserver observer,
-    ICredentialLifecycleService credentialLifecycle,
-    ICredentialReadinessService credentialReadiness,
-    CredentialPolicyOptions credentialPolicy) : Controller
+    ICredentialLifecycleService? credentialLifecycle = null,
+    ICredentialReadinessService? credentialReadiness = null,
+    CredentialPolicyOptions? credentialPolicy = null) : Controller
 {
+    private bool AllowsLocalCredentialEntry => credentialPolicy?.AllowLocalOwnedCredentials ?? true;
+
     [HttpGet("/servers/connections")]
     public IActionResult Index() => View(BuildPage(new ConnectionLabRegistrationInput()));
 
@@ -139,6 +141,11 @@ public sealed class ConnectionLabController(
         CredentialReferenceReplacementInput input,
         CancellationToken cancellationToken)
     {
+        if (credentialLifecycle is null)
+        {
+            return NotFound();
+        }
+
         var actor = User.Identity?.Name?.Trim();
         if (string.IsNullOrWhiteSpace(actor))
         {
@@ -164,6 +171,11 @@ public sealed class ConnectionLabController(
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CleanupOwnedCredentials(CancellationToken cancellationToken)
     {
+        if (credentialLifecycle is null)
+        {
+            return NotFound();
+        }
+
         var actor = User.Identity?.Name?.Trim();
         if (string.IsNullOrWhiteSpace(actor))
         {
@@ -187,8 +199,8 @@ public sealed class ConnectionLabController(
         TestResult = result,
         TestedRegistrationId = testedId,
         JourneyStep = registrations.GetAll().Count == 0 ? 1 : result?.Succeeded == true ? 3 : 2,
-        AllowsLocalCredentialEntry = credentialPolicy.AllowLocalOwnedCredentials,
-        CredentialReadiness = credentialReadiness.Get()
+        AllowsLocalCredentialEntry = AllowsLocalCredentialEntry,
+        CredentialReadiness = credentialReadiness?.Get()
     };
 
     private bool IsDuplicate(SqlServerEndpoint endpoint) => registrations.GetAll().Any(item =>
@@ -212,11 +224,11 @@ public sealed class ConnectionLabController(
             target,
             registration.AuthenticationMode,
             registration.SecretReference is not null,
-            localOwned,
             registration.IsEnabled,
             endpoint.Encrypt,
             endpoint.TrustServerCertificate,
-            registration.CreatedAtUtc);
+            registration.CreatedAtUtc,
+            localOwned);
     }
 
     private void ValidateInput(ConnectionLabRegistrationInput input)
@@ -234,7 +246,7 @@ public sealed class ConnectionLabController(
         if (input.AuthenticationMode == SqlAuthenticationMode.SqlLogin)
         {
             var suppliedLocalCredential = !string.IsNullOrWhiteSpace(input.SqlUsername) || !string.IsNullOrEmpty(input.SqlPassword);
-            if (!credentialPolicy.AllowLocalOwnedCredentials && suppliedLocalCredential)
+            if (!AllowsLocalCredentialEntry && suppliedLocalCredential)
             {
                 ModelState.AddModelError(nameof(input.SqlUsername), "Local SQL credential entry is disabled. Provide an external secret reference.");
             }
