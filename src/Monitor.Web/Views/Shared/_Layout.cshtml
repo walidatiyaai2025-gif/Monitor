@@ -14,6 +14,7 @@
     <link rel="stylesheet" href="~/css/ui003.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/ui004.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/connection-lab.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/audit-trail.css" asp-append-version="true" />
 </head>
 <body class="app-body">
     <div class="ambient-grid"></div>
@@ -35,15 +36,15 @@
             <a class="@Active("/blocking")" asp-controller="Operations" asp-action="Blocking"><span class="nav-icon">⇄</span>Blocking</a>
             <a class="@Active("/alerts")" asp-controller="Operations" asp-action="Alerts"><span class="nav-icon">△</span>Alerts & Incidents</a>
 
+            <span class="nav-section">GOVERNANCE</span>
+            <a class="@Active("/audit")" asp-controller="Operations" asp-action="AuditTrail"><span class="nav-icon">◎</span>Audit Trail</a>
+
             <span class="nav-section">COMING SOON</span>
-            <a class="nav-link muted" href="#"><span class="nav-icon">↺</span>Backups <em>soon</em></a>
-            <a class="nav-link muted" href="#"><span class="nav-icon">✓</span>Jobs <em>soon</em></a>
-            <a class="nav-link muted" href="#"><span class="nav-icon">▤</span>Storage <em>soon</em></a>
-            <a class="nav-link muted" href="#"><span class="nav-icon">⌘</span>AI Advisor <em>soon</em></a>
+            <a class="nav-link muted" href="#"><span class="nav-icon">⌘</span>AI Advisor Provider <em>soon</em></a>
         </nav>
 
         <div class="sidebar-footer">
-            <div class="environment-badge"><span></span> DEVELOPMENT DATA</div>
+            <div class="environment-badge"><span></span> SNAPSHOT FIRST</div>
             <a class="@Active("/settings")" asp-controller="Operations" asp-action="Settings"><span class="nav-icon">⚙</span>Settings</a>
         </div>
     </aside>
