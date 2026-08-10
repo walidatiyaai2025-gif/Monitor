@@ -1,52 +1,46 @@
 # Project Status
 
-**Updated:** 2026-08-10 12:58 +03:00  
-**Branch:** `agent/m6-real-server-journey-50-task-batch`  
-**Target:** 50 tasks — `M6-001` through `M6-050`  
-**Issue:** #35  
-**PR:** TBD  
-**Overall:** 🟡 50-TASK REAL SQL SERVER USER JOURNEY — LOCAL VERIFIED
+**Updated:** 2026-08-10 13:40 +03:00  
+**Branch:** `agent/m5-026-transition-audit-enrichment-v2`  
+**Target:** M5-026 incident transition audit enrichment + M6 CI reconciliation  
+**Issue:** #37  
+**PR:** #40  
+**Overall:** 🟢 M0–M6 CI VERIFIED THROUGH M6-050
 
-## M6-001 through M6-050 — Real server user journey
+## M5-026 — Incident transition audit enrichment — CI VERIFIED
 
-- Empty-estate login routes directly to Connections.
-- Administrator can enter Integrated Security, runtime SQL Login credentials, or an external secret reference.
-- Save performs Test Connection, then exactly one first snapshot collection and observation.
-- Successful commissioning redirects to the real Servers estate.
-- Every real registration is shown; collection failure remains `RegisteredUnavailable` and never becomes demo.
-- Dashboard reads real cache-backed servers, database totals and incidents.
-- Runtime passwords are never echoed, serialized into registrations or retained after process restart.
-- Release build succeeds with warnings-as-errors; 62 tests pass locally.
+- Reuses the canonical `IAuditStore`; no parallel audit repository or event contract was introduced.
+- Keeps the existing `IIncidentWorkflowService` boolean API unchanged.
+- The authorized incident controller observes the canonical `IHealthIncidentRepository` immediately before and after the existing atomic transition.
+- Successful transitions record bounded `PreviousState->NewState` metadata when repository evidence is available.
+- Rejected transitions record `rejected:current=...` or `rejected:not-found` when repository evidence is available.
+- If repository evidence is unavailable, audit metadata falls back to the pre-existing `applied` / `conflict` outcomes.
+- Missing authenticated actor identity fails closed before any incident mutation and does not create an audit event.
+- Audit action taxonomy remains `incident.transition`.
+- No incident evidence, SQL text, credentials, endpoint, provider error, job command or arbitrary request payload enters audit metadata.
+- PR #40 CI run `31379998409`: SUCCESS — Release build 0 warnings / 0 errors; 66/66 tests passed; Razor compiled in Release.
 
-## PR #33 — Scheduler / security / advisor hardening — CI VERIFIED
+## M6-001 through M6-050 — Real SQL server user journey — CI VERIFIED
 
-- Stable PR #33 completed M4-007 through M4-013 and M5-008 through M5-025.
-- Advisor requests are explicit authorized POST operations with antiforgery protection, per-incident single-flight, evidence-version cache, bounded timeout, circuit breaker and redacted audit metadata.
-- Hosted scheduled collection is implemented but remains disabled by default; when enabled it uses one no-overlap loop, bounded parallelism, per-server failure isolation and capped exponential backoff.
-- The canonical audit system is a bounded append-only `IAuditStore` with a 1,000-event in-memory implementation and Administrator read UI.
-- Viewer, Operator and Administrator roles/policies are established; web security adds strict cookie settings, CSP/frame/nosniff/referrer headers and partitioned login limiting.
-- CI run `31376448363`: SUCCESS — Release build 0 warnings / 0 errors; 59/59 tests passed; Razor views compiled in Release.
+- Empty-estate login routes administrators to Connections.
+- Register → Test Connection → first cached snapshot → observer → real Servers estate is implemented as one deliberate backend journey.
+- Integrated Security, process-memory SQL Login credentials and external secret references remain behind the backend secret boundary.
+- Failed Test Connection prevents first collection.
+- Real registrations remain visible when snapshots are unavailable; demo cards are excluded once a real estate exists.
+- Dashboard and health pages use real cache-backed projections.
+- PR #39 CI run `31378848889`: SUCCESS — Release build 0 warnings / 0 errors; 62/62 tests passed; Razor compiled in Release.
 
-## M4 — Advisor hardening
+## Earlier verified milestones
 
-- M4-001 through M4-006: CI `31375034604`.
-- M4-007 through M4-013: CI `31376448363`.
-- External provider behavior remains configuration-controlled and advisory-only; no provider output can execute SQL or mutate monitored systems.
-
-## M5 — History and Operational Hardening
-
+- M0 visual foundation: USER ACCEPTED on 2026-08-10.
+- M1 first real SQL vertical slice: CI verified through M1-007.
+- M2 health modules: CI verified through M2-013.
+- M3 incidents/recommendations: CI verified through M3-016.
+- M4 Advisor boundary/hardening: CI verified through M4-013.
 - M5-001 through M5-007: CI `31375034604`.
 - M5-008 through M5-025: CI `31376448363`.
-- Scheduled collection stays disabled unless explicitly enabled by validated configuration.
-- Audit, RBAC, browser-security and login-throttling foundations are now part of stable `main`.
-- **Next:** M5-026 — enrich incident-transition audit using the existing `IAuditStore`, authenticated actor identity and bounded before/after state metadata.
-
-## Identified M5-026 gap
-
-- Current transition audit records action/target plus a generic `applied` or `conflict` outcome.
-- The controller currently falls back to actor `unknown` when the principal name is absent.
-- The next slice should fail closed when authenticated actor identity is unavailable and should record successful transitions with bounded `PreviousState -> NewState` context using the existing audit store, not a parallel repository.
-- No incident evidence, SQL text, credentials, endpoints, provider errors, job commands or arbitrary request payloads should enter the audit record.
+- M5-026: CI `31379998409`.
+- M6-001 through M6-050: CI `31378848889`.
 
 ## Stable architecture guardrails
 
@@ -55,18 +49,13 @@
 - Recommendations and Advisor output remain human-review only and cannot execute production SQL.
 - Audit records contain bounded operational metadata, not unrestricted evidence or secrets.
 - Role policies separate read, operator, connection-management and advisor-request capabilities.
-- Scheduler and external/provider activity remain disabled unless explicitly configured.
-
-## Verification evidence
-
-- PR #28 CI `31375034604`: 54 passed; 0 failed; Release build 0 warnings / 0 errors.
-- PR #33 CI `31376448363`: 59 passed; 0 failed; 0 skipped; Release build 0 warnings / 0 errors.
-- M0 visual acceptance: USER ACCEPTED on 2026-08-10.
+- Scheduled collection remains disabled unless explicitly enabled by validated configuration.
+- Runtime SQL Login credentials are process-memory only in the preview path; production can use external secret references.
 
 ## Merge gate
 
-This reconciliation is documentation-only. Run GitHub Actions on the final docs head, confirm the branch remains clean against `main`, then merge.
+Run GitHub Actions on the final documentation head. If restore, Release build with warnings-as-errors, Razor compilation and all tests remain Green and `main` has not introduced an overlapping change, merge PR #40. PR #38 is superseded by the clean v2 implementation and should be closed after #40 is merged.
 
 ## Next action
 
-After reconciliation, implement M5-026 as a focused hardening change on top of the canonical `IAuditStore`/RBAC architecture; do not create a second audit store.
+After M5-026 is merged, review the post-M6 roadmap and select the first remaining operational hardening or production-readiness gap from the canonical plan rather than creating a parallel feature path.
