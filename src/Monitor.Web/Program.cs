@@ -19,6 +19,17 @@ deploymentTopologyOptions.Validate();
 builder.Services.AddSingleton(deploymentTopologyOptions);
 builder.Services.AddSingleton(deploymentTopologyOptions.ToReadiness());
 
+var sharedStateOptions = builder.Configuration
+    .GetSection(SharedStateOptions.SectionName)
+    .Get<SharedStateOptions>() ?? new SharedStateOptions();
+sharedStateOptions.Validate();
+builder.Services.AddSingleton(sharedStateOptions);
+builder.Services.AddSingleton<ISharedStateDocumentStore>(_ =>
+    sharedStateOptions.Provider == SharedStateProviderKind.SqlServer
+        ? new SqlServerSharedStateDocumentStore(sharedStateOptions)
+        : new DisabledSharedStateDocumentStore());
+builder.Services.AddSingleton<ISharedStateReadinessService, SharedStateReadinessService>();
+
 var registrationStoreOptions = builder.Configuration
     .GetSection(RegistrationStoreOptions.SectionName)
     .Get<RegistrationStoreOptions>() ?? new RegistrationStoreOptions();

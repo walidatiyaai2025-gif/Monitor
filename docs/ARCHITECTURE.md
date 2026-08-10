@@ -1,6 +1,6 @@
 # Architecture
 
-## Core monitored-SQL flow
+## Monitored SQL data plane
 
 ```text
 Monitored SQL Server
@@ -11,7 +11,7 @@ Central Collector
         v
 ServerHealthSnapshot
         |
-        +--> Cache / Monitoring Store
+        +--> Cache
         |
         v
 ASP.NET Core Backend
@@ -20,32 +20,47 @@ ASP.NET Core Backend
 Browser UI
 ```
 
-The browser never connects directly to monitored SQL Servers.
+Browser monitoring navigation is cache/Peek-only and never directly connects to or initiates collection from monitored SQL Servers. Collection is explicit backend work.
 
-## Zero-SQL read boundary
+## Monitor control-plane persistence
 
-M8 makes normal monitoring GETs cache/Peek-only. Dashboard, Servers, Server Details, health modules and incident navigation do not initiate monitored SQL collection. Collection remains an explicit backend action through manual refresh or the validated scheduler. SignalR, if introduced, remains downstream delivery only.
+Registration metadata, audit/history/incidents and protected local SQL credentials are Monitor-owned persistence. Local file implementations remain single-node.
 
-## Registration and connection secrets
+M7-017 adds a distinct optional shared-state control-plane path:
 
-Registration metadata persists behind `IServerRegistrationRepository` and contains endpoint/auth metadata plus opaque secret references, never plaintext credential values.
+```text
+Monitor ASP.NET Core
+        |
+        v
+ISharedStateDocumentStore
+        |
+        v
+SqlServerSharedStateDocumentStore
+        |
+        v
+Dedicated Monitor-owned SQL Server database
+```
 
-`IConnectionSecretStore` owns credential resolution. External `env:<alias>` references read process environment directly and never downgrade to configuration fallback when provider-owned resolution fails.
+This provider is never inferred from a monitored server registration. Its connection-string **value** is resolved only from a named process environment variable. App configuration contains provider type, environment-variable name and bounded command timeout only.
 
-M7-005..M7-016 replace process-only UI-entered SQL Login credentials with a protected local store. The server generates `local:v1` references; username/password payloads are protected using ASP.NET Data Protection with a reference-scoped purpose. Ciphertext is written atomically outside `wwwroot`, and the Data Protection key ring is persisted separately outside `wwwroot`. A lost/different key ring or tampered ciphertext fails closed. Registration JSON still contains only the opaque reference.
+## Shared-state document contract
 
-The protected local secret store and key ring are node-local and therefore are not an HA/shared credential solution.
+Documents have a bounded key, monotonically increasing version, validated JSON payload and update timestamp. Maximum key length is 128 characters; payloads are capped at 1 MiB UTF-8.
 
-## Durable Monitor-owned operational state
+`CompareExchangeAsync(key, expectedVersion, payload)` provides optimistic concurrency. The SQL Server backend executes with `SERIALIZABLE` isolation and `UPDLOCK, HOLDLOCK`. Creating a document requires expected version 0; updating requires the current version. Stale writers receive Conflict and the current document rather than overwriting newer state.
 
-Audit, snapshot history and incidents use independent versioned files under the Monitor operational-state root. Candidate state is durably committed before becoming live in process. Invalid/corrupt state fails closed. These stores preserve their existing bounded contracts and exclude SQL credentials/text/endpoints/provider errors/job commands/arbitrary payloads.
+The SQL batch captures the applied/conflict result inside the same locked transaction before commit, so the result does not depend on a post-commit re-read.
 
-## HA topology guard
+## Schema lifecycle and readiness
 
-M7-004 adds explicit `Deployment:Mode`. `SingleNode` is supported. `MultiNode` is recognized but startup rejects it until shared registration/operational state and distributed coordination exist.
+`scripts/sql/monitor_shared_state_v1.sql` owns schema deployment. Runtime code does not perform DDL. The script is idempotent for version 1 and refuses to replace a different schema version.
 
-Remaining node-local boundaries include registration/operational stores, protected local credential store + key ring, login-attempt limiting, snapshot cache/single-flight and scheduler ownership/backoff/status. A local file or network-share path is not treated as a distributed transaction/coordination primitive.
+The read-only Settings readiness path reports provider kind, readiness status and schema version only. Endpoint, connection string and raw provider failures are never rendered.
 
-## Next shared-state capability
+If the provider is Disabled, no shared-state SQL call occurs. If configured but missing/unavailable/mismatched, readiness is safely Not Ready.
 
-M7-017 introduces a generic `ISharedStateDocumentStore` capability and the first real provider backed by a **dedicated Monitor-owned SQL Server database**. It must not implicitly reuse a monitored target. Provider connection material remains outside appsettings/source control. M7-017 is storage capability only; MultiNode remains blocked until M7-018 migrates required repositories/coordination and adds distributed ownership/single-flight semantics.
+## HA boundary
+
+M7-017 is storage capability only. Existing registration/audit/history/incident repositories, protected-local-secret key ring, login limiter, snapshot cache/single-flight and scheduler ownership are not migrated by this task. `Deployment:MultiNode` therefore remains fail-closed.
+
+M7-018 must migrate the required repositories and add distributed scheduler ownership/cross-node single-flight before MultiNode can be considered safe.

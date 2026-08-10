@@ -4,7 +4,7 @@
 
 ## Current state
 
-M0 through M6 are CI verified. M7 production-readiness now includes durable registration metadata, external environment secret routing, durable audit/history/incidents, protected local SQL Login credentials, and an explicit fail-closed deployment-topology guard. M8 enforces zero-SQL monitoring GETs: normal browser navigation reads cached evidence only.
+M0 through M6 are CI verified. M7 production-readiness now includes durable registration metadata, fail-closed external secret routing, durable bounded operational state, protected local SQL Login credentials, a fail-closed SingleNode/MultiNode topology guard, and the first real shared-state storage capability. M8 enforces zero-SQL monitoring GETs for monitored targets.
 
 ## Run
 
@@ -17,9 +17,11 @@ dotnet run
 
 The development Admin password is represented only by a PBKDF2 salt/hash in source control.
 
-## Zero-SQL monitoring reads
+## Zero-SQL monitored-server reads
 
-Dashboard, Servers, Server Details, health modules and incident navigation consume cached snapshot state. Opening a page does **not** initiate monitored SQL collection. Collection remains an explicit backend action: Operator/Administrator manual refresh POST or the configured backend scheduler.
+Dashboard, Servers, Server Details, health modules and incident navigation consume cached snapshot state. Opening those pages does **not** initiate monitored SQL collection. Collection remains an explicit backend action through Operator/Administrator manual refresh or the validated scheduler.
+
+M7-017 adds an optional **separate Monitor-owned state database**. Administrator Settings may probe that dedicated state provider when enabled; this is control-plane storage readiness, not a query against a monitored SQL target.
 
 ## Deployment topology
 
@@ -29,60 +31,43 @@ Dashboard, Servers, Server Details, health modules and incident navigation consu
 }
 ```
 
-`SingleNode` is currently supported. `MultiNode` is a recognized intent but fails startup until shared registration/operational state and distributed coordination actually exist. Local files, local Data Protection key rings, process memory and network-share paths are not treated as distributed coordination.
+`SingleNode` remains the only enabled topology. `MultiNode` fails startup until application repositories and distributed coordination are actually migrated to shared implementations. A READY M7-017 storage provider by itself does not enable MultiNode.
 
-Administrator **Settings** shows the effective topology and the remaining node-local state without exposing a mutation control.
+## Shared-state provider — M7-017
+
+The provider is disabled by default:
+
+```json
+"SharedState": {
+  "Provider": "Disabled",
+  "ConnectionStringEnvironmentVariable": "MONITOR_SHARED_STATE_SQL_CONNECTION",
+  "CommandTimeoutSeconds": 5
+}
+```
+
+To prepare shared storage, deploy `scripts/sql/monitor_shared_state_v1.sql` to a **dedicated Monitor-owned SQL Server database**, set the named process environment variable to that database connection string, then set `SharedState:Provider` to `SqlServer`.
+
+The connection-string value is read directly from the process environment. It is not read from appsettings, rendered in Settings, written to audit, or inferred from a monitored server registration.
+
+The runtime application does **not** create or migrate the schema. The v1 deployment script is idempotent and refuses to overwrite an incompatible schema version.
+
+The shared-state contract is a bounded versioned JSON document store with optimistic compare/exchange. SQL Server writes use `SERIALIZABLE` plus `UPDLOCK/HOLDLOCK`; a stale expected version returns Conflict rather than overwriting newer state.
+
+M7-017 is storage capability only. Registration, audit, history, incidents, scheduler ownership and cross-node single-flight are still on their existing boundaries and are not migrated by this task.
 
 ## SQL Login credentials
 
-SQL Login credentials entered through Connections receive server-generated `local:v1` references. The credential payload is protected with ASP.NET Data Protection using reference-scoped purposes and is stored outside `wwwroot` in an atomically replaced encrypted file. The Data Protection key ring is also persisted outside `wwwroot`.
+UI-entered SQL Login credentials use server-generated `local:v1` references. Payloads are protected with ASP.NET Data Protection using reference-scoped purposes and persisted in an encrypted atomic file outside `wwwroot`; the Data Protection key ring is also persisted outside `wwwroot`. Lost/different keys or tampered ciphertext fail closed.
 
-The persisted secret JSON contains ciphertext only; registration metadata stores only the opaque reference. A lost/different key ring or tampered ciphertext fails closed. Existing `env:<alias>` and legacy external references remain compatible.
-
-Because the protected local credential file and key ring are node-local, they do **not** make the application HA-safe.
-
-## Registration persistence
-
-```json
-"RegistrationStore": {
-  "Mode": "File",
-  "Path": "App_Data/registrations.json"
-}
-```
-
-Registration persistence contains safe endpoint/authentication metadata and opaque secret references only. It never stores plaintext SQL credentials or full connection strings.
-
-## Operational-state persistence
-
-```json
-"OperationalStore": {
-  "Mode": "File",
-  "RootPath": "App_Data/operational"
-}
-```
-
-Audit, history and incident state use independent versioned files. Candidate state is durably written before becoming live in-process. Invalid/corrupt state fails closed.
-
-## External environment secrets
-
-`env:FINANCE_PROD` resolves only from:
-
-```text
-MONITOR_SQL_SECRET_FINANCE_PROD_USERNAME
-MONITOR_SQL_SECRET_FINANCE_PROD_PASSWORD
-```
-
-A provider-owned `env:` reference never falls through to appsettings when missing or partial.
+The protected local secret store and key ring remain node-local. Existing `env:<alias>` and legacy external references remain compatible.
 
 ## Architecture rules
 
 - Browser/UI components never connect directly to monitored SQL Servers.
-- Monitoring GETs are cache-only and never initiate SQL collection.
-- Manual refresh/collection is explicit, authorized and backend-controlled.
-- Snapshot cache remains the shared evidence/read boundary.
+- Monitoring GETs are cache-only and never initiate monitored SQL collection.
+- Manual monitored-SQL refresh/collection is explicit, authorized and backend-controlled.
+- Snapshot cache remains the shared monitored-evidence/read boundary.
 - Recommendations and Advisor output remain advisory-only and cannot execute production SQL.
 - Secret-provider routing stays behind `IConnectionSecretStore`.
-- Monitor-owned persistence never uses a monitored SQL Server as its state/configuration write target.
-- `MultiNode` stays fail-closed until shared state and distributed coordination are real.
-
-Next production-readiness task: **M7-017 — Shared-state capability + dedicated Monitor SQL Server provider** (Issue #52).
+- Shared-state SQL is a separate Monitor-owned control-plane database, never an implicitly reused monitored target.
+- `MultiNode` stays fail-closed until M7-018 migrates required state and distributed coordination.

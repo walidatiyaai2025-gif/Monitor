@@ -69,8 +69,12 @@ Audit/history/incidents use independent versioned state and candidate-state atom
 ## ADR-031 — Monitoring GETs are zero-SQL reads
 Dashboard, Servers, Server Details, health modules and incident navigation consume cache/Peek state only. Collection requires an explicit authorized backend action. Successful explicit refresh observation occurs exactly once.
 
-## ADR-032 — UI-entered SQL Login credentials use protected local persistence, not plaintext or process-only state
-Server-generated `local:v1` references identify encrypted credential envelopes. ASP.NET Data Protection uses reference-scoped purposes, preventing ciphertext from being valid under a different reference. The encrypted candidate file is atomically replaced and a persistent key ring enables restart resolution. Lost keys/tampering fail closed. The secret file and key ring remain node-local and therefore do not satisfy HA requirements.
+## ADR-032 — UI-entered SQL Login credentials use protected local persistence
+Server-generated `local:v1` references identify Data Protection ciphertext stored atomically outside `wwwroot`. A persistent reference-scoped key ring enables restart resolution; lost keys/tampering fail closed. The store remains node-local.
 
-## ADR-033 — Shared-state capability starts with a dedicated Monitor-owned SQL Server provider
-M7-017 will introduce a generic versioned document compare/exchange contract and a real provider using a separate Monitor-owned SQL Server database. It must never implicitly write Monitor state into a monitored SQL target. Provider connection material remains external to appsettings/source control/UI/audit. M7-017 alone does not enable MultiNode; M7-018 must migrate required state/coordination first.
+## ADR-033 — Shared state uses a dedicated Monitor-owned SQL Server control-plane provider
+M7-017 introduces `ISharedStateDocumentStore` and a real SQL Server backend that is configured separately from monitored targets. Connection-string values are read only from a named process environment variable. Runtime code does not execute DDL; schema v1 is deployed explicitly.
+
+Shared writes use bounded valid JSON documents and optimistic compare/exchange under SQL `SERIALIZABLE` + `UPDLOCK/HOLDLOCK`. Stale writers conflict rather than overwrite. Provider errors are redacted. Readiness exposes provider/schema status only.
+
+A READY M7-017 provider is **not** permission to enable MultiNode. M7-018 must migrate required repositories and distributed coordination first.
