@@ -12,13 +12,20 @@ public sealed class OperationsController : Controller
     private readonly IMonitorReadService _readService;
     private readonly IIncidentWorkflowService? _workflow;
     private readonly ITrendReadService? _trends;
+    private readonly IOperatorAuditTrail? _auditTrail;
 
-    public OperationsController(IDemoMonitorService monitor, IMonitorReadService readService, IIncidentWorkflowService? workflow = null, ITrendReadService? trends = null)
+    public OperationsController(
+        IDemoMonitorService monitor,
+        IMonitorReadService readService,
+        IIncidentWorkflowService? workflow = null,
+        ITrendReadService? trends = null,
+        IOperatorAuditTrail? auditTrail = null)
     {
         _monitor = monitor;
         _readService = readService;
         _workflow = workflow;
         _trends = trends;
+        _auditTrail = auditTrail;
     }
 
     [HttpGet("/dashboard")]
@@ -78,19 +85,49 @@ public sealed class OperationsController : Controller
 
     [HttpPost("/alerts/{id}/acknowledge")]
     [ValidateAntiForgeryToken]
-    public IActionResult AcknowledgeIncident(string id) => Transition(id, _workflow?.Acknowledge(id) == true);
+    public IActionResult AcknowledgeIncident(string id) =>
+        OperatorTransition(id, (workflow, actor) => workflow.Acknowledge(id, actor));
 
     [HttpPost("/alerts/{id}/resolve")]
     [ValidateAntiForgeryToken]
-    public IActionResult ResolveIncident(string id) => Transition(id, _workflow?.Resolve(id) == true);
+    public IActionResult ResolveIncident(string id) =>
+        OperatorTransition(id, (workflow, actor) => workflow.Resolve(id, actor));
 
     [HttpPost("/alerts/{id}/reopen")]
     [ValidateAntiForgeryToken]
-    public IActionResult ReopenIncident(string id) => Transition(id, _workflow?.Reopen(id) == true);
+    public IActionResult ReopenIncident(string id) =>
+        OperatorTransition(id, (workflow, actor) => workflow.Reopen(id, actor));
 
-    private IActionResult Transition(string id, bool changed) => changed
-        ? RedirectToAction(nameof(IncidentDetails), new { id })
-        : Conflict(new { message = "Incident state changed or the transition is not allowed." });
+    private IActionResult OperatorTransition(string id, Func<IIncidentWorkflowService, string, bool> transition)
+    {
+        if (_workflow is null)
+        {
+            return NotFound();
+        }
+
+        var actor = User.Identity?.Name?.Trim();
+        if (string.IsNullOrWhiteSpace(actor))
+        {
+            return Forbid();
+        }
+
+        return transition(_workflow, actor)
+            ? RedirectToAction(nameof(IncidentDetails), new { id })
+            : Conflict(new { message = "Incident state changed or the transition is not allowed." });
+    }
+
+    [HttpGet("/audit")]
+    public IActionResult AuditTrail(int limit = 100)
+    {
+        if (_auditTrail is null)
+        {
+            return View(new AuditTrailViewModel([], 0));
+        }
+
+        return View(new AuditTrailViewModel(
+            _auditTrail.GetRecent(Math.Clamp(limit, 1, 500)),
+            _auditTrail.Capacity));
+    }
 
     [HttpGet("/history/{registrationId:guid}")]
     public IActionResult History(Guid registrationId, string window = "6h")
