@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using Monitor.Web.Models;
 
 namespace Monitor.Web.Services;
 
