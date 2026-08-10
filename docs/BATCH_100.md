@@ -65,16 +65,18 @@ Batch 3 exports a versioned canonical operational bundle containing safe registr
 
 | Task | Description | Status |
 |---|---|---|
-| B100-031 | Application health endpoint | PLANNED |
-| B100-032 | Liveness probe | PLANNED |
-| B100-033 | Readiness probe | PLANNED |
-| B100-034 | Shared-state dependency readiness | PLANNED |
-| B100-035 | Collector telemetry | PLANNED |
-| B100-036 | Scheduler telemetry | PLANNED |
-| B100-037 | Snapshot-cache telemetry | PLANNED |
-| B100-038 | Incident telemetry | PLANNED |
-| B100-039 | Security/auth telemetry | PLANNED |
-| B100-040 | Correlation IDs + structured redacted logging | PLANNED |
+| B100-031 | Application health endpoint | CI VERIFIED — RUN 31396619576 |
+| B100-032 | Liveness probe | CI VERIFIED — RUN 31396619576 |
+| B100-033 | Readiness probe | CI VERIFIED — RUN 31396619576 |
+| B100-034 | Shared-state dependency readiness | CI VERIFIED — RUN 31396619576 |
+| B100-035 | Collector telemetry | CI VERIFIED — RUN 31396619576 |
+| B100-036 | Scheduler telemetry | CI VERIFIED — RUN 31396619576 |
+| B100-037 | Snapshot-cache telemetry | CI VERIFIED — RUN 31396619576 |
+| B100-038 | Incident telemetry | CI VERIFIED — RUN 31396619576 |
+| B100-039 | Security/auth telemetry | CI VERIFIED — RUN 31396619576 |
+| B100-040 | Correlation IDs + structured redacted logging | CI VERIFIED — RUN 31396619576 |
+
+Batch 4 adds `/health/live`, `/health/ready`, `/health` and an Administrator observability surface without creating a monitored-SQL read path. Liveness has no external dependencies. Readiness evaluates configuration and Monitor-owned control-plane dependencies only; the dedicated shared-state provider is probed only when enabled. Runtime telemetry stores bounded aggregate counters/timestamps and allowlisted collector failure categories only. Unknown free-form failure text is reduced to `Unknown`, preventing provider/secret fragments from entering telemetry. Correlation IDs are strict bounded tokens or server-generated values, and request completion logging records method/status/elapsed time without query/body/credential data.
 
 ## Batch 5 — Performance & scale governance
 
