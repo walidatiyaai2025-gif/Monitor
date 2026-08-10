@@ -1,11 +1,19 @@
 # Project Status
 
 **Updated:** 2026-08-10 11:41 +03:00  
-**Branch:** `agent/m2-memory-snapshot`  
-**Target:** `M2-001`  
+**Branch:** `agent/m2-memory-ui`  
+**Target:** `M2-002`  
 **Issue:** TBD  
 **PR:** TBD  
-**Overall:** 🟡 M2-001 IMPLEMENTED — LOCAL VERIFICATION COMPLETE
+**Overall:** 🟡 M2-002 IMPLEMENTED — LOCAL VERIFICATION COMPLETE
+
+## M2-002 — Real memory health UI
+
+- Memory Health now reads through `MonitorReadService` and the shared snapshot cache.
+- Real SQL process utilization maps to the configured server card.
+- Mixed real/demo and development-only modes are labeled explicitly.
+- No browser polling, direct SQL call or extra collector query was added.
+- 34 tests pass locally, including real memory mapping.
 
 ## M2-001 — Memory snapshot contract and projection
 
@@ -146,4 +154,4 @@ M0 PR #2 merged to stable `main` at `dfbfa19`.
 
 ## Next action
 
-Push M2-001, verify CI, open a focused PR, then implement M2-002 memory UI mapping.
+Push M2-002, verify CI, and merge before M2-003 database health detail.
