@@ -7,6 +7,7 @@ namespace Monitor.Web.Services;
 internal enum SqlProbeFailureKind
 {
     Authentication,
+    Timeout,
     Network,
     Certificate,
     Other
@@ -87,6 +88,7 @@ internal sealed class ServerConnectionTester(
             return exception.Kind switch
             {
                 SqlProbeFailureKind.Authentication => Result(ConnectionTestStatus.AuthenticationFailed, "Authentication failed.", stopwatch),
+                SqlProbeFailureKind.Timeout => Result(ConnectionTestStatus.TimedOut, "Connection timed out.", stopwatch),
                 SqlProbeFailureKind.Network => Result(ConnectionTestStatus.NetworkUnavailable, "The SQL Server could not be reached.", stopwatch),
                 SqlProbeFailureKind.Certificate => Result(ConnectionTestStatus.CertificateRejected, "SQL Server certificate validation failed.", stopwatch),
                 _ => Result(ConnectionTestStatus.Failed, "Connection failed.", stopwatch)
@@ -128,6 +130,7 @@ internal sealed class SqlConnectionProbe : ISqlConnectionProbe
             TrustServerCertificate = endpoint.TrustServerCertificate,
             IntegratedSecurity = registration.AuthenticationMode == SqlAuthenticationMode.IntegratedSecurity,
             ConnectTimeout = 5,
+            ConnectRetryCount = 0,
             ApplicationName = "Monitor/TestConnection",
             Pooling = false
         };
@@ -159,7 +162,8 @@ internal sealed class SqlConnectionProbe : ISqlConnectionProbe
     {
         18456 => SqlProbeFailureKind.Authentication,
         -2146893019 or -2146893022 => SqlProbeFailureKind.Certificate,
-        -2 or -1 or 2 or 53 or 11001 => SqlProbeFailureKind.Network,
+        -2 => SqlProbeFailureKind.Timeout,
+        -1 or 2 or 53 or 11001 => SqlProbeFailureKind.Network,
         _ => SqlProbeFailureKind.Other
     };
 }
