@@ -24,6 +24,7 @@ public sealed class MonitorReadServiceTests
         Assert.Equal(registration.Id.ToString("D"), cards[0].Id);
         Assert.Equal("REAL-SQL01", cards[0].Name);
         Assert.Equal(ServerDataSource.LiveFresh, cards[0].Source);
+        Assert.Equal(92, cards[0].MemoryPercent);
         Assert.Equal(8, cards[0].LastScanSecondsAgo);
         Assert.Equal("da-sql02", cards[1].Id);
         Assert.Equal(1, cache.CallCount);
@@ -112,7 +113,8 @@ public sealed class MonitorReadServiceTests
 
     private static ServerHealthSnapshot Snapshot(Guid id) => new(
         id, "REAL-SQL01", "17.0.1", "Enterprise", null,
-        3600, 10, 10, DateTimeOffset.UtcNow);
+        3600, 10, 10, DateTimeOffset.UtcNow,
+        new MemoryHealthSnapshot(32_000_000, 8_000_000, 12_000_000, 92, true, false, "Low"));
 
     private sealed class FakeCache(
         SnapshotCacheResult? result = null,

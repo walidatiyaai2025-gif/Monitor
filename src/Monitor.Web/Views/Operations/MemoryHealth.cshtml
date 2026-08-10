@@ -9,7 +9,14 @@
     var elevatedCount = reachable.Count(server => server.MemoryPercent >= 75 && server.MemoryPercent < 85);
     var offlineCount = Model.Count(server => server.State == HealthState.Offline);
 }
-<div class="data-banner"><strong>DEVELOPMENT DATA</strong><span>Memory percentages are cached preview snapshot values. Visual gauges and freshness timers do not trigger SQL collection.</span></div>
+@if (Model.Any(server => server.Source != ServerDataSource.Demo))
+{
+    <div class="data-banner"><strong>MIXED MEMORY DATA</strong><span>The configured server uses cached SQL/OS memory facts; remaining cards are development data. Visual gauges do not trigger SQL collection.</span></div>
+}
+else
+{
+    <div class="data-banner"><strong>DEVELOPMENT DATA</strong><span>No real memory snapshot is configured or available. Memory percentages are preview values.</span></div>
+}
 
 <section class="health-command-summary">
     <article class="health-command-card hero state-@(pressureCount > 0 ? "warning" : "healthy")">

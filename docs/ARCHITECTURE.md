@@ -53,3 +53,5 @@ M1-006 adds an administrator-only, anti-forgery protected refresh endpoint. `Sna
 M1-007 evaluated SignalR delivery and deferred implementation. The current system creates snapshots on request and has no scheduled publisher, so a hub would add reconnect/authentication/state complexity without carrying independently produced updates. SignalR may be introduced only after a backend scheduler or monitoring store publishes snapshot-changed events; delivery must remain downstream-only and must never trigger collection.
 
 M2-001 extends `ServerHealthSnapshot` with an optional immutable `MemoryHealthSnapshot`. The existing collector query cross joins the singleton system/process memory DMVs, so memory fields add no second SQL round trip. Values are validated for nonnegative totals, available <= total and utilization within 0..100; malformed rows fail through the existing redacted collector boundary.
+
+M2-002 maps cached SQL process memory utilization into the existing server card and Memory Health page through `MonitorReadService`. The page uses the same cache read as the estate UI and labels mixed real/demo modes; it does not call the collector or SQL directly.

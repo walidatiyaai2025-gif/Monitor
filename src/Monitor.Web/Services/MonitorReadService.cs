@@ -64,7 +64,7 @@ public sealed class MonitorReadService(
             Metrics =
             [
                 new("CPU", "Not collected", "Outside the M1 identity snapshot", HealthState.Unknown),
-                new("Memory", "Not collected", "Outside the M1 identity snapshot", HealthState.Unknown),
+                new("Memory", $"{card.MemoryPercent}%", "SQL process memory utilization", card.MemoryPercent >= 85 ? HealthState.Warning : HealthState.Healthy),
                 new("Databases", $"{card.DatabaseOnline} / {card.DatabaseTotal}", "Online databases", card.State),
                 new("SQL Agent", "Not collected", "Outside the M1 identity snapshot", HealthState.Unknown)
             ]
@@ -96,7 +96,7 @@ public sealed class MonitorReadService(
                 snapshot.Edition,
                 state,
                 0,
-                0,
+                snapshot.Memory?.SqlProcessMemoryUtilizationPercent ?? 0,
                 snapshot.DatabaseOnline,
                 snapshot.DatabaseTotal,
                 0,
