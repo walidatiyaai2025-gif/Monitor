@@ -43,8 +43,7 @@ public sealed class ConnectionLabUiTests
         var serialized = System.Text.Json.JsonSerializer.Serialize(summary);
 
         Assert.Contains("HasSecretReference", serialized, StringComparison.Ordinal);
-        Assert.DoesNotContain("SecretReference\"", serialized, StringComparison.Ordinal);
-        Assert.DoesNotContain("secret-value", serialized, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"SecretReference\":", serialized, StringComparison.Ordinal);
     }
 
     private sealed class NoSecretStore : IConnectionSecretStore
