@@ -8,19 +8,45 @@
     var fullyOnline = Model.Count(server => server.DatabaseTotal > 0 && server.DatabaseOnline == server.DatabaseTotal && server.State != HealthState.Offline);
     var impacted = Model.Count(server => server.State == HealthState.Offline || server.DatabaseOnline < server.DatabaseTotal);
     var offline = Model.Count(server => server.State == HealthState.Offline);
+    var detailed = Model.Where(server => server.Source != ServerDataSource.Demo && server.DatabaseHealth is not null).ToList();
+    var restoring = detailed.Sum(server => server.DatabaseHealth!.Restoring);
+    var recovering = detailed.Sum(server => server.DatabaseHealth!.Recovering);
+    var recoveryPending = detailed.Sum(server => server.DatabaseHealth!.RecoveryPending);
+    var suspect = detailed.Sum(server => server.DatabaseHealth!.Suspect);
+    var emergency = detailed.Sum(server => server.DatabaseHealth!.Emergency);
+    var offlineOrOther = detailed.Sum(server => server.DatabaseHealth!.OfflineOrOther);
 }
-<div class="data-banner"><strong>DEVELOPMENT DATA</strong><span>Database availability is rendered from the shared cached preview snapshot. No table or filter on this page executes SQL.</span></div>
+
+@if (Model.Any(server => server.Source != ServerDataSource.Demo))
+{
+    <div class="data-banner"><strong>MIXED DATABASE DATA</strong><span>The configured SQL Server uses cached database state facts; remaining cards are clearly labeled development data. Filters and visuals on this page do not execute SQL.</span></div>
+}
+else
+{
+    <div class="data-banner"><strong>DEVELOPMENT DATA</strong><span>No real database snapshot is configured or available. Database availability values are preview data.</span></div>
+}
 
 <section class="health-command-summary">
     <article class="health-command-card hero state-@(unavailable > 0 ? "warning" : "healthy")">
         <div><small>DATABASE ESTATE AVAILABILITY</small><strong>@availability%</strong><span>@online of @total databases represented online</span></div>
         <div class="availability-orbit" style="--availability:@availability%"><b>@availability%</b></div>
     </article>
-    <article class="health-command-card state-healthy"><small>ONLINE DATABASES</small><strong>@online</strong><span>Latest shared snapshot</span></article>
+    <article class="health-command-card state-healthy"><small>ONLINE DATABASES</small><strong>@online</strong><span>Latest cached/read snapshot</span></article>
     <article class="health-command-card state-@(unavailable > 0 ? "critical" : "healthy")"><small>UNAVAILABLE</small><strong>@unavailable</strong><span>Require DBA attention</span></article>
     <article class="health-command-card state-@(impacted > 0 ? "warning" : "healthy")"><small>IMPACTED INSTANCES</small><strong>@impacted / @Model.Count</strong><span>@fullyOnline fully available</span></article>
     <article class="health-command-card state-@(offline > 0 ? "offline" : "healthy")"><small>UNREACHABLE INSTANCES</small><strong>@offline</strong><span>Snapshot cannot confirm DB state</span></article>
 </section>
+
+@if (detailed.Count > 0)
+{
+    <section class="health-command-summary">
+        <article class="health-command-card state-@(restoring > 0 ? "warning" : "healthy")"><small>RESTORING</small><strong>@restoring</strong><span>Real cached database detail</span></article>
+        <article class="health-command-card state-@(recovering > 0 ? "warning" : "healthy")"><small>RECOVERING</small><strong>@recovering</strong><span>Real cached database detail</span></article>
+        <article class="health-command-card state-@(recoveryPending > 0 ? "critical" : "healthy")"><small>RECOVERY PENDING</small><strong>@recoveryPending</strong><span>Requires DBA review</span></article>
+        <article class="health-command-card state-@(suspect > 0 ? "critical" : "healthy")"><small>SUSPECT / EMERGENCY</small><strong>@(suspect + emergency)</strong><span>@suspect suspect · @emergency emergency</span></article>
+        <article class="health-command-card state-@(offlineOrOther > 0 ? "critical" : "healthy")"><small>OFFLINE / OTHER</small><strong>@offlineOrOther</strong><span>Non-online terminal states</span></article>
+    </section>
+}
 
 <div class="section-heading">
     <div><span class="eyebrow">DATABASE OPERATIONS</span><h2>Availability by SQL instance</h2></div>
@@ -34,7 +60,7 @@
         <button type="button" class="health-filter" data-db-filter="critical">Unavailable DBs</button>
         <button type="button" class="health-filter" data-db-filter="offline">Offline</button>
     </div>
-    <span class="snapshot-note">Availability lens only · server health may include other warnings</span>
+    <span class="snapshot-note">Detailed SQL states appear only for cached real snapshots</span>
 </div>
 
 <article class="glass-panel health-table-panel">
@@ -45,7 +71,11 @@
         {
             var missing = server.DatabaseTotal - server.DatabaseOnline;
             var dbAvailability = server.DatabaseTotal == 0 ? 0 : (int)Math.Round((double)server.DatabaseOnline * 100 / server.DatabaseTotal);
-            var dbState = server.State == HealthState.Offline ? "offline" : missing > 0 ? "critical" : "healthy";
+            var detail = server.DatabaseHealth;
+            var criticalDetail = detail is not null && detail.Suspect + detail.Emergency + detail.OfflineOrOther > 0;
+            var recoveryDetail = detail is not null && detail.Restoring + detail.Recovering + detail.RecoveryPending > 0;
+            var dbState = server.State == HealthState.Offline ? "offline" : missing > 0 || criticalDetail ? "critical" : "healthy";
+            var stateLabel = dbState == "offline" ? "Unknown" : criticalDetail ? "Critical state" : recoveryDetail ? "Recovery" : dbState == "healthy" ? "Online" : "Attention";
             <a class="health-table-row state-@dbState" data-db-row data-db-state="@dbState" asp-action="ServerDetails" asp-route-id="@server.Id">
                 <strong>@server.Name</strong>
                 <span>@server.Version</span>
@@ -56,7 +86,7 @@
                     <div><small>@dbAvailability% available</small><small data-health-age="@server.LastScanSecondsAgo">@server.LastScanSecondsAgo sec ago</small></div>
                     <span class="micro-track"><span style="width:@dbAvailability%"></span></span>
                 </span>
-                <span class="severity severity-@dbState">@(dbState == "healthy" ? "Online" : dbState == "offline" ? "Unknown" : "Attention")</span>
+                <span class="severity severity-@dbState">@stateLabel</span>
             </a>
         }
     </div>
@@ -65,16 +95,20 @@
 
 <section class="db-insight-grid">
     <article class="glass-panel ops-panel">
-        <div class="panel-heading"><div><span class="eyebrow">ATTENTION QUEUE</span><h3>What needs a database check?</h3></div><span class="snapshot-note">Derived from current snapshot</span></div>
+        <div class="panel-heading"><div><span class="eyebrow">ATTENTION QUEUE</span><h3>What needs a database check?</h3></div><span class="snapshot-note">Derived from current cached snapshot</span></div>
         <div class="db-attention-list">
             @foreach (var server in Model.Where(item => item.State == HealthState.Offline || item.DatabaseOnline < item.DatabaseTotal))
             {
                 var missing = server.DatabaseTotal - server.DatabaseOnline;
                 var isOffline = server.State == HealthState.Offline;
+                var detail = server.DatabaseHealth;
+                var detailText = detail is null
+                    ? $"{missing} database(s) are not represented online in the latest snapshot."
+                    : $"{detail.Restoring} restoring · {detail.Recovering} recovering · {detail.RecoveryPending} pending · {detail.Suspect} suspect · {detail.Emergency} emergency · {detail.OfflineOrOther} offline/other.";
                 <a class="db-attention-item state-@(isOffline ? "offline" : "critical")" asp-action="ServerDetails" asp-route-id="@server.Id">
                     <span>@(isOffline ? "×" : "!")</span>
-                    <div><strong>@server.Name</strong><p>@(isOffline ? "Instance is unreachable; database availability is unknown until collection resumes." : $"{missing} database(s) are not represented online in the latest snapshot.")</p></div>
-                    <em>@(isOffline ? "UNKNOWN" : "CHECK DB")</em>
+                    <div><strong>@server.Name</strong><p>@(isOffline ? "Instance is unreachable; database availability is unknown until collection resumes." : detailText)</p></div>
+                    <em>@(isOffline ? "UNKNOWN" : detail is null ? "CHECK DB" : "STATE DETAIL")</em>
                 </a>
             }
             @if (!Model.Any(item => item.State == HealthState.Offline || item.DatabaseOnline < item.DatabaseTotal))
@@ -84,11 +118,12 @@
         </div>
     </article>
     <article class="glass-panel ops-panel">
-        <div class="panel-heading"><div><span class="eyebrow">DBA INTERPRETATION</span><h3>Snapshot policy</h3></div></div>
+        <div class="panel-heading"><div><span class="eyebrow">DBA INTERPRETATION</span><h3>Database state projection</h3></div></div>
         <div class="policy-stack">
-            <div class="policy-row"><small>Availability lens</small><strong>Online vs represented total</strong><span>This page focuses on database reachability. Memory, jobs and backup health remain separate signals.</span></div>
-            <div class="policy-row"><small>Collection source</small><strong>Shared server snapshot</strong><span>Multiple UI surfaces reuse one collected result rather than issuing independent SQL queries.</span></div>
-            <div class="policy-row"><small>Refresh boundary</small><strong>Backend-controlled in M1</strong><span>Future manual refresh will be throttled and executed by the backend collector, never directly by the browser.</span></div>
+            <div class="policy-row"><small>Real detail</small><strong>@detailed.Count instance(s)</strong><span>Detailed database states are shown only when present in the cached real snapshot.</span></div>
+            <div class="policy-row"><small>Collection source</small><strong>Shared server snapshot</strong><span>Database, memory and other bounded health summaries reuse the backend collector result.</span></div>
+            <div class="policy-row"><small>Cache boundary</small><strong>Read service only</strong><span>This page does not connect directly to monitored SQL Servers and adds no polling.</span></div>
+            <div class="policy-row"><small>Demo fallback</small><strong>No fabricated state detail</strong><span>Development cards retain availability preview values without pretending to have real database-state counters.</span></div>
         </div>
     </article>
 </section>
