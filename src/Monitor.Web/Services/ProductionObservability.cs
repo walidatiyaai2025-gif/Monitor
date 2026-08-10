@@ -125,10 +125,7 @@ public sealed class MonitorTelemetry(TimeProvider timeProvider) : IMonitorTeleme
     public void CollectorSucceeded()
     {
         Interlocked.Increment(ref _collectorSucceeded);
-        lock (_collectorGate)
-        {
-            _lastCollectorSuccessUtc = timeProvider.GetUtcNow();
-        }
+        lock (_collectorGate) _lastCollectorSuccessUtc = timeProvider.GetUtcNow();
     }
 
     public void CollectorFailed(string category)
@@ -188,9 +185,7 @@ public sealed class MonitorTelemetry(TimeProvider timeProvider) : IMonitorTeleme
             : "Unknown";
 }
 
-public sealed class TelemetrySqlServerSnapshotCollector(
-    ISqlServerSnapshotCollector inner,
-    IMonitorTelemetry telemetry) : ISqlServerSnapshotCollector
+public sealed class TelemetrySqlServerSnapshotCollector(ISqlServerSnapshotCollector inner, IMonitorTelemetry telemetry) : ISqlServerSnapshotCollector
 {
     public async Task<ServerHealthSnapshot> CollectAsync(ServerRegistration registration, CancellationToken cancellationToken = default)
     {
@@ -214,12 +209,12 @@ public sealed class TelemetrySqlServerSnapshotCollector(
     }
 }
 
-public sealed class TelemetryServerHealthSnapshotCache(
-    IServerHealthSnapshotCache inner,
-    IMonitorTelemetry telemetry) : IServerHealthSnapshotCache
+public sealed class TelemetryServerHealthSnapshotCache(IServerHealthSnapshotCache inner, IMonitorTelemetry telemetry) : IServerHealthSnapshotCache
 {
     private readonly ConcurrentDictionary<Guid, int> _activeReads = new();
     private readonly ConcurrentDictionary<Guid, int> _activeRefreshes = new();
+
+    public SnapshotCacheResult? Peek(Guid registrationId) => inner.Peek(registrationId);
 
     public async Task<SnapshotCacheResult> GetAsync(ServerRegistration registration, CancellationToken cancellationToken = default)
     {
@@ -273,9 +268,7 @@ public sealed class TelemetryServerHealthSnapshotCache(
     }
 }
 
-public sealed class TelemetrySnapshotCollectionCycle(
-    ISnapshotCollectionCycle inner,
-    IMonitorTelemetry telemetry) : ISnapshotCollectionCycle
+public sealed class TelemetrySnapshotCollectionCycle(ISnapshotCollectionCycle inner, IMonitorTelemetry telemetry) : ISnapshotCollectionCycle
 {
     public async Task RunOnceAsync(CancellationToken cancellationToken)
     {
@@ -292,9 +285,7 @@ public sealed class TelemetrySnapshotCollectionCycle(
     }
 }
 
-public sealed class TelemetryHealthIncidentRepository(
-    IHealthIncidentRepository inner,
-    IMonitorTelemetry telemetry) : IHealthIncidentRepository
+public sealed class TelemetryHealthIncidentRepository(IHealthIncidentRepository inner, IMonitorTelemetry telemetry) : IHealthIncidentRepository
 {
     public void Apply(IEnumerable<HealthFinding> findings)
     {
@@ -340,7 +331,9 @@ public sealed record ApplicationReadinessSnapshot(
     bool DeploymentReady,
     bool CredentialReady,
     bool BackupReady,
-    DateTimeOffset CheckedAtUtc);
+    DateTimeOffset CheckedAtUtc,
+    int? SharedStateSchemaVersion = null,
+    bool SharedStorageReady = false);
 
 public interface IApplicationReadinessService
 {
@@ -370,17 +363,22 @@ public sealed class ApplicationReadinessService(
         var message = status == ApplicationReadinessStatus.Ready
             ? "Application control-plane readiness checks passed."
             : "One or more control-plane readiness checks are not ready.";
-        return new(status, message, shared.Status, deployment.Ready, credentials.MultiNodeCredentialReady, backup.Ready, timeProvider.GetUtcNow());
+        return new(
+            status,
+            message,
+            shared.Status,
+            deployment.Ready,
+            credentials.MultiNodeCredentialReady,
+            backup.Ready,
+            timeProvider.GetUtcNow(),
+            shared.SchemaVersion,
+            shared.SharedStorageReady);
     }
 }
 
-public sealed record ObservabilityViewModel(
-    ApplicationReadinessSnapshot Readiness,
-    MonitorTelemetrySnapshot Telemetry);
+public sealed record ObservabilityViewModel(ApplicationReadinessSnapshot Readiness, MonitorTelemetrySnapshot Telemetry);
 
-public sealed class CorrelationIdMiddleware(
-    RequestDelegate next,
-    ILogger<CorrelationIdMiddleware> logger)
+public sealed class CorrelationIdMiddleware(RequestDelegate next, ILogger<CorrelationIdMiddleware> logger)
 {
     public const string HeaderName = "X-Correlation-ID";
 
