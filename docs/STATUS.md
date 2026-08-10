@@ -1,11 +1,11 @@
 # Project Status
 
-**Updated:** 2026-08-10 12:11 +03:00  
+**Updated:** 2026-08-10 12:17 +03:00  
 **Branch:** `agent/m2-003a-database-health-ui`  
 **Target:** `M2-003A`  
 **Issue:** #22  
-**PR:** TBD  
-**Overall:** 🟡 M2-003A IMPLEMENTED — CI PENDING
+**PR:** #23  
+**Overall:** 🟢 M2-003A CI VERIFIED — READY TO MERGE
 
 ## M2-003A — Cached Database Health UI
 
@@ -16,7 +16,7 @@
 - Existing client-side filtering remains local and adds no SQL call or polling path.
 - Snapshot collector timeout classification is hardened so provider timeout remains `SnapshotCollectionFailure.TimedOut`.
 - Focused tests cover cached database-detail projection, demo non-fabrication and timeout preservation.
-- GitHub Actions verification is pending on the final task head.
+- CI run `31373761997`: SUCCESS — Release build 0 warnings / 0 errors; 41/41 tests passed.
 
 ## M2-003 through M2-007 — Health modules batch
 
@@ -63,14 +63,15 @@
 
 ## Verification evidence
 
-- Release builds use warnings-as-errors in GitHub Actions.
+- M2-003A merge-result CI run `31373761997`: SUCCESS.
+- `dotnet build Monitor.sln --configuration Release --no-restore --warnaserror`: 0 warnings, 0 errors.
+- `dotnet test Monitor.sln --configuration Release --no-build`: 41 passed, 0 failed, 0 skipped.
 - M0 visual acceptance: USER ACCEPTED on 2026-08-10.
-- M2-003A implementation head: CI pending.
 
 ## Merge gate
 
-Stable `main` includes M1-002A and the merged M2 health-module summaries from #20. M2-003A must pass restore, Release build and all tests before merge.
+PR #23 is code/test verified. Run GitHub Actions once more on this documentation head and confirm mergeability before merging to stable `main`.
 
 ## Next action
 
-Open the M2-003A PR, run GitHub Actions on the merge result, fix any regression, then mark the task CI VERIFIED before merge.
+Merge PR #23 after the final docs-head gate, then continue from the first unexposed M2 health summary without duplicating the already-merged collector contracts.
