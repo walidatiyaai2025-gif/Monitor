@@ -10,7 +10,36 @@ builder.Services.AddSingleton<IAdminCredentialVerifier, AdminCredentialVerifier>
 builder.Services.AddSingleton<ILoginAttemptLimiter, LoginAttemptLimiter>();
 builder.Services.AddSingleton<IAuditStore, InMemoryAuditStore>();
 builder.Services.AddSingleton<IDemoMonitorService, DemoMonitorService>();
-builder.Services.AddSingleton<IServerRegistrationRepository, InMemoryServerRegistrationRepository>();
+
+var registrationStoreOptions = builder.Configuration
+    .GetSection(RegistrationStoreOptions.SectionName)
+    .Get<RegistrationStoreOptions>() ?? new RegistrationStoreOptions();
+registrationStoreOptions.Validate();
+builder.Services.AddSingleton(registrationStoreOptions);
+builder.Services.AddSingleton<IServerRegistrationRepository>(_ =>
+{
+    if (registrationStoreOptions.Mode == RegistrationStoreMode.InMemory)
+    {
+        return new InMemoryServerRegistrationRepository();
+    }
+
+    var storePath = Path.IsPathRooted(registrationStoreOptions.Path)
+        ? Path.GetFullPath(registrationStoreOptions.Path)
+        : Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, registrationStoreOptions.Path));
+    var webRoot = Path.GetFullPath(builder.Environment.WebRootPath
+        ?? Path.Combine(builder.Environment.ContentRootPath, "wwwroot"));
+    var relativeToWebRoot = Path.GetRelativePath(webRoot, storePath);
+    if (relativeToWebRoot == "." ||
+        (!relativeToWebRoot.StartsWith($"..{Path.DirectorySeparatorChar}", StringComparison.Ordinal) &&
+         !string.Equals(relativeToWebRoot, "..", StringComparison.Ordinal) &&
+         !Path.IsPathRooted(relativeToWebRoot)))
+    {
+        throw new InvalidOperationException("RegistrationStore:Path must be outside wwwroot.");
+    }
+
+    return new FileServerRegistrationRepository(storePath);
+});
+
 builder.Services.AddSingleton<IConnectionSecretStore, ConfigurationConnectionSecretStore>();
 builder.Services.AddSingleton<IRuntimeCredentialWriter>(provider => (IRuntimeCredentialWriter)provider.GetRequiredService<IConnectionSecretStore>());
 builder.Services.AddSingleton<ISqlConnectionProbe, SqlConnectionProbe>();
