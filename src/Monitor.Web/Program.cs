@@ -18,6 +18,7 @@ builder.Services.AddSingleton<ISqlServerSnapshotCollector, SqlServerSnapshotColl
 builder.Services.AddSingleton<IServerHealthSnapshotCache, ServerHealthSnapshotCache>();
 builder.Services.AddSingleton<IHealthRuleEvaluator, HealthRuleEvaluator>();
 builder.Services.AddSingleton<IHealthIncidentRepository, InMemoryHealthIncidentRepository>();
+builder.Services.AddSingleton<IHealthRecommendationService, HealthRecommendationService>();
 builder.Services.AddSingleton<IMonitorReadService, MonitorReadService>();
 builder.Services.AddSingleton<ISnapshotRefreshService, SnapshotRefreshService>();
 
