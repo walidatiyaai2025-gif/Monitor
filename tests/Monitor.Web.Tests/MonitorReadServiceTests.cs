@@ -102,6 +102,33 @@ public sealed class MonitorReadServiceTests
         Assert.DoesNotContain("Password", json, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public async Task HealthModules_MapExactCachedFactsWithOneCacheRead()
+    {
+        var repository = new InMemoryServerRegistrationRepository();
+        var registration = Registration();
+        repository.Upsert(registration);
+        var snapshot = Snapshot(registration.Id) with
+        {
+            Databases = new(1, 0, 0, 1, 0, 0),
+            Backups = new(7, 3, DateTimeOffset.UtcNow.AddHours(-1)),
+            Jobs = new(12, 10, 2), Storage = new(3000, 2000, 1000),
+            Blocking = new(4, 900), Performance = new(5, 2, 1)
+        };
+        var cache = new FakeCache(new(snapshot, SnapshotFreshness.Stale, TimeSpan.FromSeconds(70)));
+        var service = new MonitorReadService(new DemoMonitorService(), repository, cache);
+
+        var row = Assert.Single(await service.GetHealthModulesAsync());
+
+        Assert.Equal(ServerDataSource.LiveStale, row.Source);
+        Assert.Equal(3, row.Backups!.MissingFullBackupLast24Hours);
+        Assert.Equal(2, row.Jobs!.FailedLastRun);
+        Assert.Equal(3000, row.Storage!.TotalAllocatedBytes);
+        Assert.Equal(4, row.Blocking!.BlockedRequests);
+        Assert.Equal(2, row.Performance!.RunnableTasks);
+        Assert.Equal(1, cache.CallCount);
+    }
+
     private static ServerRegistration Registration() => new(
         Guid.Parse("22222222-2222-2222-2222-222222222222"),
         "Primary SQL",

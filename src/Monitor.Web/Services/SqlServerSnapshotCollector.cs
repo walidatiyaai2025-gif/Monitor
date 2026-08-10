@@ -13,7 +13,10 @@ internal sealed record SqlSnapshotRow(
     long DatabaseTotal,
     long DatabaseOnline,
     SqlMemoryRow? Memory = null,
-    SqlHealthModulesRow? Modules = null);
+    SqlHealthModulesRow? Modules = null,
+    SqlPerformanceRow? Performance = null);
+
+internal sealed record SqlPerformanceRow(long ActiveRequests, long RunnableTasks, long PendingIoRequests);
 
 internal sealed record SqlHealthModulesRow(
     long Restoring, long Recovering, long RecoveryPending, long Suspect, long Emergency, long OfflineOrOther,
@@ -116,6 +119,7 @@ internal sealed class SqlServerSnapshotCollector(
             SqlAgentHealthSnapshot? jobs = null;
             StorageHealthSnapshot? storage = null;
             BlockingHealthSnapshot? blocking = null;
+            PerformanceHealthSnapshot? performance = null;
             if (row.Modules is not null)
             {
                 var m = row.Modules;
@@ -136,6 +140,17 @@ internal sealed class SqlServerSnapshotCollector(
                 blocking = new(checked((int)m.BlockedRequests), m.MaxWaitMilliseconds);
             }
 
+            if (row.Performance is not null)
+            {
+                var p = row.Performance;
+                if (p.ActiveRequests < 0 || p.RunnableTasks < 0 || p.PendingIoRequests < 0)
+                {
+                    throw new InvalidDataException("Invalid performance row.");
+                }
+
+                performance = new(checked((int)p.ActiveRequests), checked((int)p.RunnableTasks), checked((int)p.PendingIoRequests));
+            }
+
             return new ServerHealthSnapshot(
                 registration.Id,
                 row.ServerName,
@@ -146,7 +161,7 @@ internal sealed class SqlServerSnapshotCollector(
                 total,
                 online,
                 timeProvider.GetUtcNow(),
-                memory, databases, backups, jobs, storage, blocking);
+                memory, databases, backups, jobs, storage, blocking, performance);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
@@ -216,6 +231,9 @@ internal sealed class SqlSnapshotQuery : ISqlSnapshotQuery
             ,(select COALESCE(SUM(CONVERT(bigint, size)) * 8192, 0) FROM sys.master_files WHERE type = 1) AS LogAllocatedBytes
             ,(select COUNT_BIG(*) FROM sys.dm_exec_requests WHERE blocking_session_id > 0 AND session_id <> @@SPID) AS BlockedRequests
             ,(select COALESCE(MAX(CONVERT(bigint, wait_time)), 0) FROM sys.dm_exec_requests WHERE blocking_session_id > 0 AND session_id <> @@SPID) AS MaxWaitMilliseconds
+            ,(select COUNT_BIG(*) FROM sys.dm_exec_requests WHERE session_id <> @@SPID) AS ActiveRequests
+            ,(select COALESCE(SUM(CONVERT(bigint, runnable_tasks_count)), 0) FROM sys.dm_os_schedulers WHERE status = 'VISIBLE ONLINE') AS RunnableTasks
+            ,(select COUNT_BIG(*) FROM sys.dm_io_pending_io_requests) AS PendingIoRequests
         FROM sys.databases AS d
         CROSS JOIN sys.dm_os_sys_info AS osi
         CROSS JOIN sys.dm_os_sys_memory AS osm
@@ -277,7 +295,8 @@ internal sealed class SqlSnapshotQuery : ISqlSnapshotQuery
                     reader.GetInt64(20), reader.GetInt64(21), reader.IsDBNull(22) ? null : new DateTimeOffset(DateTime.SpecifyKind(reader.GetDateTime(22), DateTimeKind.Utc)),
                     reader.GetInt64(23), reader.GetInt64(24), reader.GetInt64(25),
                     reader.GetInt64(26), reader.GetInt64(27), reader.GetInt64(28),
-                    reader.GetInt64(29), reader.GetInt64(30)));
+                    reader.GetInt64(29), reader.GetInt64(30)),
+                new SqlPerformanceRow(reader.GetInt64(31), reader.GetInt64(32), reader.GetInt64(33)));
         }
         catch (SqlException exception)
         {

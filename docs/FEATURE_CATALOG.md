@@ -29,6 +29,11 @@
 | SQL Agent jobs summary | M2 | Local verified | Total, enabled and failed-last-run counts |
 | Storage allocation summary | M2 | Local verified | Total, data and log allocated bytes |
 | Blocking summary | M2 | Local verified | Blocked request count and maximum wait |
+| Cached health module pages | M2 | Local verified | Database, backup, Agent, storage and blocking views share cache reads |
+| Baseline performance facts | M2 | Local verified | Active requests, runnable tasks and pending I/O counts |
+| Deterministic findings | M3 | Local verified | Allowlisted server-side rules with bounded evidence |
+| Incident lifecycle | M3 | Local verified | Stable dedupe; fresh healthy evidence resolves incidents |
+| Real incident center | M3 | Local verified | Cached snapshots feed the existing authorized Alerts UI |
 | Real SQL connection | M1 | Planned | First vertical slice |
 | Recommendation engine | M3 | Planned | Detailed remediation/query suggestions |
 | AI Advisor | M4 | Planned | Advisory boundary only |

@@ -52,3 +52,24 @@ public sealed class ServerDetailsViewModel
     public required ServerCard Server { get; init; }
     public required IReadOnlyList<MetricCard> Metrics { get; init; }
 }
+
+public sealed record HealthModuleServerViewModel(
+    string Id,
+    string Name,
+    ServerDataSource Source,
+    int AgeSeconds,
+    int DatabaseOnline,
+    int DatabaseTotal,
+    DatabaseHealthDetailSnapshot? Databases,
+    BackupHealthSnapshot? Backups,
+    SqlAgentHealthSnapshot? Jobs,
+    StorageHealthSnapshot? Storage,
+    BlockingHealthSnapshot? Blocking,
+    PerformanceHealthSnapshot? Performance);
+
+public sealed record HealthModulePageViewModel(string Title, string Description, IReadOnlyList<HealthModuleServerViewModel> Servers);
+
+public enum FindingSeverity { Warning, Critical }
+public sealed record HealthFinding(Guid RegistrationId, string RuleId, FindingSeverity Severity, string Title, string Evidence, DateTimeOffset ObservedAtUtc);
+public enum IncidentStatus { Open, Acknowledged, Resolved }
+public sealed record HealthIncident(string Id, Guid RegistrationId, string RuleId, FindingSeverity Severity, string Title, string Evidence, DateTimeOffset FirstSeenUtc, DateTimeOffset LastSeenUtc, int Occurrences, IncidentStatus Status);

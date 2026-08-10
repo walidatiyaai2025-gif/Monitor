@@ -1,0 +1,20 @@
+@model HealthModulePageViewModel
+@functions {
+    static string Bytes(long value) => value >= 1_099_511_627_776 ? $"{value / 1_099_511_627_776d:0.0} TB" : value >= 1_073_741_824 ? $"{value / 1_073_741_824d:0.0} GB" : $"{value / 1_048_576d:0.0} MB";
+}
+<section class="page-heading"><div><span class="eyebrow">CACHED SQL SNAPSHOT</span><h1>@Model.Title</h1><p>@Model.Description</p></div></section>
+<section class="glass-panel panel-pad">
+    @if (Model.Servers.Count == 0) { <div class="empty-state"><h3>Not collected</h3><p>Configure an enabled SQL Server and collect a snapshot.</p></div> }
+    @foreach (var server in Model.Servers)
+    {
+        <article class="server-row">
+            <div><strong>@server.Name</strong><small>@(server.Source == ServerDataSource.LiveStale ? "STALE" : "LIVE") · @server.AgeSeconds s</small></div>
+            <div><span>Databases</span><strong>@server.DatabaseOnline / @server.DatabaseTotal online</strong><small>@(server.Databases is null ? "Not collected" : $"Suspect {server.Databases.Suspect} · Restoring {server.Databases.Restoring}")</small></div>
+            <div><span>Backups</span><strong>@(server.Backups is null ? "Not collected" : $"{server.Backups.MissingFullBackupLast24Hours} missing / 24h")</strong></div>
+            <div><span>Agent</span><strong>@(server.Jobs is null ? "Not collected" : $"{server.Jobs.FailedLastRun} failed / {server.Jobs.TotalJobs}")</strong></div>
+            <div><span>Allocation</span><strong>@(server.Storage is null ? "Not collected" : Bytes(server.Storage.TotalAllocatedBytes))</strong></div>
+            <div><span>Blocking</span><strong>@(server.Blocking is null ? "Not collected" : $"{server.Blocking.BlockedRequests} blocked · {server.Blocking.MaxWaitMilliseconds} ms")</strong></div>
+            <div><span>Workload</span><strong>@(server.Performance is null ? "Not collected" : $"{server.Performance.ActiveRequests} active · {server.Performance.RunnableTasks} runnable")</strong></div>
+        </article>
+    }
+</section>

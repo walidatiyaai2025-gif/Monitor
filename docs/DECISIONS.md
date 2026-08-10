@@ -59,3 +59,11 @@ M2 memory data is projected from `sys.dm_os_sys_memory` and `sys.dm_os_process_m
 ## ADR-015 — Health modules remain bounded snapshot facts
 
 Database states, backup coverage, SQL Agent, storage allocation and blocking are immutable optional modules on the canonical snapshot. One fixed backend command collects aggregate facts under the existing timeout/cache boundary. Browsers cannot supply SQL or trigger per-widget queries. Negative, inconsistent or overflowing values fail through the redacted collector boundary. Full-detail lists, history and UI policy remain separate slices.
+
+## ADR-016 — Module pages consume one shared cached projection
+
+Database, backup, SQL Agent, storage and blocking pages consume immutable module facts through `IMonitorReadService`. Null means not collected, stale remains explicit, and storage allocation is never presented as disk capacity. Controllers and browser code cannot call collectors or provide SQL.
+
+## ADR-017 — Findings are deterministic and incidents resolve only from fresh evidence
+
+The rule evaluator emits allowlisted IDs, severities and compact evidence from snapshots only. Incident identity is registration plus rule ID. Repeated evidence updates one record; older observations are ignored. Missing, stale or failed collection cannot resolve an incident. Only a newer fresh evaluation without the finding may resolve it. The initial repository is intentionally in-memory and executes no remediation.

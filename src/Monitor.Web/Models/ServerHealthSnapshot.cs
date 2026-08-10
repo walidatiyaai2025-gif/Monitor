@@ -15,7 +15,8 @@ public sealed record ServerHealthSnapshot(
     BackupHealthSnapshot? Backups = null,
     SqlAgentHealthSnapshot? Jobs = null,
     StorageHealthSnapshot? Storage = null,
-    BlockingHealthSnapshot? Blocking = null);
+    BlockingHealthSnapshot? Blocking = null,
+    PerformanceHealthSnapshot? Performance = null);
 
 public sealed record MemoryHealthSnapshot(
     long TotalPhysicalMemoryKb,
@@ -31,6 +32,7 @@ public sealed record BackupHealthSnapshot(int BackedUpLast24Hours, int MissingFu
 public sealed record SqlAgentHealthSnapshot(int TotalJobs, int EnabledJobs, int FailedLastRun);
 public sealed record StorageHealthSnapshot(long TotalAllocatedBytes, long DataAllocatedBytes, long LogAllocatedBytes);
 public sealed record BlockingHealthSnapshot(int BlockedRequests, long MaxWaitMilliseconds);
+public sealed record PerformanceHealthSnapshot(int ActiveRequests, int RunnableTasks, int PendingIoRequests);
 
 public enum SnapshotCollectionFailure
 {
