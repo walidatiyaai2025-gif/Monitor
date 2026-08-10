@@ -70,7 +70,7 @@ public sealed class ReliabilityConcurrencyTests
     }
 
     [Fact]
-    public void B100_074_InterruptedRegistrationImport_IsRestartSafeAndRetryable()
+    public async Task B100_074_InterruptedRegistrationImport_IsRestartSafeAndRetryable()
     {
         var inner = new AtomicMemoryDocumentStore();
         var faults = new FaultInjectingDocumentStore(inner);
@@ -79,7 +79,7 @@ public sealed class ReliabilityConcurrencyTests
 
         var interrupted = new SharedServerRegistrationRepository(faults);
         Assert.Throws<SharedStateStoreUnavailableException>(() => interrupted.ImportIfEmpty([registration]));
-        Assert.Null(inner.ReadAsync("monitor:registrations:v1").GetAwaiter().GetResult());
+        Assert.Null(await inner.ReadAsync("monitor:registrations:v1"));
 
         var restarted = new SharedServerRegistrationRepository(faults);
         Assert.True(restarted.ImportIfEmpty([registration]));
@@ -106,7 +106,7 @@ public sealed class ReliabilityConcurrencyTests
         start.Set();
         var results = await Task.WhenAll(acknowledge, resolve);
 
-        Assert.Single(results.Where(value => value));
+        Assert.Single(results, value => value);
         var final = first.GetById(incidentId)!;
         Assert.Contains(final.Status, new[] { IncidentStatus.Acknowledged, IncidentStatus.Resolved });
         Assert.Equal(1, final.Occurrences);
