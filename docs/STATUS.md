@@ -1,111 +1,62 @@
 # Project Status
 
-**Updated:** 2026-08-10 11:29 +03:00  
-**Branch:** `agent/m1-snapshot-cache`  
-**Target:** `M1-004`  
-**Issue:** TBD  
-**PR:** #12  
-**Overall:** 🟢 M1-004 VERIFIED — READY TO MERGE
+**Updated:** 2026-08-10 11:36 +03:00  
+**Stable branch:** `main`  
+**Stable head at latest reconciliation:** `81e7a1076663cd606078647908969126b22e27fe`  
+**Active branch:** `agent/m1-002a-connection-lab-ui`  
+**Issue:** #10  
+**PR:** #11  
+**Overall:** 🟡 M1-002A RECONCILED THROUGH M1-004 — FINAL CI / VISUAL REVIEW GATES
 
-## M1-004 — ServerHealthSnapshot contract and cache
+## Team progression preserved
 
-- Canonical immutable `ServerHealthSnapshot` contract.
-- Per-registration cache with 30-second fresh window and five-minute stale fallback.
-- Single-flight collection prevents duplicate SQL calls from concurrent consumers.
-- Refresh failure preserves the last good snapshot and labels it Stale.
-- Caller cancellation does not cancel shared collection required by other callers.
-- Newer collection timestamps win; future-clock ages clamp safely to zero.
-- 25 total tests pass, including concurrency, freshness, stale fallback and cancellation.
-- CI run `31370422613`: SUCCESS (Release build + 25 tests).
+- M1-001 registration / secret boundary: MERGED and VERIFIED.
+- M1-002 backend Test Connection: MERGED and VERIFIED.
+- M1-003 lightweight SQL collector: MERGED and VERIFIED.
+- M1-004 ServerHealthSnapshot contract + cache: MERGED and VERIFIED.
+- M1-002A is a visual follow-up only; it has been reconciled twice as `main` advanced and does not replace the team's collector/cache architecture.
 
-## M1-003 — Lightweight SQL collector
+## M1-002A — SQL Connection Lab UI
 
-- Single SQL command for server name, version, edition, instance, uptime and database counts.
-- One immutable `SqlServerIdentitySnapshot` result with collection timestamp.
-- Shared structured connection-string factory for Test Connection and collection.
-- Seven-second overall budget, cancellation propagation and safe categorized failures.
-- Invalid counts and partial rows fail safely; secrets and provider exception text remain internal.
-- 21 total tests pass, including one-query, redaction, cancellation and mapping paths.
-- CI run `31369800023`: SUCCESS (Release build + 21 tests).
+- Administrator-only `/servers/connections` workflow.
+- Safe SQL target registration using the existing `ServerRegistration` domain/repository.
+- SQL Login UI contains no password field; it accepts only an opaque external secret-reference name.
+- Registration cards expose only `HasSecretReference`; raw secret-reference values are not included in target summaries.
+- Windows Integrated Security requires no SQL login secret.
+- Manual Test Connection calls the existing M1-002 `IServerConnectionTester`.
+- Sanitized `ConnectionTestResult` fields only are rendered back to the browser.
+- Servers screen exposes the Connection Lab visibly.
+- Premium responsive UI uses the existing Monitor design language.
+- Local auth-mode switching only; no fetch, polling, collector timer or background SQL activity.
 
-## M1-002 — Test Connection workflow
+## Connection hardening
 
-- Administrator-only POST endpoint accepts a server registration ID only.
-- Official `Microsoft.Data.SqlClient` provider with structured connection-string construction.
-- Five-second connection timeout within a seven-second overall budget.
-- Request cancellation propagation and pooling disabled for truthful tests.
-- Fixed safe outcomes for authentication, network, certificate, timeout and unexpected failures.
-- Raw SQL exceptions, credentials, secret references and connection strings are not returned.
-- 16 total tests pass, including controller authorization/antiforgery and redaction paths.
-- CI run `31368995784`: SUCCESS (Release build + 16 tests).
-
-## M1-001 — Server registration and secure secret boundary
-
-- Validated SQL Server endpoint and authentication-mode model.
-- Opaque connection-secret reference excluded from JSON serialization.
-- Backend-only configuration secret store using User Secrets/environment configuration.
-- In-memory registration repository containing no passwords or connection strings.
-- Five unit/contract tests covering model invariants, non-disclosure and fail-closed secret resolution.
-- CI now runs the test project after the warnings-as-errors Release build.
-- CI run `31368239695`: SUCCESS (Release build + 5 tests).
-
-## Implemented and verified in current branch
-
-- ASP.NET Core .NET 8 solution and web project.
-- Secure development Admin cookie login using a PBKDF2-SHA256 hash.
-- Premium responsive shell and reusable health-state design language.
-- SQL Command Center with exactly one centralized live visual pulse.
-- Client-only heartbeat/clock/countdown; no fetch, polling or SQL calls.
-- Servers, Server Details, Database Health, Memory Health, Alerts, Settings.
-- Explicit DEVELOPMENT DATA banners and coming-soon states.
-- Demo snapshot provider shared by multiple screens.
-- Visual Studio launch profile opens `/login` automatically.
-- CI workflow for restore + Release build with warnings treated as errors.
-
-## UI-002 — Command Center Visual Upgrade — VERIFIED
-
-- SQL estate topology/radar using the existing shared preview snapshot.
-- Central Snapshot Core visualization.
-- Server health nodes linked to Server Details.
-- Highest-priority incident focus surface.
-- Local-only snapshot-age progression and scan-phase transitions.
-- Reduced-motion accessibility handling and responsive topology behavior.
-- Adds no fetch calls, polling calls, SQL queries or independent server timers.
-- CI run `31365813089`: SUCCESS.
-
-## UI-003 — Servers & Server Details Operational Upgrade — VERIFIED
-
-- Estate summary for reachability, attention state, database availability, SQL Agent health and offline count.
-- Local-only server state filtering and name search.
-- Per-server health score presentation, CPU/memory pressure bars, database availability and Agent compliance.
-- Live-looking snapshot freshness progression performed only in the browser.
-- Server Details command header with health envelope and attention assessment.
-- DBA Focus panel that explains what should be inspected next for the represented preview state.
-- Cached snapshot policy remains explicit; detailed screens do not continuously query SQL.
-- UI assets are isolated in `ui003.css` / `ui003.js` and reuse the existing design tokens.
-- No fetch, polling or SQL traffic added by the UI interactions.
-- Final implementation head `771850b8fecd5791e9e29f426400dd930d0e47bd` validated by CI run `31366381962`: SUCCESS.
+- SqlClient error `-2` maps to `TimedOut` rather than network failure.
+- Shared connection-string factory uses `ConnectRetryCount=0`.
+- Existing five-second connect timeout, seven-second overall budget, non-pooled probe and external secret boundary remain unchanged.
+- M1-003 collector and M1-004 cache are preserved after reconciliation.
 
 ## Verification evidence
 
-- Initial CI run `31364310669`: FAILED on one nullable warning in `AccountController` promoted by `--warnaserror`.
-- Fix commit: `f25b1937869eea75e4ba2d39f0df5f879c653a01`.
-- CI run `31364393808`: SUCCESS.
-- Launch profile commit: `d934217684f663d3cb69db5d70bba69cfb3b1167`.
-- Launch profile CI run `31365254269`: SUCCESS.
-- UI-002 implementation commit: `bbeaf0817d666d7ee6af8ca1c16a83e9c6fb808b`.
-- UI-002 CI run `31365813089`: SUCCESS.
-- UI-003 final implementation commit: `771850b8fecd5791e9e29f426400dd930d0e47bd`.
-- UI-003 CI run `31366381962`: SUCCESS.
-- `dotnet restore`: ✅ VERIFIED by GitHub Actions.
-- `dotnet build --configuration Release --no-restore --warnaserror`: ✅ VERIFIED by GitHub Actions.
-- `dotnet test Monitor.sln --configuration Release --no-build`: ✅ 25 PASSED locally.
-- visual acceptance: ✅ USER ACCEPTED on 2026-08-10.
+- First reconciliation with M1-003: `602f904f30e335297838ad8f384270e1129dc57c`.
+- M1-003-compatible implementation CI run `31370363183`: SUCCESS — 0 warnings / 0 errors / 23 tests passed.
+- Second reconciliation with merged M1-004: `df1fea7df35d38f35677f28726edfc6df21044f6`.
+- Full post-M1-004 branch CI: ⏳ pending latest tracking-doc head.
+- Visual browser review of Servers -> SQL Connection Lab: ⏳ PENDING.
+
+## Current M1 progression
+
+- M1-001: ✅ COMPLETE.
+- M1-002: ✅ COMPLETE.
+- M1-002A: 🟡 CODE VERIFIED / FINAL RECONCILIATION CI + VISUAL REVIEW PENDING.
+- M1-003: ✅ COMPLETE.
+- M1-004: ✅ COMPLETE.
+- M1-005: NEXT after Connection Lab merge gate.
 
 ## Merge gate
 
-M0 PR #2 merged to stable `main` at `dfbfa19`.
+Do not merge PR #11 until the latest post-M1-004 commit passes Restore + Release Build + all tests and the project owner visually checks the SQL Connection Lab.
 
 ## Next action
 
-Merge PR #12, then begin M1-005 real snapshot UI replacement.
+Verify the latest CI. Then open Servers -> SQL Connection Lab in Visual Studio and review Integrated Security / SQL Login switching, safe registration cards and Test Connection result states. After acceptance, merge PR #11 and continue M1-005.
