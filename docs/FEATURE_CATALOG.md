@@ -56,5 +56,7 @@
 | Opaque login lockout + audit redaction | B100 | CI verified | SHA-256 limiter keys, bounded five-failure window, redacted audit fields; B100-064/070; CI 31439153733 |
 | Security acceptance regression suite | B100 | CI verified | Antiforgery reflection gate, input fuzzing, security-header/HSTS/proxy tests and secret canaries; B100-062/067/068/070; CI 31439153733 |
 | SQL connection metadata injection defense | B100 | CI verified | Strict host/instance metadata plus `SqlConnectionStringBuilder` value-injection tests; B100-069; CI 31439153733 |
+| Deterministic shared-state fault harness | B100 | CI verified | Atomic failure/recovery, provider outage, restart-safe migration and lease takeover; B100-071..074; CI 31439886994 |
+| Cross-node concurrency and soak acceptance | B100 | CI verified | Incident/audit/history/registration races, distributed refresh single-flight and 120-cycle three-node soak; B100-075..080; CI 31439886994 |
 | Zero-SQL monitored GETs | M8 | CI verified | Cache/Peek-only browser monitoring reads; CI 31383991126 |
 | Explicit observed manual refresh | M8 | CI verified | Operator/Admin POST; successful refresh observed once |
