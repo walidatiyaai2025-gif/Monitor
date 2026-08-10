@@ -25,7 +25,7 @@
 | Memory snapshot projection | M2 | CI verified | System/process memory from the existing single collector query |
 | Real memory health UI | M2 | Local verified | Cached SQL process utilization with mixed/demo labeling |
 | Database state detail projection | M2 | Local verified | Validated state counts in canonical snapshot |
-| Cached database health UI | M2 | CI pending | Cached real database detail with mixed/demo labeling; no direct SQL |
+| Cached database health UI | M2 | CI verified | Cached real database detail with mixed/demo labeling; CI 31373761997 |
 | Backup health summary | M2 | Local verified | Full-backup coverage and latest full backup |
 | SQL Agent jobs summary | M2 | Local verified | Total, enabled and failed-last-run counts |
 | Storage allocation summary | M2 | Local verified | Total, data and log allocated bytes |
