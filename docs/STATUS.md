@@ -1,174 +1,69 @@
 # Project Status
 
-**Updated:** 2026-08-10 11:41 +03:00  
-**Branch:** `agent/m2-m3-ten-task-batch`  
-**Target:** `M2-008` through `M3-004`  
-**Issue:** TBD  
+**Updated:** 2026-08-10 12:25 +03:00  
+**Branch:** `agent/m2-m3-ci-reconciliation`  
+**Target:** M2/M3 CI verification reconciliation  
+**Issue:** #25  
 **PR:** TBD  
-**Overall:** 🟡 TEN M2/M3 TASKS IMPLEMENTED — LOCAL VERIFICATION IN PROGRESS
+**Overall:** 🟢 M2 THROUGH M3-004 CI VERIFIED — RECONCILIATION READY
 
-## M2-008 through M3-004 — Ten-task continuation
+## CI verification reconciliation
 
-- Five cache-only health module UI integrations.
-- Bounded baseline performance facts in the central snapshot.
-- Immutable allowlisted finding contract and deterministic rule evaluator.
-- Stable incident dedupe with fresh-evidence-only resolution.
-- Authorized Alerts UI now reads evaluated cached incidents.
-- Release build succeeds with warnings-as-errors; 45 tests pass locally.
+- PR #20 (`M2: add five bounded health module summaries`) is merged on stable `main`.
+- CI run `31372957383`: SUCCESS — Release build 0 warnings / 0 errors; 38/38 tests passed.
+- M2-003 through M2-007 are therefore promoted from LOCAL VERIFIED to CI VERIFIED.
+- PR #24 (`M2/M3: connect health modules and incident engine`) is merged on stable `main`.
+- CI run `31373849952`: SUCCESS — Release build 0 warnings / 0 errors; 45/45 tests passed.
+- M2-008 through M2-013 and M3-001 through M3-004 are therefore promoted from LOCAL VERIFIED to CI VERIFIED.
+- This reconciliation changes tracking only; it does not modify runtime behavior.
 
-## M2-003 through M2-007 — Health modules batch
+## M2 — Health Modules — VERIFIED THROUGH M2-013
 
-- Canonical snapshot now carries validated database state, backup, Agent, storage and blocking summaries.
-- Collection remains one fixed backend command under the existing cache and timeout boundary.
-- No UI polling, per-widget SQL, credentials, job commands, physical paths or raw provider errors.
-- Invalid cross-field ranges fail through the existing safe redacted result.
-- Release build succeeds with warnings-as-errors; 36 tests pass locally.
+- M2-001 memory snapshot projection: CI `31372045546`.
+- M2-002 cached Memory Health UI: CI `31372312362`.
+- M2-003 database health detail, M2-004 backup summary, M2-005 Agent summary, M2-006 storage summary and M2-007 blocking summary: CI `31372957383`.
+- M2-008 shared cache-only health projection, M2-009 database/backup UI, M2-010 Agent UI, M2-011 storage UI, M2-012 blocking UI and M2-013 bounded performance facts: CI `31373849952`.
+- Health-module pages consume cached immutable snapshots. They do not execute browser SQL or per-widget collection.
 
-## M2-002 — Real memory health UI
+## M3 — Incidents and Recommendations
 
-- Memory Health now reads through `MonitorReadService` and the shared snapshot cache.
-- Real SQL process utilization maps to the configured server card.
-- Mixed real/demo and development-only modes are labeled explicitly.
-- No browser polling, direct SQL call or extra collector query was added.
-- 34 tests pass locally, including real memory mapping.
+- M3-001 immutable allowlisted finding contract: CI `31373849952`.
+- M3-002 deterministic health rule evaluator: CI `31373849952`.
+- M3-003 incident dedupe/lifecycle repository: CI `31373849952`.
+- M3-004 cached incident read and authorized Alerts integration: CI `31373849952`.
+- M3-005 deterministic recommendation engine is the next PLANNED implementation slice.
 
-## M2-001 — Memory snapshot contract and projection
+## M1 — First real SQL vertical slice — VERIFIED
 
-- Optional immutable `MemoryHealthSnapshot` added to the canonical server snapshot.
-- Total/available physical memory and SQL process memory captured.
-- SQL process utilization and physical/virtual low-memory flags captured.
-- Existing single collector query extended; no extra SQL call or browser query.
-- Strict range validation and the existing redacted failure boundary.
-- 34 total tests pass locally, including mapping, single-query and invalid-range cases.
+- M1-001 registration + secret boundary: CI `31368239695`.
+- M1-002 secure Test Connection: CI `31368995784`.
+- M1-003 lightweight collector: CI `31369800023`.
+- M1-004 snapshot cache: CI `31370422613`.
+- M1-005 first real cached snapshot UI: CI `31371256976`.
+- M1-006 throttled backend refresh: CI `31371676834`.
+- M1-007 SignalR evaluation: deferred by ADR-013 until scheduled backend publication exists.
+- SQL Connection Lab is merged into stable `main` and preserves the external-secret boundary.
 
-## M1-007 — SignalR snapshot delivery evaluation
+## Stable architecture guardrails
 
-- Decision: defer SignalR until a backend scheduler/store publishes snapshots independently.
-- Current request-driven snapshots provide no push event for a hub to deliver.
-- Revisit when multi-consumer delivery or measured polling load justifies the transport.
-- Any future hub is delivery-only and cannot call collectors or change refresh frequency.
-- Decision recorded in ADR-013; no runtime package or unnecessary attack surface added.
-- M1-006 CI run `31371676834`: SUCCESS (Release build + 32 tests).
-
-## M1-006 — Backend-controlled throttled refresh
-
-- Administrator-only POST endpoint protected by antiforgery.
-- Atomic 15-second per-server refresh throttle.
-- Throttled calls return HTTP 429 without invoking cache collection.
-- Accepted refreshes reuse cache single-flight and safe stale fallback.
-- Endpoint accepts only registration ID and returns fixed redacted results.
-- 32 total tests pass locally.
-
-## M1-005 — First real snapshot in the UI
-
-- Optional `Monitor:PrimaryServer` metadata bootstrap with no stored credentials.
-- First enabled registration replaces only the first demo estate card.
-- Fresh and stale cached data are labeled per card and in page banners.
-- Collection failure safely preserves the clearly labeled development fallback.
-- Real details use identity/database values only; CPU, memory and jobs are Not collected.
-- MVC reads through the cache once per request and never calls SQL directly.
-- 30 total tests pass, including live mapping, stale labeling, fallback and configuration security.
-- CI run `31371256976`: SUCCESS (Release build + 30 tests).
-
-## M1-004 — ServerHealthSnapshot contract and cache
-
-- Canonical immutable `ServerHealthSnapshot` contract.
-- Per-registration cache with 30-second fresh window and five-minute stale fallback.
-- Single-flight collection prevents duplicate SQL calls from concurrent consumers.
-- Refresh failure preserves the last good snapshot and labels it Stale.
-- Caller cancellation does not cancel shared collection required by other callers.
-- Newer collection timestamps win; future-clock ages clamp safely to zero.
-- 25 total tests pass, including concurrency, freshness, stale fallback and cancellation.
-- CI run `31370422613`: SUCCESS (Release build + 25 tests).
-
-## M1-003 — Lightweight SQL collector
-
-- Single SQL command for server name, version, edition, instance, uptime and database counts.
-- One immutable `SqlServerIdentitySnapshot` result with collection timestamp.
-- Shared structured connection-string factory for Test Connection and collection.
-- Seven-second overall budget, cancellation propagation and safe categorized failures.
-- Invalid counts and partial rows fail safely; secrets and provider exception text remain internal.
-- 21 total tests pass, including one-query, redaction, cancellation and mapping paths.
-- CI run `31369800023`: SUCCESS (Release build + 21 tests).
-
-## M1-002 — Test Connection workflow
-
-- Administrator-only POST endpoint accepts a server registration ID only.
-- Official `Microsoft.Data.SqlClient` provider with structured connection-string construction.
-- Five-second connection timeout within a seven-second overall budget.
-- Request cancellation propagation and pooling disabled for truthful tests.
-- Fixed safe outcomes for authentication, network, certificate, timeout and unexpected failures.
-- Raw SQL exceptions, credentials, secret references and connection strings are not returned.
-- 16 total tests pass, including controller authorization/antiforgery and redaction paths.
-- CI run `31368995784`: SUCCESS (Release build + 16 tests).
-
-## M1-001 — Server registration and secure secret boundary
-
-- Validated SQL Server endpoint and authentication-mode model.
-- Opaque connection-secret reference excluded from JSON serialization.
-- Backend-only configuration secret store using User Secrets/environment configuration.
-- In-memory registration repository containing no passwords or connection strings.
-- Five unit/contract tests covering model invariants, non-disclosure and fail-closed secret resolution.
-- CI now runs the test project after the warnings-as-errors Release build.
-- CI run `31368239695`: SUCCESS (Release build + 5 tests).
-
-## Implemented and verified in current branch
-
-- ASP.NET Core .NET 8 solution and web project.
-- Secure development Admin cookie login using a PBKDF2-SHA256 hash.
-- Premium responsive shell and reusable health-state design language.
-- SQL Command Center with exactly one centralized live visual pulse.
-- Client-only heartbeat/clock/countdown; no fetch, polling or SQL calls.
-- Servers, Server Details, Database Health, Memory Health, Alerts, Settings.
-- Explicit DEVELOPMENT DATA banners and coming-soon states.
-- Demo snapshot provider shared by multiple screens.
-- Visual Studio launch profile opens `/login` automatically.
-- CI workflow for restore + Release build with warnings treated as errors.
-
-## UI-002 — Command Center Visual Upgrade — VERIFIED
-
-- SQL estate topology/radar using the existing shared preview snapshot.
-- Central Snapshot Core visualization.
-- Server health nodes linked to Server Details.
-- Highest-priority incident focus surface.
-- Local-only snapshot-age progression and scan-phase transitions.
-- Reduced-motion accessibility handling and responsive topology behavior.
-- Adds no fetch calls, polling calls, SQL queries or independent server timers.
-- CI run `31365813089`: SUCCESS.
-
-## UI-003 — Servers & Server Details Operational Upgrade — VERIFIED
-
-- Estate summary for reachability, attention state, database availability, SQL Agent health and offline count.
-- Local-only server state filtering and name search.
-- Per-server health score presentation, CPU/memory pressure bars, database availability and Agent compliance.
-- Live-looking snapshot freshness progression performed only in the browser.
-- Server Details command header with health envelope and attention assessment.
-- DBA Focus panel that explains what should be inspected next for the represented preview state.
-- Cached snapshot policy remains explicit; detailed screens do not continuously query SQL.
-- UI assets are isolated in `ui003.css` / `ui003.js` and reuse the existing design tokens.
-- No fetch, polling or SQL traffic added by the UI interactions.
-- Final implementation head `771850b8fecd5791e9e29f426400dd930d0e47bd` validated by CI run `31366381962`: SUCCESS.
+- Browser/UI components never connect directly to monitored SQL Servers.
+- Credentials remain outside browser models and repository registrations.
+- Snapshot cache is the shared read boundary for monitoring surfaces.
+- Health modules and incident evaluation consume immutable bounded snapshot facts.
+- UI motion/filtering does not alter collection frequency.
+- Missing facts remain `Not collected`; mock/development values are never presented as production facts.
+- Incident findings are deterministic and allowlisted; current runtime performs no autonomous remediation.
 
 ## Verification evidence
 
-- Initial CI run `31364310669`: FAILED on one nullable warning in `AccountController` promoted by `--warnaserror`.
-- Fix commit: `f25b1937869eea75e4ba2d39f0df5f879c653a01`.
-- CI run `31364393808`: SUCCESS.
-- Launch profile commit: `d934217684f663d3cb69db5d70bba69cfb3b1167`.
-- Launch profile CI run `31365254269`: SUCCESS.
-- UI-002 implementation commit: `bbeaf0817d666d7ee6af8ca1c16a83e9c6fb808b`.
-- UI-002 CI run `31365813089`: SUCCESS.
-- UI-003 final implementation commit: `771850b8fecd5791e9e29f426400dd930d0e47bd`.
-- UI-003 CI run `31366381962`: SUCCESS.
-- `dotnet restore`: ✅ VERIFIED by GitHub Actions.
-- `dotnet build --configuration Release --no-restore --warnaserror`: ✅ VERIFIED by GitHub Actions.
-- `dotnet test Monitor.sln --configuration Release --no-build`: ✅ 34 PASSED locally.
-- visual acceptance: ✅ USER ACCEPTED on 2026-08-10.
+- PR #20 CI `31372957383`: 38 passed, 0 failed, 0 skipped; Release build 0 warnings / 0 errors.
+- PR #24 CI `31373849952`: 45 passed, 0 failed, 0 skipped; Release build 0 warnings / 0 errors.
+- M0 visual acceptance: USER ACCEPTED on 2026-08-10.
 
 ## Merge gate
 
-M0 PR #2 merged to stable `main` at `dfbfa19`.
+Run GitHub Actions on this documentation reconciliation head. Merge only if restore, Release build and tests stay green and the branch remains clean against `main`.
 
 ## Next action
 
-Push M2-002, verify CI, and merge before M2-003 database health detail.
+After reconciliation merges, begin M3-005 — a deterministic recommendation engine that maps allowlisted findings/evidence to detailed remediation suggestions while preserving the advisory-only, no-autonomous-execution boundary.
