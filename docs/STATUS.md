@@ -1,11 +1,11 @@
 # Project Status
 
-**Updated:** 2026-08-10 10:55 +03:00  
+**Updated:** 2026-08-10 11:01 +03:00  
 **Branch:** `agent/m1-server-registration`  
 **Target:** `M1-001`  
 **Issue:** TBD  
-**PR:** TBD  
-**Overall:** 🟡 M1-001 IMPLEMENTED — LOCAL VERIFICATION COMPLETE
+**PR:** #4  
+**Overall:** 🟢 M1-001 VERIFIED — READY TO MERGE
 
 ## M1-001 — Server registration and secure secret boundary
 
@@ -15,6 +15,7 @@
 - In-memory registration repository containing no passwords or connection strings.
 - Five unit/contract tests covering model invariants, non-disclosure and fail-closed secret resolution.
 - CI now runs the test project after the warnings-as-errors Release build.
+- CI run `31368239695`: SUCCESS (Release build + 5 tests).
 
 ## Implemented and verified in current branch
 
@@ -75,4 +76,4 @@ M0 PR #2 merged to stable `main` at `dfbfa19`.
 
 ## Next action
 
-Push M1-001, verify CI, open a focused PR, then begin M1-002 Test Connection workflow.
+Merge PR #4, then begin M1-002 Test Connection workflow.
