@@ -84,23 +84,22 @@ public sealed class OperationsController : Controller
     [ValidateAntiForgeryToken]
     [Authorize(Policy = MonitorPolicies.Operate)]
     public IActionResult AcknowledgeIncident(string id) =>
-        Transition(id, "incident.acknowledge", workflow => workflow.Acknowledge(id));
+        Transition(id, workflow => workflow.Acknowledge(id));
 
     [HttpPost("/alerts/{id}/resolve")]
     [ValidateAntiForgeryToken]
     [Authorize(Policy = MonitorPolicies.Operate)]
     public IActionResult ResolveIncident(string id) =>
-        Transition(id, "incident.resolve", workflow => workflow.Resolve(id));
+        Transition(id, workflow => workflow.Resolve(id));
 
     [HttpPost("/alerts/{id}/reopen")]
     [ValidateAntiForgeryToken]
     [Authorize(Policy = MonitorPolicies.Operate)]
     public IActionResult ReopenIncident(string id) =>
-        Transition(id, "incident.reopen", workflow => workflow.Reopen(id));
+        Transition(id, workflow => workflow.Reopen(id));
 
     private IActionResult Transition(
         string id,
-        string action,
         Func<IIncidentWorkflowService, IncidentTransitionResult> transition)
     {
         if (_workflow is null)
@@ -115,7 +114,7 @@ public sealed class OperationsController : Controller
         }
 
         var result = transition(_workflow);
-        _audit?.Append(actor, action, id, result.AuditOutcome);
+        _audit?.Append(actor, "incident.transition", id, result.AuditOutcome);
         return result.Applied
             ? RedirectToAction(nameof(IncidentDetails), new { id })
             : Conflict(new { message = "Incident state changed or the transition is not allowed." });
