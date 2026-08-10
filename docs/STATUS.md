@@ -1,12 +1,12 @@
 # Project Status
 
-**Updated:** 2026-08-10 11:36 +03:00  
+**Updated:** 2026-08-10 11:39 +03:00  
 **Stable branch:** `main`  
 **Stable head at latest reconciliation:** `81e7a1076663cd606078647908969126b22e27fe`  
 **Active branch:** `agent/m1-002a-connection-lab-ui`  
 **Issue:** #10  
 **PR:** #11  
-**Overall:** 🟡 M1-002A RECONCILED THROUGH M1-004 — FINAL CI / VISUAL REVIEW GATES
+**Overall:** 🟡 M1-002A CODE + CI VERIFIED — VISUAL REVIEW PENDING
 
 ## Team progression preserved
 
@@ -14,7 +14,7 @@
 - M1-002 backend Test Connection: MERGED and VERIFIED.
 - M1-003 lightweight SQL collector: MERGED and VERIFIED.
 - M1-004 ServerHealthSnapshot contract + cache: MERGED and VERIFIED.
-- M1-002A is a visual follow-up only; it has been reconciled twice as `main` advanced and does not replace the team's collector/cache architecture.
+- M1-002A is a visual follow-up only; it was reconciled as `main` advanced and does not replace the team's collector/cache architecture.
 
 ## M1-002A — SQL Connection Lab UI
 
@@ -39,24 +39,29 @@
 ## Verification evidence
 
 - First reconciliation with M1-003: `602f904f30e335297838ad8f384270e1129dc57c`.
-- M1-003-compatible implementation CI run `31370363183`: SUCCESS — 0 warnings / 0 errors / 23 tests passed.
-- Second reconciliation with merged M1-004: `df1fea7df35d38f35677f28726edfc6df21044f6`.
-- Full post-M1-004 branch CI: ⏳ pending latest tracking-doc head.
+- Second reconciliation with M1-004: `df1fea7df35d38f35677f28726edfc6df21044f6`.
+- Final post-M1-004 CI run `31370779791`: SUCCESS.
+- `dotnet restore Monitor.sln`: ✅.
+- Release build with `--warnaserror`: ✅ 0 warnings / 0 errors.
+- `dotnet test Monitor.sln --configuration Release --no-build`: ✅ 27 passed / 0 failed / 0 skipped.
+- Provider-timeout mapping test: ✅.
+- Connection Lab summary raw-secret-reference exclusion test: ✅.
+- PR #11 mergeability after M1-004 reconciliation: ✅ MERGEABLE.
 - Visual browser review of Servers -> SQL Connection Lab: ⏳ PENDING.
 
 ## Current M1 progression
 
 - M1-001: ✅ COMPLETE.
 - M1-002: ✅ COMPLETE.
-- M1-002A: 🟡 CODE VERIFIED / FINAL RECONCILIATION CI + VISUAL REVIEW PENDING.
+- M1-002A: 🟡 CODE + CI VERIFIED / VISUAL REVIEW PENDING.
 - M1-003: ✅ COMPLETE.
 - M1-004: ✅ COMPLETE.
 - M1-005: NEXT after Connection Lab merge gate.
 
 ## Merge gate
 
-Do not merge PR #11 until the latest post-M1-004 commit passes Restore + Release Build + all tests and the project owner visually checks the SQL Connection Lab.
+Do not merge PR #11 until the project owner visually checks the SQL Connection Lab. Code/build/test gates are green and the branch is mergeable on top of merged M1-004.
 
 ## Next action
 
-Verify the latest CI. Then open Servers -> SQL Connection Lab in Visual Studio and review Integrated Security / SQL Login switching, safe registration cards and Test Connection result states. After acceptance, merge PR #11 and continue M1-005.
+Open Servers -> SQL Connection Lab in Visual Studio and verify Integrated Security / SQL Login switching, safe registration cards and Test Connection result states. After acceptance, merge PR #11 and continue M1-005.
