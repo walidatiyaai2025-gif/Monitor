@@ -161,6 +161,7 @@ internal sealed class SqlServerSnapshotCollector(
             throw exception.Kind switch
             {
                 SqlProbeFailureKind.Authentication => Failure(SnapshotCollectionFailure.AuthenticationFailed, "Authentication failed."),
+                SqlProbeFailureKind.Timeout => Failure(SnapshotCollectionFailure.TimedOut, "Snapshot collection timed out."),
                 SqlProbeFailureKind.Network => Failure(SnapshotCollectionFailure.NetworkUnavailable, "The SQL Server could not be reached."),
                 SqlProbeFailureKind.Certificate => Failure(SnapshotCollectionFailure.CertificateRejected, "SQL Server certificate validation failed."),
                 _ => Failure(SnapshotCollectionFailure.Failed, "Snapshot collection failed.")
