@@ -38,7 +38,7 @@ M0 uses ASP.NET Core cookie authentication with one development Administrator. T
 
 ## M1 server registration and secret boundary
 
-`ServerRegistration` stores validated endpoint and authentication metadata only. SQL login values are represented by an opaque `ConnectionSecretReference`, excluded from JSON, and resolved only inside the backend through `IConnectionSecretStore`. The development implementation reads values from .NET User Secrets or environment-backed configuration and fails closed when a reference is missing. No plaintext password or full connection string is stored in the repository or registration model.
+`ServerRegistration` stores validated endpoint and authentication-mode metadata only. SQL login values are represented by an opaque `ConnectionSecretReference`, excluded from JSON, and resolved only inside the backend through `IConnectionSecretStore`. The development implementation reads values from .NET User Secrets or environment-backed configuration and fails closed when a reference is missing. No plaintext password or full connection string is stored in the repository or registration model.
 
 `IServerConnectionTester` owns the M1-002 Test Connection workflow. The administrator endpoint accepts only a registration ID, resolves credentials inside the backend, and delegates provider access to `ISqlConnectionProbe`. The SQL client uses a five-second connection timeout inside a seven-second overall budget, disables pooling for the test, honors request cancellation, and returns only fixed redacted result categories. Provider exception text and connection strings never cross the service boundary.
 
@@ -67,3 +67,5 @@ M3-005 through M3-016 add idempotent observations, bounded querying, incident de
 M4-001 through M4-006 establish a normalized backend advisor context and provider abstraction. The only registered provider is disabled and returns a fixed status. No network call, tool invocation, SQL execution or autonomous remediation exists.
 
 M5-001 through M5-007 add bounded in-memory aggregate history, a shared observer, a deterministic backend collection cycle and fixed-window trend reads. Schedule policy is disabled by default and no background host is activated yet.
+
+M5-008 adds an immutable operator-audit contract and a bounded thread-safe in-memory trail. Successful acknowledge/resolve/reopen transitions are audited inside `IncidentWorkflowService` only after the repository state transition succeeds. The event records authenticated actor identity, UTC time, allowlisted action, incident resource ID and before/after status. It intentionally has no incident evidence, SQL, credential, endpoint, provider-error or arbitrary-request payload field. The Administrator `/audit` page reads the trail only and cannot trigger snapshot collection or mutate incidents.
