@@ -7,6 +7,8 @@ builder.Services.AddControllersWithViews();
 builder.Services.Configure<AdminCredentialOptions>(
     builder.Configuration.GetSection(AdminCredentialOptions.SectionName));
 builder.Services.AddSingleton<IAdminCredentialVerifier, AdminCredentialVerifier>();
+builder.Services.AddSingleton<ILoginAttemptLimiter, LoginAttemptLimiter>();
+builder.Services.AddSingleton<IAuditStore, InMemoryAuditStore>();
 builder.Services.AddSingleton<IDemoMonitorService, DemoMonitorService>();
 builder.Services.AddSingleton<IServerRegistrationRepository, InMemoryServerRegistrationRepository>();
 builder.Services.AddSingleton<IConnectionSecretStore, ConfigurationConnectionSecretStore>();
@@ -22,10 +24,17 @@ builder.Services.AddSingleton<IRecommendationEngine, RecommendationEngine>();
 builder.Services.AddSingleton<IAdvisorContextBuilder, AdvisorContextBuilder>();
 builder.Services.AddSingleton<IAdvisorProvider, DisabledAdvisorProvider>();
 builder.Services.AddSingleton<IIncidentWorkflowService, IncidentWorkflowService>();
+builder.Services.AddSingleton<IAdvisorRequestService, AdvisorRequestService>();
 builder.Services.AddSingleton<ISnapshotHistoryStore, InMemorySnapshotHistoryStore>();
 builder.Services.AddSingleton<ISnapshotObserver, SnapshotObserver>();
 builder.Services.AddSingleton<ISnapshotCollectionCycle, SnapshotCollectionCycle>();
 builder.Services.AddSingleton<ITrendReadService, TrendReadService>();
+var scheduleOptions = builder.Configuration.GetSection(SnapshotScheduleOptions.SectionName).Get<SnapshotScheduleOptions>() ?? new();
+scheduleOptions.Validate();
+builder.Services.AddSingleton(scheduleOptions);
+builder.Services.AddSingleton<ICollectionBackoffPolicy, CollectionBackoffPolicy>();
+builder.Services.AddSingleton<ISchedulerStatusStore, SchedulerStatusStore>();
+builder.Services.AddHostedService<SnapshotSchedulerService>();
 builder.Services.AddSingleton<IMonitorReadService, MonitorReadService>();
 builder.Services.AddSingleton<ISnapshotRefreshService, SnapshotRefreshService>();
 
@@ -37,12 +46,19 @@ builder.Services
         options.AccessDeniedPath = "/login";
         options.Cookie.Name = "Monitor.Auth";
         options.Cookie.HttpOnly = true;
-        options.Cookie.SameSite = SameSiteMode.Lax;
+        options.Cookie.SameSite = SameSiteMode.Strict;
+        options.Cookie.SecurePolicy = builder.Environment.IsDevelopment() ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.Always;
         options.SlidingExpiration = true;
         options.ExpireTimeSpan = TimeSpan.FromHours(8);
     });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy(MonitorPolicies.Read, policy => policy.RequireRole(MonitorRoles.Viewer, MonitorRoles.Operator, MonitorRoles.Administrator));
+    options.AddPolicy(MonitorPolicies.Operate, policy => policy.RequireRole(MonitorRoles.Operator, MonitorRoles.Administrator));
+    options.AddPolicy(MonitorPolicies.Manage, policy => policy.RequireRole(MonitorRoles.Administrator));
+    options.AddPolicy(MonitorPolicies.Advisor, policy => policy.RequireRole(MonitorRoles.Operator, MonitorRoles.Administrator));
+});
 
 var app = builder.Build();
 
@@ -61,6 +77,14 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.Use(async (context, next) =>
+{
+    context.Response.Headers.XContentTypeOptions = "nosniff";
+    context.Response.Headers.XFrameOptions = "DENY";
+    context.Response.Headers["Referrer-Policy"] = "no-referrer";
+    context.Response.Headers["Content-Security-Policy"] = "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'";
+    await next();
+});
 app.UseStaticFiles();
 app.UseRouting();
 app.UseAuthentication();

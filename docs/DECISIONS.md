@@ -79,3 +79,15 @@ Advisor context contains only normalized rule metadata, bounded evidence and det
 ## ADR-020 — History is bounded aggregate evidence
 
 History stores only allowlisted snapshot aggregates, deduplicated by registration and collection time. The in-memory phase retains at most 288 points per server for 24 hours. Fixed-window reads never trigger collection. The schedule policy validates safe bounds and remains disabled by default; no hosted timer is activated in this slice.
+
+## ADR-021 — Scheduled collection is disabled by default and failure-isolated
+
+The hosted scheduler validates interval and concurrency at startup, performs no immediate collection, and exits without cycles unless explicitly enabled. Cycles are sequential at the host level and bounded-parallel per server. Each successful snapshot is observed once; categorized server failures are isolated and receive capped exponential backoff. Runtime status exposes counts and timestamps only.
+
+## ADR-022 — Monitoring authorization uses named policies
+
+Viewer, Operator and Administrator roles map to explicit read, incident operation, connection management and advisor request policies. Unsafe operator and advisor actions remain POST plus antiforgery. Cookies are HttpOnly, strict SameSite and always secure outside Development. Responses receive a baseline CSP, frame denial, nosniff and no-referrer headers.
+
+## ADR-023 — Advisor requests are explicit, bounded and audited
+
+Incident detail reads do not grant execution capability. An Operator or Administrator explicitly POSTs an incident ID to request advice. The backend builds context, coalesces duplicate requests, caches only the matching evidence version for five minutes, applies a ten-second timeout and opens a short circuit after repeated failures. Audit stores metadata/status only, never raw prompts, credentials or provider exceptions.

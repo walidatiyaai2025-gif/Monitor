@@ -5,20 +5,24 @@ using Monitor.Web.Models;
 
 namespace Monitor.Web.Controllers;
 
-[Authorize(Roles = "Administrator")]
+[Authorize(Policy = MonitorPolicies.Read)]
 public sealed class OperationsController : Controller
 {
     private readonly IDemoMonitorService _monitor;
     private readonly IMonitorReadService _readService;
     private readonly IIncidentWorkflowService? _workflow;
     private readonly ITrendReadService? _trends;
+    private readonly IAuditStore? _audit;
+    private readonly IAdvisorRequestService? _advisorRequests;
 
-    public OperationsController(IDemoMonitorService monitor, IMonitorReadService readService, IIncidentWorkflowService? workflow = null, ITrendReadService? trends = null)
+    public OperationsController(IDemoMonitorService monitor, IMonitorReadService readService, IIncidentWorkflowService? workflow = null, ITrendReadService? trends = null, IAuditStore? audit = null, IAdvisorRequestService? advisorRequests = null)
     {
         _monitor = monitor;
         _readService = readService;
         _workflow = workflow;
         _trends = trends;
+        _audit = audit;
+        _advisorRequests = advisorRequests;
     }
 
     [HttpGet("/dashboard")]
@@ -78,19 +82,39 @@ public sealed class OperationsController : Controller
 
     [HttpPost("/alerts/{id}/acknowledge")]
     [ValidateAntiForgeryToken]
+    [Authorize(Policy = MonitorPolicies.Operate)]
     public IActionResult AcknowledgeIncident(string id) => Transition(id, _workflow?.Acknowledge(id) == true);
 
     [HttpPost("/alerts/{id}/resolve")]
     [ValidateAntiForgeryToken]
+    [Authorize(Policy = MonitorPolicies.Operate)]
     public IActionResult ResolveIncident(string id) => Transition(id, _workflow?.Resolve(id) == true);
 
     [HttpPost("/alerts/{id}/reopen")]
     [ValidateAntiForgeryToken]
+    [Authorize(Policy = MonitorPolicies.Operate)]
     public IActionResult ReopenIncident(string id) => Transition(id, _workflow?.Reopen(id) == true);
 
-    private IActionResult Transition(string id, bool changed) => changed
-        ? RedirectToAction(nameof(IncidentDetails), new { id })
-        : Conflict(new { message = "Incident state changed or the transition is not allowed." });
+    private IActionResult Transition(string id, bool changed)
+    {
+        _audit?.Append(User.Identity?.Name ?? "unknown", "incident.transition", id, changed ? "applied" : "conflict");
+        return changed ? RedirectToAction(nameof(IncidentDetails), new { id }) : Conflict(new { message = "Incident state changed or the transition is not allowed." });
+    }
+
+    [HttpGet("/audit")]
+    [Authorize(Policy = MonitorPolicies.Manage)]
+    public IActionResult Audit(int offset = 0, int limit = 50) => View(_audit?.Read(offset, limit) ?? []);
+
+    [HttpPost("/alerts/{id}/advisor")]
+    [ValidateAntiForgeryToken]
+    [Authorize(Policy = MonitorPolicies.Advisor)]
+    public async Task<IActionResult> RequestAdvisor(string id, CancellationToken cancellationToken)
+    {
+        if (_advisorRequests is null) return NotFound();
+        var result = await _advisorRequests.RequestAsync(id, User.Identity?.Name ?? "unknown", cancellationToken);
+        TempData["AdvisorStatus"] = result.Message;
+        return RedirectToAction(nameof(IncidentDetails), new { id });
+    }
 
     [HttpGet("/history/{registrationId:guid}")]
     public IActionResult History(Guid registrationId, string window = "6h")

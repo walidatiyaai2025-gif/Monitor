@@ -1,11 +1,20 @@
 # Project Status
 
-**Updated:** 2026-08-10 12:42 +03:00  
-**Branch:** `agent/m3-m5-ci-reconciliation-final`  
-**Target:** PR #28 CI reconciliation + next hardening slice  
-**Issue:** #30  
-**PR:** TBD  
-**Overall:** 🟢 M3 THROUGH M5-007 CI VERIFIED — M5-008 PLANNED
+**Updated:** 2026-08-10 12:50 +03:00  
+**Branch:** `agent/m4-m5-hardening-25-task-batch`  
+**Target:** 25 tasks — `M4-007` through `M5-025`  
+**Issue:** TBD  
+**PR:** #33  
+**Overall:** 🟡 25-TASK SCHEDULER / SECURITY / ADVISOR HARDENING BATCH — LOCAL VERIFIED
+
+## M4-007 through M5-025 — 25-task hardening continuation
+
+- Disabled-by-default hosted scheduler with bounded parallelism, no overlap, backoff and runtime status.
+- Append-only bounded audit trail for login, incident and advisor request metadata.
+- Viewer/Operator/Administrator named authorization policies.
+- Strict cookie settings, baseline browser security headers and partitioned login limiting.
+- Explicit advisor POST with single-flight, evidence-version cache, timeout, circuit breaker and audit.
+- Release build succeeds with warnings-as-errors; 59 tests pass locally.
 
 ## PR #28 — M3/M4/M5 batch — CI VERIFIED
 

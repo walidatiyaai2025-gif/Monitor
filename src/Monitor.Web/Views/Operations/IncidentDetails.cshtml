@@ -5,9 +5,11 @@
     <p><strong>Status:</strong> @Model.Incident.Status · <strong>Severity:</strong> @Model.Incident.Severity · <strong>Occurrences:</strong> @Model.Incident.Occurrences</p>
     @if (Model.Recommendation is not null) { <h3>Deterministic recommendation</h3><p>@Model.Recommendation.Explanation</p><ol>@foreach (var step in Model.Recommendation.Steps) { <li>@step.Action <small>@step.Risk</small></li> }</ol> }
     <h3>AI Advisor</h3><p>@Model.Advisor.Message</p>
+    @if (TempData["AdvisorStatus"] is string advisorStatus) { <p class="data-banner">@advisorStatus</p> }
     <div class="form-actions">
         @if (Model.Incident.Status == IncidentStatus.Open) { <form asp-action="AcknowledgeIncident" asp-route-id="@Model.Incident.Id" method="post"><button class="button primary" type="submit">Acknowledge</button></form> }
         @if (Model.Incident.Status != IncidentStatus.Resolved) { <form asp-action="ResolveIncident" asp-route-id="@Model.Incident.Id" method="post"><button class="button" type="submit">Resolve</button></form> }
         @if (Model.Incident.Status == IncidentStatus.Resolved) { <form asp-action="ReopenIncident" asp-route-id="@Model.Incident.Id" method="post"><button class="button" type="submit">Reopen</button></form> }
+        <form asp-action="RequestAdvisor" asp-route-id="@Model.Incident.Id" method="post"><button class="button" type="submit">Request AI advice</button></form>
     </div>
 </section>

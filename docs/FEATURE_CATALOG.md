@@ -40,4 +40,8 @@
 | Snapshot history | M5 | CI verified | Allowlisted 24-hour in-memory aggregate retention; CI 31375034604 |
 | Collection cycle | M5 | CI verified | Backend-only deterministic refresh cycle; scheduler remains disabled; CI 31375034604 |
 | Snapshot trends | M5 | CI verified | Fixed 1h/6h/24h read-only windows; CI 31375034604 |
-| Operator audit trail | M5 | Planned | Immutable bounded audit evidence for protected incident transitions |
+| Scheduled collection runtime | M5 | Local verified | Disabled by default; bounded parallelism, backoff and status |
+| Audit trail | M5 | Local verified | Bounded append-only authentication/operator/advisor metadata |
+| Policy-based RBAC | M5 | Local verified | Viewer, Operator and Administrator authorization policies |
+| Web security baseline | M5 | Local verified | Strict cookie, CSP/frame/nosniff/referrer headers and login limiting |
+| Guarded Advisor request | M4 | Local verified | Explicit POST, single-flight, TTL cache, timeout, circuit and audit |
