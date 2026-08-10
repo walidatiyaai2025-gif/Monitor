@@ -120,11 +120,12 @@ public sealed class OperationsController : Controller
             return Forbid();
         }
 
+        var repositoryAvailable = _incidentRepository is not null;
         var before = _incidentRepository?.GetById(id);
         var changed = transition(_workflow);
         var after = _incidentRepository?.GetById(id);
 
-        var outcome = BuildTransitionAuditOutcome(changed, before, after);
+        var outcome = BuildTransitionAuditOutcome(changed, before, after, repositoryAvailable);
         _audit?.Append(actor, "incident.transition", id, outcome);
 
         return changed
@@ -132,8 +133,17 @@ public sealed class OperationsController : Controller
             : Conflict(new { message = "Incident state changed or the transition is not allowed." });
     }
 
-    private static string BuildTransitionAuditOutcome(bool changed, HealthIncident? before, HealthIncident? after)
+    private static string BuildTransitionAuditOutcome(
+        bool changed,
+        HealthIncident? before,
+        HealthIncident? after,
+        bool repositoryAvailable)
     {
+        if (!repositoryAvailable)
+        {
+            return changed ? "applied" : "conflict";
+        }
+
         if (changed)
         {
             return before is not null && after is not null
@@ -141,16 +151,14 @@ public sealed class OperationsController : Controller
                 : "applied";
         }
 
-        if (before is null && _IsRepositoryObservationAvailable(after))
+        if (before is null)
         {
             return "rejected:not-found";
         }
 
-        var current = after?.Status ?? before?.Status;
-        return current is null ? "conflict" : $"rejected:current={current}";
+        var current = after?.Status ?? before.Status;
+        return $"rejected:current={current}";
     }
-
-    private static bool _IsRepositoryObservationAvailable(HealthIncident? after) => after is null;
 
     [HttpGet("/audit")]
     [Authorize(Policy = MonitorPolicies.Manage)]
