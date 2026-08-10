@@ -98,14 +98,17 @@ public sealed class RealServerJourneyTests
 
     private sealed class FakeCache : IServerHealthSnapshotCache
     {
+        private SnapshotCacheResult? _latest;
         public int RefreshCount { get; private set; }
         public Task<SnapshotCacheResult> GetAsync(ServerRegistration registration, CancellationToken cancellationToken = default) => RefreshAsync(registration, cancellationToken);
         public Task<SnapshotCacheResult> RefreshAsync(ServerRegistration registration, CancellationToken cancellationToken = default)
-        { RefreshCount++; return Task.FromResult(Result(registration.Id, registration.DisplayName)); }
+        { RefreshCount++; _latest = Result(registration.Id, registration.DisplayName); return Task.FromResult(_latest); }
+        public SnapshotCacheResult? Peek(Guid registrationId) => _latest?.Snapshot.RegistrationId == registrationId ? _latest : null;
     }
 
     private sealed class KeyedCache(Guid successfulId) : IServerHealthSnapshotCache
     {
+        public SnapshotCacheResult? Peek(Guid registrationId) => registrationId == successfulId ? Result(registrationId, "REAL SQL") : null;
         public Task<SnapshotCacheResult> GetAsync(ServerRegistration registration, CancellationToken cancellationToken = default) =>
             registration.Id == successfulId ? Task.FromResult(Result(registration.Id, registration.DisplayName)) : Task.FromException<SnapshotCacheResult>(new SnapshotCollectionException(SnapshotCollectionFailure.NetworkUnavailable, "Unavailable"));
         public Task<SnapshotCacheResult> RefreshAsync(ServerRegistration registration, CancellationToken cancellationToken = default) => GetAsync(registration, cancellationToken);

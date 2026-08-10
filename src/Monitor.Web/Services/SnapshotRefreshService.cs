@@ -11,7 +11,8 @@ public interface ISnapshotRefreshService
 public sealed class SnapshotRefreshService(
     IServerRegistrationRepository registrations,
     IServerHealthSnapshotCache cache,
-    TimeProvider timeProvider) : ISnapshotRefreshService
+    TimeProvider timeProvider,
+    ISnapshotObserver? observer = null) : ISnapshotRefreshService
 {
     internal static readonly TimeSpan MinimumInterval = TimeSpan.FromSeconds(15);
     private readonly ConcurrentDictionary<Guid, DateTimeOffset> _lastAccepted = new();
@@ -60,6 +61,7 @@ public sealed class SnapshotRefreshService(
         }
 
         var result = await cache.RefreshAsync(registration, cancellationToken);
+        observer?.Observe(result);
         return new(
             SnapshotRefreshStatus.Refreshed,
             result.Freshness == SnapshotFreshness.Fresh

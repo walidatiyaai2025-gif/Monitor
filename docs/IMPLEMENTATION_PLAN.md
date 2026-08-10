@@ -183,6 +183,26 @@ This is the canonical execution plan. Update it in the same PR as material imple
 | M7-003 | Durable Monitor-owned audit/history/incident operational store | VERIFIED — CI RUN 31382770932 |
 | M7-004 | Shared-state / HA deployment strategy and implementation slice | PLANNED |
 
+## M8 — Zero-SQL Reads & Operator Refresh
+
+| Task | Description | State |
+|---|---|---|
+| M8-001 | Read-only snapshot Peek contract | LOCAL VERIFIED |
+| M8-002 | Missing snapshot returns no cached result | LOCAL VERIFIED |
+| M8-003 | Fresh snapshot Peek classification | LOCAL VERIFIED |
+| M8-004 | Stale snapshot Peek classification | LOCAL VERIFIED |
+| M8-005 | Expired snapshot excluded from monitoring reads | LOCAL VERIFIED |
+| M8-006 | Server estate GET performs zero collection calls | LOCAL VERIFIED |
+| M8-007 | Health module GET performs zero collection calls | LOCAL VERIFIED |
+| M8-008 | Incident GET no longer evaluates or mutates incidents | LOCAL VERIFIED |
+| M8-009 | Successful manual refresh observes the committed snapshot once | LOCAL VERIFIED |
+| M8-010 | Operator/Admin refresh command on Server Details | LOCAL VERIFIED |
+| M8-011 | Refresh mutation is POST-only and antiforgery protected | LOCAL VERIFIED |
+| M8-012 | Refresh result uses PRG and safe TempData copy | LOCAL VERIFIED |
+| M8-013 | Registered-unavailable source is not labeled stale | LOCAL VERIFIED |
+| M8-014 | Browser navigation remains cache-only | LOCAL VERIFIED |
+| M8-015 | Release build, Razor compilation and automated test gate | LOCAL VERIFIED |
+
 ## Delivery loop
 
 Plan -> Design -> Implement -> Show -> Connect Real Data -> Verify -> Commit -> Push -> Update Plan.

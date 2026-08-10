@@ -15,6 +15,7 @@ public sealed class OperationsController : Controller
     private readonly IAuditStore? _audit;
     private readonly IAdvisorRequestService? _advisorRequests;
     private readonly IHealthIncidentRepository? _incidentRepository;
+    private readonly ISnapshotRefreshService? _snapshotRefresh;
 
     public OperationsController(
         IDemoMonitorService monitor,
@@ -23,7 +24,8 @@ public sealed class OperationsController : Controller
         ITrendReadService? trends = null,
         IAuditStore? audit = null,
         IAdvisorRequestService? advisorRequests = null,
-        IHealthIncidentRepository? incidentRepository = null)
+        IHealthIncidentRepository? incidentRepository = null,
+        ISnapshotRefreshService? snapshotRefresh = null)
     {
         _monitor = monitor;
         _readService = readService;
@@ -32,6 +34,7 @@ public sealed class OperationsController : Controller
         _audit = audit;
         _advisorRequests = advisorRequests;
         _incidentRepository = incidentRepository;
+        _snapshotRefresh = snapshotRefresh;
     }
 
     [HttpGet("/dashboard")]
@@ -46,6 +49,19 @@ public sealed class OperationsController : Controller
     {
         var model = await _readService.GetServerAsync(id, cancellationToken);
         return model is null ? NotFound() : View(model);
+    }
+
+    [HttpPost("/servers/{id:guid}/refresh")]
+    [ValidateAntiForgeryToken]
+    [Authorize(Policy = MonitorPolicies.Operate)]
+    public async Task<IActionResult> RefreshServer(Guid id, CancellationToken cancellationToken)
+    {
+        if (_snapshotRefresh is null) return NotFound();
+        var result = await _snapshotRefresh.RefreshAsync(id, cancellationToken);
+        TempData["SnapshotRefresh"] = result.Message;
+        return result.Status == SnapshotRefreshStatus.RegistrationNotFound
+            ? NotFound()
+            : RedirectToAction(nameof(ServerDetails), new { id = id.ToString("D") });
     }
 
     [HttpGet("/database-health")]

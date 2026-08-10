@@ -46,6 +46,14 @@
 
 Run GitHub Actions on the final docs head. Confirm `main` has not introduced an overlapping operational-store change, then merge PR #46 only if restore, Release build with warnings-as-errors, Razor compilation and all tests remain Green.
 
+## M8 — Zero-SQL reads and operator refresh — LOCAL VERIFIED
+
+- Monitoring GETs use a synchronous cache Peek and never initiate SQL collection.
+- Incident pages are read-only; findings are observed only after a successful refresh/collection path.
+- Manual refresh now observes the committed snapshot exactly once, so history and incidents become immediately consistent.
+- Server Details exposes a policy-protected, antiforgery-protected POST refresh with PRG feedback.
+- Registered targets without a snapshot are labeled `REGISTERED · NOT COLLECTED`, never stale.
+
 ## Next action
 
-After M7-003 merge, execute M7-004: define and implement the first shared-state/HA deployment slice without weakening the existing secret, snapshot, audit or incident boundaries.
+Push M8, verify GitHub Actions, then continue M7-004 shared-state/HA without weakening the zero-SQL GET invariant.
