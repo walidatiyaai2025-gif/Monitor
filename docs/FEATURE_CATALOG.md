@@ -20,7 +20,8 @@
 | Lightweight SQL collector | M1 | CI verified | One query: identity, uptime and database availability counts |
 | Server health snapshot cache | M1 | CI verified | 30s fresh, 5m stale fallback, per-server single-flight |
 | Real snapshot UI card | M1 | CI verified | First configured server replaces one demo card; mixed data labeled |
-| Throttled snapshot refresh | M1 | Local verified | Admin POST, 15s per-server throttle, shared cache flight |
+| Throttled snapshot refresh | M1 | CI verified | Admin POST, 15s per-server throttle, shared cache flight |
+| SignalR snapshot delivery | M1 | Evaluated / deferred | Revisit after scheduled backend publication exists |
 | Real SQL connection | M1 | Planned | First vertical slice |
 | Backups | M2 | Planned | Coming soon in UI |
 | Jobs | M2 | Planned | Coming soon in UI |

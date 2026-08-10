@@ -28,8 +28,8 @@ This is the canonical execution plan. Update it in the same PR as material imple
 | M1-003 | Lightweight collector: name/version/edition/instance/uptime/database counts | VERIFIED — CI RUN 31369800023 |
 | M1-004 | `ServerHealthSnapshot` domain contract + cache | VERIFIED — CI RUN 31370422613 |
 | M1-005 | Replace one demo server with real snapshot data | VERIFIED — CI RUN 31371256976 |
-| M1-006 | Backend-controlled/throttled refresh | IMPLEMENTED — LOCAL VERIFIED |
-| M1-007 | SignalR snapshot delivery evaluation | PLANNED |
+| M1-006 | Backend-controlled/throttled refresh | VERIFIED — CI RUN 31371676834 |
+| M1-007 | SignalR snapshot delivery evaluation | VERIFIED — DEFERRED BY ADR-013 |
 
 ## Delivery loop
 
