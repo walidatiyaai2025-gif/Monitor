@@ -8,6 +8,7 @@ public interface IMonitorReadService
     Task<ServerDetailsViewModel?> GetServerAsync(string id, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<HealthModuleServerViewModel>> GetHealthModulesAsync(CancellationToken cancellationToken = default);
     Task<IReadOnlyList<IncidentRow>> GetIncidentsAsync(CancellationToken cancellationToken = default);
+    Task<IncidentRecommendationViewModel?> GetRecommendationAsync(string incidentId, CancellationToken cancellationToken = default);
 }
 
 public sealed class MonitorReadService(
@@ -15,7 +16,8 @@ public sealed class MonitorReadService(
     IServerRegistrationRepository registrations,
     IServerHealthSnapshotCache cache,
     IHealthRuleEvaluator? evaluator = null,
-    IHealthIncidentRepository? incidents = null) : IMonitorReadService
+    IHealthIncidentRepository? incidents = null,
+    IHealthRecommendationService? recommendations = null) : IMonitorReadService
 {
     public async Task<IReadOnlyList<ServerCard>> GetServersAsync(
         CancellationToken cancellationToken = default)
@@ -102,22 +104,9 @@ public sealed class MonitorReadService(
 
     public async Task<IReadOnlyList<IncidentRow>> GetIncidentsAsync(CancellationToken cancellationToken = default)
     {
-        foreach (var registration in registrations.GetAll().Where(item => item.IsEnabled))
-        {
-            try
-            {
-                var result = await cache.GetAsync(registration, cancellationToken);
-                var findings = (evaluator ??= new HealthRuleEvaluator()).Evaluate(registration.Id, result.Snapshot, result.Freshness);
-                (incidents ??= new InMemoryHealthIncidentRepository()).Reconcile(
-                    registration.Id, result.Snapshot.CollectedAtUtc, findings, result.Freshness == SnapshotFreshness.Fresh);
-            }
-            catch (SnapshotCollectionException)
-            {
-                // Collection failure does not invent or resolve incidents.
-            }
-        }
+        await ReconcileIncidentsAsync(cancellationToken);
 
-        return (incidents ??= new InMemoryHealthIncidentRepository()).GetAll().Select(item => new IncidentRow(
+        return IncidentRepository().GetAll().Select(item => new IncidentRow(
             item.Id,
             item.Severity.ToString(),
             item.RegistrationId.ToString("D"),
@@ -125,6 +114,48 @@ public sealed class MonitorReadService(
             $"{Math.Max(0, (DateTimeOffset.UtcNow - item.LastSeenUtc).TotalMinutes):0}m",
             item.Status.ToString())).ToArray();
     }
+
+    public async Task<IncidentRecommendationViewModel?> GetRecommendationAsync(
+        string incidentId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(incidentId))
+        {
+            return null;
+        }
+
+        await ReconcileIncidentsAsync(cancellationToken);
+        var incident = IncidentRepository().GetAll()
+            .FirstOrDefault(item => string.Equals(item.Id, incidentId, StringComparison.Ordinal));
+        if (incident is null)
+        {
+            return null;
+        }
+
+        var recommendation = (recommendations ??= new HealthRecommendationService()).Create(incident);
+        return recommendation is null ? null : new IncidentRecommendationViewModel(incident, recommendation);
+    }
+
+    private async Task ReconcileIncidentsAsync(CancellationToken cancellationToken)
+    {
+        foreach (var registration in registrations.GetAll().Where(item => item.IsEnabled))
+        {
+            try
+            {
+                var result = await cache.GetAsync(registration, cancellationToken);
+                var findings = (evaluator ??= new HealthRuleEvaluator()).Evaluate(registration.Id, result.Snapshot, result.Freshness);
+                IncidentRepository().Reconcile(
+                    registration.Id, result.Snapshot.CollectedAtUtc, findings, result.Freshness == SnapshotFreshness.Fresh);
+            }
+            catch (SnapshotCollectionException)
+            {
+                // Collection failure does not invent or resolve incidents.
+            }
+        }
+    }
+
+    private IHealthIncidentRepository IncidentRepository() =>
+        incidents ??= new InMemoryHealthIncidentRepository();
 
     private async Task<ServerCard?> TryGetLiveCardAsync(
         ServerRegistration registration,
