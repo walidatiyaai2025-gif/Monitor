@@ -8,14 +8,17 @@ namespace Monitor.Web.Controllers;
 [Authorize(Roles = "Administrator")]
 public sealed class ConnectionLabController(
     IServerRegistrationRepository registrations,
-    IServerConnectionTester tester) : Controller
+    IServerConnectionTester tester,
+    IRuntimeCredentialWriter credentialWriter,
+    IServerHealthSnapshotCache cache,
+    ISnapshotObserver observer) : Controller
 {
     [HttpGet("/servers/connections")]
     public IActionResult Index() => View(BuildPage(new ConnectionLabRegistrationInput()));
 
     [HttpPost("/servers/connections/register")]
     [ValidateAntiForgeryToken]
-    public IActionResult Register(ConnectionLabRegistrationInput input)
+    public async Task<IActionResult> Register(ConnectionLabRegistrationInput input, CancellationToken cancellationToken)
     {
         Normalize(input);
         ValidateInput(input);
@@ -40,9 +43,15 @@ public sealed class ConnectionLabController(
                 return View("Index", BuildPage(input));
             }
 
-            ConnectionSecretReference? secretReference = input.AuthenticationMode == SqlAuthenticationMode.SqlLogin
-                ? new ConnectionSecretReference(input.SecretReference!)
-                : null;
+            ConnectionSecretReference? secretReference = null;
+            if (input.AuthenticationMode == SqlAuthenticationMode.SqlLogin)
+            {
+                if (!string.IsNullOrWhiteSpace(input.SqlUsername) && !string.IsNullOrEmpty(input.SqlPassword))
+                {
+                    secretReference = await credentialWriter.StoreAsync(input.SqlUsername, input.SqlPassword, cancellationToken);
+                }
+                else secretReference = new ConnectionSecretReference(input.SecretReference!);
+            }
 
             var registration = new ServerRegistration(
                 Guid.NewGuid(),
@@ -54,8 +63,24 @@ public sealed class ConnectionLabController(
                 DateTimeOffset.UtcNow);
 
             registrations.Upsert(registration);
-            TempData["ConnectionLabMessage"] = $"{registration.DisplayName} registered. Test Connection is ready.";
-            return RedirectToAction(nameof(Index));
+            var testResult = await tester.TestAsync(registration, cancellationToken);
+            if (!testResult.Succeeded)
+            {
+                input.SqlPassword = null;
+                return View("Index", BuildPage(input, testResult, registration.Id));
+            }
+
+            try
+            {
+                observer.Observe(await cache.RefreshAsync(registration, cancellationToken));
+                if (ControllerContext.HttpContext is not null) TempData["ConnectionLabMessage"] = $"{registration.DisplayName} connected and its first real snapshot was collected.";
+                return RedirectToAction("Servers", "Operations");
+            }
+            catch (SnapshotCollectionException exception)
+            {
+                if (ControllerContext.HttpContext is not null) TempData["ConnectionLabMessage"] = $"Connection succeeded, but monitoring data is not available yet ({exception.Failure}). Review SQL monitoring permissions.";
+                return RedirectToAction(nameof(Index));
+            }
         }
         catch (ArgumentException exception)
         {
@@ -94,7 +119,8 @@ public sealed class ConnectionLabController(
         Input = input,
         Registrations = registrations.GetAll().Select(ToSummary).ToArray(),
         TestResult = result,
-        TestedRegistrationId = testedId
+        TestedRegistrationId = testedId,
+        JourneyStep = registrations.GetAll().Count == 0 ? 1 : result?.Succeeded == true ? 3 : 2
     };
 
     private bool IsDuplicate(SqlServerEndpoint endpoint) => registrations.GetAll().Any(item =>
@@ -135,9 +161,10 @@ public sealed class ConnectionLabController(
             ModelState.AddModelError(nameof(input.Port), "Specify either a TCP port or a named instance, not both.");
         }
 
-        if (input.AuthenticationMode == SqlAuthenticationMode.SqlLogin && string.IsNullOrWhiteSpace(input.SecretReference))
+        if (input.AuthenticationMode == SqlAuthenticationMode.SqlLogin && string.IsNullOrWhiteSpace(input.SecretReference) &&
+            (string.IsNullOrWhiteSpace(input.SqlUsername) || string.IsNullOrEmpty(input.SqlPassword)))
         {
-            ModelState.AddModelError(nameof(input.SecretReference), "SQL Login authentication requires an external secret reference.");
+            ModelState.AddModelError(nameof(input.SqlUsername), "Enter a SQL username/password for this session or provide an external secret reference.");
         }
     }
 
@@ -149,6 +176,7 @@ public sealed class ConnectionLabController(
         input.SecretReference = input.AuthenticationMode == SqlAuthenticationMode.SqlLogin && !string.IsNullOrWhiteSpace(input.SecretReference)
             ? input.SecretReference.Trim()
             : null;
+        input.SqlUsername = string.IsNullOrWhiteSpace(input.SqlUsername) ? null : input.SqlUsername.Trim();
     }
 
     private static string SafeDomainMessage(ArgumentException exception) => exception.ParamName switch

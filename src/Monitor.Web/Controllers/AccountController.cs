@@ -12,12 +12,14 @@ public sealed class AccountController : Controller
     private readonly IAdminCredentialVerifier _credentialVerifier;
     private readonly ILoginAttemptLimiter? _limiter;
     private readonly IAuditStore? _audit;
+    private readonly IServerRegistrationRepository? _registrations;
 
-    public AccountController(IAdminCredentialVerifier credentialVerifier, ILoginAttemptLimiter? limiter = null, IAuditStore? audit = null)
+    public AccountController(IAdminCredentialVerifier credentialVerifier, ILoginAttemptLimiter? limiter = null, IAuditStore? audit = null, IServerRegistrationRepository? registrations = null)
     {
         _credentialVerifier = credentialVerifier;
         _limiter = limiter;
         _audit = audit;
+        _registrations = registrations;
     }
 
     [AllowAnonymous]
@@ -77,7 +79,9 @@ public sealed class AccountController : Controller
             return LocalRedirect(returnUrl);
         }
 
-        return RedirectToAction("Dashboard", "Operations");
+        return _registrations?.GetAll().Any(item => item.IsEnabled) == true
+            ? RedirectToAction("Dashboard", "Operations")
+            : RedirectToAction("Index", "ConnectionLab");
     }
 
     [Authorize]

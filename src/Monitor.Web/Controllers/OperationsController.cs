@@ -26,7 +26,7 @@ public sealed class OperationsController : Controller
     }
 
     [HttpGet("/dashboard")]
-    public IActionResult Dashboard() => View(_monitor.GetDashboard());
+    public async Task<IActionResult> Dashboard(CancellationToken cancellationToken) => View(await _readService.GetDashboardAsync(cancellationToken));
 
     [HttpGet("/servers")]
     public async Task<IActionResult> Servers(CancellationToken cancellationToken) =>

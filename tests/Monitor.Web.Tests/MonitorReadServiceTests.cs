@@ -20,13 +20,12 @@ public sealed class MonitorReadServiceTests
 
         var cards = await service.GetServersAsync();
 
-        Assert.Equal(4, cards.Count);
+        Assert.Single(cards);
         Assert.Equal(registration.Id.ToString("D"), cards[0].Id);
         Assert.Equal("REAL-SQL01", cards[0].Name);
         Assert.Equal(ServerDataSource.LiveFresh, cards[0].Source);
         Assert.Equal(92, cards[0].MemoryPercent);
         Assert.Equal(8, cards[0].LastScanSecondsAgo);
-        Assert.Equal("da-sql02", cards[1].Id);
         Assert.Equal(1, cache.CallCount);
     }
 
@@ -62,7 +61,7 @@ public sealed class MonitorReadServiceTests
 
         var cards = await service.GetServersAsync();
 
-        Assert.All(cards, card => Assert.Equal(ServerDataSource.Demo, card.Source));
+        Assert.All(cards, card => Assert.Equal(ServerDataSource.RegisteredUnavailable, card.Source));
     }
 
     [Fact]

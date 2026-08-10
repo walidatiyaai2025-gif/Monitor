@@ -4,7 +4,7 @@
     var sqlLogin = Model.Input.AuthenticationMode == SqlAuthenticationMode.SqlLogin;
 }
 
-<div class="data-banner"><strong>M1 REAL CONNECTION WORKFLOW</strong><span>Passwords stay outside the application UI. SQL Login uses an opaque secret reference resolved only by the backend.</span></div>
+<div class="data-banner"><strong>CONNECT A REAL SQL SERVER</strong><span>Register → Test → Collect snapshot → View health. Runtime credentials stay only in server memory and disappear on restart.</span></div>
 
 @if (TempData["ConnectionLabMessage"] is string message)
 {
@@ -43,6 +43,12 @@
                 @Html.ValidationMessage("AuthenticationMode", null, new { @class = "field-error" })
             </div>
             <div class="lab-field full @(sqlLogin ? string.Empty : "is-hidden")" data-lab-secret-field>
+                <label for="SqlUsername">SQL username</label>
+                <input id="SqlUsername" name="SqlUsername" value="@Model.Input.SqlUsername" maxlength="128" autocomplete="username" placeholder="monitor_reader" />
+                @Html.ValidationMessage("SqlUsername", null, new { @class = "field-error" })
+                <label for="SqlPassword">SQL password</label>
+                <input id="SqlPassword" name="SqlPassword" type="password" maxlength="256" autocomplete="new-password" />
+                <small>Stored only in this Monitor process. For production durability, use the external reference below.</small>
                 <label for="SecretReference">External secret reference</label>
                 <input id="SecretReference" name="SecretReference" value="@Model.Input.SecretReference" maxlength="128" placeholder="finance-prod-monitor" />
                 <small>Configure <code>ConnectionSecrets:&lt;reference&gt;:Username</code> and <code>Password</code> through User Secrets or environment configuration. The actual credential never enters this page.</small>
@@ -52,7 +58,7 @@
                 <label><input type="checkbox" name="Encrypt" value="true" checked="@Model.Input.Encrypt" /><span><strong>Encrypt</strong><small>Keep TLS enabled for normal operation.</small></span></label>
                 <label><input type="checkbox" name="TrustServerCertificate" value="true" checked="@Model.Input.TrustServerCertificate" /><span><strong>Trust server certificate</strong><small>Use only when your SQL TLS policy requires it.</small></span></label>
             </div>
-            <div class="lab-actions full"><a class="secondary-button" asp-controller="Operations" asp-action="Servers">Back to Servers</a><button class="primary-button" type="submit">Register target</button></div>
+            <div class="lab-actions full"><a class="secondary-button" asp-controller="Operations" asp-action="Servers">Back to Servers</a><button class="primary-button" type="submit">Save, test & collect</button></div>
         </form>
     </article>
 

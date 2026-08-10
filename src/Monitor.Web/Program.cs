@@ -12,6 +12,7 @@ builder.Services.AddSingleton<IAuditStore, InMemoryAuditStore>();
 builder.Services.AddSingleton<IDemoMonitorService, DemoMonitorService>();
 builder.Services.AddSingleton<IServerRegistrationRepository, InMemoryServerRegistrationRepository>();
 builder.Services.AddSingleton<IConnectionSecretStore, ConfigurationConnectionSecretStore>();
+builder.Services.AddSingleton<IRuntimeCredentialWriter>(provider => (IRuntimeCredentialWriter)provider.GetRequiredService<IConnectionSecretStore>());
 builder.Services.AddSingleton<ISqlConnectionProbe, SqlConnectionProbe>();
 builder.Services.AddSingleton<IServerConnectionTester, ServerConnectionTester>();
 builder.Services.AddSingleton(TimeProvider.System);

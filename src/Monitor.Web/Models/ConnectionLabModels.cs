@@ -29,6 +29,15 @@ public sealed class ConnectionLabRegistrationInput
     [Display(Name = "Secret reference")]
     public string? SecretReference { get; set; }
 
+    [StringLength(128)]
+    [Display(Name = "SQL username")]
+    public string? SqlUsername { get; set; }
+
+    [DataType(DataType.Password)]
+    [StringLength(256)]
+    [Display(Name = "SQL password")]
+    public string? SqlPassword { get; set; }
+
     public bool Encrypt { get; set; } = true;
 
     [Display(Name = "Trust server certificate")]
@@ -52,4 +61,5 @@ public sealed class ConnectionLabViewModel
     public required IReadOnlyList<ConnectionLabRegistrationSummary> Registrations { get; init; }
     public ConnectionTestResult? TestResult { get; init; }
     public Guid? TestedRegistrationId { get; init; }
+    public int JourneyStep { get; init; }
 }
