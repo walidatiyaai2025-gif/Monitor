@@ -99,3 +99,14 @@ B100-031..040 defines production health and runtime telemetry without adding a n
 Telemetry is intentionally aggregate-only: collector/cache/scheduler/incident/authentication counters, timestamps and finite status categories. Collector failure categories use a strict allowlist derived from `SnapshotCollectionFailure` plus `Unexpected`; arbitrary free-form input is stored only as `Unknown`. Incident evidence, SQL text, usernames, passwords, IP addresses, secret references, connection strings, provider endpoints, request bodies and raw provider exceptions are excluded from telemetry state.
 
 `X-Correlation-ID` accepts only a bounded alphanumeric/`.`/`_`/`-` token; unsafe or missing values are replaced with a server-generated identifier. Structured request completion logging uses the safe correlation scope and records only HTTP method, response status and elapsed time. The Administrator observability page is a read-only aggregate view and does not trigger collection.
+
+## ADR-037 — Scale is governed by deterministic budgets, not timing-dependent microbenchmarks
+B100-041..050 makes estate growth explicit through configuration-backed hard bounds: snapshot-cache capacity, history/audit/incident page sizes, server-estate paging, global manual-refresh concurrency, targets per scheduler cycle and monitored-SQL pool size/lifetime. Capacity tests assert deterministic counts and concurrency limits rather than machine-specific elapsed-time thresholds.
+
+Cache eviction removes the oldest retained snapshot first, with registration ID as a deterministic tie-breaker. Server-estate paging evaluates registration metadata and Peeks only the requested page; moving between pages remains a zero-monitored-SQL GET. History is constrained to the existing 24-hour aggregate retention domain, while audit and incident reads retain strict maximum output sizes.
+
+Manual refresh uses an application-wide non-blocking concurrency permit in addition to registration throttling and distributed refresh single-flight. Scheduler cycles add bounded deterministic jitter and select round-robin target batches so large estates neither synchronize collection bursts nor permanently starve later registrations.
+
+Only monitored background snapshot collection opts into bounded SQL connection pooling. Test Connection deliberately remains non-pooled so a credential rotation/test cannot appear valid because an old authenticated pooled session was reused.
+
+During Batch 5 review, a Batch 4 integration gap was found: observability controllers/services existed, but their DI/decorator/middleware wiring had not reached `Program.cs`. Batch 5 treats runtime wiring as part of acceptance, registering telemetry/readiness, collector/cache/cycle/incident decorators, correlation middleware and authentication-outcome telemetry before marking the batch verified.
