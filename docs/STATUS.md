@@ -1,61 +1,43 @@
 # Project Status
 
-**Updated:** 2026-08-10 12:58 +03:00  
-**Branch:** `agent/m4-m5-ci-reconciliation-33`  
-**Target:** PR #33 CI reconciliation + next hardening slice  
-**Issue:** #35  
+**Updated:** 2026-08-10 13:05 +03:00  
+**Branch:** `agent/m5-026-transition-audit-enrichment`  
+**Target:** M5-026 — Incident transition audit enrichment  
+**Issue:** #37  
 **PR:** TBD  
-**Overall:** 🟢 M4 THROUGH M5-025 CI VERIFIED — M5-026 PLANNED
+**Overall:** 🟡 M5-026 IMPLEMENTED — CI PENDING
 
-## PR #33 — Scheduler / security / advisor hardening — CI VERIFIED
+## M5-026 — Incident transition audit enrichment
 
-- Stable PR #33 completed M4-007 through M4-013 and M5-008 through M5-025.
-- Advisor requests are explicit authorized POST operations with antiforgery protection, per-incident single-flight, evidence-version cache, bounded timeout, circuit breaker and redacted audit metadata.
-- Hosted scheduled collection is implemented but remains disabled by default; when enabled it uses one no-overlap loop, bounded parallelism, per-server failure isolation and capped exponential backoff.
-- The canonical audit system is a bounded append-only `IAuditStore` with a 1,000-event in-memory implementation and Administrator read UI.
-- Viewer, Operator and Administrator roles/policies are established; web security adds strict cookie settings, CSP/frame/nosniff/referrer headers and partitioned login limiting.
-- CI run `31376448363`: SUCCESS — Release build 0 warnings / 0 errors; 59/59 tests passed; Razor views compiled in Release.
+- Reuses the canonical `IAuditStore` from M5-016/M5-017; no second audit repository or event family is introduced.
+- `IIncidentWorkflowService` transition commands now return an immutable bounded `IncidentTransitionResult` with applied/rejected status and before/after incident state when known.
+- Acknowledge, resolve and reopen retain atomic repository compare-and-set semantics.
+- Operator commands now fail closed before workflow mutation when the authenticated principal has no usable name; the previous `unknown` actor fallback is removed for incident transitions.
+- Successful audits use authenticated actor identity, a specific allowlisted action (`incident.acknowledge`, `incident.resolve`, `incident.reopen`), the incident ID target and bounded `PreviousState->NewState` outcome.
+- Rejected transitions remain auditable but use bounded state-aware outcomes such as `rejected:current=Open` or `rejected:not-found`.
+- Audit outcomes never contain incident evidence, credentials, SQL text, endpoints, provider errors, job commands or arbitrary request payloads.
+- Existing Operator policy and antiforgery protections remain unchanged.
+- Tests cover state-aware workflow results, authenticated success audit, missing-actor fail-closed behavior and rejected-transition audit context.
 
-## M4 — Advisor hardening
+## Verified baseline
 
-- M4-001 through M4-006: CI `31375034604`.
-- M4-007 through M4-013: CI `31376448363`.
-- External provider behavior remains configuration-controlled and advisory-only; no provider output can execute SQL or mutate monitored systems.
-
-## M5 — History and Operational Hardening
-
-- M5-001 through M5-007: CI `31375034604`.
-- M5-008 through M5-025: CI `31376448363`.
-- Scheduled collection stays disabled unless explicitly enabled by validated configuration.
-- Audit, RBAC, browser-security and login-throttling foundations are now part of stable `main`.
-- **Next:** M5-026 — enrich incident-transition audit using the existing `IAuditStore`, authenticated actor identity and bounded before/after state metadata.
-
-## Identified M5-026 gap
-
-- Current transition audit records action/target plus a generic `applied` or `conflict` outcome.
-- The controller currently falls back to actor `unknown` when the principal name is absent.
-- The next slice should fail closed when authenticated actor identity is unavailable and should record successful transitions with bounded `PreviousState -> NewState` context using the existing audit store, not a parallel repository.
-- No incident evidence, SQL text, credentials, endpoints, provider errors, job commands or arbitrary request payloads should enter the audit record.
+- M4-007 through M4-013 and M5-008 through M5-025: CI `31376448363` — 59/59 tests, 0 build warnings/errors.
+- M3-005 through M3-016, M4-001 through M4-006 and M5-001 through M5-007: CI `31375034604` — 54/54 tests, 0 build warnings/errors.
+- M2-008 through M2-013 and M3-001 through M3-004: CI `31373849952` — 45/45 tests, 0 build warnings/errors.
 
 ## Stable architecture guardrails
 
 - Browser/UI components never connect directly to monitored SQL Servers.
 - Snapshot cache remains the shared evidence/read boundary.
 - Recommendations and Advisor output remain human-review only and cannot execute production SQL.
-- Audit records contain bounded operational metadata, not unrestricted evidence or secrets.
-- Role policies separate read, operator, connection-management and advisor-request capabilities.
+- The canonical audit store contains bounded operational metadata only.
+- Incident transition identity comes from the authenticated principal and is never invented.
 - Scheduler and external/provider activity remain disabled unless explicitly configured.
-
-## Verification evidence
-
-- PR #28 CI `31375034604`: 54 passed; 0 failed; Release build 0 warnings / 0 errors.
-- PR #33 CI `31376448363`: 59 passed; 0 failed; 0 skipped; Release build 0 warnings / 0 errors.
-- M0 visual acceptance: USER ACCEPTED on 2026-08-10.
 
 ## Merge gate
 
-This reconciliation is documentation-only. Run GitHub Actions on the final docs head, confirm the branch remains clean against `main`, then merge.
+Open the M5-026 PR and require GitHub Actions restore, Release build with warnings-as-errors, Razor compilation and all tests to pass. Reconcile against any newer `main` change before merge.
 
 ## Next action
 
-After reconciliation, implement M5-026 as a focused hardening change on top of the canonical `IAuditStore`/RBAC architecture; do not create a second audit store.
+Run CI on the complete M5-026 implementation, fix any signature/controller/test regression, record the CI receipt, then merge only when the branch remains clean against stable `main`.
