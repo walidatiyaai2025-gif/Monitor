@@ -17,40 +17,14 @@ public sealed record SharedStateReadinessViewModel(
     int? SchemaVersion,
     string Message)
 {
-    public static SharedStateReadinessViewModel Disabled() =>
-        new(
-            SharedStateProviderKind.Disabled,
-            SharedStateReadinessStatus.Disabled,
-            SharedStorageReady: false,
-            SchemaVersion: null,
-            Message: "Shared-state provider is disabled. Single-node local stores remain active.");
-
-    public static SharedStateReadinessViewModel Ready(int schemaVersion) =>
-        new(
-            SharedStateProviderKind.SqlServer,
-            SharedStateReadinessStatus.Ready,
-            SharedStorageReady: true,
-            SchemaVersion: schemaVersion,
-            Message: "Dedicated Monitor shared-state SQL provider is reachable and schema-compatible. Deployment readiness is evaluated separately against repository, coordination, credential and security-state requirements.");
-
-    public static SharedStateReadinessViewModel SchemaMismatch(int? schemaVersion) =>
-        new(
-            SharedStateProviderKind.SqlServer,
-            SharedStateReadinessStatus.SchemaMismatch,
-            SharedStorageReady: false,
-            SchemaVersion: schemaVersion,
-            Message: "Dedicated Monitor shared-state SQL provider is reachable but the required schema version is not installed.");
-
-    public static SharedStateReadinessViewModel Unavailable(string message) =>
-        new(
-            SharedStateProviderKind.SqlServer,
-            SharedStateReadinessStatus.Unavailable,
-            SharedStorageReady: false,
-            SchemaVersion: null,
-            Message: message);
+    public static SharedStateReadinessViewModel Disabled() => new(SharedStateProviderKind.Disabled, SharedStateReadinessStatus.Disabled, false, null, "Shared-state provider is disabled. Single-node local stores remain active.");
+    public static SharedStateReadinessViewModel Ready(int schemaVersion) => new(SharedStateProviderKind.SqlServer, SharedStateReadinessStatus.Ready, true, schemaVersion, "Dedicated Monitor shared-state SQL provider is reachable and schema-compatible. Deployment readiness is evaluated separately against repository, coordination, credential and security-state requirements.");
+    public static SharedStateReadinessViewModel SchemaMismatch(int? schemaVersion) => new(SharedStateProviderKind.SqlServer, SharedStateReadinessStatus.SchemaMismatch, false, schemaVersion, "Dedicated Monitor shared-state SQL provider is reachable but the required schema version is not installed.");
+    public static SharedStateReadinessViewModel Unavailable(string message) => new(SharedStateProviderKind.SqlServer, SharedStateReadinessStatus.Unavailable, false, null, message);
 }
 
 public sealed record SettingsViewModel(
     DeploymentReadinessViewModel Deployment,
     SharedStateReadinessViewModel SharedState,
-    CredentialReadinessViewModel? CredentialReadiness = null);
+    CredentialReadinessViewModel? CredentialReadiness = null,
+    BackupReadinessViewModel? BackupReadiness = null);

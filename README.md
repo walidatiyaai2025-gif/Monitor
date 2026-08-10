@@ -6,7 +6,7 @@
 
 M0 through M6 are CI verified. M7 production-readiness includes durable registration metadata, fail-closed external secret routing, durable bounded operational state, protected local SQL Login credentials, a topology guard and a dedicated Monitor shared-state SQL capability. M8 enforces zero-SQL monitoring GETs for monitored targets.
 
-BATCH-100 is the active enterprise hardening program. Batch 1 adds shared registration/audit/history/incident state plus distributed scheduler/manual-refresh coordination. Batch 2 adds shared encrypted Data Protection key management and safe SQL credential-reference migration/rotation. `docs/BATCH_100.md` is the 100-task execution ledger.
+BATCH-100 is the active enterprise hardening program. Batch 1 adds shared registration/audit/history/incident state plus distributed scheduler/manual-refresh coordination. Batch 2 adds shared encrypted Data Protection key management and safe SQL credential-reference migration/rotation. Batch 3 adds checksummed operational backup/export, mutation-free dry-run validation and rollback-capable File/Shared restore. `docs/BATCH_100.md` is the 100-task execution ledger.
 
 ## Run
 
@@ -87,6 +87,24 @@ For HA preparation, key-ring storage can be switched explicitly:
 
 Existing `env:<alias>` and legacy external secret references remain compatible. Connection Lab can replace an existing SQL Login reference with a tested external reference. The workflow resolves the candidate, runs bounded Test Connection, commits registration metadata only after success, then removes the old Monitor-owned local secret when safe. Failed replacement keeps the current registration/credential unchanged. Audit records only bounded actor/action/registration/outcome metadata; current and candidate references are never rendered or audited.
 
+## Operational backup / restore
+
+Batch 3 adds a separate operational backup root, outside `wwwroot` by default:
+
+```json
+"BackupStore": {
+  "RootPath": "App_Data/backups",
+  "RetentionCount": 10,
+  "MaxBundleBytes": 8388608
+}
+```
+
+An operational bundle contains only the safe state needed to reconstruct Monitor operations: registration metadata plus opaque secret references, incidents, bounded 24-hour aggregate history and bounded audit metadata. Each section is covered by a SHA-256 manifest checksum. The bundle explicitly excludes protected SQL credential ciphertext, Data Protection key material/KEKs, shared-state provider connection material, SQL usernames/passwords and monitored SQL text.
+
+Administrator Settings exposes Create, Dry-run Validate and Restore commands. All are POST + antiforgery protected; restore requires typing `RESTORE` exactly. Validation checks backup identity, format version, hashes, bounds and cross-section referential integrity before mutation.
+
+Restore targets the persistence backend currently selected by deployment configuration. Shared-state restore uses optimistic compare/exchange and rolls earlier sections back if a later section fails. File-backed restore uses atomic file replacement and returns `RestartRequired=true`; restart Monitor before resuming operations because already-loaded singleton repository state is intentionally not mutated in-place. InMemory deployments may export but cannot claim restart-safe restore support.
+
 ## Architecture rules
 
 - Browser/UI components never connect directly to monitored SQL Servers.
@@ -96,4 +114,5 @@ Existing `env:<alias>` and legacy external secret references remain compatible. 
 - Recommendations and Advisor output remain advisory-only and cannot execute production SQL.
 - Secret-provider routing stays behind `IConnectionSecretStore`.
 - Shared-state SQL is a separate Monitor-owned control-plane database, never an implicitly reused monitored target.
+- Operational backup excludes secret-bearing persistence and uses validated/staged restore semantics.
 - MultiNode stays fail-closed until all remaining distributed login-security and snapshot-cache/delivery prerequisites are verified.

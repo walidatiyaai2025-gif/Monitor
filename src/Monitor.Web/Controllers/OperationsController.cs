@@ -19,6 +19,7 @@ public sealed class OperationsController : Controller
     private readonly DeploymentReadinessViewModel _deploymentReadiness;
     private readonly ISharedStateReadinessService? _sharedStateReadiness;
     private readonly ICredentialReadinessService? _credentialReadiness;
+    private readonly IOperationalBackupService? _backupService;
 
     public OperationsController(
         IDemoMonitorService monitor,
@@ -31,7 +32,8 @@ public sealed class OperationsController : Controller
         ISnapshotRefreshService? snapshotRefresh = null,
         DeploymentReadinessViewModel? deploymentReadiness = null,
         ISharedStateReadinessService? sharedStateReadiness = null,
-        ICredentialReadinessService? credentialReadiness = null)
+        ICredentialReadinessService? credentialReadiness = null,
+        IOperationalBackupService? backupService = null)
     {
         _monitor = monitor;
         _readService = readService;
@@ -44,14 +46,14 @@ public sealed class OperationsController : Controller
         _deploymentReadiness = deploymentReadiness ?? DeploymentReadinessViewModel.SafeDefault();
         _sharedStateReadiness = sharedStateReadiness;
         _credentialReadiness = credentialReadiness;
+        _backupService = backupService;
     }
 
     [HttpGet("/dashboard")]
     public async Task<IActionResult> Dashboard(CancellationToken cancellationToken) => View(await _readService.GetDashboardAsync(cancellationToken));
 
     [HttpGet("/servers")]
-    public async Task<IActionResult> Servers(CancellationToken cancellationToken) =>
-        View(await _readService.GetServersAsync(cancellationToken));
+    public async Task<IActionResult> Servers(CancellationToken cancellationToken) => View(await _readService.GetServersAsync(cancellationToken));
 
     [HttpGet("/servers/{id}")]
     public async Task<IActionResult> ServerDetails(string id, CancellationToken cancellationToken)
@@ -68,42 +70,32 @@ public sealed class OperationsController : Controller
         if (_snapshotRefresh is null) return NotFound();
         var result = await _snapshotRefresh.RefreshAsync(id, cancellationToken);
         TempData["SnapshotRefresh"] = result.Message;
-        return result.Status == SnapshotRefreshStatus.RegistrationNotFound
-            ? NotFound()
-            : RedirectToAction(nameof(ServerDetails), new { id = id.ToString("D") });
+        return result.Status == SnapshotRefreshStatus.RegistrationNotFound ? NotFound() : RedirectToAction(nameof(ServerDetails), new { id = id.ToString("D") });
     }
 
     [HttpGet("/database-health")]
-    public async Task<IActionResult> DatabaseHealth(CancellationToken cancellationToken) =>
-        View(new HealthModulePageViewModel("Database & Backup Health", "Cached database states and full-backup coverage.", await _readService.GetHealthModulesAsync(cancellationToken)));
+    public async Task<IActionResult> DatabaseHealth(CancellationToken cancellationToken) => View(new HealthModulePageViewModel("Database & Backup Health", "Cached database states and full-backup coverage.", await _readService.GetHealthModulesAsync(cancellationToken)));
 
     [HttpGet("/backups")]
-    public async Task<IActionResult> Backups(CancellationToken cancellationToken) =>
-        View("HealthModules", new HealthModulePageViewModel("Backup Health", "Full-backup coverage from the shared cached snapshot.", await _readService.GetHealthModulesAsync(cancellationToken)));
+    public async Task<IActionResult> Backups(CancellationToken cancellationToken) => View("HealthModules", new HealthModulePageViewModel("Backup Health", "Full-backup coverage from the shared cached snapshot.", await _readService.GetHealthModulesAsync(cancellationToken)));
 
     [HttpGet("/jobs")]
-    public async Task<IActionResult> Jobs(CancellationToken cancellationToken) =>
-        View("HealthModules", new HealthModulePageViewModel("SQL Agent Jobs", "Aggregate job outcomes; commands and step text are never collected.", await _readService.GetHealthModulesAsync(cancellationToken)));
+    public async Task<IActionResult> Jobs(CancellationToken cancellationToken) => View("HealthModules", new HealthModulePageViewModel("SQL Agent Jobs", "Aggregate job outcomes; commands and step text are never collected.", await _readService.GetHealthModulesAsync(cancellationToken)));
 
     [HttpGet("/storage")]
-    public async Task<IActionResult> Storage(CancellationToken cancellationToken) =>
-        View("HealthModules", new HealthModulePageViewModel("Storage Allocation", "Allocated database bytes only; this is not disk capacity or free space.", await _readService.GetHealthModulesAsync(cancellationToken)));
+    public async Task<IActionResult> Storage(CancellationToken cancellationToken) => View("HealthModules", new HealthModulePageViewModel("Storage Allocation", "Allocated database bytes only; this is not disk capacity or free space.", await _readService.GetHealthModulesAsync(cancellationToken)));
 
     [HttpGet("/blocking")]
-    public async Task<IActionResult> Blocking(CancellationToken cancellationToken) =>
-        View("HealthModules", new HealthModulePageViewModel("Blocking", "Bounded blocking counts without SQL text, plans or client identity.", await _readService.GetHealthModulesAsync(cancellationToken)));
+    public async Task<IActionResult> Blocking(CancellationToken cancellationToken) => View("HealthModules", new HealthModulePageViewModel("Blocking", "Bounded blocking counts without SQL text, plans or client identity.", await _readService.GetHealthModulesAsync(cancellationToken)));
 
     [HttpGet("/memory-health")]
-    public async Task<IActionResult> MemoryHealth(CancellationToken cancellationToken) =>
-        View(await _readService.GetServersAsync(cancellationToken));
+    public async Task<IActionResult> MemoryHealth(CancellationToken cancellationToken) => View(await _readService.GetServersAsync(cancellationToken));
 
     [HttpGet("/alerts")]
     public async Task<IActionResult> Alerts(IncidentStatus? status, FindingSeverity? severity, string? ruleId, CancellationToken cancellationToken)
     {
         await _readService.GetIncidentsAsync(cancellationToken);
-        return _workflow is null
-            ? View(new IncidentCenterViewModel([], new(0, 0, 0, 0, 0), new(status, severity, ruleId)))
-            : View(_workflow.Query(new(status, severity, ruleId)));
+        return _workflow is null ? View(new IncidentCenterViewModel([], new(0, 0, 0, 0, 0), new(status, severity, ruleId))) : View(_workflow.Query(new(status, severity, ruleId)));
     }
 
     [HttpGet("/alerts/{id}")]
@@ -117,70 +109,37 @@ public sealed class OperationsController : Controller
     [HttpPost("/alerts/{id}/acknowledge")]
     [ValidateAntiForgeryToken]
     [Authorize(Policy = MonitorPolicies.Operate)]
-    public IActionResult AcknowledgeIncident(string id) =>
-        Transition(id, workflow => workflow.Acknowledge(id));
+    public IActionResult AcknowledgeIncident(string id) => Transition(id, workflow => workflow.Acknowledge(id));
 
     [HttpPost("/alerts/{id}/resolve")]
     [ValidateAntiForgeryToken]
     [Authorize(Policy = MonitorPolicies.Operate)]
-    public IActionResult ResolveIncident(string id) =>
-        Transition(id, workflow => workflow.Resolve(id));
+    public IActionResult ResolveIncident(string id) => Transition(id, workflow => workflow.Resolve(id));
 
     [HttpPost("/alerts/{id}/reopen")]
     [ValidateAntiForgeryToken]
     [Authorize(Policy = MonitorPolicies.Operate)]
-    public IActionResult ReopenIncident(string id) =>
-        Transition(id, workflow => workflow.Reopen(id));
+    public IActionResult ReopenIncident(string id) => Transition(id, workflow => workflow.Reopen(id));
 
     private IActionResult Transition(string id, Func<IIncidentWorkflowService, bool> transition)
     {
-        if (_workflow is null)
-        {
-            return NotFound();
-        }
-
+        if (_workflow is null) return NotFound();
         var actor = User.Identity?.Name?.Trim();
-        if (string.IsNullOrWhiteSpace(actor))
-        {
-            return Forbid();
-        }
-
+        if (string.IsNullOrWhiteSpace(actor)) return Forbid();
         var repositoryAvailable = _incidentRepository is not null;
         var before = _incidentRepository?.GetById(id);
         var changed = transition(_workflow);
         var after = _incidentRepository?.GetById(id);
-
         var outcome = BuildTransitionAuditOutcome(changed, before, after, repositoryAvailable);
         _audit?.Append(actor, "incident.transition", id, outcome);
-
-        return changed
-            ? RedirectToAction(nameof(IncidentDetails), new { id })
-            : Conflict(new { message = "Incident state changed or the transition is not allowed." });
+        return changed ? RedirectToAction(nameof(IncidentDetails), new { id }) : Conflict(new { message = "Incident state changed or the transition is not allowed." });
     }
 
-    private static string BuildTransitionAuditOutcome(
-        bool changed,
-        HealthIncident? before,
-        HealthIncident? after,
-        bool repositoryAvailable)
+    private static string BuildTransitionAuditOutcome(bool changed, HealthIncident? before, HealthIncident? after, bool repositoryAvailable)
     {
-        if (!repositoryAvailable)
-        {
-            return changed ? "applied" : "conflict";
-        }
-
-        if (changed)
-        {
-            return before is not null && after is not null
-                ? $"{before.Status}->{after.Status}"
-                : "applied";
-        }
-
-        if (before is null)
-        {
-            return "rejected:not-found";
-        }
-
+        if (!repositoryAvailable) return changed ? "applied" : "conflict";
+        if (changed) return before is not null && after is not null ? $"{before.Status}->{after.Status}" : "applied";
+        if (before is null) return "rejected:not-found";
         var current = after?.Status ?? before.Status;
         return $"rejected:current={current}";
     }
@@ -211,18 +170,9 @@ public sealed class OperationsController : Controller
     [Authorize(Policy = MonitorPolicies.Manage)]
     public async Task<IActionResult> Settings(CancellationToken cancellationToken)
     {
-        var sharedState = _sharedStateReadiness is null
-            ? SharedStateReadinessViewModel.Disabled()
-            : await _sharedStateReadiness.GetAsync(cancellationToken);
-        var credentials = _credentialReadiness?.Get() ?? new CredentialReadinessViewModel(
-            DataProtectionKeyStoreMode.LocalFile,
-            SharedKeyRingReady: false,
-            SqlLoginRegistrations: 0,
-            LocalOwnedRegistrations: 0,
-            ExternalRegistrations: 0,
-            MultiNodeCredentialReady: false,
-            Status: "HA credential readiness unavailable",
-            Message: "Credential readiness service is unavailable.");
-        return View(new SettingsViewModel(_deploymentReadiness, sharedState, credentials));
+        var sharedState = _sharedStateReadiness is null ? SharedStateReadinessViewModel.Disabled() : await _sharedStateReadiness.GetAsync(cancellationToken);
+        var credentials = _credentialReadiness?.Get() ?? new CredentialReadinessViewModel(DataProtectionKeyStoreMode.LocalFile, false, 0, 0, 0, false, "HA credential readiness unavailable", "Credential readiness service is unavailable.");
+        var backups = _backupService?.GetReadiness();
+        return View(new SettingsViewModel(_deploymentReadiness, sharedState, credentials, backups));
     }
 }
