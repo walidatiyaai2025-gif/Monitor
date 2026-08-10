@@ -3,6 +3,7 @@
     ViewData["Title"] = Model.Server.Name;
     var server = Model.Server;
     var isLive = server.Source is ServerDataSource.LiveFresh or ServerDataSource.LiveStale;
+    var isUnavailable = server.Source == ServerDataSource.RegisteredUnavailable;
     var stateName = server.State.ToString().ToLowerInvariant();
     var healthScore = server.State switch
     {
@@ -16,11 +17,11 @@
     var jobsPercent = server.JobsTotal == 0 ? 0 : (int)Math.Round(server.JobsHealthy * 100d / server.JobsTotal);
     var cpuState = server.State == HealthState.Offline ? "offline" : server.CpuPercent >= 80 ? "warning" : "healthy";
     var memoryState = server.State == HealthState.Offline ? "offline" : server.MemoryPercent >= 82 ? "warning" : "healthy";
-    var databaseState = server.DatabaseOnline == server.DatabaseTotal ? "healthy" : "critical";
-    var jobsState = server.JobsHealthy == server.JobsTotal ? "healthy" : "warning";
+    var databaseState = server.DatabaseTotal == 0 ? "unknown" : server.DatabaseOnline == server.DatabaseTotal ? "healthy" : "critical";
+    var jobsState = server.JobsTotal == 0 ? "unknown" : server.JobsHealthy == server.JobsTotal ? "healthy" : "warning";
 
-    var attentionClass = stateName;
-    var attentionTitle = server.State switch
+    var attentionClass = isUnavailable ? "warning" : stateName;
+    var attentionTitle = isUnavailable ? "Registered target needs connection recovery" : server.State switch
     {
         HealthState.Healthy => "No immediate action required",
         HealthState.Warning => "Server requires DBA review",
@@ -28,97 +29,126 @@
         HealthState.Offline => "SQL instance is not reachable",
         _ => "Server state requires validation"
     };
-    var attentionDetail = server.State switch
+    var attentionDetail = isUnavailable ? "No usable cached snapshot exists yet. Retest connectivity, validate the credential boundary, then request a controlled refresh." : server.State switch
     {
-        HealthState.Healthy => "Latest preview snapshot is within the expected operational envelope.",
-        HealthState.Warning => "One or more health dimensions crossed the preview warning threshold.",
-        HealthState.Critical => "Availability or compliance is outside the expected preview threshold.",
-        HealthState.Offline => "Cached values are retained for context; no new SQL data is being collected in this preview.",
+        HealthState.Healthy => "Latest cached snapshot is within the expected operational envelope.",
+        HealthState.Warning => "One or more health dimensions crossed the warning threshold.",
+        HealthState.Critical => "Availability or compliance is outside the expected threshold.",
+        HealthState.Offline => "Cached values are retained for context while collection is unavailable.",
         _ => "The current health snapshot cannot be classified confidently."
     };
+
+    var refreshMessage = TempData["SnapshotRefresh"] as string;
+    var refreshStatus = TempData["SnapshotRefreshStatus"] as string ?? string.Empty;
+    var refreshFreshness = TempData["SnapshotRefreshFreshness"] as string ?? string.Empty;
+    var refreshCss = refreshStatus == "Refreshed" && refreshFreshness == "Fresh"
+        ? "healthy"
+        : refreshStatus == "Refreshed" || refreshStatus == "Throttled"
+            ? "warning"
+            : "unknown";
 }
 
-<div class="data-banner"><strong>@(isLive ? (server.Source == ServerDataSource.LiveFresh ? "LIVE CACHED SNAPSHOT" : "STALE CACHED SNAPSHOT") : "DEVELOPMENT DATA")</strong><span>@(isLive ? "Identity and database counts came from the backend snapshot cache; unavailable dimensions are not invented." : "DBA operations preview over development data.") This screen never performs continuous SQL queries.</span></div>
+<div class="data-banner"><strong>@(isLive ? (server.Source == ServerDataSource.LiveFresh ? "LIVE CACHED SNAPSHOT" : "STALE CACHED SNAPSHOT") : isUnavailable ? "REGISTERED · SNAPSHOT UNAVAILABLE" : "DEVELOPMENT DATA")</strong><span>@(isLive ? "Identity and database counts came from the backend snapshot cache; unavailable dimensions are not invented." : isUnavailable ? "Registration metadata is available, but no usable cached SQL snapshot exists yet." : "DBA operations preview over development data.") This screen never performs continuous SQL queries.</span></div>
+
+@if (!string.IsNullOrWhiteSpace(refreshMessage))
+{
+    <section class="refresh-feedback state-@refreshCss" role="status" aria-live="polite">
+        <strong>@(refreshStatus == "Throttled" ? "Refresh deferred" : refreshFreshness == "Stale" ? "Stale snapshot retained" : "Snapshot refresh")</strong>
+        <span>@refreshMessage</span>
+    </section>
+}
 
 <section class="server-command-hero glass-panel state-@stateName">
     <div class="server-command-top">
         <div class="server-command-title">
-            <span class="health-orb state-@stateName"></span>
-            <div><span class="eyebrow">SERVER OPERATIONS</span><h2>@server.Name</h2><p>@server.Version · @server.Edition · Preview instance</p></div>
+            <span class="health-orb state-@stateName" aria-hidden="true"></span>
+            <div><span class="eyebrow">SERVER OPERATIONS</span><h2>@server.Name</h2><p>@server.Version · @server.Edition</p></div>
         </div>
         <div class="server-command-meta">
             <div><small>State</small><strong class="state-@stateName">@server.State</strong></div>
-            <div><small>Snapshot age</small><strong data-snapshot-age data-initial-age="@server.LastScanSecondsAgo">@server.LastScanSecondsAgo sec ago</strong></div>
+            <div><small>Snapshot age</small><strong data-snapshot-age data-initial-age="@server.LastScanSecondsAgo">@(isUnavailable ? "Not collected" : $"{server.LastScanSecondsAgo} sec ago")</strong></div>
         </div>
     </div>
     <div class="server-command-band">
-        <div class="command-health state-@stateName"><strong>@healthScore</strong><div><small>Health score</small><span>Preview composite</span></div></div>
-        <div class="command-stat state-@cpuState"><small>CPU pressure</small><strong>@(server.State == HealthState.Offline ? "N/A" : $"{server.CpuPercent}%")</strong></div>
-        <div class="command-stat state-@memoryState"><small>Memory pressure</small><strong>@(server.State == HealthState.Offline ? "N/A" : $"{server.MemoryPercent}%")</strong></div>
-        <div class="command-stat state-@databaseState"><small>Database availability</small><strong>@server.DatabaseOnline / @server.DatabaseTotal</strong></div>
-        <div class="command-stat state-@jobsState"><small>Agent health</small><strong>@server.JobsHealthy / @server.JobsTotal</strong></div>
+        <div class="command-health state-@stateName"><strong>@healthScore</strong><div><small>Health score</small><span>@(isUnavailable ? "Awaiting evidence" : "Cached composite")</span></div></div>
+        <div class="command-stat state-@cpuState"><small>CPU pressure</small><strong>@(!isLive ? "N/A" : $"{server.CpuPercent}%")</strong></div>
+        <div class="command-stat state-@memoryState"><small>Memory pressure</small><strong>@(!isLive ? "N/A" : $"{server.MemoryPercent}%")</strong></div>
+        <div class="command-stat state-@databaseState"><small>Database availability</small><strong>@(server.DatabaseTotal == 0 ? "Not collected" : $"{server.DatabaseOnline} / {server.DatabaseTotal}")</strong></div>
+        <div class="command-stat state-@jobsState"><small>Agent health</small><strong>@(server.JobsTotal == 0 ? "Not collected" : $"{server.JobsHealthy} / {server.JobsTotal}")</strong></div>
     </div>
 </section>
 
 <section class="attention-ribbon @attentionClass state-@attentionClass">
-    <div><span class="attention-icon">!</span><div><strong>@attentionTitle</strong><p>@attentionDetail</p></div></div>
-    <span>PREVIEW ASSESSMENT</span>
+    <div><span class="attention-icon" aria-hidden="true">!</span><div><strong>@attentionTitle</strong><p>@attentionDetail</p></div></div>
+    <span>@(isUnavailable ? "RECOVERY PATH" : "CACHED ASSESSMENT")</span>
 </section>
+
+@if (isUnavailable)
+{
+    <section class="recovery-panel glass-panel" aria-labelledby="recovery-title">
+        <div>
+            <span class="eyebrow">CONNECTION RECOVERY</span>
+            <h3 id="recovery-title">Restore trustworthy monitoring evidence</h3>
+            <p>Use the protected connection workflow to retest the target, replace an external credential reference when required, then request a bounded snapshot refresh. Current secret references and credential values are never shown here.</p>
+        </div>
+        <div class="recovery-actions">
+            @if (User.IsInRole("Administrator"))
+            {
+                <a class="secondary-button" asp-controller="ConnectionLab" asp-action="Index">Open Connection Lab</a>
+            }
+            @if (User.IsInRole("Administrator") || User.IsInRole("Operator"))
+            {
+                <form asp-action="RefreshServer" asp-route-id="@server.Id" method="post"><button class="secondary-button" type="submit">Retry bounded snapshot</button></form>
+            }
+        </div>
+    </section>
+}
 
 <section class="metric-grid server-detail-metrics">
 @foreach (var metric in Model.Metrics)
 {
-    <article class="metric-card state-@metric.State.ToString().ToLowerInvariant()"><div class="metric-top"><span>@metric.Name</span><i></i></div><strong>@metric.Value</strong><small>@metric.Detail</small></article>
+    <article class="metric-card state-@metric.State.ToString().ToLowerInvariant()"><div class="metric-top"><span>@metric.Name</span><i aria-hidden="true"></i></div><strong>@metric.Value</strong><small>@metric.Detail</small></article>
 }
 </section>
 
+@if (isLive)
+{
 <section class="server-operational-grid">
     <article class="glass-panel ops-panel">
         <div class="panel-heading"><div><span class="eyebrow">RESOURCE PRESSURE</span><h3>Latest snapshot envelope</h3></div><span class="snapshot-note">No direct SQL calls</span></div>
         <div class="resource-stack">
-            <div class="resource-row state-@cpuState"><div class="resource-label"><strong>CPU</strong><small>Processor load</small></div><span class="resource-bar"><span style="width:@($"{server.CpuPercent}%")"></span></span><strong class="resource-value">@(server.State == HealthState.Offline ? "N/A" : $"{server.CpuPercent}%")</strong></div>
-            <div class="resource-row state-@memoryState"><div class="resource-label"><strong>Memory</strong><small>Memory pressure</small></div><span class="resource-bar"><span style="width:@($"{server.MemoryPercent}%")"></span></span><strong class="resource-value">@(server.State == HealthState.Offline ? "N/A" : $"{server.MemoryPercent}%")</strong></div>
+            <div class="resource-row state-@cpuState"><div class="resource-label"><strong>CPU</strong><small>Processor load</small></div><span class="resource-bar"><span style="width:@($"{server.CpuPercent}%")"></span></span><strong class="resource-value">@server.CpuPercent%</strong></div>
+            <div class="resource-row state-@memoryState"><div class="resource-label"><strong>Memory</strong><small>Memory pressure</small></div><span class="resource-bar"><span style="width:@($"{server.MemoryPercent}%")"></span></span><strong class="resource-value">@server.MemoryPercent%</strong></div>
             <div class="resource-row state-@databaseState"><div class="resource-label"><strong>Databases</strong><small>Online ratio</small></div><span class="resource-bar"><span style="width:@($"{databasePercent}%")"></span></span><strong class="resource-value">@databasePercent%</strong></div>
             <div class="resource-row state-@jobsState"><div class="resource-label"><strong>SQL Agent</strong><small>Healthy jobs</small></div><span class="resource-bar"><span style="width:@($"{jobsPercent}%")"></span></span><strong class="resource-value">@jobsPercent%</strong></div>
         </div>
         <div class="snapshot-age-track" title="Visual freshness indicator only"><span data-snapshot-age-bar data-initial-age="@server.LastScanSecondsAgo" style="width:@($"{Math.Max(6, Math.Min(100, server.LastScanSecondsAgo * 100 / 90))}%")"></span></div>
-        <p class="server-mini-note">Snapshot freshness advances locally in the browser so the operator can see data age. It does not trigger collection or network traffic.</p>
+        <p class="server-mini-note">Snapshot freshness advances locally in the browser. It does not trigger collection or network traffic.</p>
     </article>
 
     <article class="glass-panel ops-panel">
         <div class="panel-heading"><div><span class="eyebrow">DBA FOCUS</span><h3>What to inspect next</h3></div></div>
         <div class="dba-focus-list">
-            @if (server.State == HealthState.Offline)
-            {
-                <div class="dba-focus-item state-critical"><span>1</span><div><strong>Validate connectivity path</strong><p>Check instance reachability, service state and network path before deeper diagnostics.</p></div></div>
-                <div class="dba-focus-item state-warning"><span>2</span><div><strong>Protect cached context</strong><p>Keep the last known snapshot visible while the collector remains unable to refresh it.</p></div></div>
-            }
-            else
-            {
-                <div class="dba-focus-item state-@memoryState"><span>1</span><div><strong>Memory headroom</strong><p>@(server.MemoryPercent >= 82 ? "Review max server memory, OS headroom and pressure indicators." : "Memory is currently within the preview threshold; continue observing trend data when M1 is connected.")</p></div></div>
-                <div class="dba-focus-item state-@databaseState"><span>2</span><div><strong>Database availability</strong><p>@(server.DatabaseOnline == server.DatabaseTotal ? "All databases are represented as online in this snapshot." : "Identify the database outside the online state and validate its status before remediation.")</p></div></div>
-                <div class="dba-focus-item state-@jobsState"><span>3</span><div><strong>SQL Agent execution</strong><p>@(server.JobsHealthy == server.JobsTotal ? "All represented jobs are healthy in the current snapshot." : "Review the failed or unavailable job history and determine whether operator action is required.")</p></div></div>
-            }
+            <div class="dba-focus-item state-@memoryState"><span>1</span><div><strong>Memory headroom</strong><p>@(server.MemoryPercent >= 82 ? "Review max server memory, OS headroom and pressure indicators." : "Memory is currently within the bounded snapshot threshold.")</p></div></div>
+            <div class="dba-focus-item state-@databaseState"><span>2</span><div><strong>Database availability</strong><p>@(server.DatabaseOnline == server.DatabaseTotal ? "All represented databases are online in this snapshot." : "Identify the database outside the online state before remediation.")</p></div></div>
+            <div class="dba-focus-item state-@jobsState"><span>3</span><div><strong>SQL Agent execution</strong><p>@(server.JobsHealthy == server.JobsTotal ? "All represented jobs are healthy in the current snapshot." : "Review failed or unavailable job history under change control.")</p></div></div>
         </div>
     </article>
 </section>
+}
 
 <section class="dashboard-grid" style="margin-top:14px">
-    @if (TempData["SnapshotRefresh"] is string refreshMessage)
-    {
-        <div class="glass-panel panel-span-3" role="status">@refreshMessage</div>
-    }
     <article class="glass-panel panel-span-2">
         <div class="panel-heading"><div><span class="eyebrow">INSTANCE PROFILE</span><h3>Operational context</h3></div></div>
         <div class="definition-grid">
             <div><small>Instance</small><strong>@server.Name</strong></div><div><small>Edition</small><strong>@server.Edition</strong></div>
-            <div><small>Version</small><strong>@server.Version</strong></div><div><small>Connection</small><strong class="state-@stateName">@server.State</strong></div>
-            <div><small>Databases online</small><strong>@server.DatabaseOnline / @server.DatabaseTotal</strong></div><div><small>Agent jobs</small><strong>@server.JobsHealthy / @server.JobsTotal healthy</strong></div>
+            <div><small>Version</small><strong>@server.Version</strong></div><div><small>Evidence</small><strong class="state-@stateName">@(isUnavailable ? "Awaiting snapshot" : server.State.ToString())</strong></div>
+            <div><small>Databases online</small><strong>@(server.DatabaseTotal == 0 ? "Not collected" : $"{server.DatabaseOnline} / {server.DatabaseTotal}")</strong></div><div><small>Agent jobs</small><strong>@(server.JobsTotal == 0 ? "Not collected" : $"{server.JobsHealthy} / {server.JobsTotal} healthy")</strong></div>
         </div>
     </article>
     <article class="glass-panel">
         <div class="panel-heading"><div><span class="eyebrow">SAFE REFRESH</span><h3>Snapshot policy</h3></div></div>
-        <p class="panel-copy">Refresh is backend-controlled and throttled. Page navigation only reads the cached snapshot and never queries SQL.</p>
+        <p class="panel-copy">Refresh is backend-controlled, concurrency-bounded and throttled. Page navigation only reads the cached snapshot and never queries SQL.</p>
         @if (User.IsInRole("Administrator") || User.IsInRole("Operator"))
         {
             <form asp-action="RefreshServer" asp-route-id="@server.Id" method="post">
