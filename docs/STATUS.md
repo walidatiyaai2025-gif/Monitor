@@ -1,50 +1,50 @@
 # Project Status
 
-**Updated:** 2026-08-11 01:53 +03:00  
-**Branch:** `agent/b100-8`  
-**Target:** BATCH-100 / Batch 8 — Reliability & concurrency verification  
-**Issues:** #55 umbrella · #70 Batch 8  
-**PR:** #71 — BATCH-100/8: verify reliability and concurrency  
-**Overall:** 🟢 M0–M6 VERIFIED · M7-001..M7-018 CI VERIFIED · M8 CI VERIFIED · B100-001..080 CI VERIFIED · 🟡 FINAL PR CI PENDING BEFORE MERGE
+**Updated:** 2026-08-11 02:01 +03:00  
+**Branch:** `agent/b100-9`  
+**Target:** BATCH-100 / Batch 9 — Deployment & operations tooling  
+**Issues:** #55 umbrella · #72 Batch 9  
+**PR:** pending final branch documentation  
+**Overall:** 🟢 M0–M6 VERIFIED · M7-001..M7-018 CI VERIFIED · M8 CI VERIFIED · B100-001..090 CI VERIFIED · 🟡 FINAL PR CI PENDING BEFORE MERGE
 
-## BATCH-100 / Batch 8 — CI VERIFIED
+## BATCH-100 / Batch 9 — CI VERIFIED
 
-B100-071..080 are implemented on `agent/b100-8`. Branch CI run `31439886994` is Green and the verified program count is now **80/100**.
+B100-081..090 are implemented on `agent/b100-9`. Branch CI run `31440573683` is Green and the verified program count is now **90/100**.
 
 ### CI evidence
 
-- PR: #71.
-- Branch CI: `31439886994`.
+- Branch CI: `31440573683`.
 - Release build: **0 warnings / 0 errors** with `--warnaserror`.
-- Tests: **209 passed / 0 failed / 0 skipped**.
-- An earlier branch build correctly failed two xUnit analyzer rules in the new harness (`xUnit1031`, `xUnit2031`). The tests were rewritten to use async/await and the filtering overload of `Assert.Single`; analyzers were not suppressed.
-- Final PR merge-result CI is required on this canonical code + docs head before merge.
+- Tests: **219 passed / 0 failed / 0 skipped**.
+- Deployment acceptance tests parse the production JSON, inspect runtime/service wiring, reject high-privilege SQL grants, require build/test before release packaging, enforce HTTPS/control-plane-only smoke probes and scan all Batch 9 artifacts for a secret canary.
+- Final PR merge-result CI remains required after canonical documentation is complete.
 
-### B100-071..080 delivered
+### B100-081..090 delivered
 
-- Deterministic shared-state fault injection verifies an unavailable write does not partially mutate state and a later retry succeeds.
-- Lease expiry/re-election verifies a new node can acquire an expired lease while the stale owner cannot renew or release it.
-- Dedicated state-provider outage/recovery verifies readiness degrades to a safe unavailable state without leaking the connection-string canary and returns to Ready after recovery.
-- Interrupted registration import verifies restart/retry behavior and proves a later retry cannot overwrite a non-empty shared registration document.
-- Concurrent incident transitions verify two nodes competing from the same expected state produce exactly one legal winner.
-- Concurrent audit append verifies bounded parallel writers are not lost.
-- Cross-node history verifies duplicate timestamps collapse to one aggregate point.
-- Cross-node registration conflict verifies concurrent upserts preserve one valid record under optimistic compare/exchange.
-- Distributed manual refresh verifies only one node enters collection while a second node receives throttled/single-flight feedback.
-- A deterministic three-node, 120-cycle soak exercises 12 registrations, four incident rules per registration, bounded audit/history state and repeated lease acquisition/release without external network or SQL dependencies.
+- `deploy/appsettings.Production.example.json` provides a safe production baseline with environment-variable names only for shared-state/key secrets.
+- IIS deployment guide covers Hosting Bundle, dedicated low-privilege identity, HTTPS, filesystem ACLs, readiness and rollback.
+- Monitor now opts into the official .NET Windows Service lifetime and includes a Windows Service deployment guide; no wrapper process is required.
+- Reverse-proxy guide documents explicit trusted proxy/CIDR configuration and rejects trust-all forwarding.
+- Dedicated Monitor state DB runtime role receives only SELECT on schema metadata and SELECT/INSERT/UPDATE on shared documents.
+- Monitored SQL role grants the read/view permissions required by the current bounded snapshot collector, without DML/DDL/sysadmin rights.
+- Upgrade checklist requires exact release identity, CI evidence, operational backup, configuration diff, versioned deployment and readiness acceptance.
+- Release workflow validates version tags, builds/tests first, publishes Windows x64, produces a SHA-256 checksum and uploads a read-only artifact.
+- `scripts/Smoke-Monitor.ps1` requires HTTPS except explicit loopback and probes only `/health/live`, `/health/ready` and `/health`.
+- Rollback runbook separates application rollback, operational-state restore, state-DB recovery and key/credential recovery without destructive shortcuts.
 
 ## Stable guardrails
 
-- Reliability CI is deterministic and self-contained; it does not need production SQL/network dependencies.
-- The harness exercises the same shared-state/lease/repository interfaces used by runtime code rather than creating a parallel implementation contract.
-- Monitored browser GETs remain cache-only and no Batch 8 test/code adds a monitored-SQL read path.
-- Provider outages remain redacted and fail closed.
-- MultiNode production activation remains governed by the existing deployment-readiness gate; a successful simulation does not bypass configuration/security prerequisites.
+- Production examples contain no passwords, connection strings, Admin hashes/salts or key material.
+- Service identities remain least-privilege; deployment documentation explicitly rejects LocalSystem/Domain Admin/SQL sysadmin operation.
+- Release packaging cannot run before Release build/tests in the release workflow.
+- Smoke/readiness checks stay on Monitor control-plane endpoints and never connect directly to a monitored SQL target.
+- Schema creation/migration remains an explicit administrative action; runtime role cannot ALTER/CONTROL the state DB.
+- MultiNode remains fail-closed until the existing readiness prerequisites are satisfied.
 
 ## Merge gate
 
-Require the final PR #71 merge-result GitHub Actions run on this code + canonical-docs head to pass Release build with `--warnaserror` and all tests, confirm `main` has not moved into overlapping HA/shared-state code, then squash-merge.
+Open the Batch 9 PR against `main`, require final merge-result CI on code + canonical docs to pass Release `--warnaserror` build and all tests, confirm `main` has not moved into overlapping hosting/deployment code, then squash-merge.
 
 ## Next action
 
-After Batch 8 merge, execute **B100-081..090 — deployment & operations documentation/tooling** from #55 / `docs/BATCH_100.md`.
+After Batch 9 merge, execute **B100-091..100 — enterprise operator features & release-candidate acceptance** from #55 / `docs/BATCH_100.md`.
