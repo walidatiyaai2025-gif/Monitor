@@ -53,4 +53,4 @@ public sealed record SharedStateReadinessViewModel(
 public sealed record SettingsViewModel(
     DeploymentReadinessViewModel Deployment,
     SharedStateReadinessViewModel SharedState,
-    CredentialReadinessViewModel CredentialReadiness);
+    CredentialReadinessViewModel? CredentialReadiness = null);
