@@ -91,3 +91,7 @@ Viewer, Operator and Administrator roles map to explicit read, incident operatio
 ## ADR-023 — Advisor requests are explicit, bounded and audited
 
 Incident detail reads do not grant execution capability. An Operator or Administrator explicitly POSTs an incident ID to request advice. The backend builds context, coalesces duplicate requests, caches only the matching evidence version for five minutes, applies a ten-second timeout and opens a short circuit after repeated failures. Audit stores metadata/status only, never raw prompts, credentials or provider exceptions.
+
+## ADR-024 — Incident transition audit requires real identity and state context
+
+Incident acknowledge, resolve and reopen remain protected Operator POST commands. Before invoking the workflow, the controller requires a nonblank authenticated principal name; it never substitutes an `unknown` actor for these mutations. The workflow returns an immutable state-aware result around the repository compare-and-set so the existing `IAuditStore` can record specific transition actions and bounded before/after state. Rejected commands may be audited with bounded current/not-found context, but no incident evidence, request payload, SQL text or secret is copied into audit metadata. No second audit repository is introduced.
