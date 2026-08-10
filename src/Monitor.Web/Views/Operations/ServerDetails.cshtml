@@ -1,19 +1,119 @@
 @model ServerDetailsViewModel
 @{
     ViewData["Title"] = Model.Server.Name;
+    var server = Model.Server;
+    var stateName = server.State.ToString().ToLowerInvariant();
+    var healthScore = server.State switch
+    {
+        HealthState.Healthy => 96,
+        HealthState.Warning => 72,
+        HealthState.Critical => 41,
+        HealthState.Offline => 0,
+        _ => 50
+    };
+    var databasePercent = server.DatabaseTotal == 0 ? 0 : (int)Math.Round(server.DatabaseOnline * 100d / server.DatabaseTotal);
+    var jobsPercent = server.JobsTotal == 0 ? 0 : (int)Math.Round(server.JobsHealthy * 100d / server.JobsTotal);
+    var cpuState = server.State == HealthState.Offline ? "offline" : server.CpuPercent >= 80 ? "warning" : "healthy";
+    var memoryState = server.State == HealthState.Offline ? "offline" : server.MemoryPercent >= 82 ? "warning" : "healthy";
+    var databaseState = server.DatabaseOnline == server.DatabaseTotal ? "healthy" : "critical";
+    var jobsState = server.JobsHealthy == server.JobsTotal ? "healthy" : "warning";
+
+    var attentionClass = stateName;
+    var attentionTitle = server.State switch
+    {
+        HealthState.Healthy => "No immediate action required",
+        HealthState.Warning => "Server requires DBA review",
+        HealthState.Critical => "Immediate DBA attention required",
+        HealthState.Offline => "SQL instance is not reachable",
+        _ => "Server state requires validation"
+    };
+    var attentionDetail = server.State switch
+    {
+        HealthState.Healthy => "Latest preview snapshot is within the expected operational envelope.",
+        HealthState.Warning => "One or more health dimensions crossed the preview warning threshold.",
+        HealthState.Critical => "Availability or compliance is outside the expected preview threshold.",
+        HealthState.Offline => "Cached values are retained for context; no new SQL data is being collected in this preview.",
+        _ => "The current health snapshot cannot be classified confidently."
+    };
 }
-<div class="data-banner"><strong>DEVELOPMENT DATA</strong><span>Latest cached preview snapshot · detailed screens do not continuously query SQL.</span></div>
-<section class="server-hero glass-panel">
-    <div><span class="eyebrow">SERVER OVERVIEW</span><div class="server-title-line"><span class="health-orb state-@Model.Server.State.ToString().ToLowerInvariant()"></span><h2>@Model.Server.Name</h2><span class="status-chip">@Model.Server.State</span></div><p>@Model.Server.Version · @Model.Server.Edition</p></div>
-    <div class="snapshot-box"><small>DATA COLLECTED</small><strong>@Model.Server.LastScanSecondsAgo sec ago</strong><span>Preview snapshot</span></div>
+
+<div class="data-banner"><strong>DEVELOPMENT DATA</strong><span>DBA operations preview over the latest cached snapshot. This screen never performs continuous SQL queries.</span></div>
+
+<section class="server-command-hero glass-panel state-@stateName">
+    <div class="server-command-top">
+        <div class="server-command-title">
+            <span class="health-orb state-@stateName"></span>
+            <div><span class="eyebrow">SERVER OPERATIONS</span><h2>@server.Name</h2><p>@server.Version · @server.Edition · Preview instance</p></div>
+        </div>
+        <div class="server-command-meta">
+            <div><small>State</small><strong class="state-@stateName">@server.State</strong></div>
+            <div><small>Snapshot age</small><strong data-snapshot-age data-initial-age="@server.LastScanSecondsAgo">@server.LastScanSecondsAgo sec ago</strong></div>
+        </div>
+    </div>
+    <div class="server-command-band">
+        <div class="command-health state-@stateName"><strong>@healthScore</strong><div><small>Health score</small><span>Preview composite</span></div></div>
+        <div class="command-stat state-@cpuState"><small>CPU pressure</small><strong>@(server.State == HealthState.Offline ? "N/A" : $"{server.CpuPercent}%")</strong></div>
+        <div class="command-stat state-@memoryState"><small>Memory pressure</small><strong>@(server.State == HealthState.Offline ? "N/A" : $"{server.MemoryPercent}%")</strong></div>
+        <div class="command-stat state-@databaseState"><small>Database availability</small><strong>@server.DatabaseOnline / @server.DatabaseTotal</strong></div>
+        <div class="command-stat state-@jobsState"><small>Agent health</small><strong>@server.JobsHealthy / @server.JobsTotal</strong></div>
+    </div>
 </section>
+
+<section class="attention-ribbon @attentionClass state-@attentionClass">
+    <div><span class="attention-icon">!</span><div><strong>@attentionTitle</strong><p>@attentionDetail</p></div></div>
+    <span>PREVIEW ASSESSMENT</span>
+</section>
+
 <section class="metric-grid server-detail-metrics">
 @foreach (var metric in Model.Metrics)
 {
     <article class="metric-card state-@metric.State.ToString().ToLowerInvariant()"><div class="metric-top"><span>@metric.Name</span><i></i></div><strong>@metric.Value</strong><small>@metric.Detail</small></article>
 }
 </section>
-<section class="dashboard-grid">
-    <article class="glass-panel panel-span-2"><div class="panel-heading"><div><span class="eyebrow">INSTANCE PROFILE</span><h3>Operational context</h3></div></div><div class="definition-grid"><div><small>Instance</small><strong>@Model.Server.Name</strong></div><div><small>Edition</small><strong>@Model.Server.Edition</strong></div><div><small>Version</small><strong>@Model.Server.Version</strong></div><div><small>Connection</small><strong>@Model.Server.State</strong></div><div><small>Databases online</small><strong>@Model.Server.DatabaseOnline / @Model.Server.DatabaseTotal</strong></div><div><small>Agent jobs</small><strong>@Model.Server.JobsHealthy / @Model.Server.JobsTotal healthy</strong></div></div></article>
-    <article class="glass-panel"><div class="panel-heading"><div><span class="eyebrow">SAFE REFRESH</span><h3>Snapshot policy</h3></div></div><p class="panel-copy">M1 will introduce a backend-controlled refresh command with throttling. The browser will not execute SQL queries directly.</p><button class="secondary-button full-button" disabled>Refresh snapshot · M1</button></article>
+
+<section class="server-operational-grid">
+    <article class="glass-panel ops-panel">
+        <div class="panel-heading"><div><span class="eyebrow">RESOURCE PRESSURE</span><h3>Latest snapshot envelope</h3></div><span class="snapshot-note">No direct SQL calls</span></div>
+        <div class="resource-stack">
+            <div class="resource-row state-@cpuState"><div class="resource-label"><strong>CPU</strong><small>Processor load</small></div><span class="resource-bar"><span style="width:@($"{server.CpuPercent}%")"></span></span><strong class="resource-value">@(server.State == HealthState.Offline ? "N/A" : $"{server.CpuPercent}%")</strong></div>
+            <div class="resource-row state-@memoryState"><div class="resource-label"><strong>Memory</strong><small>Memory pressure</small></div><span class="resource-bar"><span style="width:@($"{server.MemoryPercent}%")"></span></span><strong class="resource-value">@(server.State == HealthState.Offline ? "N/A" : $"{server.MemoryPercent}%")</strong></div>
+            <div class="resource-row state-@databaseState"><div class="resource-label"><strong>Databases</strong><small>Online ratio</small></div><span class="resource-bar"><span style="width:@($"{databasePercent}%")"></span></span><strong class="resource-value">@databasePercent%</strong></div>
+            <div class="resource-row state-@jobsState"><div class="resource-label"><strong>SQL Agent</strong><small>Healthy jobs</small></div><span class="resource-bar"><span style="width:@($"{jobsPercent}%")"></span></span><strong class="resource-value">@jobsPercent%</strong></div>
+        </div>
+        <div class="snapshot-age-track" title="Visual freshness indicator only"><span data-snapshot-age-bar data-initial-age="@server.LastScanSecondsAgo" style="width:@($"{Math.Max(6, Math.Min(100, server.LastScanSecondsAgo * 100 / 90))}%")"></span></div>
+        <p class="server-mini-note">Snapshot freshness advances locally in the browser so the operator can see data age. It does not trigger collection or network traffic.</p>
+    </article>
+
+    <article class="glass-panel ops-panel">
+        <div class="panel-heading"><div><span class="eyebrow">DBA FOCUS</span><h3>What to inspect next</h3></div></div>
+        <div class="dba-focus-list">
+            @if (server.State == HealthState.Offline)
+            {
+                <div class="dba-focus-item state-critical"><span>1</span><div><strong>Validate connectivity path</strong><p>Check instance reachability, service state and network path before deeper diagnostics.</p></div></div>
+                <div class="dba-focus-item state-warning"><span>2</span><div><strong>Protect cached context</strong><p>Keep the last known snapshot visible while the collector remains unable to refresh it.</p></div></div>
+            }
+            else
+            {
+                <div class="dba-focus-item state-@memoryState"><span>1</span><div><strong>Memory headroom</strong><p>@(server.MemoryPercent >= 82 ? "Review max server memory, OS headroom and pressure indicators." : "Memory is currently within the preview threshold; continue observing trend data when M1 is connected.")</p></div></div>
+                <div class="dba-focus-item state-@databaseState"><span>2</span><div><strong>Database availability</strong><p>@(server.DatabaseOnline == server.DatabaseTotal ? "All databases are represented as online in this snapshot." : "Identify the database outside the online state and validate its status before remediation.")</p></div></div>
+                <div class="dba-focus-item state-@jobsState"><span>3</span><div><strong>SQL Agent execution</strong><p>@(server.JobsHealthy == server.JobsTotal ? "All represented jobs are healthy in the current snapshot." : "Review the failed or unavailable job history and determine whether operator action is required.")</p></div></div>
+            }
+        </div>
+    </article>
+</section>
+
+<section class="dashboard-grid" style="margin-top:14px">
+    <article class="glass-panel panel-span-2">
+        <div class="panel-heading"><div><span class="eyebrow">INSTANCE PROFILE</span><h3>Operational context</h3></div></div>
+        <div class="definition-grid">
+            <div><small>Instance</small><strong>@server.Name</strong></div><div><small>Edition</small><strong>@server.Edition</strong></div>
+            <div><small>Version</small><strong>@server.Version</strong></div><div><small>Connection</small><strong class="state-@stateName">@server.State</strong></div>
+            <div><small>Databases online</small><strong>@server.DatabaseOnline / @server.DatabaseTotal</strong></div><div><small>Agent jobs</small><strong>@server.JobsHealthy / @server.JobsTotal healthy</strong></div>
+        </div>
+    </article>
+    <article class="glass-panel">
+        <div class="panel-heading"><div><span class="eyebrow">SAFE REFRESH</span><h3>Snapshot policy</h3></div></div>
+        <p class="panel-copy">M1 will introduce a backend-controlled refresh command with throttling. Browser widgets will reuse the resulting snapshot rather than query SQL independently.</p>
+        <button class="secondary-button full-button" disabled>Refresh snapshot · M1</button>
+    </article>
 </section>
