@@ -35,3 +35,7 @@ Test Connection accepts a server registration ID only and runs exclusively in th
 ## ADR-009 — The first collector uses one reusable query result
 
 The lightweight collector issues one bounded command for SQL identity, uptime and database counts. One row feeds the whole identity snapshot; it does not fan out into widget or per-database queries. Invalid or partial rows fail safely instead of inventing healthy values.
+
+## ADR-010 — Snapshot cache is fresh/stale and single-flight
+
+Cached server snapshots are fresh for 30 seconds and retained as an explicitly stale fallback for five minutes. Concurrent refresh requests for the same registration await one shared collection task. Refresh failure never overwrites the last good value, and older collection timestamps never replace newer snapshots.

@@ -1,20 +1,12 @@
 # Roadmap
 
-## M0 — Visual Foundation — COMPLETE
+## M0 — Visual Foundation — ACTIVE
 
-The accepted visual foundation is merged to stable `main`: authentication, premium shell, Command Center, core health screens, centralized live visual language and CI.
+Deliver `0.0.1-ui-preview`: authentication, premium shell, Command Center, core screens, mock snapshot, centralized live visual language, CI.
 
-## M1 — First Real SQL Vertical Slice — ACTIVE
+## M1 — First Real SQL Vertical Slice
 
 Register one SQL Server -> test connection -> collect lightweight identity/availability -> create health snapshot -> display real data -> update dashboard.
-
-Current state:
-
-- M1-001 Registration + external secret boundary: COMPLETE.
-- M1-002 Backend Test Connection: COMPLETE.
-- M1-002A SQL Connection Lab visual workflow: CODE/CI VERIFIED, visual review pending.
-- M1-003 Lightweight SQL identity collector: COMPLETE and merged.
-- M1-004 ServerHealthSnapshot contract + cache: NEXT.
 
 ## M2 — Health Modules
 
