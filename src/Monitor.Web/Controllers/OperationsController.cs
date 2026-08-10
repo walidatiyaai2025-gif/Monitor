@@ -83,22 +83,42 @@ public sealed class OperationsController : Controller
     [HttpPost("/alerts/{id}/acknowledge")]
     [ValidateAntiForgeryToken]
     [Authorize(Policy = MonitorPolicies.Operate)]
-    public IActionResult AcknowledgeIncident(string id) => Transition(id, _workflow?.Acknowledge(id) == true);
+    public IActionResult AcknowledgeIncident(string id) =>
+        Transition(id, "incident.acknowledge", workflow => workflow.Acknowledge(id));
 
     [HttpPost("/alerts/{id}/resolve")]
     [ValidateAntiForgeryToken]
     [Authorize(Policy = MonitorPolicies.Operate)]
-    public IActionResult ResolveIncident(string id) => Transition(id, _workflow?.Resolve(id) == true);
+    public IActionResult ResolveIncident(string id) =>
+        Transition(id, "incident.resolve", workflow => workflow.Resolve(id));
 
     [HttpPost("/alerts/{id}/reopen")]
     [ValidateAntiForgeryToken]
     [Authorize(Policy = MonitorPolicies.Operate)]
-    public IActionResult ReopenIncident(string id) => Transition(id, _workflow?.Reopen(id) == true);
+    public IActionResult ReopenIncident(string id) =>
+        Transition(id, "incident.reopen", workflow => workflow.Reopen(id));
 
-    private IActionResult Transition(string id, bool changed)
+    private IActionResult Transition(
+        string id,
+        string action,
+        Func<IIncidentWorkflowService, IncidentTransitionResult> transition)
     {
-        _audit?.Append(User.Identity?.Name ?? "unknown", "incident.transition", id, changed ? "applied" : "conflict");
-        return changed ? RedirectToAction(nameof(IncidentDetails), new { id }) : Conflict(new { message = "Incident state changed or the transition is not allowed." });
+        if (_workflow is null)
+        {
+            return NotFound();
+        }
+
+        var actor = User.Identity?.Name?.Trim();
+        if (string.IsNullOrWhiteSpace(actor))
+        {
+            return Forbid();
+        }
+
+        var result = transition(_workflow);
+        _audit?.Append(actor, action, id, result.AuditOutcome);
+        return result.Applied
+            ? RedirectToAction(nameof(IncidentDetails), new { id })
+            : Conflict(new { message = "Incident state changed or the transition is not allowed." });
     }
 
     [HttpGet("/audit")]
