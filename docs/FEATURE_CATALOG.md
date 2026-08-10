@@ -45,4 +45,4 @@
 | Audit trail | M5 | CI verified | Bounded append-only authentication/operator/advisor metadata; CI 31376448363 |
 | Policy-based RBAC | M5 | CI verified | Viewer, Operator and Administrator authorization policies; CI 31376448363 |
 | Web security baseline | M5 | CI verified | Strict cookie, CSP/frame/nosniff/referrer headers and login limiting; CI 31376448363 |
-| Incident transition audit enrichment | M5 | Planned | Reuse canonical IAuditStore; authenticated actor plus bounded before/after state |
+| Incident transition audit enrichment | M5 | CI pending | Canonical IAuditStore; authenticated actor plus bounded before/after state; no unknown fallback |
