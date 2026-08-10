@@ -1,11 +1,11 @@
 # Project Status
 
-**Updated:** 2026-08-10 10:31 +03:00  
+**Updated:** 2026-08-10 10:51 +03:00  
 **Branch:** `agent/m0-visual-foundation`  
 **Target:** `0.0.1-ui-preview`  
 **Issue:** #1  
 **PR:** #2  
-**Overall:** 🟡 M0 CODE + CI VERIFIED — UI POLISH ACTIVE / VISUAL REVIEW PENDING
+**Overall:** 🟢 M0 VERIFIED — READY TO MERGE
 
 ## Implemented and verified in current branch
 
@@ -58,12 +58,12 @@
 - `dotnet restore`: ✅ VERIFIED by GitHub Actions.
 - `dotnet build --configuration Release --no-restore --warnaserror`: ✅ VERIFIED by GitHub Actions.
 - `dotnet test`: N/A — no test project exists yet.
-- visual browser review: ⏳ PENDING.
+- visual acceptance: ✅ USER ACCEPTED on 2026-08-10.
 
 ## Merge gate
 
-Do not merge PR #2 to `main` until the visual preview is reviewed and accepted. `main` remains the stable branch.
+Visual acceptance is complete. PR #2 is ready to merge into stable `main`.
 
 ## Next action
 
-Open the refreshed Servers and Server Details screens in Visual Studio. Continue M0 UI polish on Database Health / Memory Health or complete visual acceptance when the product owner is satisfied, then mark M0-010 VERIFIED and merge PR #2.
+Merge PR #2, then begin M1-001 on a new task branch.

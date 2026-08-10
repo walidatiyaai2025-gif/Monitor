@@ -2,18 +2,18 @@
 
 | Feature | Milestone | Status | Notes |
 |---|---|---|---|
-| Development Admin authentication | M0 | CI verified | Cookie auth; PBKDF2 hash only |
-| SQL Command Center | M0 | CI verified / visual review pending | Central live visual area + estate topology |
-| Command Center visual telemetry layer | M0 | CI verified / visual review pending | Client-only radar, freshness, scan phases; zero data calls |
-| Server estate operations view | M0 | CI verified / visual review pending | Estate summary, local filter/search, health score, resource pressure |
-| Server operational overview | M0 | CI verified / visual review pending | DBA command header, attention assessment, resource envelope, DBA focus |
-| Snapshot freshness presentation | M0 | CI verified / visual review pending | Browser-only age progression; no collection trigger |
-| Database Health | M0 | CI verified / visual review pending | Shared snapshot data |
-| Memory Health | M0 | CI verified / visual review pending | Shared snapshot data |
-| Alerts / Incidents | M0 | CI verified / visual review pending | Preview queue |
-| Settings | M0 | CI verified / visual review pending | Read-only preview |
-| UI design system | M0 | CI verified / visual review pending | CSS tokens/components |
-| Controlled motion | M0 | CI verified / visual review pending | Client only; no data calls |
+| Development Admin authentication | M0 | Verified | Cookie auth; PBKDF2 hash only |
+| SQL Command Center | M0 | Verified | Central live visual area + estate topology |
+| Command Center visual telemetry layer | M0 | Verified | Client-only radar, freshness, scan phases; zero data calls |
+| Server estate operations view | M0 | Verified | Estate summary, local filter/search, health score, resource pressure |
+| Server operational overview | M0 | Verified | DBA command header, attention assessment, resource envelope, DBA focus |
+| Snapshot freshness presentation | M0 | Verified | Browser-only age progression; no collection trigger |
+| Database Health | M0 | Verified | Shared snapshot data |
+| Memory Health | M0 | Verified | Shared snapshot data |
+| Alerts / Incidents | M0 | Verified | Preview queue |
+| Settings | M0 | Verified | Read-only preview |
+| UI design system | M0 | Verified | CSS tokens/components |
+| Controlled motion | M0 | Verified | Client only; no data calls |
 | Real SQL connection | M1 | Planned | First vertical slice |
 | Backups | M2 | Planned | Coming soon in UI |
 | Jobs | M2 | Planned | Coming soon in UI |

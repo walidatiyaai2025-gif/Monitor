@@ -17,7 +17,7 @@ This is the canonical execution plan. Update it in the same PR as material imple
 | M0-007 | Alerts / Incidents + Settings | VERIFIED — CI |
 | M0-008 | Design system + controlled motion | VERIFIED — CI |
 | M0-009 | GitHub Actions restore/build verification | VERIFIED — RUN 31364393808 |
-| M0-010 | Visual browser review and M0 acceptance | PENDING |
+| M0-010 | Visual browser review and M0 acceptance | VERIFIED — USER ACCEPTED |
 
 ## M1 — First Real SQL Vertical Slice
 
