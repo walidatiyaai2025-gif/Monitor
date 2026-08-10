@@ -31,3 +31,7 @@ Server registrations may contain endpoint and authentication-mode metadata, but 
 ## ADR-008 — Test Connection is bounded and redacted
 
 Test Connection accepts a server registration ID only and runs exclusively in the authorized backend. It uses `Microsoft.Data.SqlClient`, explicit connection/overall timeouts, cancellation, no pooling, and fixed safe result messages. Raw provider exceptions, credentials and connection strings are never returned to the browser.
+
+## ADR-009 — The first collector uses one reusable query result
+
+The lightweight collector issues one bounded command for SQL identity, uptime and database counts. One row feeds the whole identity snapshot; it does not fan out into widget or per-database queries. Invalid or partial rows fail safely instead of inventing healthy values.

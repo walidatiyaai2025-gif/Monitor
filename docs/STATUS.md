@@ -1,11 +1,20 @@
 # Project Status
 
-**Updated:** 2026-08-10 11:10 +03:00  
-**Branch:** `agent/m1-test-connection`  
-**Target:** `M1-002`  
+**Updated:** 2026-08-10 11:21 +03:00  
+**Branch:** `agent/m1-lightweight-collector`  
+**Target:** `M1-003`  
 **Issue:** TBD  
-**PR:** #7  
-**Overall:** 🟢 M1-002 VERIFIED — READY TO MERGE
+**PR:** TBD  
+**Overall:** 🟡 M1-003 IMPLEMENTED — LOCAL VERIFICATION COMPLETE
+
+## M1-003 — Lightweight SQL collector
+
+- Single SQL command for server name, version, edition, instance, uptime and database counts.
+- One immutable `SqlServerIdentitySnapshot` result with collection timestamp.
+- Shared structured connection-string factory for Test Connection and collection.
+- Seven-second overall budget, cancellation propagation and safe categorized failures.
+- Invalid counts and partial rows fail safely; secrets and provider exception text remain internal.
+- 21 total tests pass, including one-query, redaction, cancellation and mapping paths.
 
 ## M1-002 — Test Connection workflow
 
@@ -78,7 +87,7 @@
 - UI-003 CI run `31366381962`: SUCCESS.
 - `dotnet restore`: ✅ VERIFIED by GitHub Actions.
 - `dotnet build --configuration Release --no-restore --warnaserror`: ✅ VERIFIED by GitHub Actions.
-- `dotnet test Monitor.sln --configuration Release --no-build`: ✅ 16 PASSED locally.
+- `dotnet test Monitor.sln --configuration Release --no-build`: ✅ 21 PASSED locally.
 - visual acceptance: ✅ USER ACCEPTED on 2026-08-10.
 
 ## Merge gate
@@ -87,4 +96,4 @@ M0 PR #2 merged to stable `main` at `dfbfa19`.
 
 ## Next action
 
-Merge PR #7, then begin M1-003 lightweight collector.
+Push M1-003, verify CI, open a focused PR, then begin M1-004 snapshot contract and cache.

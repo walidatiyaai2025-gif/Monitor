@@ -12,6 +12,9 @@ builder.Services.AddSingleton<IServerRegistrationRepository, InMemoryServerRegis
 builder.Services.AddSingleton<IConnectionSecretStore, ConfigurationConnectionSecretStore>();
 builder.Services.AddSingleton<ISqlConnectionProbe, SqlConnectionProbe>();
 builder.Services.AddSingleton<IServerConnectionTester, ServerConnectionTester>();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<ISqlSnapshotQuery, SqlSnapshotQuery>();
+builder.Services.AddSingleton<ISqlServerSnapshotCollector, SqlServerSnapshotCollector>();
 
 builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
