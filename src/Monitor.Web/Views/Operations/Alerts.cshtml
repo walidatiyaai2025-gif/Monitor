@@ -1,3 +1,4 @@
+@using Monitor.Web.Services
 @model IncidentCenterViewModel
 @{
     ViewData["Title"] = "Alerts & Incidents";
@@ -8,11 +9,18 @@
     var hasNext = Model.Items.Count == query.Limit;
     var previousOffset = Math.Max(0, query.Offset - query.Limit);
     var nextOffset = query.Offset + query.Limit;
+    var policyStates = ViewData["IncidentPolicyStates"] as IReadOnlyDictionary<string, IncidentOperatorPolicyState>;
+    var actionable = ViewData["ActionableIncidentCount"] as int? ?? Model.Items.Count;
+    var suppressed = ViewData["SuppressedIncidentCount"] as int? ?? 0;
+    var unavailable = ViewData["IncidentPolicyUnavailableCount"] as int? ?? 0;
 }
-<div class="data-banner"><strong>CACHED FINDINGS</strong><span>Deterministic backend rules; filters read bounded Monitor-owned incident state and no remediation executes from this page.</span></div>
+<div class="data-banner"><strong>CACHED FINDINGS</strong><span>Deterministic backend rules; suppression changes actionability presentation only and never rewrites incident evidence or status.</span></div>
 <section class="incident-summary">
     <div class="glass-panel"><small>OPEN</small><strong>@Model.Summary.Open</strong><span>Requires review</span></div>
-    <div class="glass-panel"><small>CRITICAL</small><strong>@Model.Summary.Critical</strong><span>Immediate attention</span></div>
+    <div class="glass-panel"><small>ACTIONABLE ON PAGE</small><strong>@actionable</strong><span>Policy-readable and not suppressed</span></div>
+    <div class="glass-panel"><small>SUPPRESSED ON PAGE</small><strong>@suppressed</strong><span>Evidence retained unchanged</span></div>
+    <div class="glass-panel"><small>POLICY UNAVAILABLE</small><strong>@unavailable</strong><span>Operator policy could not be projected</span></div>
+    <div class="glass-panel"><small>CRITICAL</small><strong>@Model.Summary.Critical</strong><span>Severity evidence unchanged</span></div>
     <div class="glass-panel"><small>RESOLVED</small><strong>@Model.Summary.Resolved</strong><span>Fresh evidence cleared</span></div>
 </section>
 
@@ -32,9 +40,7 @@
             <option value="Warning" selected="@(query.Severity == FindingSeverity.Warning ? "selected" : null)">Warning</option>
         </select>
     </label>
-    <label>Rule ID
-        <input name="ruleId" value="@query.RuleId" maxlength="80" autocomplete="off" placeholder="e.g. blocking.active" />
-    </label>
+    <label>Rule ID <input name="ruleId" value="@query.RuleId" maxlength="80" autocomplete="off" placeholder="e.g. blocking.active" /></label>
     <label>Page size
         <select name="limit">
             <option value="25" selected="@(query.Limit == 25 ? "selected" : null)">25</option>
@@ -50,25 +56,24 @@
     <div class="incident-table"><div class="table-head"><span>ID</span><span>Severity</span><span>Rule</span><span>Incident</span><span>Observed</span><span>Status</span></div>
     @foreach (var incident in Model.Items)
     {
-        <a class="table-row" asp-action="IncidentDetails" asp-route-id="@incident.Id"><strong>@incident.Id[..Math.Min(12, incident.Id.Length)]</strong><span class="severity severity-@incident.Severity.ToString().ToLowerInvariant()">@incident.Severity</span><span>@incident.RuleId</span><span>@incident.Title</span><span>@incident.LastSeenUtc.ToString("u")</span><span>@incident.Status</span></a>
+        var hasPolicy = policyStates is not null && policyStates.TryGetValue(incident.Id, out var incidentPolicy);
+        <a class="table-row" asp-action="IncidentDetails" asp-route-id="@incident.Id">
+            <strong>@incident.Id[..Math.Min(12, incident.Id.Length)]</strong>
+            <span class="severity severity-@incident.Severity.ToString().ToLowerInvariant()">@incident.Severity</span>
+            <span>@incident.RuleId</span>
+            <span>@incident.Title @if (hasPolicy && incidentPolicy is not null) { if (!incidentPolicy.PolicyReadable) { <em> · POLICY UNAVAILABLE</em> } else if (incidentPolicy.AlertSuppressed) { <em> · SUPPRESSED</em> } }</span>
+            <span>@incident.LastSeenUtc.ToString("u")</span>
+            <span>@incident.Status</span>
+        </a>
     }
-    @if (Model.Items.Count == 0)
-    {
-        <div class="incident-empty" role="status">No incidents match the current bounded filter.</div>
-    }
+    @if (Model.Items.Count == 0) { <div class="incident-empty" role="status">No incidents match the current bounded filter.</div> }
     </div>
 </article>
 
 <nav class="incident-pagination" aria-label="Incident pages">
     <span>Offset @query.Offset · @Model.Items.Count result(s) on this page</span>
     <div>
-        @if (hasPrevious)
-        {
-            <a class="secondary-button" asp-action="Alerts" asp-route-status="@query.Status" asp-route-severity="@query.Severity" asp-route-ruleId="@query.RuleId" asp-route-limit="@query.Limit" asp-route-offset="@previousOffset">← Previous</a>
-        }
-        @if (hasNext)
-        {
-            <a class="secondary-button" asp-action="Alerts" asp-route-status="@query.Status" asp-route-severity="@query.Severity" asp-route-ruleId="@query.RuleId" asp-route-limit="@query.Limit" asp-route-offset="@nextOffset">Next →</a>
-        }
+        @if (hasPrevious) { <a class="secondary-button" asp-action="Alerts" asp-route-status="@query.Status" asp-route-severity="@query.Severity" asp-route-ruleId="@query.RuleId" asp-route-limit="@query.Limit" asp-route-offset="@previousOffset">← Previous</a> }
+        @if (hasNext) { <a class="secondary-button" asp-action="Alerts" asp-route-status="@query.Status" asp-route-severity="@query.Severity" asp-route-ruleId="@query.RuleId" asp-route-limit="@query.Limit" asp-route-offset="@nextOffset">Next →</a> }
     </div>
 </nav>
