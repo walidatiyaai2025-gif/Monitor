@@ -23,24 +23,20 @@
 | Throttled snapshot refresh | M1 | CI verified | Admin POST, 15s per-server throttle, shared cache flight |
 | SignalR snapshot delivery | M1 | Evaluated / deferred | Revisit after scheduled backend publication exists |
 | Memory snapshot projection | M2 | CI verified | System/process memory from the existing single collector query |
-| Real memory health UI | M2 | Local verified | Cached SQL process utilization with mixed/demo labeling |
-| Database state detail projection | M2 | Local verified | Validated state counts in canonical snapshot |
-| Backup health summary | M2 | Local verified | Full-backup coverage and latest full backup |
-| SQL Agent jobs summary | M2 | Local verified | Total, enabled and failed-last-run counts |
-| Storage allocation summary | M2 | Local verified | Total, data and log allocated bytes |
-| Blocking summary | M2 | Local verified | Blocked request count and maximum wait |
-| Cached health module pages | M2 | Local verified | Database, backup, Agent, storage and blocking views share cache reads |
-| Baseline performance facts | M2 | Local verified | Active requests, runnable tasks and pending I/O counts |
-| Deterministic findings | M3 | Local verified | Allowlisted server-side rules with bounded evidence |
-| Incident lifecycle | M3 | Local verified | Stable dedupe; fresh healthy evidence resolves incidents |
-| Real incident center | M3 | Local verified | Cached snapshots feed the existing authorized Alerts UI |
+| Real memory health UI | M2 | CI verified | Cached SQL process utilization; CI 31372312362 |
+| Database state detail projection | M2 | CI verified | Validated state counts; CI 31372957383 |
+| Backup health summary | M2 | CI verified | Full-backup coverage and latest full backup; CI 31372957383 |
+| SQL Agent jobs summary | M2 | CI verified | Total, enabled and failed-last-run counts; CI 31372957383 |
+| Storage allocation summary | M2 | CI verified | Total, data and log allocated bytes; CI 31372957383 |
+| Blocking summary | M2 | CI verified | Blocked request count and maximum wait; CI 31372957383 |
+| Cached health module pages | M2 | CI verified | Database, backup, Agent, storage and blocking views share cache reads; CI 31373849952 |
+| Baseline performance facts | M2 | CI verified | Active requests, runnable tasks and pending I/O counts; CI 31373849952 |
+| Deterministic findings | M3 | CI verified | Allowlisted server-side rules with bounded evidence; CI 31373849952 |
+| Incident lifecycle | M3 | CI verified | Stable dedupe; fresh healthy evidence resolves incidents; CI 31373849952 |
+| Real incident center | M3 | CI verified | Cached snapshots feed the authorized Alerts UI; CI 31373849952 |
 | Incident operator workflow | M3 | Local verified | Acknowledge, resolve and reopen with antiforgery protection |
 | Deterministic recommendations | M3 | Local verified | Rule-owned advisory steps; no execution |
 | AI Advisor boundary | M4 | Local verified | Normalized backend context; provider disabled by default |
 | Snapshot history | M5 | Local verified | Allowlisted 24-hour in-memory aggregate retention |
 | Collection cycle | M5 | Local verified | Backend-only deterministic refresh cycle; scheduler remains disabled |
 | Snapshot trends | M5 | Local verified | Fixed 1h/6h/24h read-only windows |
-| Real SQL connection | M1 | Planned | First vertical slice |
-| Recommendation engine | M3 | Planned | Detailed remediation/query suggestions |
-| AI Advisor | M4 | Planned | Advisory boundary only |
-| Reports/history | M5 | Planned | Trends and reporting |
