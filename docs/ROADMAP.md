@@ -1,39 +1,35 @@
 # Roadmap
 
 ## M0 — Visual Foundation — VERIFIED
-
-Delivered `0.0.1-ui-preview`: authentication, premium shell, Command Center, core screens, mock snapshot, centralized live visual language and CI.
+Premium ASP.NET Core command-center UI, authentication, core screens, controlled motion and visual acceptance.
 
 ## M1 — First Real SQL Vertical Slice — VERIFIED
-
-Register one SQL Server -> test connection -> collect lightweight identity/availability -> create health snapshot -> display real data -> backend-controlled refresh. SignalR delivery was evaluated and intentionally deferred until snapshots are published independently.
+Registration, bounded Test Connection, lightweight collector, reusable snapshot/cache and controlled refresh. SignalR was evaluated and deferred until independently produced snapshots exist.
 
 ## M2 — Health Modules — VERIFIED
+Memory, database, backup, SQL Agent, storage, blocking and baseline performance are bounded cached snapshot facts.
 
-Memory, database health, backups, SQL Agent jobs, storage, blocking and bounded baseline performance are represented through immutable cached snapshot facts and cache-backed read surfaces.
+## M3 — Incidents & Recommendations — VERIFIED THROUGH M3-016
+Deterministic findings, incident lifecycle/operator transitions and deterministic human-reviewed recommendations.
 
-## M3 — Incident & Recommendation Engine — VERIFIED THROUGH M3-016
-
-Rules, deduplication, incident lifecycle, filters/details, protected operator transitions and deterministic human-reviewed recommendations are implemented. No recommendation executes production SQL.
-
-## M4 — AI Advisor Boundary & Hardening — VERIFIED THROUGH M4-013
-
-Normalized advisory context, backend provider abstraction, guarded explicit request path, single-flight, bounded cache/timeout/circuit behavior and redacted audit are implemented. The configured provider remains disabled by default; no provider output can execute SQL or autonomously mutate monitored systems.
+## M4 — AI Advisor Boundary — VERIFIED THROUGH M4-013
+Explicit guarded advisory requests with timeout/cache/circuit/audit boundaries and no SQL execution path.
 
 ## M5 — History & Enterprise Hardening — VERIFIED THROUGH M5-026
-
-Bounded history/trends, optional scheduled collection infrastructure, audit trail, RBAC, browser security, login limiting and state-aware incident transition audit are CI verified. Scheduled collection remains disabled unless explicitly configured.
+Bounded trends/history, scheduler infrastructure, audit, RBAC, browser security, login limiting and transition audit enrichment.
 
 ## M6 — Real SQL Server User Journey — VERIFIED THROUGH M6-050
-
-The first complete operator journey is CI verified: login -> Connections -> register -> Test Connection -> first cached snapshot -> observer -> real Servers/Dashboard/Health. Real registrations replace demo data as an estate, unavailable targets remain visible, and runtime SQL credentials never enter registration JSON or audit.
+Login -> Connections -> Register -> Test -> Collect -> Observe -> real multi-server estate/Dashboard/Health.
 
 ## M7 — Production Persistence & Deployment Readiness — ACTIVE
 
-M7-001 adds durable local server-registration metadata persistence behind the existing repository contract. The store is outside `wwwroot`, uses atomic writes, persists only safe registration metadata plus opaque secret references, and fails closed on corrupt data.
+- **M7-001 — VERIFIED:** durable registration metadata outside `wwwroot`; opaque references only.
+- **M7-002 — VERIFIED:** fail-closed external secret-provider routing; `env:<alias>` reads direct process environment.
+- **M7-003 — VERIFIED:** durable independent audit/history/incident state with atomic candidate commit.
+- **M7-004 — CI VERIFIED:** explicit `SingleNode` topology guard; `MultiNode` startup rejected until shared state + distributed coordination exist. Post-protected-credential CI `31385935255`.
+- **M7-005..M7-016 — CI VERIFIED:** protected local SQL Login credential store, persisted Data Protection key ring, `local:v1` references, versioned encrypted envelope, reference-scoped protection, atomic ciphertext replacement, restart resolution, fail-closed key/ciphertext behavior, compatibility, validation and deletion. CI `31384727247`.
+- **M7-017 — PLANNED / Issue #52:** generic shared-state document capability plus first real dedicated Monitor SQL Server provider with optimistic compare/exchange. This does not enable MultiNode.
+- **M7-018 — PLANNED:** migrate required repositories/coordination and add distributed scheduler ownership/cross-node single-flight before MultiNode can be enabled.
 
-M7-002 adds external secret-provider routing behind `IConnectionSecretStore`. `env:<alias>` resolves only from strict process-environment variables and a recognized provider-owned reference never falls back to a less-specific configuration source.
-
-M7-003 makes Monitor-owned audit, snapshot history and incident lifecycle state durable behind their existing interfaces. The three stores use independent versioned files under one operational-state root, preserve bounded semantics and fail closed on corrupt state. This is single-node durability; no monitored SQL Server is used as a persistence target.
-
-Next production-readiness priorities after M7-003: shared-state/HA strategy, deployment configuration validation, backup/restore of Monitor-owned state, and production observability.
+## M8 — Zero-SQL Reads & Operator Refresh — CI VERIFIED
+Monitoring GET/navigation surfaces are cache/Peek-only. Explicit Operator/Admin refresh remains POST + antiforgery; successful refresh observation occurs once. CI `31383991126` (91/91 tests).

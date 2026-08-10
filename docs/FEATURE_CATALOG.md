@@ -3,53 +3,23 @@
 | Feature | Milestone | Status | Notes |
 |---|---|---|---|
 | Development Admin authentication | M0 | Verified | Cookie auth; PBKDF2 hash only |
-| SQL Command Center | M0 | Verified | Central live visual area + estate topology |
-| Command Center visual telemetry layer | M0 | Verified | Client-only radar, freshness, scan phases; zero data calls |
-| Server estate operations view | M0 | Verified | Estate summary, local filter/search, health score, resource pressure |
-| Server operational overview | M0 | Verified | DBA command header, attention assessment, resource envelope, DBA focus |
-| Snapshot freshness presentation | M0 | Verified | Browser-only age progression; no collection trigger |
-| Database Health | M0 | Verified | Shared snapshot data |
-| Memory Health | M0 | Verified | Shared snapshot data |
-| Alerts / Incidents | M0 | Verified | Preview queue |
-| Settings | M0 | Verified | Read-only preview |
-| UI design system | M0 | Verified | CSS tokens/components |
-| Controlled motion | M0 | Verified | Client only; no data calls |
-| Server registration model | M1 | CI verified | Validated endpoint/auth metadata; repository abstraction preserved |
-| Connection secret boundary | M1 | CI verified | Opaque reference; values only from backend secret stores |
-| Test Connection workflow | M1 | CI verified | Admin-only ID endpoint; bounded timeout and redacted outcomes |
-| Lightweight SQL collector | M1 | CI verified | One query: identity, uptime and database availability counts |
-| Server health snapshot cache | M1 | CI verified | 30s fresh, 5m stale fallback, per-server single-flight |
-| Real snapshot UI card | M1 | CI verified | First configured server replaces one demo card; mixed data labeled |
-| Throttled snapshot refresh | M1 | CI verified | Admin POST, 15s per-server throttle, shared cache flight |
-| SignalR snapshot delivery | M1 | Evaluated / deferred | Revisit after scheduled backend publication exists |
-| Memory snapshot projection | M2 | CI verified | System/process memory from the existing single collector query |
-| Real memory health UI | M2 | CI verified | Cached SQL process utilization; CI 31372312362 |
-| Database state detail projection | M2 | CI verified | Validated state counts; CI 31372957383 |
-| Backup health summary | M2 | CI verified | Full-backup coverage and latest full backup; CI 31372957383 |
-| SQL Agent jobs summary | M2 | CI verified | Total, enabled and failed-last-run counts; CI 31372957383 |
-| Storage allocation summary | M2 | CI verified | Total, data and log allocated bytes; CI 31372957383 |
-| Blocking summary | M2 | CI verified | Blocked request count and maximum wait; CI 31372957383 |
-| Cached health module pages | M2 | CI verified | Database, backup, Agent, storage and blocking views share cache reads; CI 31373849952 |
-| Baseline performance facts | M2 | CI verified | Active requests, runnable tasks and pending I/O counts; CI 31373849952 |
-| Deterministic findings | M3 | CI verified | Allowlisted server-side rules with bounded evidence; CI 31373849952 |
-| Incident lifecycle | M3 | CI verified | Stable dedupe; fresh healthy evidence resolves incidents; CI 31373849952 |
-| Real incident center | M3 | CI verified | Cached snapshots feed the authorized Alerts UI; CI 31373849952 |
-| Incident operator workflow | M3 | CI verified | Acknowledge, resolve and reopen with antiforgery protection; CI 31375034604 |
-| Deterministic recommendations | M3 | CI verified | Rule-owned advisory steps; no execution; CI 31375034604 |
-| AI Advisor boundary | M4 | CI verified | Normalized backend context; provider disabled by default; CI 31375034604 |
-| Guarded Advisor request | M4 | CI verified | Explicit POST, single-flight, TTL cache, timeout, circuit and audit; CI 31376448363 |
-| Snapshot history | M5 | CI verified | Allowlisted 24-hour aggregate retention; durable in M7-003 |
-| Collection cycle | M5 | CI verified | Backend-only deterministic refresh cycle; CI 31375034604 |
-| Snapshot trends | M5 | CI verified | Fixed 1h/6h/24h read-only windows; CI 31375034604 |
-| Scheduled collection runtime | M5 | CI verified | Disabled by default; bounded parallelism, backoff and status; CI 31376448363 |
-| Audit trail | M5 | CI verified | Bounded append-only metadata; durable in M7-003 |
-| Policy-based RBAC | M5 | CI verified | Viewer, Operator and Administrator authorization policies; CI 31376448363 |
-| Web security baseline | M5 | CI verified | Strict cookie, CSP/frame/nosniff/referrer headers and login limiting; CI 31376448363 |
-| Incident transition audit enrichment | M5 | CI verified | Canonical `incident.transition`; authenticated actor, bounded before/after state; CI 31379998409 |
-| Real SQL onboarding journey | M6 | CI verified | Login → register → test → first snapshot → real estate; CI 31378848889 |
-| Runtime SQL credential boundary | M6 | CI verified | Process-memory only; external reference remains available; CI 31378848889 |
-| Multi-server real estate | M6 | CI verified | All registered targets shown; unavailable never replaced by demo; CI 31378848889 |
-| Real Dashboard projection | M6 | CI verified | Cache-backed servers, database totals and incidents; CI 31378848889 |
-| Durable registration metadata | M7 | CI verified | Atomic file store outside `wwwroot`; opaque secret references only; CI 31380699808 |
-| Environment-injected external SQL secret provider | M7 | CI verified | `env:<alias>` direct process environment; no config fallback; CI 31381465706 |
-| Durable Monitor-owned operational state | M7 | CI verified | Independent atomic audit/history/incident files; 89/89 tests; CI 31382770932 |
+| SQL Command Center / DBA estate UI | M0 | Verified | Central live visual language; controlled client motion |
+| Server registration + Test Connection | M1 | CI verified | Bounded backend-only connection workflow |
+| SQL snapshot collector/cache | M1 | CI verified | Reusable snapshot, fresh/stale cache, single-flight |
+| Health modules | M2 | CI verified | Memory/database/backup/Agent/storage/blocking/performance |
+| Deterministic incident engine | M3 | CI verified | Stable findings/lifecycle/operator workflow |
+| Deterministic recommendations | M3 | CI verified | Human-reviewed only; no execution |
+| AI Advisor boundary | M4 | CI verified | Guarded explicit advisory request; provider disabled by default |
+| Snapshot history/trends | M5 | CI verified | Bounded aggregates; durable in M7-003 |
+| Scheduler infrastructure | M5 | CI verified | Disabled by default; bounded/backoff/status |
+| Audit + RBAC + web security | M5 | CI verified | Durable audit, named policies, browser baseline |
+| Real SQL onboarding journey | M6 | CI verified | Register/Test/Collect/Observe real estate; CI 31378848889 |
+| Durable registration metadata | M7 | CI verified | Atomic file store outside `wwwroot`; opaque refs only; CI 31380699808 |
+| Environment SQL secret provider | M7 | CI verified | `env:<alias>` direct environment; no fallback; CI 31381465706 |
+| Durable operational state | M7 | CI verified | Independent audit/history/incident files; CI 31382770932 |
+| Protected local SQL credential store | M7 | CI verified | `local:v1`, Data Protection, encrypted atomic file, persisted key ring; CI 31384727247 |
+| HA topology safety guard | M7 | CI verified | SingleNode supported; MultiNode fail-closed; post-credential CI 31385935255 |
+| Shared-state provider capability | M7 | Planned | M7-017 / Issue #52; dedicated Monitor-owned SQL provider |
+| Distributed coordination | M7 | Planned | M7-018; required before MultiNode enablement |
+| Zero-SQL monitoring GETs | M8 | CI verified | Cache/Peek-only browser reads; CI 31383991126 |
+| Explicit observed manual refresh | M8 | CI verified | Operator/Admin POST; successful refresh observed once |
