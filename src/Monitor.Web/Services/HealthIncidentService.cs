@@ -128,16 +128,18 @@ public interface IIncidentWorkflowService
 {
     IncidentCenterViewModel Query(IncidentQuery query);
     Task<IncidentDetailsViewModel?> GetDetailsAsync(string id, CancellationToken cancellationToken);
-    bool Acknowledge(string id);
-    bool Resolve(string id);
-    bool Reopen(string id);
+    bool Acknowledge(string id, string actor);
+    bool Resolve(string id, string actor);
+    bool Reopen(string id, string actor);
 }
 
 public sealed class IncidentWorkflowService(
     IHealthIncidentRepository repository,
     IRecommendationEngine recommendations,
     IAdvisorContextBuilder contextBuilder,
-    IAdvisorProvider advisor) : IIncidentWorkflowService
+    IAdvisorProvider advisor,
+    IOperatorAuditTrail auditTrail,
+    TimeProvider timeProvider) : IIncidentWorkflowService
 {
     public IncidentCenterViewModel Query(IncidentQuery query)
     {
@@ -162,7 +164,47 @@ public sealed class IncidentWorkflowService(
         return new(incident, plan, result);
     }
 
-    public bool Acknowledge(string id) => repository.TrySetStatus(id, IncidentStatus.Open, IncidentStatus.Acknowledged);
-    public bool Resolve(string id) => repository.TrySetStatus(id, IncidentStatus.Acknowledged, IncidentStatus.Resolved) || repository.TrySetStatus(id, IncidentStatus.Open, IncidentStatus.Resolved);
-    public bool Reopen(string id) => repository.TrySetStatus(id, IncidentStatus.Resolved, IncidentStatus.Open);
+    public bool Acknowledge(string id, string actor) =>
+        Transition(id, actor, OperatorAuditAction.IncidentAcknowledged, IncidentStatus.Acknowledged, IncidentStatus.Open);
+
+    public bool Resolve(string id, string actor) =>
+        Transition(id, actor, OperatorAuditAction.IncidentResolved, IncidentStatus.Resolved, IncidentStatus.Open, IncidentStatus.Acknowledged);
+
+    public bool Reopen(string id, string actor) =>
+        Transition(id, actor, OperatorAuditAction.IncidentReopened, IncidentStatus.Open, IncidentStatus.Resolved);
+
+    private bool Transition(
+        string id,
+        string actor,
+        OperatorAuditAction action,
+        IncidentStatus next,
+        params IncidentStatus[] allowedPrevious)
+    {
+        if (string.IsNullOrWhiteSpace(actor) || actor.Trim().Length > 128)
+        {
+            return false;
+        }
+
+        var current = repository.GetById(id);
+        if (current is null || !allowedPrevious.Contains(current.Status))
+        {
+            return false;
+        }
+
+        if (!repository.TrySetStatus(id, current.Status, next))
+        {
+            return false;
+        }
+
+        auditTrail.Record(new OperatorAuditEvent(
+            Guid.NewGuid(),
+            timeProvider.GetUtcNow(),
+            actor.Trim(),
+            action,
+            "Incident",
+            current.Id,
+            current.Status.ToString(),
+            next.ToString()));
+        return true;
+    }
 }
