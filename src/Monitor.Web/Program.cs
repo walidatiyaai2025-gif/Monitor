@@ -17,7 +17,6 @@ var deploymentTopologyOptions = builder.Configuration
     .Get<DeploymentTopologyOptions>() ?? new DeploymentTopologyOptions();
 deploymentTopologyOptions.Validate();
 builder.Services.AddSingleton(deploymentTopologyOptions);
-builder.Services.AddSingleton(deploymentTopologyOptions.ToReadiness());
 
 var sharedStateOptions = builder.Configuration
     .GetSection(SharedStateOptions.SectionName)
@@ -30,18 +29,46 @@ builder.Services.AddSingleton<ISharedStateDocumentStore>(_ =>
         : new DisabledSharedStateDocumentStore());
 builder.Services.AddSingleton<ISharedStateReadinessService, SharedStateReadinessService>();
 
+var haStateOptions = builder.Configuration
+    .GetSection(HaStateOptions.SectionName)
+    .Get<HaStateOptions>() ?? new HaStateOptions();
+haStateOptions.Validate();
+builder.Services.AddSingleton(haStateOptions);
+
+var coordinationOptions = builder.Configuration
+    .GetSection(DistributedCoordinationOptions.SectionName)
+    .Get<DistributedCoordinationOptions>() ?? new DistributedCoordinationOptions();
+coordinationOptions.Validate();
+builder.Services.AddSingleton(coordinationOptions);
+
+if ((haStateOptions.UseSharedRegistrations ||
+     haStateOptions.UseSharedOperationalState ||
+     coordinationOptions.Enabled) &&
+    sharedStateOptions.Provider != SharedStateProviderKind.SqlServer)
+{
+    throw new InvalidOperationException(
+        "Shared application state and distributed coordination require the dedicated Monitor shared-state SQL provider.");
+}
+
+var nodeIdentity = NodeIdentity.Resolve(coordinationOptions);
+builder.Services.AddSingleton(nodeIdentity);
+builder.Services.AddSingleton<IDistributedLeaseManager>(provider =>
+    coordinationOptions.Enabled
+        ? new SharedStateDistributedLeaseManager(
+            provider.GetRequiredService<ISharedStateDocumentStore>(),
+            nodeIdentity,
+            provider.GetRequiredService<TimeProvider>(),
+            coordinationOptions)
+        : new DisabledDistributedLeaseManager());
+
 var registrationStoreOptions = builder.Configuration
     .GetSection(RegistrationStoreOptions.SectionName)
     .Get<RegistrationStoreOptions>() ?? new RegistrationStoreOptions();
 registrationStoreOptions.Validate();
 builder.Services.AddSingleton(registrationStoreOptions);
-builder.Services.AddSingleton<IServerRegistrationRepository>(_ =>
-{
-    if (registrationStoreOptions.Mode == RegistrationStoreMode.InMemory)
-    {
-        return new InMemoryServerRegistrationRepository();
-    }
 
+string ResolveRegistrationStorePath()
+{
     var storePath = Path.IsPathRooted(registrationStoreOptions.Path)
         ? Path.GetFullPath(registrationStoreOptions.Path)
         : Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, registrationStoreOptions.Path));
@@ -56,7 +83,33 @@ builder.Services.AddSingleton<IServerRegistrationRepository>(_ =>
         throw new InvalidOperationException("RegistrationStore:Path must be outside wwwroot.");
     }
 
-    return new FileServerRegistrationRepository(storePath);
+    return storePath;
+}
+
+builder.Services.AddSingleton<IServerRegistrationRepository>(provider =>
+{
+    if (haStateOptions.UseSharedRegistrations)
+    {
+        var shared = new SharedServerRegistrationRepository(
+            provider.GetRequiredService<ISharedStateDocumentStore>());
+        if (haStateOptions.ImportLocalRegistrationsWhenSharedEmpty)
+        {
+            var legacyPath = ResolveRegistrationStorePath();
+            if (File.Exists(legacyPath))
+            {
+                shared.ImportIfEmpty(new FileServerRegistrationRepository(legacyPath).GetAll());
+            }
+        }
+
+        return shared;
+    }
+
+    if (registrationStoreOptions.Mode == RegistrationStoreMode.InMemory)
+    {
+        return new InMemoryServerRegistrationRepository();
+    }
+
+    return new FileServerRegistrationRepository(ResolveRegistrationStorePath());
 });
 
 var operationalStoreOptions = builder.Configuration
@@ -64,7 +117,8 @@ var operationalStoreOptions = builder.Configuration
     .Get<OperationalStoreOptions>() ?? new OperationalStoreOptions();
 operationalStoreOptions.Validate();
 builder.Services.AddSingleton(operationalStoreOptions);
-var operationalRoot = operationalStoreOptions.Mode == OperationalStoreMode.File
+var operationalRoot = !haStateOptions.UseSharedOperationalState &&
+                      operationalStoreOptions.Mode == OperationalStoreMode.File
     ? OperationalStorePath.ResolveOutsideWebRoot(
         operationalStoreOptions.RootPath,
         builder.Environment.ContentRootPath,
@@ -72,17 +126,47 @@ var operationalRoot = operationalStoreOptions.Mode == OperationalStoreMode.File
     : null;
 
 builder.Services.AddSingleton<IAuditStore>(provider =>
-    operationalRoot is null
+{
+    if (haStateOptions.UseSharedOperationalState)
+    {
+        return new SharedAuditStore(
+            provider.GetRequiredService<ISharedStateDocumentStore>(),
+            provider.GetRequiredService<TimeProvider>());
+    }
+
+    return operationalRoot is null
         ? new InMemoryAuditStore(provider.GetRequiredService<TimeProvider>())
-        : new FileAuditStore(Path.Combine(operationalRoot, "audit.json"), provider.GetRequiredService<TimeProvider>()));
-builder.Services.AddSingleton<IHealthIncidentRepository>(_ =>
-    operationalRoot is null
+        : new FileAuditStore(
+            Path.Combine(operationalRoot, "audit.json"),
+            provider.GetRequiredService<TimeProvider>());
+});
+builder.Services.AddSingleton<IHealthIncidentRepository>(provider =>
+{
+    if (haStateOptions.UseSharedOperationalState)
+    {
+        return new SharedHealthIncidentRepository(
+            provider.GetRequiredService<ISharedStateDocumentStore>());
+    }
+
+    return operationalRoot is null
         ? new InMemoryHealthIncidentRepository()
-        : new FileHealthIncidentRepository(Path.Combine(operationalRoot, "incidents.json")));
+        : new FileHealthIncidentRepository(Path.Combine(operationalRoot, "incidents.json"));
+});
 builder.Services.AddSingleton<ISnapshotHistoryStore>(provider =>
-    operationalRoot is null
+{
+    if (haStateOptions.UseSharedOperationalState)
+    {
+        return new SharedSnapshotHistoryStore(
+            provider.GetRequiredService<ISharedStateDocumentStore>(),
+            provider.GetRequiredService<TimeProvider>());
+    }
+
+    return operationalRoot is null
         ? new InMemorySnapshotHistoryStore(provider.GetRequiredService<TimeProvider>())
-        : new FileSnapshotHistoryStore(Path.Combine(operationalRoot, "history.json"), provider.GetRequiredService<TimeProvider>()));
+        : new FileSnapshotHistoryStore(
+            Path.Combine(operationalRoot, "history.json"),
+            provider.GetRequiredService<TimeProvider>());
+});
 
 var secretStoreOptions = builder.Configuration.GetSection(SecretStoreOptions.SectionName).Get<SecretStoreOptions>() ?? new();
 var secretFilePath = OperationalStorePath.ResolveOutsideWebRoot(
@@ -119,10 +203,24 @@ var scheduleOptions = builder.Configuration.GetSection(SnapshotScheduleOptions.S
 scheduleOptions.Validate();
 builder.Services.AddSingleton(scheduleOptions);
 builder.Services.AddSingleton<ICollectionBackoffPolicy, CollectionBackoffPolicy>();
-builder.Services.AddSingleton<ISchedulerStatusStore, SchedulerStatusStore>();
+builder.Services.AddSingleton<ISchedulerStatusStore>(provider =>
+    haStateOptions.UseSharedOperationalState
+        ? new SharedSchedulerStatusStore(provider.GetRequiredService<ISharedStateDocumentStore>())
+        : new SchedulerStatusStore());
 builder.Services.AddHostedService<SnapshotSchedulerService>();
 builder.Services.AddSingleton<IMonitorReadService, MonitorReadService>();
 builder.Services.AddSingleton<ISnapshotRefreshService, SnapshotRefreshService>();
+
+var deploymentReadiness = DeploymentReadinessEvaluator.Evaluate(
+    deploymentTopologyOptions,
+    sharedStateOptions,
+    haStateOptions,
+    coordinationOptions);
+if (deploymentTopologyOptions.Mode == DeploymentTopology.MultiNode && !deploymentReadiness.Ready)
+{
+    throw new InvalidOperationException(deploymentReadiness.Message);
+}
+builder.Services.AddSingleton(deploymentReadiness);
 
 builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
