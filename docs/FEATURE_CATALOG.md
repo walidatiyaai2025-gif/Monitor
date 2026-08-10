@@ -14,8 +14,8 @@
 | Settings | M0 | Verified | Read-only preview |
 | UI design system | M0 | Verified | CSS tokens/components |
 | Controlled motion | M0 | Verified | Client only; no data calls |
-| Server registration model | M1 | CI verified | Validated endpoint/auth metadata; in-memory repository |
-| Connection secret boundary | M1 | CI verified | Opaque reference; values only from User Secrets/environment |
+| Server registration model | M1 | CI verified | Validated endpoint/auth metadata; repository abstraction preserved |
+| Connection secret boundary | M1 | CI verified | Opaque reference; values only from backend secret stores |
 | Test Connection workflow | M1 | CI verified | Admin-only ID endpoint; bounded timeout and redacted outcomes |
 | Lightweight SQL collector | M1 | CI verified | One query: identity, uptime and database availability counts |
 | Server health snapshot cache | M1 | CI verified | 30s fresh, 5m stale fallback, per-server single-flight |
@@ -50,3 +50,4 @@
 | Runtime SQL credential boundary | M6 | CI verified | Process-memory only; external reference remains available; CI 31378848889 |
 | Multi-server real estate | M6 | CI verified | All registered targets shown; unavailable never replaced by demo; CI 31378848889 |
 | Real Dashboard projection | M6 | CI verified | Cache-backed servers, database totals and incidents; CI 31378848889 |
+| Durable registration metadata | M7 | CI verified | Atomic file store outside `wwwroot`; opaque secret references only; CI 31380699808 |
