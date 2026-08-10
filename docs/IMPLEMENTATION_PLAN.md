@@ -119,6 +119,61 @@ This is the canonical execution plan. Update it in the same PR as material imple
 | M5-025 | Partitioned login limiting and safe login audit | VERIFIED — CI RUN 31376448363 |
 | M5-026 | Enrich incident transition audit with authenticated actor and bounded before/after state | PLANNED |
 
+## M6 — Real Server User Journey
+
+| Task | Description | State |
+|---|---|---|
+| M6-001 | First-login destination routes administrators without servers to Connections | IMPLEMENTED — LOCAL VERIFIED |
+| M6-002 | Safe local return URL remains highest-priority post-login destination | IMPLEMENTED — LOCAL VERIFIED |
+| M6-003 | First-server Connections onboarding entry point | IMPLEMENTED — LOCAL VERIFIED |
+| M6-004 | Administrator Connections navigation | IMPLEMENTED — LOCAL VERIFIED |
+| M6-005 | Remove duplicate Coming Soon health navigation | IMPLEMENTED — LOCAL VERIFIED |
+| M6-006 | Register → Test → Collect → View journey banner | IMPLEMENTED — LOCAL VERIFIED |
+| M6-007 | Bounded display-name input | IMPLEMENTED — LOCAL VERIFIED |
+| M6-008 | Bounded host input and normalization | IMPLEMENTED — LOCAL VERIFIED |
+| M6-009 | Validated TCP port input | IMPLEMENTED — LOCAL VERIFIED |
+| M6-010 | Port / named-instance mutual exclusion | IMPLEMENTED — LOCAL VERIFIED |
+| M6-011 | Integrated Security / SQL Login choice | IMPLEMENTED — LOCAL VERIFIED |
+| M6-012 | Encrypt-on TLS default and trust-certificate disclosure | IMPLEMENTED — LOCAL VERIFIED |
+| M6-013 | Runtime SQL username input | IMPLEMENTED — LOCAL VERIFIED |
+| M6-014 | Password-only non-repopulated SQL credential input | IMPLEMENTED — LOCAL VERIFIED |
+| M6-015 | External secret-reference fallback | IMPLEMENTED — LOCAL VERIFIED |
+| M6-016 | Server-generated opaque runtime secret reference | IMPLEMENTED — LOCAL VERIFIED |
+| M6-017 | Process-memory runtime credential store | IMPLEMENTED — LOCAL VERIFIED |
+| M6-018 | Credentials excluded from registration model/JSON | IMPLEMENTED — LOCAL VERIFIED |
+| M6-019 | Failed form/test never echoes password | IMPLEMENTED — LOCAL VERIFIED |
+| M6-020 | Canonical duplicate endpoint rejection | IMPLEMENTED — LOCAL VERIFIED |
+| M6-021 | Registration metadata creation | IMPLEMENTED — LOCAL VERIFIED |
+| M6-022 | Automatic bounded Test Connection after save | IMPLEMENTED — LOCAL VERIFIED |
+| M6-023 | Fixed redacted connection outcomes | IMPLEMENTED — LOCAL VERIFIED |
+| M6-024 | Failed Test prevents first collection | IMPLEMENTED — LOCAL VERIFIED |
+| M6-025 | Successful Test triggers first cached collection | IMPLEMENTED — LOCAL VERIFIED |
+| M6-026 | Successful first snapshot passes through shared observer | IMPLEMENTED — LOCAL VERIFIED |
+| M6-027 | Successful commissioning redirects to real Servers estate | IMPLEMENTED — LOCAL VERIFIED |
+| M6-028 | Safe monitoring-permission recovery message | IMPLEMENTED — LOCAL VERIFIED |
+| M6-029 | Registered server remains visible when snapshot unavailable | IMPLEMENTED — LOCAL VERIFIED |
+| M6-030 | Multi-server live estate projection | IMPLEMENTED — LOCAL VERIFIED |
+| M6-031 | Deterministic registration ordering | IMPLEMENTED — LOCAL VERIFIED |
+| M6-032 | Demo cards excluded when real registrations exist | IMPLEMENTED — LOCAL VERIFIED |
+| M6-033 | Async cache-backed Dashboard read | IMPLEMENTED — LOCAL VERIFIED |
+| M6-034 | Dashboard displays every registered real server | IMPLEMENTED — LOCAL VERIFIED |
+| M6-035 | Dashboard derives real database/server availability totals | IMPLEMENTED — LOCAL VERIFIED |
+| M6-036 | Dashboard reads real deterministic incidents | IMPLEMENTED — LOCAL VERIFIED |
+| M6-037 | Empty active-incident state no longer crashes Dashboard | IMPLEMENTED — LOCAL VERIFIED |
+| M6-038 | Live/Demo Dashboard source banner | IMPLEMENTED — LOCAL VERIFIED |
+| M6-039 | Explicit RegisteredUnavailable data-source state | IMPLEMENTED — LOCAL VERIFIED |
+| M6-040 | Real server identity routes to Server Details | IMPLEMENTED — LOCAL VERIFIED |
+| M6-041 | Health pages share registered-server cache projection | IMPLEMENTED — LOCAL VERIFIED |
+| M6-042 | Role-aware Connections navigation visibility | IMPLEMENTED — LOCAL VERIFIED |
+| M6-043 | Role-aware signed-in user chip | IMPLEMENTED — LOCAL VERIFIED |
+| M6-044 | Accurate SQL Snapshot Mode environment chrome | IMPLEMENTED — LOCAL VERIFIED |
+| M6-045 | Antiforgery-protected registration workflow | IMPLEMENTED — LOCAL VERIFIED |
+| M6-046 | Administrator-only connection management | IMPLEMENTED — LOCAL VERIFIED |
+| M6-047 | Canary password redaction assertions | IMPLEMENTED — LOCAL VERIFIED |
+| M6-048 | Register/Test/Collect/Observe success journey test | IMPLEMENTED — LOCAL VERIFIED |
+| M6-049 | Failed Test/no-collection recovery journey test | IMPLEMENTED — LOCAL VERIFIED |
+| M6-050 | Multi-server live/unavailable/no-demo acceptance test | IMPLEMENTED — LOCAL VERIFIED |
+
 ## Delivery loop
 
 Plan -> Design -> Implement -> Show -> Connect Real Data -> Verify -> Commit -> Push -> Update Plan.

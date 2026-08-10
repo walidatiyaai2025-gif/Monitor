@@ -1,15 +1,16 @@
 @model DashboardViewModel
 @{
     ViewData["Title"] = "SQL Command Center";
-    var primaryIncident = Model.Incidents.FirstOrDefault(incident => incident.Severity == "Critical") ?? Model.Incidents.First();
-    var connectedServers = Model.Servers.Count(server => server.State != HealthState.Offline);
+    var primaryIncident = Model.Incidents.FirstOrDefault(incident => incident.Severity == "Critical") ?? Model.Incidents.FirstOrDefault();
+    var hasLive = Model.Servers.Any(server => server.Source != ServerDataSource.Demo);
+    var connectedServers = Model.Servers.Count(server => server.Source is ServerDataSource.LiveFresh or ServerDataSource.LiveStale);
     var availability = Model.Servers.Count == 0 ? 0 : (int)Math.Round(connectedServers * 100d / Model.Servers.Count);
 }
 
 <div class="data-banner command-data-banner">
-    <strong>DEVELOPMENT DATA</strong>
-    <span>Visual preview only · no production SQL connection</span>
-    <span class="data-banner-rule">UI motion is client-side and creates zero SQL traffic</span>
+    <strong>@(hasLive ? "REAL SQL ESTATE" : "DEVELOPMENT DATA")</strong>
+    <span>@(hasLive ? "Registered SQL Servers with cached backend snapshots" : "Visual preview only · add a SQL Server to start")</span>
+    <span class="data-banner-rule">Fresh, stale and unavailable states are labeled per server</span>
 </div>
 
 <section class="live-estate glass-panel command-live-estate">
@@ -67,18 +68,18 @@
         </div>
     </article>
 
-    <article class="glass-panel attention-panel state-critical">
+    <article class="glass-panel attention-panel state-@(primaryIncident is null ? "healthy" : "critical")">
         <div class="attention-head">
             <div><span class="eyebrow">IMMEDIATE ATTENTION</span><h3>Highest priority signal</h3></div>
             <span class="priority-beacon"><i></i> P1</span>
         </div>
-        <div class="attention-incident-id">@primaryIncident.Id · @primaryIncident.Server</div>
-        <h2>@primaryIncident.Title</h2>
+        @if (primaryIncident is null) { <div class="attention-incident-id">NO ACTIVE FINDINGS</div><h2>No cached incident currently requires attention.</h2> }
+        else { <div class="attention-incident-id">@primaryIncident.Id · @primaryIncident.Server</div><h2>@primaryIncident.Title</h2>
         <div class="attention-meta">
             <div><small>Severity</small><strong class="severity severity-@primaryIncident.Severity.ToLowerInvariant()">@primaryIncident.Severity</strong></div>
             <div><small>Age</small><strong>@primaryIncident.Age</strong></div>
             <div><small>State</small><strong>@primaryIncident.State</strong></div>
-        </div>
+        </div> }
         <a class="attention-action" asp-action="Alerts"><span>Open incident center</span><strong>→</strong></a>
         <div class="attention-footnote">Preview decision surface. No automated remediation is executed.</div>
     </article>

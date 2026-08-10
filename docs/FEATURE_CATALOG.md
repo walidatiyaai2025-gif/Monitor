@@ -46,3 +46,7 @@
 | Policy-based RBAC | M5 | CI verified | Viewer, Operator and Administrator authorization policies; CI 31376448363 |
 | Web security baseline | M5 | CI verified | Strict cookie, CSP/frame/nosniff/referrer headers and login limiting; CI 31376448363 |
 | Incident transition audit enrichment | M5 | Planned | Reuse canonical IAuditStore; authenticated actor plus bounded before/after state |
+| Real SQL onboarding journey | M6 | Local verified | Login → register → test → first snapshot → real estate |
+| Runtime SQL credential boundary | M6 | Local verified | Process-memory only; external reference remains available |
+| Multi-server real estate | M6 | Local verified | All registered targets shown; unavailable never replaced by demo |
+| Real Dashboard projection | M6 | Local verified | Cache-backed servers, database totals and incidents |

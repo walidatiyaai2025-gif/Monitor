@@ -1,11 +1,22 @@
 # Project Status
 
 **Updated:** 2026-08-10 12:58 +03:00  
-**Branch:** `agent/m4-m5-ci-reconciliation-33`  
-**Target:** PR #33 CI reconciliation + next hardening slice  
+**Branch:** `agent/m6-real-server-journey-50-task-batch`  
+**Target:** 50 tasks — `M6-001` through `M6-050`  
 **Issue:** #35  
 **PR:** TBD  
-**Overall:** 🟢 M4 THROUGH M5-025 CI VERIFIED — M5-026 PLANNED
+**Overall:** 🟡 50-TASK REAL SQL SERVER USER JOURNEY — LOCAL VERIFIED
+
+## M6-001 through M6-050 — Real server user journey
+
+- Empty-estate login routes directly to Connections.
+- Administrator can enter Integrated Security, runtime SQL Login credentials, or an external secret reference.
+- Save performs Test Connection, then exactly one first snapshot collection and observation.
+- Successful commissioning redirects to the real Servers estate.
+- Every real registration is shown; collection failure remains `RegisteredUnavailable` and never becomes demo.
+- Dashboard reads real cache-backed servers, database totals and incidents.
+- Runtime passwords are never echoed, serialized into registrations or retained after process restart.
+- Release build succeeds with warnings-as-errors; 62 tests pass locally.
 
 ## PR #33 — Scheduler / security / advisor hardening — CI VERIFIED
 

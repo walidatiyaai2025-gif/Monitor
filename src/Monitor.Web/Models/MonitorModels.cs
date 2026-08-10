@@ -13,7 +13,8 @@ public enum ServerDataSource
 {
     Demo,
     LiveFresh,
-    LiveStale
+    LiveStale,
+    RegisteredUnavailable
 }
 
 public sealed record ServerCard(

@@ -91,3 +91,11 @@ Viewer, Operator and Administrator roles map to explicit read, incident operatio
 ## ADR-023 — Advisor requests are explicit, bounded and audited
 
 Incident detail reads do not grant execution capability. An Operator or Administrator explicitly POSTs an incident ID to request advice. The backend builds context, coalesces duplicate requests, caches only the matching evidence version for five minutes, applies a ten-second timeout and opens a short circuit after repeated failures. Audit stores metadata/status only, never raw prompts, credentials or provider exceptions.
+
+## ADR-024 — First-run commissioning is one deliberate backend workflow
+
+After login, an administrator with no enabled registration is routed to Connections. Saving a target performs a bounded Test Connection and, only on success, one first snapshot collection through the shared cache and observer before redirecting to Servers. SQL Login credentials entered in this preview are stored only in process memory under a server-generated opaque reference; they never enter registration metadata, JSON, HTML, logs or audit, and disappear on restart. Production deployments should use the external configuration reference boundary.
+
+## ADR-025 — Real registrations replace the demo estate as a whole
+
+When no registration exists, the visual demo remains explicitly labeled. Once real registrations exist, estate reads return every enabled registration in deterministic order. A target without a usable snapshot remains visible as `RegisteredUnavailable`; it is never silently replaced by demo data. Dashboard and server pages share this projection.

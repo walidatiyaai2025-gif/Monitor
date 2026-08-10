@@ -8,6 +8,7 @@ public interface IMonitorReadService
     Task<ServerDetailsViewModel?> GetServerAsync(string id, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<HealthModuleServerViewModel>> GetHealthModulesAsync(CancellationToken cancellationToken = default);
     Task<IReadOnlyList<IncidentRow>> GetIncidentsAsync(CancellationToken cancellationToken = default);
+    Task<DashboardViewModel> GetDashboardAsync(CancellationToken cancellationToken = default);
 }
 
 public sealed class MonitorReadService(
@@ -20,25 +21,41 @@ public sealed class MonitorReadService(
     public async Task<IReadOnlyList<ServerCard>> GetServersAsync(
         CancellationToken cancellationToken = default)
     {
-        var cards = demo.GetServers().ToArray();
-        var registration = registrations.GetAll()
-            .Where(item => item.IsEnabled)
-            .OrderBy(item => item.CreatedAtUtc)
-            .ThenBy(item => item.Id)
-            .FirstOrDefault();
-
-        if (registration is null)
+        var enabled = registrations.GetAll().Where(item => item.IsEnabled).OrderBy(item => item.CreatedAtUtc).ThenBy(item => item.Id).ToArray();
+        if (enabled.Length == 0)
         {
-            return cards;
+            return demo.GetServers();
         }
 
-        var live = await TryGetLiveCardAsync(registration, cancellationToken);
-        if (live is not null && cards.Length > 0)
+        var cards = new List<ServerCard>(enabled.Length);
+        foreach (var registration in enabled)
         {
-            cards[0] = live;
+            cards.Add(await TryGetLiveCardAsync(registration, cancellationToken) ?? new ServerCard(
+                registration.Id.ToString("D"), registration.DisplayName, "Not collected", "Registered target",
+                HealthState.Unknown, 0, 0, 0, 0, 0, 0, 0, ServerDataSource.RegisteredUnavailable));
         }
-
         return cards;
+    }
+
+    public async Task<DashboardViewModel> GetDashboardAsync(CancellationToken cancellationToken = default)
+    {
+        var servers = await GetServersAsync(cancellationToken);
+        if (servers.All(item => item.Source == ServerDataSource.Demo)) return demo.GetDashboard();
+        var incidentRows = await GetIncidentsAsync(cancellationToken);
+        var online = servers.Sum(item => item.DatabaseOnline);
+        var total = servers.Sum(item => item.DatabaseTotal);
+        return new DashboardViewModel
+        {
+            Servers = servers,
+            Incidents = incidentRows,
+            Metrics =
+            [
+                new("Registered servers", servers.Count.ToString(), "Real SQL registrations", HealthState.Unknown),
+                new("Databases online", $"{online} / {total}", "From cached SQL snapshots", online == total && total > 0 ? HealthState.Healthy : HealthState.Warning),
+                new("Unavailable", servers.Count(item => item.Source == ServerDataSource.RegisteredUnavailable).ToString(), "Registered without a usable snapshot", HealthState.Warning)
+            ],
+            Activity = [new("Now", "Real estate projection loaded from the shared snapshot cache.", HealthState.Healthy)]
+        };
     }
 
     public async Task<ServerDetailsViewModel?> GetServerAsync(
