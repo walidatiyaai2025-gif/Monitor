@@ -35,13 +35,32 @@ This is the canonical execution plan. Update it in the same PR as material imple
 | M7-015 | Plaintext canary exclusion from persisted secret file | VERIFIED — CI RUN 31384727247 |
 | M7-016 | Owned-secret deletion without external-provider mutation | VERIFIED — CI RUN 31384727247 |
 | M7-017 | Shared-state versioned document contract + dedicated Monitor SQL Server provider + schema/readiness/optimistic compare-exchange | VERIFIED — CI RUN 31386867949 |
-| M7-018 | Migrate required shared repositories and add distributed scheduler ownership/cross-node single-flight | PLANNED |
+| M7-018 | Migrate required shared repositories and add distributed scheduler ownership/cross-node single-flight | VERIFIED — B100 BATCH 1 / CI RUN 31389275376 |
 
 ## M8 — Zero-SQL Reads & Operator Refresh
 
 | Task | Description | State |
 |---|---|---|
 | M8-001..M8-015 | Cache Peek, zero-SQL monitored GETs, read-only incidents, explicit protected refresh, PRG feedback and regression gate | VERIFIED — CI RUN 31383991126 |
+
+## BATCH-100 — Production / Enterprise hardening
+
+`docs/BATCH_100.md` is the task-level execution ledger. Each batch contains ten tasks and must pass merge-result CI before merge to `main`.
+
+| Batch | Tasks | Scope | State |
+|---|---|---|---|
+| Batch 1 | B100-001..010 | Shared state & HA foundation | CI VERIFIED — 31389275376 |
+| Batch 2 | B100-011..020 | HA secret & key management | CI VERIFIED — 31391446513 |
+| Batch 3 | B100-021..030 | Backup, export & rollback-capable restore | CI VERIFIED — 31393040135 |
+| Batch 4 | B100-031..040 | Production health, telemetry, correlation & redacted logging | CI VERIFIED — 31396619576 |
+| Batch 5 | B100-041..050 | Performance & scale governance | NEXT |
+| Batch 6 | B100-051..060 | DBA UX & operations surfaces | PLANNED |
+| Batch 7 | B100-061..070 | Web/application security hardening | PLANNED |
+| Batch 8 | B100-071..080 | Reliability & concurrency verification | PLANNED |
+| Batch 9 | B100-081..090 | Deployment & operations tooling/docs | PLANNED |
+| Batch 10 | B100-091..100 | Enterprise operator features & RC acceptance | PLANNED |
+
+Current progress: **40/100 tasks CI verified**. The next executable batch is **B100-041..050 — performance and scale governance**.
 
 ## Delivery loop
 
