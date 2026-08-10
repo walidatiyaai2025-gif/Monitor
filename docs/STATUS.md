@@ -1,68 +1,60 @@
 # Project Status
 
-**Updated:** 2026-08-10 14:18 +03:00  
-**Branch:** `agent/m7-003-durable-operational-state`  
-**Target:** M7-003 durable Monitor-owned operational state  
-**Issue:** #45  
-**PR:** #46  
-**Overall:** 🟢 M0–M6 VERIFIED — M7-001..M7-003 CI VERIFIED
+**Updated:** 2026-08-10 15:03 +03:00  
+**Branch:** `agent/m7-004-ha-topology-guard-v3`  
+**Target:** reconcile HA guard with M8 + protected local SQL credentials  
+**Issue:** #47  
+**PR:** #53  
+**Overall:** 🟢 M0–M6 VERIFIED · M7-001..M7-016 CI VERIFIED · M8-001..M8-015 CI VERIFIED
 
-## M7-003 — Durable Monitor-owned operational state — CI VERIFIED
+## M7-004 — HA / multi-node topology guard — CI VERIFIED ON CURRENT BASELINE
 
-- Preserves `IAuditStore`, `ISnapshotHistoryStore` and `IHealthIncidentRepository`; current controllers, observer, scheduler, Advisor and incident workflow consumers keep the same contracts.
-- Adds `OperationalStore` File/InMemory mode. File mode is the default and resolves `App_Data/operational` outside `wwwroot`.
-- Uses independent versioned `audit.json`, `history.json` and `incidents.json` files so unrelated operational state does not share one mutation transaction.
-- Mutations build a candidate state, write/flush a same-directory temporary file, atomically replace the durable file, then publish the candidate in process.
-- Corrupt, unsupported or domain-invalid persisted state fails closed on startup.
-- Audit retains bounded metadata and max 1,000 events with newest-first paging.
-- History persists only allowlisted aggregates, deduplicates registration/timestamp, keeps 24 hours and max 288 points/server.
-- Incidents preserve stable registration/rule identity, older-evidence ignore semantics, fresh reconciliation resolution and compare-and-set status transitions.
-- No SQL text, credentials, monitored-server endpoints, provider errors, job commands or arbitrary request payloads are part of the operational persistence contract.
-- Initial CI exposed one incorrect test expectation for `RunnableTasks`; production code compiled successfully. The assertion was corrected without changing production behavior.
-- CI run `31382770932`: SUCCESS — Release build 0 warnings / 0 errors; 89/89 tests passed; Razor compiled in Release.
+- Rebuilt from current `main` after PR #51 protected SQL credentials merged.
+- `Deployment:Mode` is explicit; `SingleNode` is supported.
+- Selecting `MultiNode` fails startup before persistence/services activate until real shared registration/operational state and distributed coordination exist.
+- Protected local SQL credential file + Data Protection key ring are explicitly node-local.
+- Administrator Settings exposes bounded topology/readiness information with no mutation control.
+- Existing M8 zero-SQL GET behavior and explicit refresh POST are preserved.
+- CI `31385935255`: SUCCESS — Release build 0 warnings / 0 errors; **99/99 tests passed**.
 
-## M7-002 — External SQL secret provider — CI VERIFIED
+## M7-005..M7-016 — Protected local SQL credentials — CI VERIFIED
 
-- `env:<alias>` routes directly to strict process-environment variables behind `IConnectionSecretStore`.
-- Provider-owned missing/partial references fail closed without configuration fallback.
-- Final CI `31382052980`: 82/82 tests; Release build 0 warnings / 0 errors.
+- SQL Login credentials use server-generated `local:v1` references.
+- Credential payloads are protected by ASP.NET Data Protection with reference-scoped purposes.
+- Encrypted secret file + Data Protection key ring persist outside `wwwroot`.
+- Candidate file writes are atomically replaced; persisted JSON contains ciphertext, not plaintext credential canaries.
+- Missing/different key rings and tampered ciphertext fail closed.
+- Existing `env:` and legacy external references remain compatible.
+- CI `31384727247`: SUCCESS — Release build 0 warnings / 0 errors; **94/94 tests passed**.
 
-## M7-001 — Durable registration metadata — CI VERIFIED
+## M8 — Zero-SQL reads & operator refresh — CI VERIFIED
 
-- Dynamic registrations survive restart without persisting SQL credential values.
-- Final CI `31381074579`: 72/72 tests; Release build 0 warnings / 0 errors.
+- Monitoring GETs use cache-only Peek and never initiate monitored SQL collection.
+- Incident navigation is read-only; observations happen after explicit successful collection/refresh.
+- Operator/Admin Server Details refresh is POST + antiforgery with PRG feedback.
+- Successful manual refresh observation occurs once; failed/throttled refresh does not publish observation.
+- CI `31383991126`: SUCCESS — **91/91 tests passed**, 0 warnings / 0 errors.
+
+## Earlier M7 foundation
+
+- M7-001 durable registration metadata: final CI `31381074579`.
+- M7-002 external `env:` SQL secret provider: final CI `31382052980`.
+- M7-003 durable audit/history/incident state: final CI `31383226721`.
 
 ## Stable architecture guardrails
 
 - Browser/UI components never connect directly to monitored SQL Servers.
+- Monitoring navigation/GETs never trigger monitored SQL collection.
+- Explicit refresh/collection remains authorized and backend-controlled.
 - Snapshot cache remains the shared evidence/read boundary.
-- Recommendations and Advisor output remain human-review only and cannot execute production SQL.
-- Secret-provider routing remains behind `IConnectionSecretStore`.
-- Registration persistence stores metadata/opaque references only.
-- Operational persistence is Monitor-owned and bounded; it never uses monitored SQL Servers as a configuration/state write target.
-- M7 file stores provide single-node durability only; shared/HA state is deferred to M7-004.
+- Recommendations/Advisor remain advisory-only with no SQL execution path.
+- Registration, operational and protected-local-secret files are single-node implementations.
+- MultiNode remains fail-closed until real shared state and distributed coordination are present.
 
 ## Merge gate
 
-Run GitHub Actions on the final docs head. Confirm `main` has not introduced an overlapping operational-store change, then merge PR #46 only if restore, Release build with warnings-as-errors, Razor compilation and all tests remain Green.
-
-## M8 — Zero-SQL reads and operator refresh — LOCAL VERIFIED
-
-- Monitoring GETs use a synchronous cache Peek and never initiate SQL collection.
-- Incident pages are read-only; findings are observed only after a successful refresh/collection path.
-- Manual refresh now observes the committed snapshot exactly once, so history and incidents become immediately consistent.
-- Server Details exposes a policy-protected, antiforgery-protected POST refresh with PRG feedback.
-- Registered targets without a snapshot are labeled `REGISTERED · NOT COLLECTED`, never stale.
-
-## M7-005..M7-016 — Protected local SQL credentials — LOCAL VERIFIED
-
-- SQL Login credentials entered in Connections now receive server-generated `local:v1` references.
-- Username/password payloads are encrypted with ASP.NET Data Protection and reference-scoped purposes.
-- The encrypted file and Data Protection key ring persist outside `wwwroot`; restarts with the same key ring can resolve credentials.
-- A missing/different key ring or tampered ciphertext fails closed and never falls back to configuration.
-- Writes use a same-directory candidate file and atomic replacement; persisted JSON contains ciphertext only.
-- Existing `env:` and legacy external references remain compatible.
+Run CI on this final documentation head. Re-check `main` for overlap, then merge PR #53 only if Release build with warnings-as-errors, Razor compilation and all tests remain Green.
 
 ## Next action
 
-Push the protected-credential slice, verify GitHub Actions, then add credential replacement/recovery and lifecycle commands before M7-004 HA work.
+After PR #53 merge, close superseded PR #50 and execute **M7-017 / Issue #52 — Shared-state capability + dedicated SQL Server provider**. Do not enable MultiNode in M7-017.
