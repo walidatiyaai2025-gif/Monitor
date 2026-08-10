@@ -22,3 +22,5 @@ jobs:
         run: dotnet restore Monitor.sln
       - name: Build
         run: dotnet build Monitor.sln --configuration Release --no-restore --warnaserror
+      - name: Test
+        run: dotnet test Monitor.sln --configuration Release --no-build

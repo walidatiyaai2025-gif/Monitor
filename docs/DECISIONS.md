@@ -23,3 +23,7 @@ M0 uses a single Administrator and ASP.NET Core cookie auth. The agreed developm
 ## ADR-006 — AI remains advisory
 
 Future AI integration will receive normalized evidence and propose explanations/remediation/query suggestions. It will not autonomously execute production SQL.
+
+## ADR-007 — Registration metadata is separate from connection secrets
+
+Server registrations may contain endpoint and authentication-mode metadata, but never passwords or full connection strings. Secret values are resolved through a backend-only boundary from external secret configuration. Registration JSON omits even the opaque secret reference, and missing secrets fail closed.
