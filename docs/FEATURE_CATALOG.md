@@ -40,4 +40,4 @@
 | Snapshot history | M5 | CI verified | Allowlisted 24-hour in-memory aggregate retention; CI 31375034604 |
 | Collection cycle | M5 | CI verified | Backend-only deterministic refresh cycle; scheduler remains disabled; CI 31375034604 |
 | Snapshot trends | M5 | CI verified | Fixed 1h/6h/24h read-only windows; CI 31375034604 |
-| Operator audit trail | M5 | Planned | Immutable bounded audit evidence for protected incident transitions |
+| Operator audit trail | M5 | CI pending | Bounded append-only successful incident-transition audit with authenticated actor and read-only Admin UI |
