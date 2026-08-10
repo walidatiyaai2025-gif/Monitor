@@ -44,5 +44,12 @@
 | Scheduler jitter + round-robin batches | B100 | CI verified | Bounded deterministic jitter and max targets/cycle; CI 31399632281 |
 | Governed monitored-SQL pooling | B100 | CI verified | Bounded collector pool; Test Connection remains non-pooled; CI 31399632281 |
 | Deterministic performance-budget suite | B100 | CI verified | Capacity/concurrency/query-count/output-size budgets; CI 31399632281 |
+| Central DBA operations projection | B100 | CI verified | One readiness snapshot + safe backup/scheduler metadata; CI 31402491011 |
+| Dashboard control-plane cards | B100 | CI verified | Opaque node, shared schema/status, backup and scheduler state; CI 31402491011 |
+| Registered-server recovery surface | B100 | CI verified | Unavailable cached snapshot returns recovery details, never 404/secret readback; CI 31402491011 |
+| Classified manual-refresh feedback | B100 | CI verified | PRG-safe status/freshness classification with aria-live; CI 31402491011 |
+| Incident filter/pager UX | B100 | CI verified | Bounded status/severity/rule/page navigation; CI 31402491011 |
+| Accessibility + reduced-motion shell | B100 | CI verified | Skip link, focus-visible, live status, reduced motion; CI 31402491011 |
+| Responsive DBA wallboard | B100 | CI verified | CSS-only large-display layout; no polling/collection change; CI 31402491011 |
 | Zero-SQL monitored GETs | M8 | CI verified | Cache/Peek-only browser monitoring reads; CI 31383991126 |
 | Explicit observed manual refresh | M8 | CI verified | Operator/Admin POST; successful refresh observed once |
