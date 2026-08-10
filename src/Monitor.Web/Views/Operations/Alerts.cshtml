@@ -56,7 +56,8 @@
     <div class="incident-table"><div class="table-head"><span>ID</span><span>Severity</span><span>Rule</span><span>Incident</span><span>Observed</span><span>Status</span></div>
     @foreach (var incident in Model.Items)
     {
-        var hasPolicy = policyStates is not null && policyStates.TryGetValue(incident.Id, out var incidentPolicy);
+        IncidentOperatorPolicyState? incidentPolicy = null;
+        var hasPolicy = policyStates is not null && policyStates.TryGetValue(incident.Id, out incidentPolicy);
         <a class="table-row" asp-action="IncidentDetails" asp-route-id="@incident.Id">
             <strong>@incident.Id[..Math.Min(12, incident.Id.Length)]</strong>
             <span class="severity severity-@incident.Severity.ToString().ToLowerInvariant()">@incident.Severity</span>
