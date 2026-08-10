@@ -1,11 +1,19 @@
 # Project Status
 
 **Updated:** 2026-08-10 11:41 +03:00  
-**Branch:** `agent/m2-memory-ui`  
-**Target:** `M2-002`  
+**Branch:** `agent/m2-health-modules-batch`  
+**Target:** `M2-003` through `M2-007`  
 **Issue:** TBD  
 **PR:** TBD  
-**Overall:** 🟡 M2-002 IMPLEMENTED — LOCAL VERIFICATION COMPLETE
+**Overall:** 🟡 FIVE M2 HEALTH MODULES IMPLEMENTED — LOCAL VERIFICATION COMPLETE
+
+## M2-003 through M2-007 — Health modules batch
+
+- Canonical snapshot now carries validated database state, backup, Agent, storage and blocking summaries.
+- Collection remains one fixed backend command under the existing cache and timeout boundary.
+- No UI polling, per-widget SQL, credentials, job commands, physical paths or raw provider errors.
+- Invalid cross-field ranges fail through the existing safe redacted result.
+- Release build succeeds with warnings-as-errors; 36 tests pass locally.
 
 ## M2-002 — Real memory health UI
 
