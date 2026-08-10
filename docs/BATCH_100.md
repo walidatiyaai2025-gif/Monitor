@@ -42,22 +42,24 @@ Batch 1 deliberately keeps `Deployment:MultiNode` fail-closed after evaluating t
 | B100-019 | Automatic bounded connection re-test after credential replacement | CI VERIFIED — RUN 31391446513 |
 | B100-020 | HA credential security acceptance suite | CI VERIFIED — RUN 31391446513 |
 
-Batch 2 adds an optional shared encrypted ASP.NET Data Protection key ring over the dedicated Monitor state provider. A 256-bit key-encryption key comes from process environment and is never persisted in Monitor state. Credential migration uses Resolve → Test Connection → metadata commit → owned-secret cleanup, and current secret references are never rendered. `Deployment:MultiNode` remains fail-closed until the later login-security and snapshot-cache strategy tasks are complete.
+Batch 2 adds an optional shared encrypted ASP.NET Data Protection key ring over the dedicated Monitor state provider. A 256-bit key-encryption key comes from process environment and is never persisted in Monitor state. Credential migration uses Resolve → Test Connection → metadata commit → owned-secret cleanup, and current secret references are never rendered. `Deployment:MultiNode` remains fail-closed until later login-security and snapshot-cache strategy tasks are complete.
 
 ## Batch 3 — Backup, export & restore
 
 | Task | Description | Status |
 |---|---|---|
-| B100-021 | Operational export contract | PLANNED |
-| B100-022 | Registration export | PLANNED |
-| B100-023 | Incident export | PLANNED |
-| B100-024 | History export | PLANNED |
-| B100-025 | Audit export | PLANNED |
-| B100-026 | Versioned manifest and checksums | PLANNED |
-| B100-027 | Import validation / dry-run | PLANNED |
-| B100-028 | Atomic restore workflow | PLANNED |
-| B100-029 | Backup retention/pruning | PLANNED |
-| B100-030 | Backup/restore readiness UI | PLANNED |
+| B100-021 | Operational export contract | CI VERIFIED — RUN 31393040135 |
+| B100-022 | Registration export | CI VERIFIED — RUN 31393040135 |
+| B100-023 | Incident export | CI VERIFIED — RUN 31393040135 |
+| B100-024 | History export | CI VERIFIED — RUN 31393040135 |
+| B100-025 | Audit export | CI VERIFIED — RUN 31393040135 |
+| B100-026 | Versioned manifest and checksums | CI VERIFIED — RUN 31393040135 |
+| B100-027 | Import validation / dry-run | CI VERIFIED — RUN 31393040135 |
+| B100-028 | Atomic restore workflow | CI VERIFIED — RUN 31393040135 |
+| B100-029 | Backup retention/pruning | CI VERIFIED — RUN 31393040135 |
+| B100-030 | Backup/restore readiness UI | CI VERIFIED — RUN 31393040135 |
+
+Batch 3 exports a versioned canonical operational bundle containing safe registration metadata plus opaque secret references, bounded incidents, 24-hour aggregate history and bounded audit metadata. Each section has a SHA-256 checksum. Validation is mutation-free and rejects format, checksum, bound, referential-integrity and prohibited secret-bearing-property violations. Restore supports the selected File/Shared persistence backend, stages each write, and rolls previously applied sections back if a later section fails. File-backed restore reports restart-required instead of pretending already-loaded singleton state changed live. Protected credential ciphertext, Data Protection keys, provider connection material and monitored SQL text are excluded from the bundle contract.
 
 ## Batch 4 — Production observability
 
