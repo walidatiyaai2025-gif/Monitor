@@ -10,7 +10,8 @@ public sealed record ServerHealthSnapshot(
     int DatabaseTotal,
     int DatabaseOnline,
     DateTimeOffset CollectedAtUtc,
-    MemoryHealthSnapshot? Memory = null);
+    MemoryHealthSnapshot? Memory = null,
+    DatabaseHealthSnapshot? DatabaseHealth = null);
 
 public sealed record MemoryHealthSnapshot(
     long TotalPhysicalMemoryKb,
@@ -20,6 +21,31 @@ public sealed record MemoryHealthSnapshot(
     bool IsPhysicalMemoryLow,
     bool IsVirtualMemoryLow,
     string SystemMemoryState);
+
+public sealed record DatabaseHealthSnapshot(
+    int OnlineCount,
+    int RestoringCount,
+    int RecoveringCount,
+    int RecoveryPendingCount,
+    int SuspectCount,
+    int EmergencyCount,
+    int OfflineCount,
+    int CopyingCount,
+    int OfflineSecondaryCount,
+    int OtherCount,
+    int ReadOnlyCount)
+{
+    public int TotalCount =>
+        OnlineCount + RestoringCount + RecoveringCount + RecoveryPendingCount +
+        SuspectCount + EmergencyCount + OfflineCount + CopyingCount +
+        OfflineSecondaryCount + OtherCount;
+
+    public int UnavailableCount => TotalCount - OnlineCount;
+
+    public int RecoveryCount => RestoringCount + RecoveringCount + RecoveryPendingCount;
+
+    public int CriticalCount => SuspectCount + EmergencyCount + OfflineCount;
+}
 
 public enum SnapshotCollectionFailure
 {
