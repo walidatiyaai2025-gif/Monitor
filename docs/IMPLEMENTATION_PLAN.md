@@ -53,14 +53,14 @@ This is the canonical execution plan. Update it in the same PR as material imple
 | Batch 2 | B100-011..020 | HA secret & key management | CI VERIFIED — 31391446513 |
 | Batch 3 | B100-021..030 | Backup, export & rollback-capable restore | CI VERIFIED — 31393040135 |
 | Batch 4 | B100-031..040 | Production health, telemetry, correlation & redacted logging | CI VERIFIED — 31396619576 |
-| Batch 5 | B100-041..050 | Performance & scale governance | NEXT |
-| Batch 6 | B100-051..060 | DBA UX & operations surfaces | PLANNED |
+| Batch 5 | B100-041..050 | Performance & scale governance | CI VERIFIED — 31399632281 |
+| Batch 6 | B100-051..060 | DBA UX & operations surfaces | NEXT |
 | Batch 7 | B100-061..070 | Web/application security hardening | PLANNED |
 | Batch 8 | B100-071..080 | Reliability & concurrency verification | PLANNED |
 | Batch 9 | B100-081..090 | Deployment & operations tooling/docs | PLANNED |
 | Batch 10 | B100-091..100 | Enterprise operator features & RC acceptance | PLANNED |
 
-Current progress: **40/100 tasks CI verified**. The next executable batch is **B100-041..050 — performance and scale governance**.
+Current progress: **50/100 tasks CI verified**. The next executable batch is **B100-051..060 — DBA UX & operations surfaces**.
 
 ## Delivery loop
 
