@@ -22,19 +22,26 @@ public interface IServerHealthSnapshotCache
 
 public sealed class ServerHealthSnapshotCache(
     ISqlServerSnapshotCollector collector,
-    TimeProvider timeProvider) : IServerHealthSnapshotCache
+    TimeProvider timeProvider,
+    PerformanceScaleOptions? performance = null) : IServerHealthSnapshotCache
 {
     internal static readonly TimeSpan FreshFor = TimeSpan.FromSeconds(30);
     internal static readonly TimeSpan RetainStaleFor = TimeSpan.FromMinutes(5);
 
     private readonly ConcurrentDictionary<Guid, ServerHealthSnapshot> _snapshots = new();
     private readonly ConcurrentDictionary<Guid, Lazy<Task<ServerHealthSnapshot>>> _inflight = new();
+    private readonly object _trimGate = new();
+    private readonly int _maxEntries = ResolveCapacity(performance);
 
     public SnapshotCacheResult? Peek(Guid registrationId)
     {
         if (!_snapshots.TryGetValue(registrationId, out var snapshot)) return null;
         var age = Age(snapshot);
-        if (age > RetainStaleFor) return null;
+        if (age > RetainStaleFor)
+        {
+            _snapshots.TryRemove(new KeyValuePair<Guid, ServerHealthSnapshot>(registrationId, snapshot));
+            return null;
+        }
         return new(snapshot, age <= FreshFor ? SnapshotFreshness.Fresh : SnapshotFreshness.Stale, age);
     }
 
@@ -100,7 +107,8 @@ public sealed class ServerHealthSnapshotCache(
                 registration.Id,
                 snapshot,
                 (_, current) => snapshot.CollectedAtUtc > current.CollectedAtUtc ? snapshot : current);
-            return _snapshots[registration.Id];
+            TrimToCapacity();
+            return _snapshots.TryGetValue(registration.Id, out var retained) ? retained : snapshot;
         }
         finally
         {
@@ -108,9 +116,33 @@ public sealed class ServerHealthSnapshotCache(
         }
     }
 
+    private void TrimToCapacity()
+    {
+        if (_snapshots.Count <= _maxEntries) return;
+        lock (_trimGate)
+        {
+            while (_snapshots.Count > _maxEntries)
+            {
+                var victim = _snapshots
+                    .OrderBy(pair => pair.Value.CollectedAtUtc)
+                    .ThenBy(pair => pair.Key)
+                    .FirstOrDefault();
+                if (victim.Equals(default(KeyValuePair<Guid, ServerHealthSnapshot>))) return;
+                _snapshots.TryRemove(victim);
+            }
+        }
+    }
+
     private TimeSpan Age(ServerHealthSnapshot snapshot)
     {
         var age = timeProvider.GetUtcNow() - snapshot.CollectedAtUtc;
         return age < TimeSpan.Zero ? TimeSpan.Zero : age;
+    }
+
+    private static int ResolveCapacity(PerformanceScaleOptions? options)
+    {
+        var value = options ?? new PerformanceScaleOptions();
+        value.Validate();
+        return value.SnapshotCacheMaxEntries;
     }
 }
