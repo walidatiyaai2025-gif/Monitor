@@ -1,11 +1,11 @@
 # Project Status
 
-**Updated:** 2026-08-10 10:20 +03:00  
+**Updated:** 2026-08-10 10:25 +03:00  
 **Branch:** `agent/m0-visual-foundation`  
 **Target:** `0.0.1-ui-preview`  
 **Issue:** #1  
 **PR:** #2  
-**Overall:** 🟡 M0 CODE + CI VERIFIED — UI POLISH ACTIVE / VISUAL REVIEW PENDING
+**Overall:** 🟡 M0 CODE + CI VERIFIED — VISUAL REVIEW PENDING
 
 ## Implemented and verified in current branch
 
@@ -22,7 +22,7 @@
 
 ## UI-002 — Command Center Visual Upgrade
 
-Implemented on the active M0 branch:
+Implemented and CI verified:
 
 - SQL estate topology/radar using the existing shared preview snapshot.
 - Central Snapshot Core visualization.
@@ -42,10 +42,11 @@ Implemented on the active M0 branch:
 - CI run `31364393808`: SUCCESS.
 - Launch profile commit: `d934217684f663d3cb69db5d70bba69cfb3b1167`.
 - Launch profile CI run `31365254269`: SUCCESS.
+- UI-002 commit: `bbeaf0817d666d7ee6af8ca1c16a83e9c6fb808b`.
+- UI-002 CI run `31365716242`: SUCCESS.
 - `dotnet restore`: ✅ VERIFIED by GitHub Actions.
 - `dotnet build --configuration Release --no-restore --warnaserror`: ✅ VERIFIED by GitHub Actions.
 - `dotnet test`: N/A — no test project exists yet.
-- UI-002 CI: ⏳ PENDING current commit.
 - visual browser review: ⏳ PENDING.
 
 ## Merge gate
@@ -54,4 +55,4 @@ Do not merge PR #2 to `main` until the visual preview is reviewed and accepted. 
 
 ## Next action
 
-Verify UI-002 in CI, open the refreshed Command Center in Visual Studio, complete visual review, then mark M0-010 VERIFIED and merge PR #2.
+Open the refreshed Command Center in Visual Studio, complete visual review, then mark M0-010 VERIFIED and merge PR #2. After M0 acceptance, begin M1 with one real SQL Server vertical slice.
