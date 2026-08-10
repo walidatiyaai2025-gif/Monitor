@@ -61,5 +61,9 @@
 | Production deployment configuration & hosting | B100 | CI verified | Secret-free production template, IIS, Windows Service lifetime and reverse-proxy guidance; B100-081..084; CI 31440573683 |
 | Least-privilege SQL deployment roles | B100 | CI verified | Dedicated state DB runtime role and monitored SQL read/view role; B100-085/086; CI 31440573683 |
 | Versioned release & recovery tooling | B100 | CI verified | Upgrade checklist, build/test-before-publish workflow, SHA-256 package, HTTPS smoke test and rollback runbook; B100-087..090; CI 31440573683 |
+| Enterprise server governance metadata | B100 | CI verified | Environment, group/tags, bounded UTC maintenance and alert-suppression windows; B100-091..094; CI 31442930470 |
+| Enterprise incident operator metadata | B100 | CI verified | Assignee, bounded notes and current-recommendation acknowledgment; B100-095..097; CI 31442930470 |
+| Safe enterprise export & diagnostics | B100 | CI verified | Formula-safe cache-only CSV plus bounded Administrator redacted ZIP; B100-098/099; CI 31442930470 |
+| Release-candidate enterprise acceptance | B100 | CI verified | One explicit regression test per B100-091..100 plus route authorization/antiforgery gate; B100-100; CI 31442930470 |
 | Zero-SQL monitored GETs | M8 | CI verified | Cache/Peek-only browser monitoring reads; CI 31383991126 |
 | Explicit observed manual refresh | M8 | CI verified | Operator/Admin POST; successful refresh observed once |

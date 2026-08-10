@@ -58,11 +58,9 @@ This is the canonical execution plan. Update it in the same PR as material imple
 | Batch 7 | B100-061..070 | Web/application security hardening | CI VERIFIED — 31439153733 |
 | Batch 8 | B100-071..080 | Reliability & concurrency verification | CI VERIFIED — 31439886994 |
 | Batch 9 | B100-081..090 | Deployment & operations tooling/docs | CI VERIFIED — 31440573683 |
-| Batch 10 | B100-091..100 | Enterprise operator features & RC acceptance | NEXT |
+| Batch 10 | B100-091..100 | Enterprise operator features & RC acceptance | CI VERIFIED — 31442930470 |
 
-Current progress: **90/100 tasks CI verified**. Batch 9 branch validation completed with a Release build at **0 warnings / 0 errors** and **219/219 tests passed**. The deployment package now includes a non-secret production template, IIS/Windows Service/reverse-proxy runbooks, runtime least-privilege SQL scripts, upgrade/rollback procedures, Windows Service lifetime support, versioned release packaging with SHA-256 checksum, and an HTTPS health/readiness smoke test. CI acceptance verifies those artifacts stay secret-free, privilege-bounded and control-plane-only.
-
-The next executable batch after Batch 9 is merged is **B100-091..100 — enterprise operator features & release-candidate acceptance**.
+Current progress: **100/100 tasks CI verified**. Batch 10 verification run `31442930470` passed Release build with warnings-as-errors and the complete RC suite (229/229 passed; 0 failed). The BATCH-100 production/enterprise program is complete.
 
 ## Delivery loop
 

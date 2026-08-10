@@ -153,3 +153,9 @@ Administrator Settings exposes Create, Dry-run Validate and Restore commands. Re
 - Runtime telemetry/logging is bounded and redacted; free-form provider detail is not retained.
 - Browser trust, authenticated lifetime and forwarded proxy acceptance are explicit fail-closed policies.
 - MultiNode stays fail-closed until all remaining distributed login-security and snapshot-cache/delivery prerequisites are verified.
+## Enterprise operations
+
+`/enterprise` is the bounded control-plane surface for environment classification, groups/tags, maintenance and alert-suppression windows, incident ownership/notes and deterministic recommendation acknowledgment. Mutations require Operator/Administrator authorization plus antiforgery.
+
+`/reports/servers.csv` exports formula-safe registration/operator/cached-snapshot metadata and never initiates monitored SQL collection. `/diagnostics/package` is Administrator-only and returns a bounded redacted ZIP of aggregate readiness/deployment/count metadata; it excludes SQL endpoints, credentials, secret references, incident evidence, operator note content, provider detail and SQL text.
+
