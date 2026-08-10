@@ -79,3 +79,7 @@ Advisor context contains only normalized rule metadata, bounded evidence and det
 ## ADR-020 — History is bounded aggregate evidence
 
 History stores only allowlisted snapshot aggregates, deduplicated by registration and collection time. The in-memory phase retains at most 288 points per server for 24 hours. Fixed-window reads never trigger collection. The schedule policy validates safe bounds and remains disabled by default; no hosted timer is activated in this slice.
+
+## ADR-021 — Successful operator transitions create bounded audit evidence
+
+Acknowledge, resolve and reopen commands require an authenticated operator identity and create an immutable audit event only after the incident repository accepts the state transition. Events contain only actor, UTC timestamp, allowlisted action, incident resource ID and before/after status. Rejected transitions do not create success events. The initial store is thread-safe, in-memory and bounded to 1,000 events; the read surface is Administrator-only and cannot mutate incidents or trigger SQL collection. Audit events intentionally exclude incident evidence, SQL text, credentials, endpoints, provider errors and arbitrary request payloads.
