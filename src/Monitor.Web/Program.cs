@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.DataProtection;
 using Monitor.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -65,8 +66,22 @@ builder.Services.AddSingleton<ISnapshotHistoryStore>(provider =>
         ? new InMemorySnapshotHistoryStore(provider.GetRequiredService<TimeProvider>())
         : new FileSnapshotHistoryStore(Path.Combine(operationalRoot, "history.json"), provider.GetRequiredService<TimeProvider>()));
 
+var secretStoreOptions = builder.Configuration.GetSection(SecretStoreOptions.SectionName).Get<SecretStoreOptions>() ?? new();
+var secretFilePath = OperationalStorePath.ResolveOutsideWebRoot(
+    secretStoreOptions.Path, builder.Environment.ContentRootPath, builder.Environment.WebRootPath);
+var keyRingPath = OperationalStorePath.ResolveOutsideWebRoot(
+    secretStoreOptions.KeyRingPath, builder.Environment.ContentRootPath, builder.Environment.WebRootPath);
+Directory.CreateDirectory(keyRingPath);
+builder.Services.AddDataProtection()
+    .SetApplicationName("Monitor.SqlSecrets.v1")
+    .PersistKeysToFileSystem(new DirectoryInfo(keyRingPath));
+builder.Services.AddSingleton(secretStoreOptions);
 builder.Services.AddSingleton<IExternalConnectionSecretProvider, EnvironmentConnectionSecretProvider>();
-builder.Services.AddSingleton<IConnectionSecretStore, ConfigurationConnectionSecretStore>();
+builder.Services.AddSingleton<IConnectionSecretStore>(provider => new ProtectedFileConnectionSecretStore(
+    secretFilePath,
+    provider.GetRequiredService<IDataProtectionProvider>(),
+    provider.GetRequiredService<IConfiguration>(),
+    provider.GetServices<IExternalConnectionSecretProvider>()));
 builder.Services.AddSingleton<IRuntimeCredentialWriter>(provider => (IRuntimeCredentialWriter)provider.GetRequiredService<IConnectionSecretStore>());
 builder.Services.AddSingleton<ISqlConnectionProbe, SqlConnectionProbe>();
 builder.Services.AddSingleton<IServerConnectionTester, ServerConnectionTester>();

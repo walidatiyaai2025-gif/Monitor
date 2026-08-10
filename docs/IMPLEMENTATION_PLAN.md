@@ -182,6 +182,18 @@ This is the canonical execution plan. Update it in the same PR as material imple
 | M7-002 | Environment-injected external SQL secret provider behind the existing secret-store boundary | VERIFIED — CI RUN 31381465706 |
 | M7-003 | Durable Monitor-owned audit/history/incident operational store | VERIFIED — CI RUN 31382770932 |
 | M7-004 | Shared-state / HA deployment strategy and implementation slice | PLANNED |
+| M7-005 | Protected local SQL credential store options and paths | LOCAL VERIFIED |
+| M7-006 | Persistent ASP.NET Data Protection key ring | LOCAL VERIFIED |
+| M7-007 | Server-generated `local:v1` opaque references | LOCAL VERIFIED |
+| M7-008 | Versioned encrypted secret envelope | LOCAL VERIFIED |
+| M7-009 | Reference-scoped encryption purpose prevents ciphertext swapping | LOCAL VERIFIED |
+| M7-010 | Atomic candidate-file replacement | LOCAL VERIFIED |
+| M7-011 | Restart-safe credential resolution | LOCAL VERIFIED |
+| M7-012 | Lost or different key ring fails closed | LOCAL VERIFIED |
+| M7-013 | Environment and legacy reference compatibility | LOCAL VERIFIED |
+| M7-014 | Credential length validation and write-only UI | LOCAL VERIFIED |
+| M7-015 | Plaintext canary exclusion from persisted secret file | LOCAL VERIFIED |
+| M7-016 | Owned-secret deletion without external-provider mutation | LOCAL VERIFIED |
 
 ## M8 — Zero-SQL Reads & Operator Refresh
 
