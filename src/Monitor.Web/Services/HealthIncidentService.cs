@@ -128,9 +128,9 @@ public interface IIncidentWorkflowService
 {
     IncidentCenterViewModel Query(IncidentQuery query);
     Task<IncidentDetailsViewModel?> GetDetailsAsync(string id, CancellationToken cancellationToken);
-    bool Acknowledge(string id);
-    bool Resolve(string id);
-    bool Reopen(string id);
+    IncidentTransitionResult Acknowledge(string id);
+    IncidentTransitionResult Resolve(string id);
+    IncidentTransitionResult Reopen(string id);
 }
 
 public sealed class IncidentWorkflowService(
@@ -162,9 +162,36 @@ public sealed class IncidentWorkflowService(
         return new(incident, plan, result);
     }
 
-    public bool Acknowledge(string id) => repository.TrySetStatus(id, IncidentStatus.Open, IncidentStatus.Acknowledged);
-    public bool Resolve(string id) => repository.TrySetStatus(id, IncidentStatus.Acknowledged, IncidentStatus.Resolved) || repository.TrySetStatus(id, IncidentStatus.Open, IncidentStatus.Resolved);
-    public bool Reopen(string id) => repository.TrySetStatus(id, IncidentStatus.Resolved, IncidentStatus.Open);
+    public IncidentTransitionResult Acknowledge(string id) =>
+        Transition(id, IncidentStatus.Acknowledged, IncidentStatus.Open);
+
+    public IncidentTransitionResult Resolve(string id) =>
+        Transition(id, IncidentStatus.Resolved, IncidentStatus.Open, IncidentStatus.Acknowledged);
+
+    public IncidentTransitionResult Reopen(string id) =>
+        Transition(id, IncidentStatus.Open, IncidentStatus.Resolved);
+
+    private IncidentTransitionResult Transition(string id, IncidentStatus desired, params IncidentStatus[] allowedPrevious)
+    {
+        var before = repository.GetById(id);
+        if (before is null)
+        {
+            return new(false, null, null);
+        }
+
+        if (!allowedPrevious.Contains(before.Status))
+        {
+            return new(false, before.Status, before.Status);
+        }
+
+        if (repository.TrySetStatus(id, before.Status, desired))
+        {
+            return new(true, before.Status, desired);
+        }
+
+        var after = repository.GetById(id);
+        return new(false, before.Status, after?.Status ?? before.Status);
+    }
 }
 
 public interface IAdvisorRequestService { Task<AdvisorResult> RequestAsync(string incidentId, string actor, CancellationToken cancellationToken); }
