@@ -6,7 +6,7 @@
 
 M0 through M6 are CI verified. M7 production-readiness includes durable registration metadata, fail-closed external secret routing, durable bounded operational state, protected local SQL Login credentials, a topology guard and a dedicated Monitor shared-state SQL capability. M8 enforces zero-SQL monitoring GETs for monitored targets.
 
-BATCH-100 is the active enterprise hardening program. Batch 1 adds shared registration/audit/history/incident state plus distributed scheduler/manual-refresh coordination. Batch 2 adds shared encrypted Data Protection key management and safe SQL credential-reference migration/rotation. Batch 3 adds checksummed operational backup/export, mutation-free dry-run validation and rollback-capable File/Shared restore. Batch 4 adds production health probes, bounded runtime telemetry, strict correlation IDs and an Administrator observability surface without creating a monitored-SQL read path. Batch 5 adds explicit performance/scale budgets for cache capacity, paging, refresh concurrency, scheduler batching/jitter and monitored-collector connection pooling. `docs/BATCH_100.md` is the 100-task execution ledger.
+BATCH-100 is the active enterprise hardening program. Batches 1–5 deliver HA shared state/coordination, encrypted key management, operational backup/restore, production observability and deterministic performance/scale budgets. Batch 6 adds centralized DBA control-plane cards, recovery-aware server details, classified refresh feedback, incident filtering/navigation, accessibility and a CSS-only large-display wallboard. `docs/BATCH_100.md` is the 100-task execution ledger.
 
 ## Run
 
@@ -25,19 +25,24 @@ Dashboard, Servers, Server Details, health modules and incident navigation consu
 
 The optional **separate Monitor-owned state database** carries control-plane state and coordination only. Administrator Settings and readiness may probe that dedicated state provider when enabled; this is not a query against a monitored SQL target.
 
-## Production health and observability
+## DBA operations surface
 
-Batch 4 adds three safe probe routes:
+Dashboard uses one centralized `IDbaOperationsSurfaceService` to project deployment readiness, an opaque node label, shared-state status/schema, operational-backup readiness and scheduler state. The node label is a SHA-256-derived `NODE-XXXXXXXX` token; Monitor does not render the machine name, configured distributed node ID or lease owner.
+
+A registered server with no usable cached snapshot still opens Server Details. The page presents a recovery path to Connection Lab and the bounded refresh workflow without displaying current secret references, SQL usernames or passwords. Refresh feedback is PRG-safe and distinguishes refreshed/stale/throttled outcomes.
+
+The Incident Center provides bounded status/severity/rule/page-size filtering and Previous/Next navigation. The shell includes a skip link, strong focus-visible treatment, live-status semantics and reduced-motion support. Large-display wallboard behavior is CSS-only and does not add polling, network fetches or SQL requests.
+
+## Production health and observability
 
 - `/health/live` — process liveness only; no external dependency checks.
 - `/health/ready` — deployment/control-plane readiness only; never queries a monitored SQL target.
 - `/health` — bounded aggregate application status plus safe runtime counters.
+- `/observability` — Administrator aggregate collector/cache/scheduler/incident/auth telemetry.
 
-Administrator `/observability` exposes aggregate collector/cache/scheduler/incident/authentication telemetry. Telemetry never stores SQL text, request bodies, usernames, passwords, IP addresses, secret references, connection strings, provider endpoints or raw provider exceptions. Collector failure telemetry is a strict allowlist of known `SnapshotCollectionFailure` values plus `Unexpected`; arbitrary values are reduced to `Unknown`.
+Telemetry never stores SQL text, request bodies, usernames, passwords, IP addresses, secret references, connection strings, provider endpoints or raw provider exceptions. Collector failure telemetry is a strict allowlist of known `SnapshotCollectionFailure` values plus `Unexpected`; arbitrary values are reduced to `Unknown`.
 
 `X-Correlation-ID` accepts only a bounded alphanumeric/`.`/`_`/`-` token. Unsafe or missing values are replaced with a server-generated ID. Structured completion logs record correlation scope, HTTP method, response status and elapsed time only.
-
-Batch 5 completes the runtime integration for these services in `Program.cs`: telemetry/readiness DI, collector/cache/cycle/incident decorators, correlation middleware and authentication-outcome middleware are production-wired.
 
 ## Performance & scale governance
 
@@ -71,11 +76,9 @@ CI uses deterministic budget tests for capacity, output/page limits, cache read 
 }
 ```
 
-`SingleNode` remains the safe default. BATCH-100 Batch 1 introduces shared repository adapters and distributed leases, but `MultiNode` remains fail-closed until every cross-field prerequisite is HA-safe. A READY shared-state database alone does not enable MultiNode.
+`SingleNode` remains the safe default. Shared repositories and distributed leases exist, but `MultiNode` remains fail-closed until every cross-field prerequisite is HA-safe. A READY shared-state database alone does not enable MultiNode.
 
 ## Shared-state provider
-
-The provider is disabled by default:
 
 ```json
 "SharedState": {
@@ -97,56 +100,25 @@ The provider is disabled by default:
 }
 ```
 
-To prepare shared storage, deploy `scripts/sql/monitor_shared_state_v1.sql` to a **dedicated Monitor-owned SQL Server database**, set the named process environment variable to that database connection string, then set `SharedState:Provider` to `SqlServer`.
-
-The connection-string value is read directly from the process environment. It is not read from appsettings, rendered in Settings, written to audit, or inferred from a monitored server registration.
-
-The runtime application does **not** create or migrate the schema. The v1 deployment script is idempotent and refuses to overwrite an incompatible schema version.
-
-The shared-state contract is a bounded versioned JSON document store with optimistic compare/exchange. Shared application adapters retain the existing service interfaces. Distributed scheduler and refresh coordination use expiring versioned leases in the same dedicated control-plane provider.
+Deploy `scripts/sql/monitor_shared_state_v1.sql` to a **dedicated Monitor-owned SQL Server database**, set the named process environment variable to that database connection string, then enable `SharedState:Provider=SqlServer`. Runtime code does not perform DDL.
 
 ## SQL Login credentials and HA key management
 
-Single-node defaults continue to allow server-generated `local:v1` credentials protected by ASP.NET Data Protection. Payloads are persisted in an encrypted atomic file outside `wwwroot`; the default Data Protection key ring is also outside `wwwroot`.
+Single-node defaults may use server-generated `local:v1` references protected by ASP.NET Data Protection. Shared key-ring mode encrypts Data Protection XML with AES-256-GCM before persistence; the 256-bit KEK is read only from process environment and is never stored by Monitor.
 
-For HA preparation, key-ring storage can be switched explicitly:
-
-```json
-"DataProtectionKeyStore": {
-  "Mode": "SharedState",
-  "KeyEncryptionKeyEnvironmentVariable": "MONITOR_DP_KEK"
-},
-"CredentialPolicy": {
-  "AllowLocalOwnedCredentials": false
-}
-```
-
-`MONITOR_DP_KEK` must contain a base64-encoded 256-bit key-encryption key. Shared key-ring XML is AES-256-GCM encrypted before it enters the dedicated Monitor state provider. The KEK is read directly from the process environment and is never persisted by Monitor. Missing, invalid or wrong KEK material fails closed; an explicit SharedState key-ring configuration does not silently downgrade to local files.
-
-Existing `env:<alias>` and legacy external secret references remain compatible. Connection Lab can replace an existing SQL Login reference with a tested external reference. The workflow resolves the candidate, runs bounded Test Connection, commits registration metadata only after success, then removes the old Monitor-owned local secret when safe. Failed replacement keeps the current registration/credential unchanged. Audit records only bounded actor/action/registration/outcome metadata; current and candidate references are never rendered or audited.
+Credential-reference replacement follows Resolve → bounded Test Connection → metadata commit → owned-secret cleanup. Failed replacement preserves the existing registration/credential. Current and candidate references are never rendered or audited.
 
 ## Operational backup / restore
 
-Batch 3 adds a separate operational backup root, outside `wwwroot` by default:
+Operational backup contains only safe registration metadata plus opaque references, incidents, bounded history and bounded audit metadata. Each section is covered by SHA-256 manifest checksums. Protected credential ciphertext, Data Protection keys/KEKs, provider connection material, SQL usernames/passwords and monitored SQL text are excluded.
 
-```json
-"BackupStore": {
-  "RootPath": "App_Data/backups",
-  "RetentionCount": 10,
-  "MaxBundleBytes": 8388608
-}
-```
-
-An operational bundle contains only the safe state needed to reconstruct Monitor operations: registration metadata plus opaque secret references, incidents, bounded 24-hour aggregate history and bounded audit metadata. Each section is covered by a SHA-256 manifest checksum. The bundle explicitly excludes protected SQL credential ciphertext, Data Protection key material/KEKs, shared-state provider connection material, SQL usernames/passwords and monitored SQL text.
-
-Administrator Settings exposes Create, Dry-run Validate and Restore commands. All are POST + antiforgery protected; restore requires typing `RESTORE` exactly. Validation checks backup identity, format version, hashes, bounds and cross-section referential integrity before mutation.
-
-Restore targets the persistence backend currently selected by deployment configuration. Shared-state restore uses optimistic compare/exchange and rolls earlier sections back if a later section fails. File-backed restore uses atomic file replacement and returns `RestartRequired=true`; restart Monitor before resuming operations because already-loaded singleton repository state is intentionally not mutated in-place. InMemory deployments may export but cannot claim restart-safe restore support.
+Administrator Settings exposes Create, Dry-run Validate and Restore commands. Restore targets the configured File/Shared backend, validates before mutation and rolls earlier sections back if a later section fails. File-backed restore requires application restart before operations resume.
 
 ## Architecture rules
 
 - Browser/UI components never connect directly to monitored SQL Servers.
 - Monitoring GETs and health/observability GETs are cache/control-plane only and never initiate monitored SQL collection.
+- DBA Dashboard cards use one centralized control-plane projection rather than independent widget probes.
 - Estate paging reads only the requested cache page; paging never widens monitored-SQL collection.
 - Manual monitored-SQL refresh/collection is explicit, authorized, concurrency-bounded and backend-controlled.
 - Snapshot cache remains the shared monitored-evidence/read boundary and has an explicit capacity limit.
