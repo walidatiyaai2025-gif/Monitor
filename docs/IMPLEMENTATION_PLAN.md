@@ -14,10 +14,12 @@ This is the canonical execution plan. Update it in the same PR as material imple
 | M0-005 | Servers + Server Details | VERIFIED — CI |
 | M0-005A | Operational Server Estate + DBA Server Details polish | VERIFIED — CI RUN 31366381962 |
 | M0-006 | Database Health + Memory Health | VERIFIED — CI |
+| M0-006A | Database availability + Memory pressure command-view polish | VERIFIED — CI RUN 31367759961 |
 | M0-007 | Alerts / Incidents + Settings | VERIFIED — CI |
 | M0-008 | Design system + controlled motion | VERIFIED — CI |
 | M0-009 | GitHub Actions restore/build verification | VERIFIED — RUN 31364393808 |
-| M0-010 | Visual browser review and M0 acceptance | VERIFIED — USER ACCEPTED |
+| M0-010 | Baseline visual browser review and M0 acceptance | VERIFIED — USER ACCEPTED |
+| M0-010A | Targeted visual review of post-acceptance UI-004 polish | PENDING |
 
 ## M1 — First Real SQL Vertical Slice
 
