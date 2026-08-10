@@ -82,16 +82,20 @@ Batch 4 adds `/health/live`, `/health/ready`, `/health` and an Administrator obs
 
 | Task | Description | Status |
 |---|---|---|
-| B100-041 | Snapshot-cache size bounds | PLANNED |
-| B100-042 | History read paging/window cost bounds | PLANNED |
-| B100-043 | Audit paging cost bounds | PLANNED |
-| B100-044 | Incident query indexing/read limits | PLANNED |
-| B100-045 | Server estate paging | PLANNED |
-| B100-046 | Bounded concurrent manual refresh | PLANNED |
-| B100-047 | Scheduler jitter | PLANNED |
-| B100-048 | Collection batch limits | PLANNED |
-| B100-049 | SQL connection-pool governance | PLANNED |
-| B100-050 | Automated performance-budget tests | PLANNED |
+| B100-041 | Snapshot-cache size bounds | CI VERIFIED — RUN 31399632281 |
+| B100-042 | History read paging/window cost bounds | CI VERIFIED — RUN 31399632281 |
+| B100-043 | Audit paging cost bounds | CI VERIFIED — RUN 31399632281 |
+| B100-044 | Incident query indexing/read limits | CI VERIFIED — RUN 31399632281 |
+| B100-045 | Server estate paging | CI VERIFIED — RUN 31399632281 |
+| B100-046 | Bounded concurrent manual refresh | CI VERIFIED — RUN 31399632281 |
+| B100-047 | Scheduler jitter | CI VERIFIED — RUN 31399632281 |
+| B100-048 | Collection batch limits | CI VERIFIED — RUN 31399632281 |
+| B100-049 | SQL connection-pool governance | CI VERIFIED — RUN 31399632281 |
+| B100-050 | Automated performance-budget tests | CI VERIFIED — RUN 31399632281 |
+
+Batch 5 introduces explicit deterministic operating budgets instead of brittle microbenchmarks. Snapshot cache size is capped with deterministic oldest-entry eviction; history/audit/incidents and the server estate use bounded reads/pages; estate navigation Peeks cached snapshots only and never starts collection. Manual refresh adds an application-wide concurrency permit on top of existing per-registration/distributed single-flight. Scheduler cycles use bounded deterministic jitter and round-robin target batches to prevent synchronized bursts and starvation. The monitored snapshot collector opts into explicitly capped SQL pooling, while Test Connection remains non-pooled so credential tests cannot succeed from an old pooled session. CI includes executable budget tests for capacity, page size, cache-read count, concurrency, round-robin batching and pool bounds.
+
+Batch 5 also corrected a production wiring gap discovered after Batch 4: the health/observability services and middleware existed but had not been wired into `Program.cs`. Runtime DI now registers telemetry/readiness and collector/cache/cycle/incident decorators plus correlation/auth-outcome middleware, so `/health*` and `/observability` are runtime-resolvable rather than unit-test-only.
 
 ## Batch 6 — DBA UX & operations surfaces
 
