@@ -25,6 +25,7 @@ internal static class SqlConnectionStringFactory
             TrustServerCertificate = endpoint.TrustServerCertificate,
             IntegratedSecurity = registration.AuthenticationMode == SqlAuthenticationMode.IntegratedSecurity,
             ConnectTimeout = 5,
+            ConnectRetryCount = 0,
             ApplicationName = applicationName,
             Pooling = false
         };
