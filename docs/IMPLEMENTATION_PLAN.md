@@ -117,7 +117,7 @@ This is the canonical execution plan. Update it in the same PR as material imple
 | M5-023 | Strict secure cookie policy | VERIFIED — CI RUN 31376448363 |
 | M5-024 | Baseline browser security headers | VERIFIED — CI RUN 31376448363 |
 | M5-025 | Partitioned login limiting and safe login audit | VERIFIED — CI RUN 31376448363 |
-| M5-026 | Enrich incident transition audit with authenticated actor and bounded before/after state | PLANNED |
+| M5-026 | Enrich incident transition audit with authenticated actor and bounded before/after state | IMPLEMENTED — CI PENDING |
 
 ## Delivery loop
 
