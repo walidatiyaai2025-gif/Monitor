@@ -118,16 +118,18 @@ Batch 6 adds a single `IDbaOperationsSurfaceService` that reuses one centralized
 
 | Task | Description | Status |
 |---|---|---|
-| B100-061 | CSP nonce migration / reduce inline allowance | PLANNED |
-| B100-062 | Antiforgery coverage test for all mutating routes | PLANNED |
-| B100-063 | Session idle + absolute expiry policy | PLANNED |
-| B100-064 | Account lockout/audit hardening | PLANNED |
-| B100-065 | Trusted proxy/forwarded-header policy | PLANNED |
-| B100-066 | Production HSTS validation | PLANNED |
-| B100-067 | Security-header regression suite | PLANNED |
-| B100-068 | Input-normalization fuzz/property tests | PLANNED |
-| B100-069 | SQL connection metadata injection tests | PLANNED |
-| B100-070 | Repository-wide secret/log canary suite | PLANNED |
+| B100-061 | CSP nonce migration / reduce inline allowance | CI VERIFIED — RUN 31439153733 |
+| B100-062 | Antiforgery coverage test for all mutating routes | CI VERIFIED — RUN 31439153733 |
+| B100-063 | Session idle + absolute expiry policy | CI VERIFIED — RUN 31439153733 |
+| B100-064 | Account lockout/audit hardening | CI VERIFIED — RUN 31439153733 |
+| B100-065 | Trusted proxy/forwarded-header policy | CI VERIFIED — RUN 31439153733 |
+| B100-066 | Production HSTS validation | CI VERIFIED — RUN 31439153733 |
+| B100-067 | Security-header regression suite | CI VERIFIED — RUN 31439153733 |
+| B100-068 | Input-normalization fuzz/property tests | CI VERIFIED — RUN 31439153733 |
+| B100-069 | SQL connection metadata injection tests | CI VERIFIED — RUN 31439153733 |
+| B100-070 | Repository-wide secret/log canary suite | CI VERIFIED — RUN 31439153733 |
+
+Batch 7 centralizes the browser security boundary in `WebSecurityOptions`, `AbsoluteSessionCookieEvents`, `TrustedForwarderPolicy` and `SecurityHeadersMiddleware`. CSP removes `unsafe-inline`, emits a fresh per-request nonce and explicitly denies frames/objects while constraining form, image, script, style and connection sources. Mutating MVC/API actions are protected by an assembly-wide reflection gate. Cookie authentication retains bounded sliding idle renewal but carries an immutable session-start claim that enforces an absolute lifetime. Login limiter keys are SHA-256-derived from normalized IP/username material so raw IPs/usernames are not retained, and lockout outcomes are audited without credential material. Forwarded headers stay disabled unless trusted proxy/network configuration exists; configured forwarding has a one-hop limit and symmetry requirement. HSTS duration/subdomain policy is explicit and startup-validated. Registration/rule metadata rejects control characters, unsafe token syntax and connection-string delimiters where they could alter SQL target metadata. `SqlConnectionStringBuilder` acceptance tests prove application-name/user/password payloads remain values rather than injected keys, while secret canaries verify audit, telemetry and limiter keys do not echo sensitive input. PR #69 merge-result CI run `31439153733` completed with 0 build warnings/errors and 199/199 tests passed.
 
 ## Batch 8 — Reliability & concurrency verification
 

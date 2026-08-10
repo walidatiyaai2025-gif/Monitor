@@ -26,10 +26,15 @@ public sealed class InMemoryAuditStore(TimeProvider timeProvider) : IAuditStore
     private readonly List<AuditEvent> _events = [];
     public void Append(string actor, string action, string target, string outcome)
     {
-        static string Bound(string value, int max) => value.Length <= max ? value : value[..max];
         lock (_gate)
         {
-            _events.Add(new(Guid.NewGuid(), timeProvider.GetUtcNow(), Bound(actor, 100), Bound(action, 80), Bound(target, 160), Bound(outcome, 40)));
+            _events.Add(new(
+                Guid.NewGuid(),
+                timeProvider.GetUtcNow(),
+                SecurityInput.NormalizeAuditField(actor, 100),
+                SecurityInput.NormalizeAuditField(action, 80),
+                SecurityInput.NormalizeAuditField(target, 160),
+                SecurityInput.NormalizeAuditField(outcome, 40)));
             if (_events.Count > MaxEvents) _events.RemoveRange(0, _events.Count - MaxEvents);
         }
     }
@@ -42,9 +47,23 @@ public sealed class InMemoryAuditStore(TimeProvider timeProvider) : IAuditStore
 public interface ILoginAttemptLimiter { bool IsAllowed(string key); void RecordFailure(string key); void RecordSuccess(string key); }
 public sealed class LoginAttemptLimiter(TimeProvider timeProvider) : ILoginAttemptLimiter
 {
+    internal const int FailureLimit = 5;
+    internal static readonly TimeSpan Window = TimeSpan.FromMinutes(5);
+
     private sealed record State(int Failures, DateTimeOffset WindowStart);
     private readonly ConcurrentDictionary<string, State> _states = new(StringComparer.Ordinal);
-    public bool IsAllowed(string key) => !_states.TryGetValue(key, out var state) || timeProvider.GetUtcNow() - state.WindowStart >= TimeSpan.FromMinutes(5) || state.Failures < 5;
-    public void RecordFailure(string key) => _states.AddOrUpdate(key, _ => new(1, timeProvider.GetUtcNow()), (_, current) => timeProvider.GetUtcNow() - current.WindowStart >= TimeSpan.FromMinutes(5) ? new(1, timeProvider.GetUtcNow()) : current with { Failures = current.Failures + 1 });
+
+    public bool IsAllowed(string key) =>
+        !_states.TryGetValue(key, out var state) ||
+        timeProvider.GetUtcNow() - state.WindowStart >= Window ||
+        state.Failures < FailureLimit;
+
+    public void RecordFailure(string key) => _states.AddOrUpdate(
+        key,
+        _ => new(1, timeProvider.GetUtcNow()),
+        (_, current) => timeProvider.GetUtcNow() - current.WindowStart >= Window
+            ? new(1, timeProvider.GetUtcNow())
+            : current with { Failures = current.Failures + 1 });
+
     public void RecordSuccess(string key) => _states.TryRemove(key, out _);
 }

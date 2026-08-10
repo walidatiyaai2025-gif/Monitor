@@ -51,5 +51,10 @@
 | Incident filter/pager UX | B100 | CI verified | Bounded status/severity/rule/page navigation; CI 31402491011 |
 | Accessibility + reduced-motion shell | B100 | CI verified | Skip link, focus-visible, live status, reduced motion; CI 31402491011 |
 | Responsive DBA wallboard | B100 | CI verified | CSS-only large-display layout; no polling/collection change; CI 31402491011 |
+| Central web security policy | B100 | CI verified | `WebSecurityOptions`, nonce CSP, HSTS and trusted-forwarder configuration; B100-061/065/066/067; CI 31439153733 |
+| Absolute authenticated-session lifetime | B100 | CI verified | 30-minute idle renewal plus immutable 8-hour absolute session-start cap; B100-063; CI 31439153733 |
+| Opaque login lockout + audit redaction | B100 | CI verified | SHA-256 limiter keys, bounded five-failure window, redacted audit fields; B100-064/070; CI 31439153733 |
+| Security acceptance regression suite | B100 | CI verified | Antiforgery reflection gate, input fuzzing, security-header/HSTS/proxy tests and secret canaries; B100-062/067/068/070; CI 31439153733 |
+| SQL connection metadata injection defense | B100 | CI verified | Strict host/instance metadata plus `SqlConnectionStringBuilder` value-injection tests; B100-069; CI 31439153733 |
 | Zero-SQL monitored GETs | M8 | CI verified | Cache/Peek-only browser monitoring reads; CI 31383991126 |
 | Explicit observed manual refresh | M8 | CI verified | Operator/Admin POST; successful refresh observed once |

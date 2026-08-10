@@ -97,7 +97,7 @@ public sealed class DbaOperationsUxTests
     }
 
     [Fact]
-    public async Task IncidentFilters_AreNormalizedAndPageBounded()
+    public async Task IncidentFilters_RejectOverlongRuleAndPageBounded()
     {
         var workflow = new RecordingIncidentWorkflow();
         var controller = new OperationsController(
@@ -118,7 +118,7 @@ public sealed class DbaOperationsUxTests
         Assert.NotNull(workflow.LastQuery);
         Assert.Equal(0, workflow.LastQuery!.Offset);
         Assert.Equal(100, workflow.LastQuery.Limit);
-        Assert.Equal(80, workflow.LastQuery.RuleId!.Length);
+        Assert.Null(workflow.LastQuery.RuleId);
     }
 
     [Fact]

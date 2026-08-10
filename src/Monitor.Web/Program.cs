@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.HttpOverrides;
 using Monitor.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -11,6 +12,21 @@ builder.Services.AddSingleton<IAdminCredentialVerifier, AdminCredentialVerifier>
 builder.Services.AddSingleton<ILoginAttemptLimiter, LoginAttemptLimiter>();
 builder.Services.AddSingleton<IDemoMonitorService, DemoMonitorService>();
 builder.Services.AddSingleton<IMonitorTelemetry, MonitorTelemetry>();
+
+var webSecurityOptions = builder.Configuration.GetSection(WebSecurityOptions.SectionName).Get<WebSecurityOptions>() ?? new();
+webSecurityOptions.Validate();
+builder.Services.AddSingleton(webSecurityOptions);
+builder.Services.AddSingleton<AbsoluteSessionCookieEvents>();
+builder.Services.AddHsts(options =>
+{
+    options.MaxAge = TimeSpan.FromDays(webSecurityOptions.HstsDays);
+    options.IncludeSubDomains = webSecurityOptions.HstsIncludeSubDomains;
+    options.Preload = webSecurityOptions.HstsPreload;
+});
+if (webSecurityOptions.HasTrustedForwarders)
+{
+    builder.Services.Configure<ForwardedHeadersOptions>(options => TrustedForwarderPolicy.Configure(options, webSecurityOptions));
+}
 
 var performanceOptions = builder.Configuration.GetSection(PerformanceScaleOptions.SectionName).Get<PerformanceScaleOptions>() ?? new();
 performanceOptions.Validate();
@@ -186,7 +202,8 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
     options.Cookie.SameSite = SameSiteMode.Strict;
     options.Cookie.SecurePolicy = builder.Environment.IsDevelopment() ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.Always;
     options.SlidingExpiration = true;
-    options.ExpireTimeSpan = TimeSpan.FromHours(8);
+    options.ExpireTimeSpan = TimeSpan.FromMinutes(webSecurityOptions.SessionIdleMinutes);
+    options.EventsType = typeof(AbsoluteSessionCookieEvents);
 });
 
 builder.Services.AddAuthorization(options =>
@@ -203,17 +220,11 @@ if (configuredRegistration is not null) app.Services.GetRequiredService<IServerR
 if (deploymentTopologyOptions.Mode == DeploymentTopology.MultiNode && !app.Services.GetRequiredService<ICredentialReadinessService>().Get().MultiNodeCredentialReady)
     throw new InvalidOperationException("Multi-node startup is blocked by credential/key-management readiness.");
 
+if (webSecurityOptions.HasTrustedForwarders) app.UseForwardedHeaders();
 if (!app.Environment.IsDevelopment()) { app.UseExceptionHandler("/login"); app.UseHsts(); }
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseHttpsRedirection();
-app.Use(async (context, next) =>
-{
-    context.Response.Headers.XContentTypeOptions = "nosniff";
-    context.Response.Headers.XFrameOptions = "DENY";
-    context.Response.Headers["Referrer-Policy"] = "no-referrer";
-    context.Response.Headers["Content-Security-Policy"] = "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'";
-    await next();
-});
+app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseStaticFiles();
 app.UseRouting();
 app.UseAuthentication();

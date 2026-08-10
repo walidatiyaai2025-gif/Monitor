@@ -226,10 +226,5 @@ public sealed class OperationsController : Controller
         return View(new SettingsViewModel(_deploymentReadiness, sharedState, credentials, backups));
     }
 
-    private static string? NormalizeRuleId(string? ruleId)
-    {
-        if (string.IsNullOrWhiteSpace(ruleId)) return null;
-        var normalized = ruleId.Trim();
-        return normalized.Length <= 80 ? normalized : normalized[..80];
-    }
+    private static string? NormalizeRuleId(string? ruleId) => SecurityInput.NormalizeOptionalToken(ruleId, 80);
 }
