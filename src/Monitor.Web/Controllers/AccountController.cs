@@ -42,12 +42,14 @@ public sealed class AccountController : Controller
     {
         var normalizedUsername = username ?? string.Empty;
         var normalizedPassword = password ?? string.Empty;
-        var attemptKey = $"{HttpContext.Connection.RemoteIpAddress}:{normalizedUsername.Trim().ToUpperInvariant().GetHashCode(StringComparison.Ordinal)}";
+        var attemptKey = LoginAttemptKey.Create(HttpContext.Connection.RemoteIpAddress, normalizedUsername);
 
         if (_limiter?.IsAllowed(attemptKey) == false)
         {
             Response.StatusCode = StatusCodes.Status429TooManyRequests;
+            _audit?.Append("anonymous", "login", "development-admin", "locked");
             ModelState.AddModelError(string.Empty, "Too many login attempts. Try again later.");
+            ViewData["ReturnUrl"] = returnUrl;
             return View();
         }
 
