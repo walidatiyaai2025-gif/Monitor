@@ -6,7 +6,7 @@
 
 M0 through M6 are CI verified. M7 production-readiness includes durable registration metadata, fail-closed external secret routing, durable bounded operational state, protected local SQL Login credentials, a topology guard and a dedicated Monitor shared-state SQL capability. M8 enforces zero-SQL monitoring GETs for monitored targets.
 
-BATCH-100 is the active enterprise hardening program. Batches 1–5 deliver HA shared state/coordination, encrypted key management, operational backup/restore, production observability and deterministic performance/scale budgets. Batch 6 adds centralized DBA control-plane cards, recovery-aware server details, classified refresh feedback, incident filtering/navigation, accessibility and a CSS-only large-display wallboard. `docs/BATCH_100.md` is the 100-task execution ledger.
+BATCH-100 is the active enterprise hardening program. Batches 1–7 deliver HA shared state/coordination, encrypted key management, operational backup/restore, production observability, deterministic performance/scale budgets, centralized DBA control-plane UX and web/application security hardening. `docs/BATCH_100.md` is the 100-task execution ledger. **B100-001..070 are CI verified.**
 
 ## Run
 
@@ -43,6 +43,30 @@ The Incident Center provides bounded status/severity/rule/page-size filtering an
 Telemetry never stores SQL text, request bodies, usernames, passwords, IP addresses, secret references, connection strings, provider endpoints or raw provider exceptions. Collector failure telemetry is a strict allowlist of known `SnapshotCollectionFailure` values plus `Unexpected`; arbitrary values are reduced to `Unknown`.
 
 `X-Correlation-ID` accepts only a bounded alphanumeric/`.`/`_`/`-` token. Unsafe or missing values are replaced with a server-generated ID. Structured completion logs record correlation scope, HTTP method, response status and elapsed time only.
+
+## Web/application security policy
+
+Browser trust and authentication lifetime are explicit configuration rather than hidden framework defaults:
+
+```json
+"WebSecurity": {
+  "SessionIdleMinutes": 30,
+  "SessionAbsoluteHours": 8,
+  "HstsDays": 365,
+  "HstsIncludeSubDomains": true,
+  "HstsPreload": false,
+  "TrustedProxies": [],
+  "TrustedNetworks": []
+}
+```
+
+Cookie authentication can renew inside the idle window, but an immutable session-start claim enforces the absolute lifetime. Missing or invalid session-start metadata fails closed.
+
+Security headers are centralized. CSP denies frame/object embedding, constrains form/resources and uses a cryptographically random per-request nonce; `unsafe-inline` and `unsafe-eval` are not enabled. A regression test reflects across controllers and requires antiforgery on every `POST`, `PUT`, `PATCH` and `DELETE` action.
+
+Forwarded headers remain disabled while both trusted-forwarder lists are empty. Reverse-proxy deployments must explicitly list trusted proxy IPs/CIDRs; enabled forwarding is limited to `X-Forwarded-For` / `X-Forwarded-Proto`, one hop and symmetric headers. Monitor does not opt into trust-all forwarding.
+
+Login limiting uses opaque SHA-256-derived keys rather than retaining raw IP/username values. Audit fields are bounded/control-character normalized and credential/connection-string-shaped fields are redacted. SQL registration host/instance metadata rejects control characters and connection-string delimiter injection; connection strings continue to be composed only through `SqlConnectionStringBuilder`.
 
 ## Performance & scale governance
 
@@ -127,4 +151,5 @@ Administrator Settings exposes Create, Dry-run Validate and Restore commands. Re
 - Shared-state SQL is a separate Monitor-owned control-plane database, never an implicitly reused monitored target.
 - Operational backup excludes secret-bearing persistence and uses validated/staged restore semantics.
 - Runtime telemetry/logging is bounded and redacted; free-form provider detail is not retained.
+- Browser trust, authenticated lifetime and forwarded proxy acceptance are explicit fail-closed policies.
 - MultiNode stays fail-closed until all remaining distributed login-security and snapshot-cache/delivery prerequisites are verified.
