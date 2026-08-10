@@ -152,16 +152,18 @@ Batch 8 verifies the existing HA contracts through deterministic in-process faul
 
 | Task | Description | Status |
 |---|---|---|
-| B100-081 | Production configuration template | PLANNED |
-| B100-082 | IIS deployment guide | PLANNED |
-| B100-083 | Windows Service deployment guide | PLANNED |
-| B100-084 | Reverse-proxy deployment guide | PLANNED |
-| B100-085 | Dedicated Monitor state DB least-privilege SQL script | PLANNED |
-| B100-086 | Monitored SQL least-privilege permissions script | PLANNED |
-| B100-087 | Upgrade/migration checklist | PLANNED |
-| B100-088 | Release versioning automation | PLANNED |
-| B100-089 | Deployment smoke-test script | PLANNED |
-| B100-090 | Rollback/recovery runbook | PLANNED |
+| B100-081 | Production configuration template | CI VERIFIED — RUN 31440573683 |
+| B100-082 | IIS deployment guide | CI VERIFIED — RUN 31440573683 |
+| B100-083 | Windows Service deployment guide | CI VERIFIED — RUN 31440573683 |
+| B100-084 | Reverse-proxy deployment guide | CI VERIFIED — RUN 31440573683 |
+| B100-085 | Dedicated Monitor state DB least-privilege SQL script | CI VERIFIED — RUN 31440573683 |
+| B100-086 | Monitored SQL least-privilege permissions script | CI VERIFIED — RUN 31440573683 |
+| B100-087 | Upgrade/migration checklist | CI VERIFIED — RUN 31440573683 |
+| B100-088 | Release versioning automation | CI VERIFIED — RUN 31440573683 |
+| B100-089 | Deployment smoke-test script | CI VERIFIED — RUN 31440573683 |
+| B100-090 | Rollback/recovery runbook | CI VERIFIED — RUN 31440573683 |
+
+Batch 9 makes production deployment repeatable and reviewable. It adds a secret-free production configuration template; IIS, native .NET Windows Service and reverse-proxy guides; a narrow runtime role for the dedicated Monitor state database; a monitored-SQL observer role derived from the bounded collector read surface; upgrade and rollback runbooks; a release workflow that validates version tags, runs Release build/tests before publishing Windows x64, creates a SHA-256 checksum and uploads a read-only artifact; and an HTTPS smoke script that probes only liveness/readiness/aggregate health. Deployment acceptance tests verify JSON validity, service wiring, least-privilege grants, build/test-before-package ordering, health-only smoke behavior and secret-canary exclusion. Release build completed with 0 warnings/errors and 219/219 tests passed.
 
 ## Batch 10 — Enterprise operator features & RC acceptance
 
