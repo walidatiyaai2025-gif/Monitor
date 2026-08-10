@@ -38,6 +38,7 @@ This is the canonical execution plan. Update it in the same PR as material imple
 | M2-001 | Memory snapshot contract + collector projection | VERIFIED — CI RUN 31372045546 |
 | M2-002 | Memory health UI from cached snapshot | VERIFIED — CI RUN 31372312362 |
 | M2-003 | Database health detail contract + projection | IMPLEMENTED — LOCAL VERIFIED |
+| M2-003A | Database Health UI from cached database detail | IMPLEMENTED — CI PENDING |
 | M2-004 | Backup health summary | IMPLEMENTED — LOCAL VERIFIED |
 | M2-005 | SQL Agent jobs summary | IMPLEMENTED — LOCAL VERIFIED |
 | M2-006 | Storage allocation summary | IMPLEMENTED — LOCAL VERIFIED |
