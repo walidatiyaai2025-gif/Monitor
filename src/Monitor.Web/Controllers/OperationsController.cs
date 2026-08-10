@@ -14,8 +14,16 @@ public sealed class OperationsController : Controller
     private readonly ITrendReadService? _trends;
     private readonly IAuditStore? _audit;
     private readonly IAdvisorRequestService? _advisorRequests;
+    private readonly IHealthIncidentRepository? _incidentRepository;
 
-    public OperationsController(IDemoMonitorService monitor, IMonitorReadService readService, IIncidentWorkflowService? workflow = null, ITrendReadService? trends = null, IAuditStore? audit = null, IAdvisorRequestService? advisorRequests = null)
+    public OperationsController(
+        IDemoMonitorService monitor,
+        IMonitorReadService readService,
+        IIncidentWorkflowService? workflow = null,
+        ITrendReadService? trends = null,
+        IAuditStore? audit = null,
+        IAdvisorRequestService? advisorRequests = null,
+        IHealthIncidentRepository? incidentRepository = null)
     {
         _monitor = monitor;
         _readService = readService;
@@ -23,6 +31,7 @@ public sealed class OperationsController : Controller
         _trends = trends;
         _audit = audit;
         _advisorRequests = advisorRequests;
+        _incidentRepository = incidentRepository;
     }
 
     [HttpGet("/dashboard")]
@@ -83,22 +92,72 @@ public sealed class OperationsController : Controller
     [HttpPost("/alerts/{id}/acknowledge")]
     [ValidateAntiForgeryToken]
     [Authorize(Policy = MonitorPolicies.Operate)]
-    public IActionResult AcknowledgeIncident(string id) => Transition(id, _workflow?.Acknowledge(id) == true);
+    public IActionResult AcknowledgeIncident(string id) =>
+        Transition(id, workflow => workflow.Acknowledge(id));
 
     [HttpPost("/alerts/{id}/resolve")]
     [ValidateAntiForgeryToken]
     [Authorize(Policy = MonitorPolicies.Operate)]
-    public IActionResult ResolveIncident(string id) => Transition(id, _workflow?.Resolve(id) == true);
+    public IActionResult ResolveIncident(string id) =>
+        Transition(id, workflow => workflow.Resolve(id));
 
     [HttpPost("/alerts/{id}/reopen")]
     [ValidateAntiForgeryToken]
     [Authorize(Policy = MonitorPolicies.Operate)]
-    public IActionResult ReopenIncident(string id) => Transition(id, _workflow?.Reopen(id) == true);
+    public IActionResult ReopenIncident(string id) =>
+        Transition(id, workflow => workflow.Reopen(id));
 
-    private IActionResult Transition(string id, bool changed)
+    private IActionResult Transition(string id, Func<IIncidentWorkflowService, bool> transition)
     {
-        _audit?.Append(User.Identity?.Name ?? "unknown", "incident.transition", id, changed ? "applied" : "conflict");
-        return changed ? RedirectToAction(nameof(IncidentDetails), new { id }) : Conflict(new { message = "Incident state changed or the transition is not allowed." });
+        if (_workflow is null)
+        {
+            return NotFound();
+        }
+
+        var actor = User.Identity?.Name?.Trim();
+        if (string.IsNullOrWhiteSpace(actor))
+        {
+            return Forbid();
+        }
+
+        var repositoryAvailable = _incidentRepository is not null;
+        var before = _incidentRepository?.GetById(id);
+        var changed = transition(_workflow);
+        var after = _incidentRepository?.GetById(id);
+
+        var outcome = BuildTransitionAuditOutcome(changed, before, after, repositoryAvailable);
+        _audit?.Append(actor, "incident.transition", id, outcome);
+
+        return changed
+            ? RedirectToAction(nameof(IncidentDetails), new { id })
+            : Conflict(new { message = "Incident state changed or the transition is not allowed." });
+    }
+
+    private static string BuildTransitionAuditOutcome(
+        bool changed,
+        HealthIncident? before,
+        HealthIncident? after,
+        bool repositoryAvailable)
+    {
+        if (!repositoryAvailable)
+        {
+            return changed ? "applied" : "conflict";
+        }
+
+        if (changed)
+        {
+            return before is not null && after is not null
+                ? $"{before.Status}->{after.Status}"
+                : "applied";
+        }
+
+        if (before is null)
+        {
+            return "rejected:not-found";
+        }
+
+        var current = after?.Status ?? before.Status;
+        return $"rejected:current={current}";
     }
 
     [HttpGet("/audit")]

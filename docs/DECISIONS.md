@@ -50,7 +50,7 @@ Snapshot refresh is an administrator POST accepting only a registration ID. A 15
 
 ## ADR-013 — SignalR delivery is deferred until snapshots are published independently
 
-SignalR is not added in M1 because snapshots are currently produced on request and there is no backend scheduler or snapshot-published event. A hub would add transport complexity without new information. Revisit when multiple consumers need independently produced updates or measured polling load justifies push. SignalR, if adopted, is delivery-only and must never invoke collectors or alter refresh frequency.
+SignalR is not added in M1 because snapshots are currently produced on request and there is no scheduled publisher, so a hub would add reconnect/authentication/state complexity without carrying independently produced updates. Revisit when multiple consumers need independently produced updates or measured polling load justifies push. SignalR, if adopted, is delivery-only and must never invoke collectors or alter refresh frequency.
 
 ## ADR-014 — Memory health extends the existing collector row
 
@@ -99,3 +99,7 @@ After login, an administrator with no enabled registration is routed to Connecti
 ## ADR-025 — Real registrations replace the demo estate as a whole
 
 When no registration exists, the visual demo remains explicitly labeled. Once real registrations exist, estate reads return every enabled registration in deterministic order. A target without a usable snapshot remains visible as `RegisteredUnavailable`; it is never silently replaced by demo data. Dashboard and server pages share this projection.
+
+## ADR-026 — Incident audit enrichment must not break the workflow contract
+
+M5-026 keeps the existing boolean `IIncidentWorkflowService` transition API unchanged. The authorized controller reads the canonical `IHealthIncidentRepository` immediately before and after the existing atomic status transition and records only bounded state metadata in the existing `IAuditStore`. The canonical audit action remains `incident.transition`. If repository state cannot be observed, the audit outcome falls back to the established `applied` / `conflict` values instead of inventing state. Missing authenticated actor identity fails closed before mutation. Incident evidence, SQL text, credentials, endpoints, provider errors and arbitrary request payloads are excluded from transition audit metadata.
