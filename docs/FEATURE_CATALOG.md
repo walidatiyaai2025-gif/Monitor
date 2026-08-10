@@ -14,12 +14,15 @@
 | Settings | M0 | Verified | Read-only preview |
 | UI design system | M0 | Verified | CSS tokens/components |
 | Controlled motion | M0 | Verified | Client only; no data calls |
-| Server registration model | M1 | CI verified | Validated endpoint/auth metadata; in-memory repository |
-| Connection secret boundary | M1 | CI verified | Opaque reference; values only from User Secrets/environment |
-| Test Connection workflow | M1 | CI verified | Admin-only ID endpoint; bounded timeout and redacted outcomes |
-| Lightweight SQL collector | M1 | CI verified | One query: identity, uptime and database availability counts |
-| Server health snapshot cache | M1 | CI verified | 30s fresh, 5m stale fallback, per-server single-flight |
-| Real SQL connection | M1 | Planned | First vertical slice |
+| Server registration model | M1 | Verified | Validated endpoint/auth metadata; in-memory repository |
+| Connection secret boundary | M1 | Verified | Opaque reference; values only from User Secrets/environment |
+| Test Connection backend | M1 | Verified | Admin-only bounded probe with sanitized outcomes |
+| SQL Connection Lab UI | M1 | CI verified / visual review pending | Safe registration + manual Test Connection over existing backend |
+| Connection Lab secret-safe summary | M1 | CI verified | Raw secret-reference value excluded from target summaries |
+| Provider timeout/retry semantics | M1 | CI verified | SqlClient `-2` => TimedOut; shared profiles use zero connection retries |
+| Lightweight SQL collector | M1 | Verified | One query: identity, uptime and database availability counts |
+| Server health snapshot cache | M1 | Verified | 30s fresh, 5m stale fallback, per-server single-flight |
+| Real SQL connection | M1 | Planned | First snapshot shown in UI |
 | Backups | M2 | Planned | Coming soon in UI |
 | Jobs | M2 | Planned | Coming soon in UI |
 | Storage | M2 | Planned | Coming soon in UI |
