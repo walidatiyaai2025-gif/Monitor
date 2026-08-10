@@ -11,6 +11,13 @@ builder.Services.AddSingleton<IAdminCredentialVerifier, AdminCredentialVerifier>
 builder.Services.AddSingleton<ILoginAttemptLimiter, LoginAttemptLimiter>();
 builder.Services.AddSingleton<IDemoMonitorService, DemoMonitorService>();
 
+var deploymentTopologyOptions = builder.Configuration
+    .GetSection(DeploymentTopologyOptions.SectionName)
+    .Get<DeploymentTopologyOptions>() ?? new DeploymentTopologyOptions();
+deploymentTopologyOptions.Validate();
+builder.Services.AddSingleton(deploymentTopologyOptions);
+builder.Services.AddSingleton(deploymentTopologyOptions.ToReadiness());
+
 var registrationStoreOptions = builder.Configuration
     .GetSection(RegistrationStoreOptions.SectionName)
     .Get<RegistrationStoreOptions>() ?? new RegistrationStoreOptions();
