@@ -25,7 +25,7 @@ public sealed class WebSecurityHardeningTests
         await middleware.InvokeAsync(first);
         await middleware.InvokeAsync(second);
 
-        var firstCsp = first.Response.Headers.ContentSecurityPolicy.ToString();
+        var firstCsp = first.Response.Headers["Content-Security-Policy"].ToString();
         var firstNonce = SecurityHeadersMiddleware.GetNonce(first);
         var secondNonce = SecurityHeadersMiddleware.GetNonce(second);
 
