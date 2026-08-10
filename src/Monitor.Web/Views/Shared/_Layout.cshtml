@@ -1,0 +1,68 @@
+@{
+    var path = Context.Request.Path.Value?.ToLowerInvariant() ?? string.Empty;
+    string Active(string value) => path.StartsWith(value) ? "nav-link active" : "nav-link";
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#07111f" />
+    <title>@ViewData["Title"] · Monitor</title>
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/command-center.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/ui003.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/ui004.css" asp-append-version="true" />
+</head>
+<body class="app-body">
+    <div class="ambient-grid"></div>
+    <aside class="sidebar">
+        <a class="brand" asp-controller="Operations" asp-action="Dashboard">
+            <span class="brand-mark"><span></span></span>
+            <span><strong>MONITOR</strong><small>SQL OPERATIONS</small></span>
+        </a>
+
+        <nav class="primary-nav" aria-label="Primary navigation">
+            <span class="nav-section">OPERATIONS</span>
+            <a class="@Active("/dashboard")" asp-controller="Operations" asp-action="Dashboard"><span class="nav-icon">⌁</span>Command Center</a>
+            <a class="@Active("/servers")" asp-controller="Operations" asp-action="Servers"><span class="nav-icon">▦</span>Servers</a>
+            <a class="@Active("/database-health")" asp-controller="Operations" asp-action="DatabaseHealth"><span class="nav-icon">◫</span>Database Health</a>
+            <a class="@Active("/memory-health")" asp-controller="Operations" asp-action="MemoryHealth"><span class="nav-icon">◒</span>Memory Health</a>
+            <a class="@Active("/alerts")" asp-controller="Operations" asp-action="Alerts"><span class="nav-icon">△</span>Alerts & Incidents</a>
+
+            <span class="nav-section">COMING SOON</span>
+            <a class="nav-link muted" href="#"><span class="nav-icon">↺</span>Backups <em>soon</em></a>
+            <a class="nav-link muted" href="#"><span class="nav-icon">✓</span>Jobs <em>soon</em></a>
+            <a class="nav-link muted" href="#"><span class="nav-icon">▤</span>Storage <em>soon</em></a>
+            <a class="nav-link muted" href="#"><span class="nav-icon">⌘</span>AI Advisor <em>soon</em></a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="environment-badge"><span></span> DEVELOPMENT DATA</div>
+            <a class="@Active("/settings")" asp-controller="Operations" asp-action="Settings"><span class="nav-icon">⚙</span>Settings</a>
+        </div>
+    </aside>
+
+    <main class="main-shell">
+        <header class="topbar">
+            <div>
+                <span class="eyebrow">DATABASE OPERATIONS CENTER</span>
+                <h1>@ViewData["Title"]</h1>
+            </div>
+            <div class="topbar-actions">
+                <div class="collector-state"><span class="live-dot"></span><div><strong>Collector</strong><small data-scan-phase>Snapshot cache active</small></div></div>
+                <div class="user-chip"><span>AD</span><div><strong>@User.Identity?.Name</strong><small>Administrator</small></div></div>
+                <form asp-controller="Account" asp-action="Logout" method="post"><button class="icon-button" title="Sign out" type="submit">↗</button></form>
+            </div>
+        </header>
+        <section class="page-content">
+            @RenderBody()
+        </section>
+    </main>
+
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    <script src="~/js/ui003.js" asp-append-version="true"></script>
+    <script src="~/js/ui004.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

@@ -1,0 +1,9 @@
+@{
+    ViewData["Title"] = "Settings";
+}
+<div class="data-banner"><strong>PREVIEW SETTINGS</strong><span>Controls are intentionally read-only until the persistence layer is introduced.</span></div>
+<section class="settings-grid">
+    <article class="glass-panel settings-card"><div class="panel-heading"><div><span class="eyebrow">COLLECTION</span><h3>Snapshot policy</h3></div></div><label>Default collection interval<div class="fake-input">30 seconds <span>Preview</span></div></label><label>Dashboard delivery<div class="fake-input">Centralized snapshot <span>Required</span></div></label><p>Visual heartbeat timing is independent from SQL collection frequency.</p></article>
+    <article class="glass-panel settings-card"><div class="panel-heading"><div><span class="eyebrow">SECURITY</span><h3>Development Admin</h3></div></div><label>Role<div class="fake-input">Administrator <span>Active</span></div></label><label>Credential storage<div class="fake-input">PBKDF2-SHA256 hash <span>120k iterations</span></div></label><p>No plaintext development password is stored in source control.</p></article>
+    <article class="glass-panel settings-card"><div class="panel-heading"><div><span class="eyebrow">REAL-TIME DELIVERY</span><h3>SignalR readiness</h3></div></div><label>Preview mode<div class="fake-input">Client-side simulation <span>No SQL hits</span></div></label><p>SignalR will deliver already-collected snapshots in a later milestone; it will not increase SQL query frequency.</p></article>
+</section>

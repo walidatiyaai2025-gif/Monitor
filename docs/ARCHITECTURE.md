@@ -1,0 +1,37 @@
+# Architecture
+
+## Target flow
+
+```text
+Monitored SQL Server
+        |
+        v
+Central Collector
+        |
+        v
+ServerHealthSnapshot
+        |
+        +--> Cache / Monitoring Store
+        |
+        v
+ASP.NET Core Backend
+        |
+        +--> SignalR (delivery only)
+        |
+        v
+Browser UI
+```
+
+The browser never connects directly to monitored SQL Servers. Individual cards/charts never issue monitoring SQL.
+
+## M0 implementation
+
+M0 intentionally uses `DemoMonitorService` as an in-memory snapshot provider so visual behavior can be reviewed before collectors are built. Client-side heartbeat/clock animation uses no network fetch and creates no SQL activity.
+
+## Planned core contracts
+
+`ServerHealthSnapshot` will eventually contain connection, overall, CPU, memory, disk, database, backup, jobs, blocking, alerts, and critical incident state with `CollectedAt`.
+
+## Authentication
+
+M0 uses ASP.NET Core cookie authentication with one development Administrator. The password is verified against a PBKDF2-SHA256 derived hash; plaintext credentials are not committed.

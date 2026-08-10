@@ -1,0 +1,42 @@
+@{
+    Layout = null;
+    ViewData["Title"] = "Sign in";
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Monitor · Sign in</title>
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body class="login-body">
+    <div class="ambient-grid"></div>
+    <div class="login-orbit orbit-one"></div>
+    <div class="login-orbit orbit-two"></div>
+    <main class="login-shell">
+        <section class="login-story">
+            <div class="brand login-brand"><span class="brand-mark"><span></span></span><span><strong>MONITOR</strong><small>SQL OPERATIONS</small></span></div>
+            <span class="preview-pill">0.0.1 · UI PREVIEW</span>
+            <h1>See what needs your attention <em>right now.</em></h1>
+            <p>A focused SQL Server command center for estate health, incidents, memory, databases, backups and operational risk.</p>
+            <div class="login-signal-grid">
+                <div><span class="live-dot"></span><strong>Centralized live pulse</strong><small>One visual heartbeat. No extra SQL hits.</small></div>
+                <div><span class="signal-icon">◇</span><strong>Snapshot-first</strong><small>Collect once, reuse across the interface.</small></div>
+            </div>
+        </section>
+        <section class="login-card glass-panel">
+            <span class="eyebrow">SECURE DEVELOPMENT ACCESS</span>
+            <h2>Welcome back</h2>
+            <p>Sign in to open the SQL Command Center.</p>
+            <form method="post" asp-action="Login" asp-route-returnUrl="@ViewData["ReturnUrl"]">
+                <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
+                <label>Username<input name="username" autocomplete="username" required placeholder="Administrator username" /></label>
+                <label>Password<input name="password" type="password" autocomplete="current-password" required placeholder="••••••••••" /></label>
+                <button type="submit" class="primary-button">Enter Command Center <span>→</span></button>
+            </form>
+            <div class="security-note"><span>✓</span> Development password is verified against a PBKDF2 hash; plaintext is not stored in the repository.</div>
+        </section>
+    </main>
+</body>
+</html>

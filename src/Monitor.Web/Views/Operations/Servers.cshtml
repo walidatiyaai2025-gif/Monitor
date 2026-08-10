@@ -1,0 +1,87 @@
+@model IReadOnlyList<ServerCard>
+@{
+    ViewData["Title"] = "Servers";
+    var healthyCount = Model.Count(server => server.State == HealthState.Healthy);
+    var warningCount = Model.Count(server => server.State == HealthState.Warning);
+    var criticalCount = Model.Count(server => server.State == HealthState.Critical);
+    var offlineCount = Model.Count(server => server.State == HealthState.Offline);
+    var reachableCount = Model.Count - offlineCount;
+    var databaseOnline = Model.Sum(server => server.DatabaseOnline);
+    var databaseTotal = Model.Sum(server => server.DatabaseTotal);
+    var jobsHealthy = Model.Sum(server => server.JobsHealthy);
+    var jobsTotal = Model.Sum(server => server.JobsTotal);
+}
+
+<div class="data-banner"><strong>DEVELOPMENT DATA</strong><span>Operational estate preview from one shared snapshot. Search, filtering and freshness movement are client-side only.</span></div>
+
+<section class="estate-summary">
+    <article class="estate-summary-card state-healthy"><small>Reachable</small><strong>@reachableCount / @Model.Count</strong><span>SQL instances responding</span></article>
+    <article class="estate-summary-card state-warning"><small>Needs attention</small><strong>@(warningCount + criticalCount)</strong><span>@warningCount warning · @criticalCount critical</span></article>
+    <article class="estate-summary-card state-healthy"><small>Databases online</small><strong>@databaseOnline / @databaseTotal</strong><span>Across cached server snapshots</span></article>
+    <article class="estate-summary-card state-warning"><small>Agent jobs healthy</small><strong>@jobsHealthy / @jobsTotal</strong><span>Latest preview state</span></article>
+    <article class="estate-summary-card state-offline"><small>Offline</small><strong>@offlineCount</strong><span>Connection unavailable</span></article>
+</section>
+
+<div class="section-heading">
+    <div><span class="eyebrow">SQL ESTATE</span><h2>@Model.Count monitored instances</h2></div>
+    <button class="secondary-button" disabled>+ Register Server · M1</button>
+</div>
+
+<section class="estate-tools" aria-label="Server estate filters">
+    <div class="estate-filter-group">
+        <button class="estate-filter is-active" type="button" data-estate-filter="all">All · @Model.Count</button>
+        <button class="estate-filter" type="button" data-estate-filter="healthy">Healthy · @healthyCount</button>
+        <button class="estate-filter" type="button" data-estate-filter="warning">Warning · @warningCount</button>
+        <button class="estate-filter" type="button" data-estate-filter="critical">Critical · @criticalCount</button>
+        <button class="estate-filter" type="button" data-estate-filter="offline">Offline · @offlineCount</button>
+    </div>
+    <label class="estate-search">
+        <input type="search" data-estate-search placeholder="Find server by name…" autocomplete="off" />
+    </label>
+</section>
+
+<section class="server-card-grid">
+@foreach (var server in Model)
+{
+    var stateName = server.State.ToString().ToLowerInvariant();
+    var healthScore = server.State switch
+    {
+        HealthState.Healthy => 96,
+        HealthState.Warning => 72,
+        HealthState.Critical => 41,
+        HealthState.Offline => 0,
+        _ => 50
+    };
+    var cpuState = server.State == HealthState.Offline ? "offline" : server.CpuPercent >= 80 ? "warning" : "healthy";
+    var memoryState = server.State == HealthState.Offline ? "offline" : server.MemoryPercent >= 82 ? "warning" : "healthy";
+    var databaseState = server.DatabaseOnline == server.DatabaseTotal ? "healthy" : "critical";
+    var jobsState = server.JobsHealthy == server.JobsTotal ? "healthy" : "warning";
+
+    <a class="server-card server-card-v2 glass-panel state-@stateName" data-server-card data-state="@stateName" data-name="@server.Name.ToLowerInvariant()" asp-action="ServerDetails" asp-route-id="@server.Id">
+        <div class="server-card-v2-inner">
+            <div class="server-card-head">
+                <div><span class="health-orb state-@stateName"></span><span class="status-word">@server.State</span></div>
+                <span class="snapshot-freshness"><span class="freshness-dot state-@stateName"></span><span class="snapshot-note" data-snapshot-age data-initial-age="@server.LastScanSecondsAgo">@server.LastScanSecondsAgo sec ago</span></span>
+            </div>
+
+            <div class="server-identity">
+                <div><h3>@server.Name</h3><p>@server.Version · @server.Edition</p></div>
+                <div class="health-score state-@stateName"><small>Health score</small><strong>@healthScore</strong></div>
+            </div>
+
+            <div class="pressure-grid">
+                <div class="pressure-item state-@cpuState"><small>CPU</small><span class="pressure-track"><span style="width:@($"{server.CpuPercent}%")"></span></span><strong>@(server.State == HealthState.Offline ? "N/A" : $"{server.CpuPercent}%")</strong></div>
+                <div class="pressure-item state-@memoryState"><small>Memory</small><span class="pressure-track"><span style="width:@($"{server.MemoryPercent}%")"></span></span><strong>@(server.State == HealthState.Offline ? "N/A" : $"{server.MemoryPercent}%")</strong></div>
+            </div>
+
+            <div class="server-compliance">
+                <div class="compliance-cell state-@databaseState"><small>Database availability</small><strong>@server.DatabaseOnline / @server.DatabaseTotal online</strong></div>
+                <div class="compliance-cell state-@jobsState"><small>SQL Agent</small><strong>@server.JobsHealthy / @server.JobsTotal healthy</strong></div>
+            </div>
+
+            <div class="card-link"><span>Open operational overview</span><span>→</span></div>
+        </div>
+    </a>
+}
+</section>
+<div class="empty-filter-state" data-estate-empty>No servers match the current local filter.</div>
