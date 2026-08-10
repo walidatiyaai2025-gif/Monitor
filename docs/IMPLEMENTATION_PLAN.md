@@ -10,7 +10,9 @@ This is the canonical execution plan. Update it in the same PR as material imple
 | M0-002 | Secure development Admin cookie authentication | VERIFIED — CI |
 | M0-003 | Global premium app shell and navigation | VERIFIED — CI |
 | M0-004 | SQL Command Center with centralized live area | VERIFIED — CI |
+| M0-004A | Command Center estate topology / visual telemetry polish | VERIFIED — CI RUN 31365813089 |
 | M0-005 | Servers + Server Details | VERIFIED — CI |
+| M0-005A | Operational Server Estate + DBA Server Details polish | VERIFIED — CI RUN 31366381962 |
 | M0-006 | Database Health + Memory Health | VERIFIED — CI |
 | M0-007 | Alerts / Incidents + Settings | VERIFIED — CI |
 | M0-008 | Design system + controlled motion | VERIFIED — CI |
