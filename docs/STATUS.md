@@ -1,69 +1,52 @@
 # Project Status
 
-**Updated:** 2026-08-10 12:25 +03:00  
-**Branch:** `agent/m2-m3-ci-reconciliation`  
-**Target:** M2/M3 CI verification reconciliation  
-**Issue:** #25  
+**Updated:** 2026-08-10 12:34 +03:00  
+**Branch:** `agent/m3-005-recommendation-engine`  
+**Target:** M3-005 — Deterministic recommendation engine  
+**Issue:** #27  
 **PR:** TBD  
-**Overall:** 🟢 M2 THROUGH M3-004 CI VERIFIED — RECONCILIATION READY
+**Overall:** 🟡 M3-005 IMPLEMENTED — CI PENDING
 
-## CI verification reconciliation
+## M3-005 — Deterministic recommendation engine
 
-- PR #20 (`M2: add five bounded health module summaries`) is merged on stable `main`.
-- CI run `31372957383`: SUCCESS — Release build 0 warnings / 0 errors; 38/38 tests passed.
-- M2-003 through M2-007 are therefore promoted from LOCAL VERIFIED to CI VERIFIED.
-- PR #24 (`M2/M3: connect health modules and incident engine`) is merged on stable `main`.
-- CI run `31373849952`: SUCCESS — Release build 0 warnings / 0 errors; 45/45 tests passed.
-- M2-008 through M2-013 and M3-001 through M3-004 are therefore promoted from LOCAL VERIFIED to CI VERIFIED.
-- This reconciliation changes tracking only; it does not modify runtime behavior.
+- Added immutable `HealthRecommendation`, ordered remediation-step and diagnostic-SQL proposal contracts.
+- Added `IHealthRecommendationService` with deterministic mappings for every currently allowlisted health rule: stale snapshot, unavailable/suspect databases, backup gap, Agent failure, blocking, memory pressure and runnable-task pressure.
+- Unsupported rule IDs fail closed with no invented recommendation.
+- Recommendation evidence is never interpolated into SQL.
+- Optional diagnostic SQL is application-owned, fixed and read-only. It intentionally excludes modification/repair/job-execution commands.
+- Added an authorized read-only recommendation route from the incident center.
+- The recommendation page shows problem, bounded evidence, confidence/rationale, ordered DBA steps and optional diagnostic SQL with a visible advisory-only boundary.
+- Monitor exposes no endpoint to execute the recommendation SQL or remediation steps.
+- Existing incident center copy was reconciled from the old development-preview wording to the real cached deterministic incident pipeline.
+- Tests cover all current rule mappings, unsupported-rule behavior, SQL non-interpolation/read-only guardrails and recommendation lookup without creating a SQL collection target.
+- ADR-018 records the advisory/non-executable recommendation boundary.
 
-## M2 — Health Modules — VERIFIED THROUGH M2-013
+## M2 — Health Modules — CI VERIFIED THROUGH M2-013
 
-- M2-001 memory snapshot projection: CI `31372045546`.
-- M2-002 cached Memory Health UI: CI `31372312362`.
-- M2-003 database health detail, M2-004 backup summary, M2-005 Agent summary, M2-006 storage summary and M2-007 blocking summary: CI `31372957383`.
-- M2-008 shared cache-only health projection, M2-009 database/backup UI, M2-010 Agent UI, M2-011 storage UI, M2-012 blocking UI and M2-013 bounded performance facts: CI `31373849952`.
-- Health-module pages consume cached immutable snapshots. They do not execute browser SQL or per-widget collection.
+- M2-001: CI `31372045546`.
+- M2-002: CI `31372312362`.
+- M2-003 through M2-007: CI `31372957383` — 38/38 tests, 0 build warnings/errors.
+- M2-008 through M2-013: CI `31373849952` — part of the 45/45-test M2/M3 integration run.
 
 ## M3 — Incidents and Recommendations
 
-- M3-001 immutable allowlisted finding contract: CI `31373849952`.
-- M3-002 deterministic health rule evaluator: CI `31373849952`.
-- M3-003 incident dedupe/lifecycle repository: CI `31373849952`.
-- M3-004 cached incident read and authorized Alerts integration: CI `31373849952`.
-- M3-005 deterministic recommendation engine is the next PLANNED implementation slice.
-
-## M1 — First real SQL vertical slice — VERIFIED
-
-- M1-001 registration + secret boundary: CI `31368239695`.
-- M1-002 secure Test Connection: CI `31368995784`.
-- M1-003 lightweight collector: CI `31369800023`.
-- M1-004 snapshot cache: CI `31370422613`.
-- M1-005 first real cached snapshot UI: CI `31371256976`.
-- M1-006 throttled backend refresh: CI `31371676834`.
-- M1-007 SignalR evaluation: deferred by ADR-013 until scheduled backend publication exists.
-- SQL Connection Lab is merged into stable `main` and preserves the external-secret boundary.
+- M3-001 through M3-004: CI `31373849952` — 45/45 tests, 0 build warnings/errors.
+- M3-005: implementation complete; GitHub Actions verification pending.
 
 ## Stable architecture guardrails
 
 - Browser/UI components never connect directly to monitored SQL Servers.
 - Credentials remain outside browser models and repository registrations.
-- Snapshot cache is the shared read boundary for monitoring surfaces.
-- Health modules and incident evaluation consume immutable bounded snapshot facts.
-- UI motion/filtering does not alter collection frequency.
-- Missing facts remain `Not collected`; mock/development values are never presented as production facts.
-- Incident findings are deterministic and allowlisted; current runtime performs no autonomous remediation.
-
-## Verification evidence
-
-- PR #20 CI `31372957383`: 38 passed, 0 failed, 0 skipped; Release build 0 warnings / 0 errors.
-- PR #24 CI `31373849952`: 45 passed, 0 failed, 0 skipped; Release build 0 warnings / 0 errors.
-- M0 visual acceptance: USER ACCEPTED on 2026-08-10.
+- Snapshot cache remains the shared read boundary for monitoring and incident surfaces.
+- Findings and recommendations are deterministic and allowlisted.
+- Browser/evidence input cannot provide or modify diagnostic SQL.
+- Recommendation SQL is display-only; no autonomous remediation or production mutation exists.
+- AI remains a later advisory layer over normalized evidence, not an execution path.
 
 ## Merge gate
 
-Run GitHub Actions on this documentation reconciliation head. Merge only if restore, Release build and tests stay green and the branch remains clean against `main`.
+Open the M3-005 PR and require GitHub Actions restore, Release build with warnings-as-errors and all tests to pass. Reconcile against any newer `main` changes before merge.
 
 ## Next action
 
-After reconciliation merges, begin M3-005 — a deterministic recommendation engine that maps allowlisted findings/evidence to detailed remediation suggestions while preserving the advisory-only, no-autonomous-execution boundary.
+Run CI on the complete M3-005 implementation, fix any build/Razor/test regression, then record the CI receipt and merge only when the branch remains clean.
