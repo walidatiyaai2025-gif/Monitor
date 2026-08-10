@@ -19,14 +19,53 @@ public sealed class IncidentWorkflowServiceTests
         var page = service.Query(new(Severity: FindingSeverity.Critical));
         var incident = Assert.Single(page.Items);
         Assert.Equal(2, page.Summary.Open);
-        Assert.True(service.Acknowledge(incident.Id));
-        Assert.True(service.Resolve(incident.Id));
-        Assert.True(service.Reopen(incident.Id));
+
+        var acknowledged = service.Acknowledge(incident.Id);
+        Assert.True(acknowledged.Applied);
+        Assert.Equal(IncidentStatus.Open, acknowledged.PreviousStatus);
+        Assert.Equal(IncidentStatus.Acknowledged, acknowledged.NewStatus);
+
+        var resolved = service.Resolve(incident.Id);
+        Assert.True(resolved.Applied);
+        Assert.Equal(IncidentStatus.Acknowledged, resolved.PreviousStatus);
+        Assert.Equal(IncidentStatus.Resolved, resolved.NewStatus);
+
+        var reopened = service.Reopen(incident.Id);
+        Assert.True(reopened.Applied);
+        Assert.Equal(IncidentStatus.Resolved, reopened.PreviousStatus);
+        Assert.Equal(IncidentStatus.Open, reopened.NewStatus);
 
         var details = await service.GetDetailsAsync(incident.Id, default);
         Assert.NotNull(details);
         Assert.NotNull(details.Recommendation);
         Assert.Equal(AdvisorStatus.Disabled, details.Advisor.Status);
+    }
+
+    [Fact]
+    public void RejectedTransition_ReturnsCurrentStateContext()
+    {
+        var repository = new InMemoryHealthIncidentRepository();
+        repository.Apply([Finding("backup.full-gap", FindingSeverity.Warning)]);
+        var service = Service(repository);
+        var incident = Assert.Single(repository.GetAll());
+
+        var result = service.Reopen(incident.Id);
+
+        Assert.False(result.Applied);
+        Assert.Equal(IncidentStatus.Open, result.PreviousStatus);
+        Assert.Equal(IncidentStatus.Open, result.NewStatus);
+        Assert.Equal("rejected:current=Open", result.AuditOutcome);
+    }
+
+    [Fact]
+    public void MissingIncident_ReturnsBoundedNotFoundResult()
+    {
+        var result = Service(new InMemoryHealthIncidentRepository()).Resolve("missing");
+
+        Assert.False(result.Applied);
+        Assert.Null(result.PreviousStatus);
+        Assert.Null(result.NewStatus);
+        Assert.Equal("rejected:not-found", result.AuditOutcome);
     }
 
     [Fact]
