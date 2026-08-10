@@ -16,6 +16,7 @@
 | Controlled motion | M0 | Verified | Client only; no data calls |
 | Server registration model | M1 | CI verified | Validated endpoint/auth metadata; in-memory repository |
 | Connection secret boundary | M1 | CI verified | Opaque reference; values only from User Secrets/environment |
+| Test Connection workflow | M1 | Local verified | Admin-only ID endpoint; bounded timeout and redacted outcomes |
 | Real SQL connection | M1 | Planned | First vertical slice |
 | Backups | M2 | Planned | Coming soon in UI |
 | Jobs | M2 | Planned | Coming soon in UI |

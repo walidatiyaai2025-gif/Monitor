@@ -24,7 +24,7 @@ This is the canonical execution plan. Update it in the same PR as material imple
 | Task | Description | State |
 |---|---|---|
 | M1-001 | Server registration model and secure connection secret boundary | VERIFIED — CI RUN 31368239695 |
-| M1-002 | Test Connection workflow | PLANNED |
+| M1-002 | Test Connection workflow | IMPLEMENTED — LOCAL VERIFIED |
 | M1-003 | Lightweight collector: name/version/edition/instance/uptime/database counts | PLANNED |
 | M1-004 | `ServerHealthSnapshot` domain contract + cache | PLANNED |
 | M1-005 | Replace one demo server with real snapshot data | PLANNED |

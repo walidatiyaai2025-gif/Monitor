@@ -10,6 +10,8 @@ builder.Services.AddSingleton<IAdminCredentialVerifier, AdminCredentialVerifier>
 builder.Services.AddSingleton<IDemoMonitorService, DemoMonitorService>();
 builder.Services.AddSingleton<IServerRegistrationRepository, InMemoryServerRegistrationRepository>();
 builder.Services.AddSingleton<IConnectionSecretStore, ConfigurationConnectionSecretStore>();
+builder.Services.AddSingleton<ISqlConnectionProbe, SqlConnectionProbe>();
+builder.Services.AddSingleton<IServerConnectionTester, ServerConnectionTester>();
 
 builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)

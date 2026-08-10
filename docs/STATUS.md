@@ -1,11 +1,21 @@
 # Project Status
 
-**Updated:** 2026-08-10 11:01 +03:00  
-**Branch:** `agent/m1-server-registration`  
-**Target:** `M1-001`  
+**Updated:** 2026-08-10 11:10 +03:00  
+**Branch:** `agent/m1-test-connection`  
+**Target:** `M1-002`  
 **Issue:** TBD  
-**PR:** #4  
-**Overall:** 🟢 M1-001 VERIFIED — READY TO MERGE
+**PR:** TBD  
+**Overall:** 🟡 M1-002 IMPLEMENTED — LOCAL VERIFICATION COMPLETE
+
+## M1-002 — Test Connection workflow
+
+- Administrator-only POST endpoint accepts a server registration ID only.
+- Official `Microsoft.Data.SqlClient` provider with structured connection-string construction.
+- Five-second connection timeout within a seven-second overall budget.
+- Request cancellation propagation and pooling disabled for truthful tests.
+- Fixed safe outcomes for authentication, network, certificate, timeout and unexpected failures.
+- Raw SQL exceptions, credentials, secret references and connection strings are not returned.
+- 16 total tests pass, including controller authorization/antiforgery and redaction paths.
 
 ## M1-001 — Server registration and secure secret boundary
 
@@ -67,7 +77,7 @@
 - UI-003 CI run `31366381962`: SUCCESS.
 - `dotnet restore`: ✅ VERIFIED by GitHub Actions.
 - `dotnet build --configuration Release --no-restore --warnaserror`: ✅ VERIFIED by GitHub Actions.
-- `dotnet test Monitor.sln --configuration Release --no-build`: ✅ 5 PASSED locally.
+- `dotnet test Monitor.sln --configuration Release --no-build`: ✅ 16 PASSED locally.
 - visual acceptance: ✅ USER ACCEPTED on 2026-08-10.
 
 ## Merge gate
@@ -76,4 +86,4 @@ M0 PR #2 merged to stable `main` at `dfbfa19`.
 
 ## Next action
 
-Merge PR #4, then begin M1-002 Test Connection workflow.
+Push M1-002, verify CI, open a focused PR, then begin M1-003 lightweight collector.
