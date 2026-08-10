@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using Monitor.Web.Models;
 using Monitor.Web.Services;
 using Xunit;
@@ -111,7 +110,6 @@ public sealed class ReliabilityConcurrencyTests
         var final = first.GetById(incidentId)!;
         Assert.Contains(final.Status, new[] { IncidentStatus.Acknowledged, IncidentStatus.Resolved });
         Assert.Equal(1, final.Occurrences);
-        Assert.True(store.ConflictCount >= 0);
     }
 
     [Fact]
@@ -223,11 +221,13 @@ public sealed class ReliabilityConcurrencyTests
 
         for (var cycle = 0; cycle < 120; cycle++)
         {
-            var id = registrationIds[cycle % registrationIds.Length];
-            registrations.Upsert(Registration(id, $"SQL-{cycle % registrationIds.Length:00}"));
+            var registrationIndex = cycle % registrationIds.Length;
+            var id = registrationIds[registrationIndex];
+            registrations.Upsert(Registration(id, $"SQL-{registrationIndex:00}"));
             audit.Append($"node-{cycle % nodes.Length}", "soak.cycle", id.ToString("N"), "ok");
             history.Append(SnapshotResult(id, time.GetUtcNow()));
-            incidents.Apply([Finding(id, time.GetUtcNow(), $"soak.rule.{cycle % 4}")]);
+            var ruleIndex = (cycle / registrationIds.Length) % 4;
+            incidents.Apply([Finding(id, time.GetUtcNow(), $"soak.rule.{ruleIndex}")]);
 
             var owner = nodes[cycle % nodes.Length];
             var lease = await owner.TryAcquireAsync("soak-scheduler", TimeSpan.FromSeconds(30));
@@ -272,7 +272,7 @@ public sealed class ReliabilityConcurrencyTests
         name,
         new SqlServerEndpoint("sql.example.internal", 1433, encrypt: true, trustServerCertificate: false),
         SqlAuthenticationMode.SqlLogin,
-        new ConnectionSecretReference($"env:{name.ToUpperInvariant().Replace('-', '_', StringComparison.Ordinal)}"),
+        new ConnectionSecretReference($"env:{name.ToUpperInvariant().Replace('-', '_')}"),
         true,
         new DateTimeOffset(2026, 8, 11, 1, 0, 0, TimeSpan.Zero));
 
