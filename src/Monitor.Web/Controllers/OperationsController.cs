@@ -15,6 +15,7 @@ public sealed class OperationsController : Controller
     private readonly IAuditStore? _audit;
     private readonly IAdvisorRequestService? _advisorRequests;
     private readonly IHealthIncidentRepository? _incidentRepository;
+    private readonly DeploymentReadinessViewModel _deploymentReadiness;
 
     public OperationsController(
         IDemoMonitorService monitor,
@@ -23,7 +24,8 @@ public sealed class OperationsController : Controller
         ITrendReadService? trends = null,
         IAuditStore? audit = null,
         IAdvisorRequestService? advisorRequests = null,
-        IHealthIncidentRepository? incidentRepository = null)
+        IHealthIncidentRepository? incidentRepository = null,
+        DeploymentReadinessViewModel? deploymentReadiness = null)
     {
         _monitor = monitor;
         _readService = readService;
@@ -32,6 +34,7 @@ public sealed class OperationsController : Controller
         _audit = audit;
         _advisorRequests = advisorRequests;
         _incidentRepository = incidentRepository;
+        _deploymentReadiness = deploymentReadiness ?? DeploymentReadinessViewModel.SafeDefault();
     }
 
     [HttpGet("/dashboard")]
@@ -183,5 +186,6 @@ public sealed class OperationsController : Controller
     }
 
     [HttpGet("/settings")]
-    public IActionResult Settings() => View();
+    [Authorize(Policy = MonitorPolicies.Manage)]
+    public IActionResult Settings() => View(_deploymentReadiness);
 }
