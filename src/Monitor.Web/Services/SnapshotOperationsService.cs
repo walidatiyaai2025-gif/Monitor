@@ -100,11 +100,33 @@ public sealed class SchedulerStatusStore : ISchedulerStatusStore
 }
 
 public interface ICollectionBackoffPolicy { bool IsEligible(Guid id); void Success(Guid id); void Failure(Guid id); }
-public sealed class CollectionBackoffPolicy(TimeProvider timeProvider) : ICollectionBackoffPolicy
+public sealed class CollectionBackoffPolicy(TimeProvider timeProvider, IOperatorMetadataStore? operatorMetadata = null) : ICollectionBackoffPolicy
 {
     private sealed record State(int Failures, DateTimeOffset NextEligibleUtc);
     private readonly ConcurrentDictionary<Guid, State> _states = new();
-    public bool IsEligible(Guid id) => !_states.TryGetValue(id, out var state) || timeProvider.GetUtcNow() >= state.NextEligibleUtc;
+
+    public bool IsEligible(Guid id)
+    {
+        if (operatorMetadata is not null)
+        {
+            try
+            {
+                var metadata = operatorMetadata.GetServer(id);
+                if (EnterpriseOperatorPolicy.IsMaintenanceActive(metadata, timeProvider.GetUtcNow())) return false;
+            }
+            catch (InvalidDataException)
+            {
+                return false;
+            }
+            catch (SharedStateStoreUnavailableException)
+            {
+                return false;
+            }
+        }
+
+        return !_states.TryGetValue(id, out var state) || timeProvider.GetUtcNow() >= state.NextEligibleUtc;
+    }
+
     public void Success(Guid id) => _states.TryRemove(id, out _);
     public void Failure(Guid id) => _states.AddOrUpdate(id,
         _ => new(1, timeProvider.GetUtcNow().AddSeconds(30)),
