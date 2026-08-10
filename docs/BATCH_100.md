@@ -101,16 +101,18 @@ Batch 5 also corrected a production wiring gap discovered after Batch 4: the hea
 
 | Task | Description | Status |
 |---|---|---|
-| B100-051 | Dashboard HA/readiness banner | PLANNED |
-| B100-052 | Node identity/status surface | PLANNED |
-| B100-053 | Shared-state provider health card | PLANNED |
-| B100-054 | Backup readiness card | PLANNED |
-| B100-055 | Scheduler leader card | PLANNED |
-| B100-056 | Manual refresh progress/feedback hardening | PLANNED |
-| B100-057 | Connection recovery actions | PLANNED |
-| B100-058 | Incident filtering/navigation polish | PLANNED |
-| B100-059 | Keyboard/focus/accessibility pass | PLANNED |
-| B100-060 | Responsive DBA wallboard mode | PLANNED |
+| B100-051 | Dashboard HA/readiness banner | CI VERIFIED — RUN 31402491011 |
+| B100-052 | Node identity/status surface | CI VERIFIED — RUN 31402491011 |
+| B100-053 | Shared-state provider health card | CI VERIFIED — RUN 31402491011 |
+| B100-054 | Backup readiness card | CI VERIFIED — RUN 31402491011 |
+| B100-055 | Scheduler leader card | CI VERIFIED — RUN 31402491011 |
+| B100-056 | Manual refresh progress/feedback hardening | CI VERIFIED — RUN 31402491011 |
+| B100-057 | Connection recovery actions | CI VERIFIED — RUN 31402491011 |
+| B100-058 | Incident filtering/navigation polish | CI VERIFIED — RUN 31402491011 |
+| B100-059 | Keyboard/focus/accessibility pass | CI VERIFIED — RUN 31402491011 |
+| B100-060 | Responsive DBA wallboard mode | CI VERIFIED — RUN 31402491011 |
+
+Batch 6 adds a single `IDbaOperationsSurfaceService` that reuses one centralized readiness snapshot and combines only safe backup/scheduler metadata. Dashboard surfaces control-plane readiness, an opaque `NODE-XXXXXXXX` label, shared-state status/schema, operational-backup status and scheduler activity without rendering host names, provider endpoints, credentials or lease-owner IDs. Registered servers without a usable snapshot now open a recovery-aware details page instead of returning 404; recovery routes Administrators to Connection Lab and Operators/Admins to the existing bounded refresh path without showing secret references. Refresh PRG feedback carries status/freshness classification, the incident center has bounded filter/pager controls, the shell adds skip/focus/accessibility semantics, reduced-motion is respected, and large-screen wallboard behavior is CSS-only with no polling or SQL collection change.
 
 ## Batch 7 — Web/application security hardening
 
