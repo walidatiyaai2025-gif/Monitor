@@ -10,6 +10,7 @@ public sealed record SnapshotCacheResult(
 
 public interface IServerHealthSnapshotCache
 {
+    SnapshotCacheResult? Peek(Guid registrationId) => null;
     Task<SnapshotCacheResult> GetAsync(
         ServerRegistration registration,
         CancellationToken cancellationToken = default);
@@ -28,6 +29,14 @@ public sealed class ServerHealthSnapshotCache(
 
     private readonly ConcurrentDictionary<Guid, ServerHealthSnapshot> _snapshots = new();
     private readonly ConcurrentDictionary<Guid, Lazy<Task<ServerHealthSnapshot>>> _inflight = new();
+
+    public SnapshotCacheResult? Peek(Guid registrationId)
+    {
+        if (!_snapshots.TryGetValue(registrationId, out var snapshot)) return null;
+        var age = Age(snapshot);
+        if (age > RetainStaleFor) return null;
+        return new(snapshot, age <= FreshFor ? SnapshotFreshness.Fresh : SnapshotFreshness.Stale, age);
+    }
 
     public async Task<SnapshotCacheResult> GetAsync(
         ServerRegistration registration,

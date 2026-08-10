@@ -15,7 +15,6 @@ public sealed class MonitorReadService(
     IDemoMonitorService demo,
     IServerRegistrationRepository registrations,
     IServerHealthSnapshotCache cache,
-    IHealthRuleEvaluator? evaluator = null,
     IHealthIncidentRepository? incidents = null) : IMonitorReadService
 {
     public async Task<IReadOnlyList<ServerCard>> GetServersAsync(
@@ -92,14 +91,15 @@ public sealed class MonitorReadService(
         };
     }
 
-    public async Task<IReadOnlyList<HealthModuleServerViewModel>> GetHealthModulesAsync(CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<HealthModuleServerViewModel>> GetHealthModulesAsync(CancellationToken cancellationToken = default)
     {
         var rows = new List<HealthModuleServerViewModel>();
         foreach (var registration in registrations.GetAll().Where(item => item.IsEnabled).OrderBy(item => item.CreatedAtUtc).ThenBy(item => item.Id))
         {
             try
             {
-                var result = await cache.GetAsync(registration, cancellationToken);
+                var result = cache.Peek(registration.Id);
+                if (result is null) continue;
                 var snapshot = result.Snapshot;
                 rows.Add(new(
                     registration.Id.ToString("D"), snapshot.ServerName,
@@ -114,42 +114,29 @@ public sealed class MonitorReadService(
             }
         }
 
-        return rows;
+        return Task.FromResult<IReadOnlyList<HealthModuleServerViewModel>>(rows);
     }
 
-    public async Task<IReadOnlyList<IncidentRow>> GetIncidentsAsync(CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<IncidentRow>> GetIncidentsAsync(CancellationToken cancellationToken = default)
     {
-        foreach (var registration in registrations.GetAll().Where(item => item.IsEnabled))
-        {
-            try
-            {
-                var result = await cache.GetAsync(registration, cancellationToken);
-                var findings = (evaluator ??= new HealthRuleEvaluator()).Evaluate(registration.Id, result.Snapshot, result.Freshness);
-                (incidents ??= new InMemoryHealthIncidentRepository()).Reconcile(
-                    registration.Id, result.Snapshot.CollectedAtUtc, findings, result.Freshness == SnapshotFreshness.Fresh);
-            }
-            catch (SnapshotCollectionException)
-            {
-                // Collection failure does not invent or resolve incidents.
-            }
-        }
-
-        return (incidents ??= new InMemoryHealthIncidentRepository()).GetAll().Select(item => new IncidentRow(
+        IReadOnlyList<IncidentRow> rows = (incidents ??= new InMemoryHealthIncidentRepository()).GetAll().Select(item => new IncidentRow(
             item.Id,
             item.Severity.ToString(),
             item.RegistrationId.ToString("D"),
             item.Title,
             $"{Math.Max(0, (DateTimeOffset.UtcNow - item.LastSeenUtc).TotalMinutes):0}m",
             item.Status.ToString())).ToArray();
+        return Task.FromResult(rows);
     }
 
-    private async Task<ServerCard?> TryGetLiveCardAsync(
+    private Task<ServerCard?> TryGetLiveCardAsync(
         ServerRegistration registration,
         CancellationToken cancellationToken)
     {
         try
         {
-            var result = await cache.GetAsync(registration, cancellationToken);
+            var result = cache.Peek(registration.Id);
+            if (result is null) return Task.FromResult<ServerCard?>(null);
             var snapshot = result.Snapshot;
             var state = result.Freshness == SnapshotFreshness.Stale
                 ? HealthState.Warning
@@ -161,7 +148,7 @@ public sealed class MonitorReadService(
                             ? HealthState.Critical
                             : HealthState.Warning;
 
-            return new ServerCard(
+            return Task.FromResult<ServerCard?>(new ServerCard(
                 registration.Id.ToString("D"),
                 snapshot.ServerName,
                 snapshot.ProductVersion,
@@ -176,11 +163,11 @@ public sealed class MonitorReadService(
                 (int)Math.Clamp(result.Age.TotalSeconds, 0, int.MaxValue),
                 result.Freshness == SnapshotFreshness.Fresh
                     ? ServerDataSource.LiveFresh
-                    : ServerDataSource.LiveStale);
+                    : ServerDataSource.LiveStale));
         }
         catch (SnapshotCollectionException)
         {
-            return null;
+            return Task.FromResult<ServerCard?>(null);
         }
     }
 }

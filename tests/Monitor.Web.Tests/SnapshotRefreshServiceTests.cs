@@ -37,6 +37,21 @@ public sealed class SnapshotRefreshServiceTests
         Assert.Equal(0, cache.RefreshCount);
     }
 
+    [Fact]
+    public async Task SuccessfulRefresh_IsObservedExactlyOnce()
+    {
+        var repository = new InMemoryServerRegistrationRepository();
+        var registration = Registration();
+        repository.Upsert(registration);
+        var observer = new FakeObserver();
+        var service = new SnapshotRefreshService(
+            repository, new FakeCache(registration.Id), new FixedTimeProvider(), observer);
+
+        await service.RefreshAsync(registration.Id);
+
+        Assert.Equal(1, observer.CallCount);
+    }
+
     private static ServerRegistration Registration() => new(
         Guid.NewGuid(), "SQL", new SqlServerEndpoint("sql01"),
         SqlAuthenticationMode.IntegratedSecurity, null, true, DateTimeOffset.UtcNow);
@@ -60,5 +75,11 @@ public sealed class SnapshotRefreshServiceTests
     private sealed class FixedTimeProvider : TimeProvider
     {
         public override DateTimeOffset GetUtcNow() => new(2026, 8, 10, 9, 0, 0, TimeSpan.Zero);
+    }
+
+    private sealed class FakeObserver : ISnapshotObserver
+    {
+        public int CallCount { get; private set; }
+        public void Observe(SnapshotCacheResult result) => CallCount++;
     }
 }

@@ -2,7 +2,7 @@
 @{
     ViewData["Title"] = Model.Server.Name;
     var server = Model.Server;
-    var isLive = server.Source != ServerDataSource.Demo;
+    var isLive = server.Source is ServerDataSource.LiveFresh or ServerDataSource.LiveStale;
     var stateName = server.State.ToString().ToLowerInvariant();
     var healthScore = server.State switch
     {
@@ -104,6 +104,10 @@
 </section>
 
 <section class="dashboard-grid" style="margin-top:14px">
+    @if (TempData["SnapshotRefresh"] is string refreshMessage)
+    {
+        <div class="glass-panel panel-span-3" role="status">@refreshMessage</div>
+    }
     <article class="glass-panel panel-span-2">
         <div class="panel-heading"><div><span class="eyebrow">INSTANCE PROFILE</span><h3>Operational context</h3></div></div>
         <div class="definition-grid">
@@ -114,7 +118,12 @@
     </article>
     <article class="glass-panel">
         <div class="panel-heading"><div><span class="eyebrow">SAFE REFRESH</span><h3>Snapshot policy</h3></div></div>
-        <p class="panel-copy">M1 will introduce a backend-controlled refresh command with throttling. Browser widgets will reuse the resulting snapshot rather than query SQL independently.</p>
-        <button class="secondary-button full-button" disabled>Refresh snapshot · M1</button>
+        <p class="panel-copy">Refresh is backend-controlled and throttled. Page navigation only reads the cached snapshot and never queries SQL.</p>
+        @if (User.IsInRole("Administrator") || User.IsInRole("Operator"))
+        {
+            <form asp-action="RefreshServer" asp-route-id="@server.Id" method="post">
+                <button class="secondary-button full-button" type="submit">Refresh snapshot</button>
+            </form>
+        }
     </article>
 </section>

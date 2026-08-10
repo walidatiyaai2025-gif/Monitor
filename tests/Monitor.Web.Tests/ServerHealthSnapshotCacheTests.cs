@@ -26,6 +26,24 @@ public sealed class ServerHealthSnapshotCacheTests
     }
 
     [Fact]
+    public async Task Peek_ReturnsLatestWithoutCallingCollector()
+    {
+        var clock = new MutableTimeProvider(Start);
+        var collector = new FakeCollector(Snapshot(Start));
+        var cache = new ServerHealthSnapshotCache(collector, clock);
+        var registration = Registration();
+
+        Assert.Null(cache.Peek(registration.Id));
+        await cache.RefreshAsync(registration);
+        clock.Advance(TimeSpan.FromSeconds(31));
+        var result = cache.Peek(registration.Id);
+
+        Assert.NotNull(result);
+        Assert.Equal(SnapshotFreshness.Stale, result.Freshness);
+        Assert.Equal(1, collector.CallCount);
+    }
+
+    [Fact]
     public async Task ConcurrentMiss_UsesOneCollectorFlight()
     {
         var gate = new TaskCompletionSource<ServerHealthSnapshot>(TaskCreationOptions.RunContinuationsAsynchronously);

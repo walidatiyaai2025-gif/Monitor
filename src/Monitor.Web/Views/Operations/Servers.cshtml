@@ -67,7 +67,7 @@ else
     <a class="server-card server-card-v2 glass-panel state-@stateName" data-server-card data-state="@stateName" data-name="@server.Name.ToLowerInvariant()" asp-action="ServerDetails" asp-route-id="@server.Id">
         <div class="server-card-v2-inner">
             <div class="server-card-head">
-                <div><span class="health-orb state-@stateName"></span><span class="status-word">@server.State · @(server.Source == ServerDataSource.Demo ? "DEMO" : server.Source == ServerDataSource.LiveFresh ? "LIVE CACHED" : "STALE CACHED")</span></div>
+                <div><span class="health-orb state-@stateName"></span><span class="status-word">@server.State · @(server.Source switch { ServerDataSource.Demo => "DEMO", ServerDataSource.LiveFresh => "LIVE CACHED", ServerDataSource.LiveStale => "STALE CACHED", ServerDataSource.RegisteredUnavailable => "REGISTERED · NOT COLLECTED", _ => "UNKNOWN" })</span></div>
                 <span class="snapshot-freshness"><span class="freshness-dot state-@stateName"></span><span class="snapshot-note" data-snapshot-age data-initial-age="@server.LastScanSecondsAgo">@server.LastScanSecondsAgo sec ago</span></span>
             </div>
 

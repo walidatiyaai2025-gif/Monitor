@@ -147,6 +147,11 @@ public sealed class MonitorReadServiceTests
         Exception? exception = null) : IServerHealthSnapshotCache
     {
         public int CallCount { get; private set; }
+        public SnapshotCacheResult? Peek(Guid registrationId)
+        {
+            CallCount++;
+            return exception is null ? result : null;
+        }
 
         public Task<SnapshotCacheResult> GetAsync(
             ServerRegistration registration,
