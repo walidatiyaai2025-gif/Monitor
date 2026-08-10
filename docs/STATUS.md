@@ -4,8 +4,8 @@
 **Branch:** `agent/m1-test-connection`  
 **Target:** `M1-002`  
 **Issue:** TBD  
-**PR:** TBD  
-**Overall:** 🟡 M1-002 IMPLEMENTED — LOCAL VERIFICATION COMPLETE
+**PR:** #7  
+**Overall:** 🟢 M1-002 VERIFIED — READY TO MERGE
 
 ## M1-002 — Test Connection workflow
 
@@ -16,6 +16,7 @@
 - Fixed safe outcomes for authentication, network, certificate, timeout and unexpected failures.
 - Raw SQL exceptions, credentials, secret references and connection strings are not returned.
 - 16 total tests pass, including controller authorization/antiforgery and redaction paths.
+- CI run `31368995784`: SUCCESS (Release build + 16 tests).
 
 ## M1-001 — Server registration and secure secret boundary
 
@@ -86,4 +87,4 @@ M0 PR #2 merged to stable `main` at `dfbfa19`.
 
 ## Next action
 
-Push M1-002, verify CI, open a focused PR, then begin M1-003 lightweight collector.
+Merge PR #7, then begin M1-003 lightweight collector.
