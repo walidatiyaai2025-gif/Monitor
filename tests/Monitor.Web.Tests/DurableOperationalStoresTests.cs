@@ -48,7 +48,7 @@ public sealed class DurableOperationalStoresTests : IDisposable
         Assert.Equal(10, point.DatabaseOnline);
         Assert.Equal(85, point.MemoryPercent);
         Assert.Equal(2, point.BlockedRequests);
-        Assert.Equal(3, point.RunnableTasks);
+        Assert.Equal(1, point.RunnableTasks);
     }
 
     [Fact]
