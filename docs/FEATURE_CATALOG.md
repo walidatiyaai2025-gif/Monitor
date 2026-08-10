@@ -51,3 +51,4 @@
 | Multi-server real estate | M6 | CI verified | All registered targets shown; unavailable never replaced by demo; CI 31378848889 |
 | Real Dashboard projection | M6 | CI verified | Cache-backed servers, database totals and incidents; CI 31378848889 |
 | Durable registration metadata | M7 | CI verified | Atomic file store outside `wwwroot`; opaque secret references only; CI 31380699808 |
+| Environment-injected external SQL secret provider | M7 | CI verified | `env:<alias>` reads direct process environment; recognized refs never fall back to config; CI 31381465706 |
