@@ -76,6 +76,8 @@ public sealed class OperatorPolicyReadService(IOperatorMetadataStore metadata, T
 
     public OperatorPolicySummary Summarize(IEnumerable<Guid> registrationIds, IEnumerable<HealthIncident> incidents)
     {
+        ArgumentNullException.ThrowIfNull(registrationIds);
+        ArgumentNullException.ThrowIfNull(incidents);
         var servers = GetServers(registrationIds);
         var incidentStates = GetIncidents(incidents);
         return new(
@@ -86,4 +88,13 @@ public sealed class OperatorPolicyReadService(IOperatorMetadataStore metadata, T
     }
 
     private static ServerOperatorPolicyState Unavailable(Guid id) => new(id, false, true, false, ServerEnvironmentClass.Unspecified, null, Array.Empty<string>());
+}
+
+public sealed class MaintenanceAwareCollectionBackoffPolicy(
+    CollectionBackoffPolicy backoff,
+    IOperatorPolicyReadService operatorPolicy) : ICollectionBackoffPolicy
+{
+    public bool IsEligible(Guid id) => operatorPolicy.IsScheduledCollectionAllowed(id) && backoff.IsEligible(id);
+    public void Success(Guid id) => backoff.Success(id);
+    public void Failure(Guid id) => backoff.Failure(id);
 }
