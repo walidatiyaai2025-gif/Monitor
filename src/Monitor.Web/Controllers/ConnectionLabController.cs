@@ -216,7 +216,7 @@ public sealed class ConnectionLabController(
             : endpoint.InstanceName is null
                 ? endpoint.Host
                 : $"{endpoint.Host}\\{endpoint.InstanceName}";
-        var localOwned = registration.SecretReference?.Value.Value.StartsWith("local:v1:", StringComparison.Ordinal) == true;
+        var localOwned = registration.SecretReference?.Value.StartsWith("local:v1:", StringComparison.Ordinal) == true;
 
         return new ConnectionLabRegistrationSummary(
             registration.Id,
