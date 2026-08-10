@@ -31,16 +31,18 @@ Batch 1 deliberately keeps `Deployment:MultiNode` fail-closed after evaluating t
 
 | Task | Description | Status |
 |---|---|---|
-| B100-011 | Shared Data Protection key-ring boundary | PLANNED |
-| B100-012 | External/shared key-ring provider selection | PLANNED |
-| B100-013 | Prohibit node-local `local:v1` credentials in MultiNode | PLANNED |
-| B100-014 | Credential migration command from local ownership to external reference | PLANNED |
-| B100-015 | Safe secret-reference replacement workflow | PLANNED |
-| B100-016 | Orphaned owned-secret cleanup | PLANNED |
-| B100-017 | Credential readiness/health projection | PLANNED |
-| B100-018 | Secret-rotation metadata and audit | PLANNED |
-| B100-019 | Automatic bounded connection re-test after credential replacement | PLANNED |
-| B100-020 | HA credential security acceptance suite | PLANNED |
+| B100-011 | Shared Data Protection key-ring boundary | CI VERIFIED — RUN 31391446513 |
+| B100-012 | External/shared key-ring provider selection | CI VERIFIED — RUN 31391446513 |
+| B100-013 | Prohibit node-local `local:v1` credentials in MultiNode | CI VERIFIED — RUN 31391446513 |
+| B100-014 | Credential migration command from local ownership to external reference | CI VERIFIED — RUN 31391446513 |
+| B100-015 | Safe secret-reference replacement workflow | CI VERIFIED — RUN 31391446513 |
+| B100-016 | Orphaned owned-secret cleanup | CI VERIFIED — RUN 31391446513 |
+| B100-017 | Credential readiness/health projection | CI VERIFIED — RUN 31391446513 |
+| B100-018 | Secret-rotation metadata and audit | CI VERIFIED — RUN 31391446513 |
+| B100-019 | Automatic bounded connection re-test after credential replacement | CI VERIFIED — RUN 31391446513 |
+| B100-020 | HA credential security acceptance suite | CI VERIFIED — RUN 31391446513 |
+
+Batch 2 adds an optional shared encrypted ASP.NET Data Protection key ring over the dedicated Monitor state provider. A 256-bit key-encryption key comes from process environment and is never persisted in Monitor state. Credential migration uses Resolve → Test Connection → metadata commit → owned-secret cleanup, and current secret references are never rendered. `Deployment:MultiNode` remains fail-closed until the later login-security and snapshot-cache strategy tasks are complete.
 
 ## Batch 3 — Backup, export & restore
 
