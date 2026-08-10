@@ -1,10 +1,10 @@
 # Project Status
 
-**Updated:** 2026-08-11 02:01 +03:00  
+**Updated:** 2026-08-11 02:03 +03:00  
 **Branch:** `agent/b100-9`  
 **Target:** BATCH-100 / Batch 9 — Deployment & operations tooling  
 **Issues:** #55 umbrella · #72 Batch 9  
-**PR:** pending final branch documentation  
+**PR:** #73 — BATCH-100/9: add production deployment tooling  
 **Overall:** 🟢 M0–M6 VERIFIED · M7-001..M7-018 CI VERIFIED · M8 CI VERIFIED · B100-001..090 CI VERIFIED · 🟡 FINAL PR CI PENDING BEFORE MERGE
 
 ## BATCH-100 / Batch 9 — CI VERIFIED
@@ -13,11 +13,12 @@ B100-081..090 are implemented on `agent/b100-9`. Branch CI run `31440573683` is 
 
 ### CI evidence
 
+- PR: #73.
 - Branch CI: `31440573683`.
 - Release build: **0 warnings / 0 errors** with `--warnaserror`.
 - Tests: **219 passed / 0 failed / 0 skipped**.
 - Deployment acceptance tests parse the production JSON, inspect runtime/service wiring, reject high-privilege SQL grants, require build/test before release packaging, enforce HTTPS/control-plane-only smoke probes and scan all Batch 9 artifacts for a secret canary.
-- Final PR merge-result CI remains required after canonical documentation is complete.
+- Final PR merge-result CI is required on this canonical code + docs head before merge.
 
 ### B100-081..090 delivered
 
@@ -43,7 +44,7 @@ B100-081..090 are implemented on `agent/b100-9`. Branch CI run `31440573683` is 
 
 ## Merge gate
 
-Open the Batch 9 PR against `main`, require final merge-result CI on code + canonical docs to pass Release `--warnaserror` build and all tests, confirm `main` has not moved into overlapping hosting/deployment code, then squash-merge.
+Require final PR #73 merge-result CI on this code + canonical docs head to pass Release `--warnaserror` build and all tests, confirm `main` has not moved into overlapping hosting/deployment code, then squash-merge.
 
 ## Next action
 
