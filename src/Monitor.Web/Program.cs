@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Monitor.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Host.UseWindowsService(options => options.ServiceName = "Monitor");
 
 builder.Services.AddControllersWithViews();
 builder.Services.Configure<AdminCredentialOptions>(builder.Configuration.GetSection(AdminCredentialOptions.SectionName));
