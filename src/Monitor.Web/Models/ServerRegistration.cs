@@ -17,14 +17,14 @@ public sealed record SqlServerEndpoint
         bool encrypt = true,
         bool trustServerCertificate = false)
     {
-        Host = RequireText(host, nameof(host));
+        Host = NormalizeHost(host);
 
         if (port is < 1 or > 65535)
         {
             throw new ArgumentOutOfRangeException(nameof(port), "Port must be between 1 and 65535.");
         }
 
-        var normalizedInstance = string.IsNullOrWhiteSpace(instanceName) ? null : instanceName.Trim();
+        var normalizedInstance = string.IsNullOrWhiteSpace(instanceName) ? null : NormalizeInstanceName(instanceName);
         if (port.HasValue && normalizedInstance is not null)
         {
             throw new ArgumentException("Specify either a port or an instance name, not both.");
@@ -42,14 +42,33 @@ public sealed record SqlServerEndpoint
     public bool Encrypt { get; }
     public bool TrustServerCertificate { get; }
 
-    private static string RequireText(string value, string parameterName)
+    private static string NormalizeHost(string value)
+    {
+        var normalized = RequireText(value, nameof(value), 255);
+        if (normalized.Any(character => char.IsWhiteSpace(character) || char.IsControl(character) || character is ';' or '=' or ',' or '\\' or '/' or '"' or '\''))
+            throw new ArgumentException("SQL host contains unsupported characters.", "host");
+        return normalized;
+    }
+
+    private static string NormalizeInstanceName(string value)
+    {
+        var normalized = RequireText(value, nameof(value), 128);
+        if (normalized.Any(character => char.IsWhiteSpace(character) || char.IsControl(character) || character is ';' or '=' or ',' or '\\' or '/' or '"' or '\''))
+            throw new ArgumentException("SQL instance name contains unsupported characters.", "instanceName");
+        return normalized;
+    }
+
+    private static string RequireText(string value, string parameterName, int maxLength)
     {
         if (string.IsNullOrWhiteSpace(value))
         {
             throw new ArgumentException("Value is required.", parameterName);
         }
 
-        return value.Trim();
+        var normalized = value.Trim();
+        if (normalized.Length > maxLength || normalized.Any(char.IsControl))
+            throw new ArgumentException("Value is invalid or exceeds the supported length.", parameterName);
+        return normalized;
     }
 }
 
@@ -62,7 +81,11 @@ public readonly record struct ConnectionSecretReference
             throw new ArgumentException("Secret reference is required.", nameof(value));
         }
 
-        Value = value.Trim();
+        var normalized = value.Trim();
+        if (normalized.Length > 256 || normalized.Any(char.IsControl))
+            throw new ArgumentException("Secret reference is invalid or too long.", nameof(value));
+
+        Value = normalized;
     }
 
     public string Value { get; }
@@ -90,6 +113,10 @@ public sealed record ServerRegistration
             throw new ArgumentException("Display name is required.", nameof(displayName));
         }
 
+        var normalizedDisplayName = displayName.Trim();
+        if (normalizedDisplayName.Length > 120 || normalizedDisplayName.Any(char.IsControl))
+            throw new ArgumentException("Display name is invalid or too long.", nameof(displayName));
+
         if (authenticationMode == SqlAuthenticationMode.SqlLogin && secretReference is null)
         {
             throw new ArgumentException("SQL login authentication requires a secret reference.", nameof(secretReference));
@@ -101,7 +128,7 @@ public sealed record ServerRegistration
         }
 
         Id = id;
-        DisplayName = displayName.Trim();
+        DisplayName = normalizedDisplayName;
         Endpoint = endpoint ?? throw new ArgumentNullException(nameof(endpoint));
         AuthenticationMode = authenticationMode;
         SecretReference = secretReference;
