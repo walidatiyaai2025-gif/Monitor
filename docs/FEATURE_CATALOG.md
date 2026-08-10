@@ -40,3 +40,8 @@
 | Snapshot history | M5 | Local verified | Allowlisted 24-hour in-memory aggregate retention |
 | Collection cycle | M5 | Local verified | Backend-only deterministic refresh cycle; scheduler remains disabled |
 | Snapshot trends | M5 | Local verified | Fixed 1h/6h/24h read-only windows |
+| Scheduled collection runtime | M5 | Local verified | Disabled by default; bounded parallelism, backoff and status |
+| Audit trail | M5 | Local verified | Bounded append-only authentication/operator/advisor metadata |
+| Policy-based RBAC | M5 | Local verified | Viewer, Operator and Administrator authorization policies |
+| Web security baseline | M5 | Local verified | Strict cookie, CSP/frame/nosniff/referrer headers and login limiting |
+| Guarded Advisor request | M4 | Local verified | Explicit POST, single-flight, TTL cache, timeout, circuit and audit |

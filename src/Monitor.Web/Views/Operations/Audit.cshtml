@@ -1,0 +1,4 @@
+@model IReadOnlyList<Monitor.Web.Services.AuditEvent>
+@{ ViewData["Title"] = "Audit trail"; }
+<section class="page-heading"><div><span class="eyebrow">APPEND-ONLY · BOUNDED</span><h1>Audit trail</h1><p>Authentication and operator actions without credentials or payload contents.</p></div></section>
+<section class="glass-panel table-panel"><div class="incident-table"><div class="table-head"><span>Time</span><span>Actor</span><span>Action</span><span>Target</span><span>Outcome</span><span>ID</span></div>@foreach (var item in Model){<div class="table-row"><span>@item.OccurredAtUtc.ToString("u")</span><span>@item.Actor</span><span>@item.Action</span><span>@item.Target</span><span>@item.Outcome</span><span>@item.Id.ToString("N")[..8]</span></div>}</div></section>

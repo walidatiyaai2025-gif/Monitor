@@ -166,3 +166,53 @@ public sealed class IncidentWorkflowService(
     public bool Resolve(string id) => repository.TrySetStatus(id, IncidentStatus.Acknowledged, IncidentStatus.Resolved) || repository.TrySetStatus(id, IncidentStatus.Open, IncidentStatus.Resolved);
     public bool Reopen(string id) => repository.TrySetStatus(id, IncidentStatus.Resolved, IncidentStatus.Open);
 }
+
+public interface IAdvisorRequestService { Task<AdvisorResult> RequestAsync(string incidentId, string actor, CancellationToken cancellationToken); }
+public sealed class AdvisorRequestService(
+    IHealthIncidentRepository incidents,
+    IRecommendationEngine recommendations,
+    IAdvisorContextBuilder contextBuilder,
+    IAdvisorProvider provider,
+    IAuditStore audit,
+    TimeProvider timeProvider) : IAdvisorRequestService
+{
+    private sealed record CacheEntry(DateTimeOffset EvidenceAtUtc, DateTimeOffset ExpiresAtUtc, AdvisorResult Result);
+    private readonly ConcurrentDictionary<string, Lazy<Task<AdvisorResult>>> _flights = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, CacheEntry> _cache = new(StringComparer.Ordinal);
+    private int _failures;
+    private DateTimeOffset _circuitUntilUtc;
+
+    public async Task<AdvisorResult> RequestAsync(string incidentId, string actor, CancellationToken cancellationToken)
+    {
+        var incident = incidents.GetById(incidentId);
+        if (incident is null) return new(AdvisorStatus.Unavailable, "Incident was not found.");
+        var now = timeProvider.GetUtcNow();
+        if (_cache.TryGetValue(incidentId, out var cached) && cached.EvidenceAtUtc == incident.LastSeenUtc && cached.ExpiresAtUtc > now) return cached.Result;
+        if (now < _circuitUntilUtc) return new(AdvisorStatus.Unavailable, "AI Advisor is temporarily unavailable.");
+
+        var flight = _flights.GetOrAdd(incidentId, _ => new(() => InvokeAsync(incident, actor, CancellationToken.None)));
+        try { return await flight.Value.WaitAsync(cancellationToken); }
+        finally { _flights.TryRemove(new KeyValuePair<string, Lazy<Task<AdvisorResult>>>(incidentId, flight)); }
+    }
+
+    private async Task<AdvisorResult> InvokeAsync(HealthIncident incident, string actor, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeout.CancelAfter(TimeSpan.FromSeconds(10));
+            var context = contextBuilder.Build(incident, recommendations.Build(incident));
+            var result = await provider.AdviseAsync(context, timeout.Token);
+            _failures = 0;
+            _cache[incident.Id] = new(incident.LastSeenUtc, timeProvider.GetUtcNow().AddMinutes(5), result);
+            audit.Append(actor, "advisor.request", incident.Id, result.Status.ToString());
+            return result;
+        }
+        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            if (Interlocked.Increment(ref _failures) >= 3) _circuitUntilUtc = timeProvider.GetUtcNow().AddMinutes(1);
+            audit.Append(actor, "advisor.request", incident.Id, "unavailable");
+            return new(AdvisorStatus.Unavailable, "AI Advisor is temporarily unavailable.");
+        }
+    }
+}

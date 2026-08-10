@@ -10,10 +10,14 @@ namespace Monitor.Web.Controllers;
 public sealed class AccountController : Controller
 {
     private readonly IAdminCredentialVerifier _credentialVerifier;
+    private readonly ILoginAttemptLimiter? _limiter;
+    private readonly IAuditStore? _audit;
 
-    public AccountController(IAdminCredentialVerifier credentialVerifier)
+    public AccountController(IAdminCredentialVerifier credentialVerifier, ILoginAttemptLimiter? limiter = null, IAuditStore? audit = null)
     {
         _credentialVerifier = credentialVerifier;
+        _limiter = limiter;
+        _audit = audit;
     }
 
     [AllowAnonymous]
@@ -36,18 +40,31 @@ public sealed class AccountController : Controller
     {
         var normalizedUsername = username ?? string.Empty;
         var normalizedPassword = password ?? string.Empty;
+        var attemptKey = $"{HttpContext.Connection.RemoteIpAddress}:{normalizedUsername.Trim().ToUpperInvariant().GetHashCode(StringComparison.Ordinal)}";
+
+        if (_limiter?.IsAllowed(attemptKey) == false)
+        {
+            Response.StatusCode = StatusCodes.Status429TooManyRequests;
+            ModelState.AddModelError(string.Empty, "Too many login attempts. Try again later.");
+            return View();
+        }
 
         if (!_credentialVerifier.Verify(normalizedUsername, normalizedPassword))
         {
+            _limiter?.RecordFailure(attemptKey);
+            _audit?.Append("anonymous", "login", "development-admin", "rejected");
             ModelState.AddModelError(string.Empty, "Invalid username or password.");
             ViewData["ReturnUrl"] = returnUrl;
             return View();
         }
 
+        _limiter?.RecordSuccess(attemptKey);
+        _audit?.Append(normalizedUsername, "login", "development-admin", "success");
+
         var claims = new[]
         {
             new Claim(ClaimTypes.Name, normalizedUsername),
-            new Claim(ClaimTypes.Role, "Administrator")
+            new Claim(ClaimTypes.Role, MonitorRoles.Administrator)
         };
 
         var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);

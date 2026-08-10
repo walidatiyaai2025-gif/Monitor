@@ -67,3 +67,7 @@ M3-005 through M3-016 add idempotent observations, bounded querying, incident de
 M4-001 through M4-006 establish a normalized backend advisor context and provider abstraction. The only registered provider is disabled and returns a fixed status. No network call, tool invocation, SQL execution or autonomous remediation exists.
 
 M5-001 through M5-007 add bounded in-memory aggregate history, a shared observer, a deterministic backend collection cycle and fixed-window trend reads. Schedule policy is disabled by default and no background host is activated yet.
+
+M5-008 through M5-025 activate the scheduler infrastructure while keeping collection disabled by default. The host has no immediate startup run, no overlapping cycles, bounded per-server concurrency, failure isolation, capped backoff and allowlisted runtime status. The same batch adds bounded append-only audit metadata, policy-based Viewer/Operator/Administrator authorization, hardened cookies/security headers and partitioned login limiting.
+
+M4-007 through M4-013 add the only advisor request path: an authorized antiforgery-protected POST by incident ID. Server-side context flows through single-flight, evidence-version cache, timeout and circuit boundaries. The provider remains disabled unless explicitly replaced; results remain advisory and disconnected from SQL execution.

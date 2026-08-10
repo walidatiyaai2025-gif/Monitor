@@ -80,6 +80,13 @@ This is the canonical execution plan. Update it in the same PR as material imple
 | M4-004 | Disabled-by-default provider and result | IMPLEMENTED — LOCAL VERIFIED |
 | M4-005 | Advisor orchestration on incident details | IMPLEMENTED — LOCAL VERIFIED |
 | M4-006 | Human-reviewed advisory UI with no execution path | IMPLEMENTED — LOCAL VERIFIED |
+| M4-007 | Explicit advisor request service | IMPLEMENTED — LOCAL VERIFIED |
+| M4-008 | Authorized antiforgery-protected advisor POST | IMPLEMENTED — LOCAL VERIFIED |
+| M4-009 | Per-incident advisor single-flight | IMPLEMENTED — LOCAL VERIFIED |
+| M4-010 | Evidence-version advisor result cache | IMPLEMENTED — LOCAL VERIFIED |
+| M4-011 | Bounded advisor timeout | IMPLEMENTED — LOCAL VERIFIED |
+| M4-012 | Failure circuit breaker | IMPLEMENTED — LOCAL VERIFIED |
+| M4-013 | Redacted advisor request audit | IMPLEMENTED — LOCAL VERIFIED |
 
 ## M5 — History and Operational Hardening
 
@@ -92,6 +99,24 @@ This is the canonical execution plan. Update it in the same PR as material imple
 | M5-005 | Disabled-by-default validated schedule policy | IMPLEMENTED — LOCAL VERIFIED |
 | M5-006 | Deterministic collection cycle | IMPLEMENTED — LOCAL VERIFIED |
 | M5-007 | Fixed-window read-only trends page | IMPLEMENTED — LOCAL VERIFIED |
+| M5-008 | Validated schedule configuration binding | IMPLEMENTED — LOCAL VERIFIED |
+| M5-009 | Disabled-by-default hosted scheduler | IMPLEMENTED — LOCAL VERIFIED |
+| M5-010 | Periodic no-overlap collection loop | IMPLEMENTED — LOCAL VERIFIED |
+| M5-011 | Bounded parallel collection cycle | IMPLEMENTED — LOCAL VERIFIED |
+| M5-012 | Per-server failure isolation | IMPLEMENTED — LOCAL VERIFIED |
+| M5-013 | Exponential capped collection backoff | IMPLEMENTED — LOCAL VERIFIED |
+| M5-014 | Allowlisted scheduler runtime status | IMPLEMENTED — LOCAL VERIFIED |
+| M5-015 | Exactly-once successful snapshot observation | IMPLEMENTED — LOCAL VERIFIED |
+| M5-016 | Bounded audit event contract | IMPLEMENTED — LOCAL VERIFIED |
+| M5-017 | Append-only 1000-event audit store | IMPLEMENTED — LOCAL VERIFIED |
+| M5-018 | Paginated administrator audit UI | IMPLEMENTED — LOCAL VERIFIED |
+| M5-019 | Viewer/Operator/Administrator role foundation | IMPLEMENTED — LOCAL VERIFIED |
+| M5-020 | Read policy for monitoring pages | IMPLEMENTED — LOCAL VERIFIED |
+| M5-021 | Operator policy for incident commands | IMPLEMENTED — LOCAL VERIFIED |
+| M5-022 | Administrator/advisor policies | IMPLEMENTED — LOCAL VERIFIED |
+| M5-023 | Strict secure cookie policy | IMPLEMENTED — LOCAL VERIFIED |
+| M5-024 | Baseline browser security headers | IMPLEMENTED — LOCAL VERIFIED |
+| M5-025 | Partitioned login limiting and safe login audit | IMPLEMENTED — LOCAL VERIFIED |
 
 ## Delivery loop
 
