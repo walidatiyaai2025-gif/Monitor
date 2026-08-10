@@ -1,0 +1,76 @@
+@model IncidentRecommendationViewModel
+@{
+    ViewData["Title"] = "Recommendation";
+    var recommendation = Model.Recommendation;
+    var incident = Model.Incident;
+    var severity = incident.Severity.ToString().ToLowerInvariant();
+    var confidence = recommendation.Confidence.ToString().ToUpperInvariant();
+}
+
+<div class="data-banner"><strong>ADVISORY ONLY</strong><span>This recommendation is deterministic and evidence-bound. Monitor does not execute the diagnostic SQL or remediation steps.</span></div>
+
+<section class="recommendation-hero glass-panel state-@severity">
+    <div class="recommendation-hero-main">
+        <div class="recommendation-kicker"><span class="severity severity-@severity">@incident.Severity</span><span>@recommendation.RuleId</span><span>@incident.Status</span></div>
+        <h2>@incident.Title</h2>
+        <p>@recommendation.Problem</p>
+        <div class="recommendation-evidence"><small>OBSERVED EVIDENCE</small><strong>@recommendation.Evidence</strong></div>
+    </div>
+    <aside class="recommendation-confidence">
+        <small>CONFIDENCE</small>
+        <strong>@confidence</strong>
+        <span>Deterministic rule mapping</span>
+        <div><small>Occurrences</small><b>@incident.Occurrences</b></div>
+        <div><small>Last seen</small><b>@incident.LastSeenUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</b></div>
+    </aside>
+</section>
+
+<section class="recommendation-grid">
+    <article class="glass-panel recommendation-panel">
+        <div class="panel-heading"><div><span class="eyebrow">REMEDIATION PATH</span><h3>Recommended DBA sequence</h3></div><span class="snapshot-note">No autonomous execution</span></div>
+        <div class="recommendation-steps">
+            @foreach (var step in recommendation.Steps.OrderBy(item => item.Order))
+            {
+                <div class="recommendation-step @(step.RequiresChangeApproval ? "requires-approval" : string.Empty)">
+                    <span>@step.Order.ToString("00")</span>
+                    <div><strong>@step.Title</strong><p>@step.Detail</p></div>
+                    <em>@(step.RequiresChangeApproval ? "APPROVAL" : "DIAGNOSTIC")</em>
+                </div>
+            }
+        </div>
+    </article>
+
+    <aside class="glass-panel recommendation-panel">
+        <div class="panel-heading"><div><span class="eyebrow">WHY THIS PATH</span><h3>Recommendation rationale</h3></div></div>
+        <p class="recommendation-rationale">@recommendation.Rationale</p>
+        <div class="recommendation-boundaries">
+            <div><small>Evidence source</small><strong>Allowlisted health finding</strong></div>
+            <div><small>SQL source</small><strong>Application-owned constant</strong></div>
+            <div><small>Execution</small><strong>Never executed by Monitor</strong></div>
+            <div><small>AI</small><strong>Not used in M3-005</strong></div>
+        </div>
+    </aside>
+</section>
+
+@if (recommendation.DiagnosticSql is not null)
+{
+    var sql = recommendation.DiagnosticSql;
+    <article class="glass-panel diagnostic-sql-panel">
+        <div class="panel-heading"><div><span class="eyebrow">OPTIONAL DIAGNOSTIC SQL</span><h3>@sql.Title</h3></div><span class="severity severity-healthy">READ ONLY</span></div>
+        <p>@sql.Purpose</p>
+        <pre><code>@sql.Sql</code></pre>
+        <div class="sql-safety"><span>◇</span><div><strong>Safety boundary</strong><p>@sql.SafetyNote</p></div></div>
+    </article>
+}
+else
+{
+    <article class="glass-panel diagnostic-sql-panel no-sql">
+        <div class="panel-heading"><div><span class="eyebrow">DIAGNOSTIC SQL</span><h3>No query proposed for this finding</h3></div></div>
+        <p>The recommended next step is operational verification rather than an additional SQL query.</p>
+    </article>
+}
+
+<div class="recommendation-footer-actions">
+    <a class="secondary-button" asp-action="Alerts">← Back to incident center</a>
+    <span>Recommendation generated from current incident rule/evidence only.</span>
+</div>
