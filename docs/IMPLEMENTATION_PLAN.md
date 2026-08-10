@@ -180,7 +180,7 @@ This is the canonical execution plan. Update it in the same PR as material imple
 |---|---|---|
 | M7-001 | Durable local server-registration metadata store with atomic writes and corruption fail-closed behavior | VERIFIED — CI RUN 31380699808 |
 | M7-002 | Environment-injected external SQL secret provider behind the existing secret-store boundary | VERIFIED — CI RUN 31381465706 |
-| M7-003 | Durable Monitor-owned audit/history/incident operational store | PLANNED |
+| M7-003 | Durable Monitor-owned audit/history/incident operational store | VERIFIED — CI RUN 31382770932 |
 | M7-004 | Shared-state / HA deployment strategy and implementation slice | PLANNED |
 
 ## Delivery loop

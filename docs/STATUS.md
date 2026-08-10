@@ -1,64 +1,51 @@
 # Project Status
 
-**Updated:** 2026-08-10 14:05 +03:00  
-**Branch:** `agent/m7-002-environment-secret-provider`  
-**Target:** M7-002 environment-injected enterprise secret provider  
-**Issue:** #43  
-**PR:** #44  
-**Overall:** 🟢 M0–M6 VERIFIED — M7-001/M7-002 CI VERIFIED
+**Updated:** 2026-08-10 14:18 +03:00  
+**Branch:** `agent/m7-003-durable-operational-state`  
+**Target:** M7-003 durable Monitor-owned operational state  
+**Issue:** #45  
+**PR:** #46  
+**Overall:** 🟢 M0–M6 VERIFIED — M7-001..M7-003 CI VERIFIED
 
-## M7-002 — Environment-injected external SQL secret provider — CI VERIFIED
+## M7-003 — Durable Monitor-owned operational state — CI VERIFIED
 
-- Preserves the existing `IConnectionSecretStore`, `ConnectionSecretReference`, SQL probe/tester and collector contracts.
-- Adds an external secret-provider routing boundary behind the existing backend secret store.
-- References of the form `env:<alias>` are handled by `EnvironmentConnectionSecretProvider`.
-- Aliases are bounded to 64 ASCII letters/digits/underscore characters and normalize to uppercase.
-- Example `env:FINANCE_PROD` maps only to `MONITOR_SQL_SECRET_FINANCE_PROD_USERNAME` and `MONITOR_SQL_SECRET_FINANCE_PROD_PASSWORD`.
-- Environment values are read directly from the process environment, not through `IConfiguration`.
-- A recognized `env:` reference that is malformed, missing or partial fails closed and never falls back to `ConnectionSecrets` configuration.
-- Runtime `runtime-*` credentials remain highest-priority and process-memory only.
-- Existing non-`env:` `ConnectionSecrets:<reference>` resolution remains backward compatible.
-- No vendor-specific cloud secret SDK, secret write endpoint or SQL behavior change was introduced.
-- UI guidance now documents the environment naming convention and accurately describes runtime password input as write-only/non-repopulated.
-- CI run `31381465706`: SUCCESS — Release build 0 warnings / 0 errors; 82/82 tests passed; Razor compiled in Release.
+- Preserves `IAuditStore`, `ISnapshotHistoryStore` and `IHealthIncidentRepository`; current controllers, observer, scheduler, Advisor and incident workflow consumers keep the same contracts.
+- Adds `OperationalStore` File/InMemory mode. File mode is the default and resolves `App_Data/operational` outside `wwwroot`.
+- Uses independent versioned `audit.json`, `history.json` and `incidents.json` files so unrelated operational state does not share one mutation transaction.
+- Mutations build a candidate state, write/flush a same-directory temporary file, atomically replace the durable file, then publish the candidate in process.
+- Corrupt, unsupported or domain-invalid persisted state fails closed on startup.
+- Audit retains bounded metadata and max 1,000 events with newest-first paging.
+- History persists only allowlisted aggregates, deduplicates registration/timestamp, keeps 24 hours and max 288 points/server.
+- Incidents preserve stable registration/rule identity, older-evidence ignore semantics, fresh reconciliation resolution and compare-and-set status transitions.
+- No SQL text, credentials, monitored-server endpoints, provider errors, job commands or arbitrary request payloads are part of the operational persistence contract.
+- Initial CI exposed one incorrect test expectation for `RunnableTasks`; production code compiled successfully. The assertion was corrected without changing production behavior.
+- CI run `31382770932`: SUCCESS — Release build 0 warnings / 0 errors; 89/89 tests passed; Razor compiled in Release.
 
-## M7-001 — Durable registration metadata persistence — CI VERIFIED
+## M7-002 — External SQL secret provider — CI VERIFIED
 
-- Dynamic server registrations survive process restart through a configurable file-backed `IServerRegistrationRepository` implementation.
-- Default store path is `App_Data/registrations.json`, outside `wwwroot`.
-- Persisted data contains safe endpoint/authentication metadata and the opaque `ConnectionSecretReference` only; runtime credential values are not persisted.
-- Corrupt persisted state fails closed.
+- `env:<alias>` routes directly to strict process-environment variables behind `IConnectionSecretStore`.
+- Provider-owned missing/partial references fail closed without configuration fallback.
+- Final CI `31382052980`: 82/82 tests; Release build 0 warnings / 0 errors.
+
+## M7-001 — Durable registration metadata — CI VERIFIED
+
+- Dynamic registrations survive restart without persisting SQL credential values.
 - Final CI `31381074579`: 72/72 tests; Release build 0 warnings / 0 errors.
-
-## Earlier verified milestones
-
-- M0 visual foundation: USER ACCEPTED on 2026-08-10.
-- M1 first real SQL vertical slice: CI verified through M1-007.
-- M2 health modules: CI verified through M2-013.
-- M3 incidents/recommendations: CI verified through M3-016.
-- M4 Advisor boundary/hardening: CI verified through M4-013.
-- M5-001 through M5-007: CI `31375034604`.
-- M5-008 through M5-025: CI `31376448363`.
-- M5-026: CI `31379998409`.
-- M6-001 through M6-050: CI `31378848889`.
-- M7-001: CI `31380699808`, final docs-head `31381074579`.
-- M7-002 implementation: CI `31381465706`.
 
 ## Stable architecture guardrails
 
 - Browser/UI components never connect directly to monitored SQL Servers.
 - Snapshot cache remains the shared evidence/read boundary.
 - Recommendations and Advisor output remain human-review only and cannot execute production SQL.
-- Audit records contain bounded operational metadata, not unrestricted evidence or secrets.
-- Registration persistence stores metadata/opaque references only, never SQL credential values.
-- External secret providers remain behind `IConnectionSecretStore`; SQL probing/collection code does not know the provider type.
-- A provider-owned reference fails closed inside that provider path; it cannot silently downgrade to a different secret source.
-- Scheduled collection remains disabled unless explicitly enabled by validated configuration.
+- Secret-provider routing remains behind `IConnectionSecretStore`.
+- Registration persistence stores metadata/opaque references only.
+- Operational persistence is Monitor-owned and bounded; it never uses monitored SQL Servers as a configuration/state write target.
+- M7 file stores provide single-node durability only; shared/HA state is deferred to M7-004.
 
 ## Merge gate
 
-Run GitHub Actions on the final documentation/UI head. Confirm `main` has not introduced an overlapping secret-provider change, then merge PR #44 only if restore, Release build with warnings-as-errors, Razor compilation and all tests remain Green.
+Run GitHub Actions on the final docs head. Confirm `main` has not introduced an overlapping operational-store change, then merge PR #46 only if restore, Release build with warnings-as-errors, Razor compilation and all tests remain Green.
 
 ## Next action
 
-After M7-002 merge, execute M7-003: durable Monitor-owned operational state for audit/history/incidents behind stable boundaries, without storing monitored SQL text, credentials or unrestricted evidence.
+After M7-003 merge, execute M7-004: define and implement the first shared-state/HA deployment slice without weakening the existing secret, snapshot, audit or incident boundaries.
