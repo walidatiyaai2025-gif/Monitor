@@ -17,6 +17,7 @@ public sealed class OperationsController : Controller
     private readonly IHealthIncidentRepository? _incidentRepository;
     private readonly ISnapshotRefreshService? _snapshotRefresh;
     private readonly DeploymentReadinessViewModel _deploymentReadiness;
+    private readonly ISharedStateReadinessService? _sharedStateReadiness;
 
     public OperationsController(
         IDemoMonitorService monitor,
@@ -27,7 +28,8 @@ public sealed class OperationsController : Controller
         IAdvisorRequestService? advisorRequests = null,
         IHealthIncidentRepository? incidentRepository = null,
         ISnapshotRefreshService? snapshotRefresh = null,
-        DeploymentReadinessViewModel? deploymentReadiness = null)
+        DeploymentReadinessViewModel? deploymentReadiness = null,
+        ISharedStateReadinessService? sharedStateReadiness = null)
     {
         _monitor = monitor;
         _readService = readService;
@@ -38,6 +40,7 @@ public sealed class OperationsController : Controller
         _incidentRepository = incidentRepository;
         _snapshotRefresh = snapshotRefresh;
         _deploymentReadiness = deploymentReadiness ?? DeploymentReadinessViewModel.SafeDefault();
+        _sharedStateReadiness = sharedStateReadiness;
     }
 
     [HttpGet("/dashboard")]
@@ -203,5 +206,11 @@ public sealed class OperationsController : Controller
 
     [HttpGet("/settings")]
     [Authorize(Policy = MonitorPolicies.Manage)]
-    public IActionResult Settings() => View(_deploymentReadiness);
+    public async Task<IActionResult> Settings(CancellationToken cancellationToken)
+    {
+        var sharedState = _sharedStateReadiness is null
+            ? SharedStateReadinessViewModel.Disabled()
+            : await _sharedStateReadiness.GetAsync(cancellationToken);
+        return View(new SettingsViewModel(_deploymentReadiness, sharedState));
+    }
 }
