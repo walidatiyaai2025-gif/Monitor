@@ -42,6 +42,21 @@ This is the canonical execution plan. Update it in the same PR as material imple
 | M2-005 | SQL Agent jobs summary | IMPLEMENTED — LOCAL VERIFIED |
 | M2-006 | Storage allocation summary | IMPLEMENTED — LOCAL VERIFIED |
 | M2-007 | Blocking summary | IMPLEMENTED — LOCAL VERIFIED |
+| M2-008 | Shared cached health-module read projection | IMPLEMENTED — LOCAL VERIFIED |
+| M2-009 | Real database and backup health UI | IMPLEMENTED — LOCAL VERIFIED |
+| M2-010 | Real SQL Agent jobs UI | IMPLEMENTED — LOCAL VERIFIED |
+| M2-011 | Real storage allocation UI | IMPLEMENTED — LOCAL VERIFIED |
+| M2-012 | Real blocking UI | IMPLEMENTED — LOCAL VERIFIED |
+| M2-013 | Bounded baseline performance snapshot | IMPLEMENTED — LOCAL VERIFIED |
+
+## M3 — Incidents and Recommendations
+
+| Task | Description | State |
+|---|---|---|
+| M3-001 | Immutable allowlisted health finding contract | IMPLEMENTED — LOCAL VERIFIED |
+| M3-002 | Deterministic health rule evaluator | IMPLEMENTED — LOCAL VERIFIED |
+| M3-003 | Incident dedupe and lifecycle repository | IMPLEMENTED — LOCAL VERIFIED |
+| M3-004 | Cached incident read and UI integration | IMPLEMENTED — LOCAL VERIFIED |
 
 ## Delivery loop
 

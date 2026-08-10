@@ -1,11 +1,20 @@
 # Project Status
 
 **Updated:** 2026-08-10 11:41 +03:00  
-**Branch:** `agent/m2-health-modules-batch`  
-**Target:** `M2-003` through `M2-007`  
+**Branch:** `agent/m2-m3-ten-task-batch`  
+**Target:** `M2-008` through `M3-004`  
 **Issue:** TBD  
 **PR:** TBD  
-**Overall:** 🟡 FIVE M2 HEALTH MODULES IMPLEMENTED — LOCAL VERIFICATION COMPLETE
+**Overall:** 🟡 TEN M2/M3 TASKS IMPLEMENTED — LOCAL VERIFICATION IN PROGRESS
+
+## M2-008 through M3-004 — Ten-task continuation
+
+- Five cache-only health module UI integrations.
+- Bounded baseline performance facts in the central snapshot.
+- Immutable allowlisted finding contract and deterministic rule evaluator.
+- Stable incident dedupe with fresh-evidence-only resolution.
+- Authorized Alerts UI now reads evaluated cached incidents.
+- Release build succeeds with warnings-as-errors; 45 tests pass locally.
 
 ## M2-003 through M2-007 — Health modules batch
 

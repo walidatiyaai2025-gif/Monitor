@@ -97,6 +97,8 @@ public sealed class SqlServerSnapshotCollectorTests
         Assert.Contains("msdb.dbo.sysjobs", sql, StringComparison.Ordinal);
         Assert.Contains("sys.master_files", sql, StringComparison.Ordinal);
         Assert.Contains("sys.dm_exec_requests", sql, StringComparison.Ordinal);
+        Assert.Contains("sys.dm_os_schedulers", sql, StringComparison.Ordinal);
+        Assert.Contains("sys.dm_io_pending_io_requests", sql, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -176,6 +178,32 @@ public sealed class SqlServerSnapshotCollectorTests
 
         Assert.Equal(SnapshotCollectionFailure.Failed, exception.Failure);
         Assert.Equal("Snapshot collection failed.", exception.Message);
+    }
+
+    [Fact]
+    public async Task CollectAsync_MapsBoundedPerformanceFacts()
+    {
+        var row = new SqlSnapshotRow("SQL01", "17", "Enterprise", null, 10, 2, 2, Performance: new SqlPerformanceRow(5, 2, 1));
+        var collector = new SqlServerSnapshotCollector(
+            new FakeSecretStore(new SqlLoginSecret("user", "password")), new FakeQuery(row), new FixedTimeProvider(CollectedAt));
+
+        var snapshot = await collector.CollectAsync(SqlLoginRegistration());
+
+        Assert.Equal(5, snapshot.Performance!.ActiveRequests);
+        Assert.Equal(2, snapshot.Performance.RunnableTasks);
+        Assert.Equal(1, snapshot.Performance.PendingIoRequests);
+    }
+
+    [Fact]
+    public async Task InvalidPerformanceFacts_FailSafely()
+    {
+        var row = new SqlSnapshotRow("SQL01", "17", "Enterprise", null, 10, 2, 2, Performance: new SqlPerformanceRow(1, -1, 0));
+        var collector = new SqlServerSnapshotCollector(
+            new FakeSecretStore(new SqlLoginSecret("user", "password")), new FakeQuery(row), new FixedTimeProvider(CollectedAt));
+
+        var exception = await Assert.ThrowsAsync<SnapshotCollectionException>(() => collector.CollectAsync(SqlLoginRegistration()));
+
+        Assert.Equal(SnapshotCollectionFailure.Failed, exception.Failure);
     }
 
     private static ServerRegistration SqlLoginRegistration() => new(

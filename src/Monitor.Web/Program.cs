@@ -16,6 +16,8 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<ISqlSnapshotQuery, SqlSnapshotQuery>();
 builder.Services.AddSingleton<ISqlServerSnapshotCollector, SqlServerSnapshotCollector>();
 builder.Services.AddSingleton<IServerHealthSnapshotCache, ServerHealthSnapshotCache>();
+builder.Services.AddSingleton<IHealthRuleEvaluator, HealthRuleEvaluator>();
+builder.Services.AddSingleton<IHealthIncidentRepository, InMemoryHealthIncidentRepository>();
 builder.Services.AddSingleton<IMonitorReadService, MonitorReadService>();
 builder.Services.AddSingleton<ISnapshotRefreshService, SnapshotRefreshService>();
 

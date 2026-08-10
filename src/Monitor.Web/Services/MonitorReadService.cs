@@ -6,12 +6,16 @@ public interface IMonitorReadService
 {
     Task<IReadOnlyList<ServerCard>> GetServersAsync(CancellationToken cancellationToken = default);
     Task<ServerDetailsViewModel?> GetServerAsync(string id, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<HealthModuleServerViewModel>> GetHealthModulesAsync(CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<IncidentRow>> GetIncidentsAsync(CancellationToken cancellationToken = default);
 }
 
 public sealed class MonitorReadService(
     IDemoMonitorService demo,
     IServerRegistrationRepository registrations,
-    IServerHealthSnapshotCache cache) : IMonitorReadService
+    IServerHealthSnapshotCache cache,
+    IHealthRuleEvaluator? evaluator = null,
+    IHealthIncidentRepository? incidents = null) : IMonitorReadService
 {
     public async Task<IReadOnlyList<ServerCard>> GetServersAsync(
         CancellationToken cancellationToken = default)
@@ -69,6 +73,57 @@ public sealed class MonitorReadService(
                 new("SQL Agent", "Not collected", "Outside the M1 identity snapshot", HealthState.Unknown)
             ]
         };
+    }
+
+    public async Task<IReadOnlyList<HealthModuleServerViewModel>> GetHealthModulesAsync(CancellationToken cancellationToken = default)
+    {
+        var rows = new List<HealthModuleServerViewModel>();
+        foreach (var registration in registrations.GetAll().Where(item => item.IsEnabled).OrderBy(item => item.CreatedAtUtc).ThenBy(item => item.Id))
+        {
+            try
+            {
+                var result = await cache.GetAsync(registration, cancellationToken);
+                var snapshot = result.Snapshot;
+                rows.Add(new(
+                    registration.Id.ToString("D"), snapshot.ServerName,
+                    result.Freshness == SnapshotFreshness.Fresh ? ServerDataSource.LiveFresh : ServerDataSource.LiveStale,
+                    (int)Math.Clamp(result.Age.TotalSeconds, 0, int.MaxValue),
+                    snapshot.DatabaseOnline, snapshot.DatabaseTotal, snapshot.Databases, snapshot.Backups,
+                    snapshot.Jobs, snapshot.Storage, snapshot.Blocking, snapshot.Performance));
+            }
+            catch (SnapshotCollectionException)
+            {
+                // A failed target is omitted; demo data is never relabeled as live.
+            }
+        }
+
+        return rows;
+    }
+
+    public async Task<IReadOnlyList<IncidentRow>> GetIncidentsAsync(CancellationToken cancellationToken = default)
+    {
+        foreach (var registration in registrations.GetAll().Where(item => item.IsEnabled))
+        {
+            try
+            {
+                var result = await cache.GetAsync(registration, cancellationToken);
+                var findings = (evaluator ??= new HealthRuleEvaluator()).Evaluate(registration.Id, result.Snapshot, result.Freshness);
+                (incidents ??= new InMemoryHealthIncidentRepository()).Reconcile(
+                    registration.Id, result.Snapshot.CollectedAtUtc, findings, result.Freshness == SnapshotFreshness.Fresh);
+            }
+            catch (SnapshotCollectionException)
+            {
+                // Collection failure does not invent or resolve incidents.
+            }
+        }
+
+        return (incidents ??= new InMemoryHealthIncidentRepository()).GetAll().Select(item => new IncidentRow(
+            item.Id,
+            item.Severity.ToString(),
+            item.RegistrationId.ToString("D"),
+            item.Title,
+            $"{Math.Max(0, (DateTimeOffset.UtcNow - item.LastSeenUtc).TotalMinutes):0}m",
+            item.Status.ToString())).ToArray();
     }
 
     private async Task<ServerCard?> TryGetLiveCardAsync(
