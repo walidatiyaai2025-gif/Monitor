@@ -30,7 +30,7 @@ Server registrations may contain endpoint and authentication-mode metadata, but 
 
 ## ADR-008 — Test Connection is bounded and redacted
 
-Test Connection accepts a server registration ID only and runs exclusively in the authorized backend. It uses `Microsoft.Data.SqlClient`, explicit connection/overall timeouts, cancellation, no pooling, and fixed safe result messages. Raw provider exceptions, credentials and connection strings never cross the service boundary.
+Test Connection accepts a server registration ID only and runs exclusively in the authorized backend. It uses `Microsoft.Data.SqlClient`, explicit connection/overall timeouts, cancellation, no pooling, and fixed safe result messages. Raw provider exceptions, credentials and connection strings are never returned to the browser.
 
 ## ADR-009 — The first collector uses one reusable query result
 
@@ -109,3 +109,9 @@ M5-026 keeps the existing boolean `IIncidentWorkflowService` transition API unch
 M7-001 makes the existing `IServerRegistrationRepository` durable without broadening the secret boundary. The default implementation writes a versioned Monitor-owned metadata file outside `wwwroot`; the application may still select the in-memory implementation through configuration. The persisted contract includes endpoint/authentication metadata and, for SQL Login registrations, the opaque `ConnectionSecretReference` only. It never contains SQL usernames, passwords or full connection strings.
 
 File mutations are serialized, flushed to a same-directory temporary file and atomically moved into place. A failed write restores the prior in-memory state. Malformed, unsupported or domain-invalid persisted data fails application startup rather than silently producing an empty estate. Runtime credentials created by the M6 commissioning UI remain process-memory only and therefore intentionally cannot survive restart; their persisted opaque references become unresolved until an operator supplies a new credential or migrates the registration to an external enterprise secret reference. A future shared/HA repository may replace the file implementation behind the unchanged interface.
+
+## ADR-028 — A provider-owned secret reference never downgrades to another source
+
+M7-002 adds external secret-provider routing behind `IConnectionSecretStore` without changing SQL connection callers. Process-memory runtime credentials remain first priority. If an external provider claims a reference, its result is final for that resolution attempt; a missing or invalid provider-owned secret does not fall through to legacy configuration.
+
+The first provider owns the `env:` prefix. Its alias is a strict bounded identifier and the resulting username/password are read directly from `Environment.GetEnvironmentVariable` using `MONITOR_SQL_SECRET_<ALIAS>_USERNAME` and `_PASSWORD`. The values are intentionally not read through `IConfiguration`, so an `env:` reference cannot be satisfied accidentally by `appsettings.json`. Non-`env:` references retain the existing `ConnectionSecrets:<reference>` behavior for backward compatibility. No provider value or raw error is added to registration persistence, logs, audit, UI or monitored SQL.
