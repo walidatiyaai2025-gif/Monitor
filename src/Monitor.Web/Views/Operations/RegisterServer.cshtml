@@ -1,0 +1,130 @@
+@model RegisterServerPageViewModel
+@{
+    ViewData["Title"] = "Register SQL Server";
+    var sqlLoginSelected = Model.Input.AuthenticationMode == SqlAuthenticationMode.SqlLogin;
+}
+
+<div class="m1-stage-banner">
+    <div><span class="m1-stage-icon">＋</span><div><strong>M1 — FIRST REAL SQL VERTICAL SLICE</strong><p>Registration establishes the secure connection boundary. No SQL connection is attempted in this step.</p></div></div>
+    <span>M1-001</span>
+</div>
+
+@if (TempData["RegistrationCreated"] is string registrationMessage)
+{
+    <div class="registration-success">@registrationMessage</div>
+}
+
+<div asp-validation-summary="ModelOnly"></div>
+
+<section class="registration-layout">
+    <article class="glass-panel registration-panel">
+        <div class="panel-heading"><div><span class="eyebrow">SQL TARGET</span><h3>Register connection metadata</h3></div><span class="snapshot-note">Administrator only</span></div>
+        <form class="registration-form" asp-action="RegisterServer" method="post" autocomplete="off">
+            <section class="form-section">
+                <div class="form-section-heading"><div><span class="eyebrow">IDENTITY</span><h3>Server target</h3></div><span>Connection is not tested yet</span></div>
+                <div class="form-grid">
+                    <div class="form-field full">
+                        <label for="Host">Server / host *</label>
+                        <input id="Host" name="Host" value="@Model.Input.Host" maxlength="253" placeholder="DA-SQL01 or sql01.contoso.local" />
+                        @Html.ValidationMessage("Host", null, new { @class = "field-error" })
+                        <span class="field-help">Host name or IP address. Do not include credentials.</span>
+                    </div>
+                    <div class="form-field">
+                        <label for="InstanceName">Instance</label>
+                        <input id="InstanceName" name="InstanceName" value="@Model.Input.InstanceName" maxlength="128" placeholder="MSSQLSERVER or APP01" />
+                        @Html.ValidationMessage("InstanceName", null, new { @class = "field-error" })
+                    </div>
+                    <div class="form-field">
+                        <label for="Port">Port</label>
+                        <input id="Port" name="Port" type="number" min="1" max="65535" value="@Model.Input.Port" placeholder="1433" />
+                        @Html.ValidationMessage("Port", null, new { @class = "field-error" })
+                    </div>
+                    <div class="form-field">
+                        <label for="DisplayName">Display name</label>
+                        <input id="DisplayName" name="DisplayName" value="@Model.Input.DisplayName" maxlength="80" placeholder="Production Finance SQL" />
+                        @Html.ValidationMessage("DisplayName", null, new { @class = "field-error" })
+                    </div>
+                    <div class="form-field">
+                        <label for="EnvironmentName">Environment *</label>
+                        <select id="EnvironmentName" name="EnvironmentName">
+                            @foreach (var environment in new[] { "Production", "DR", "UAT", "Development" })
+                            {
+                                <option value="@environment" selected="@(Model.Input.EnvironmentName == environment)">@environment</option>
+                            }
+                        </select>
+                        @Html.ValidationMessage("EnvironmentName", null, new { @class = "field-error" })
+                    </div>
+                </div>
+            </section>
+
+            <section class="form-section">
+                <div class="form-section-heading"><div><span class="eyebrow">AUTHENTICATION</span><h3>Credential boundary</h3></div><span>Secrets never render back</span></div>
+                <div class="auth-selector">
+                    <div class="auth-option">
+                        <input id="authWindows" type="radio" name="AuthenticationMode" value="0" checked="@(!sqlLoginSelected)" />
+                        <label for="authWindows"><strong>Windows Integrated</strong><span>No SQL password is stored. The collector will use its configured Windows identity in the real connection step.</span></label>
+                    </div>
+                    <div class="auth-option">
+                        <input id="authSql" type="radio" name="AuthenticationMode" value="1" checked="@sqlLoginSelected" />
+                        <label for="authSql"><strong>SQL Login</strong><span>Username metadata is retained; the password is protected immediately with ASP.NET Core Data Protection.</span></label>
+                    </div>
+                </div>
+                @Html.ValidationMessage("AuthenticationMode", null, new { @class = "field-error" })
+
+                <div class="sql-auth-fields @(sqlLoginSelected ? string.Empty : "is-hidden")" data-sql-auth-fields aria-hidden="@(!sqlLoginSelected).ToString().ToLowerInvariant()">
+                    <div class="form-field">
+                        <label for="Username">SQL login *</label>
+                        <input id="Username" name="Username" value="@Model.Input.Username" maxlength="128" autocomplete="off" />
+                        @Html.ValidationMessage("Username", null, new { @class = "field-error" })
+                    </div>
+                    <div class="form-field">
+                        <label for="Password">Password *</label>
+                        <input id="Password" name="Password" type="password" value="" maxlength="256" autocomplete="new-password" />
+                        @Html.ValidationMessage("Password", null, new { @class = "field-error" })
+                        <span class="field-help">Never echoed back to this page after submit.</span>
+                    </div>
+                </div>
+            </section>
+
+            <aside class="secret-boundary">
+                <div class="secret-boundary-head"><span class="secret-boundary-icon">◆</span><div><strong>SECURE SECRET BOUNDARY</strong><p>For SQL authentication, plaintext exists only for the submitted request. The registration service converts it to protected cipher text before the temporary store receives it.</p></div></div>
+                <div class="secret-flow"><div><small>1 · BROWSER</small><strong>POST over HTTPS</strong></div><div><small>2 · CONTROLLER</small><strong>Validate only</strong></div><div><small>3 · PROTECTOR</small><strong>Data Protection</strong></div><div><small>4 · STORE</small><strong>Cipher only</strong></div></div>
+            </aside>
+
+            <div class="form-actions">
+                <a class="secondary-button" asp-action="Servers">Cancel</a>
+                <button class="secondary-button" type="button" disabled>Test Connection · M1-002</button>
+                <button class="primary-action" type="submit">Save registration</button>
+            </div>
+        </form>
+    </article>
+
+    <aside>
+        <article class="glass-panel registration-panel">
+            <div class="panel-heading"><div><span class="eyebrow">REGISTERED TARGETS</span><h3>@Model.Registrations.Count current session</h3></div><span class="snapshot-note">Metadata only</span></div>
+            @if (Model.Registrations.Count == 0)
+            {
+                <div class="registration-empty"><strong>No real SQL targets registered yet</strong><span>The existing Command Center remains on DEVELOPMENT DATA until M1-005 replaces one preview server with a real snapshot.</span></div>
+            }
+            else
+            {
+                <div class="registered-stack">
+                    @foreach (var registration in Model.Registrations)
+                    {
+                        <div class="registered-target">
+                            <div class="registered-target-head"><strong>@registration.DisplayName</strong><span>@registration.RegisteredAt.ToLocalTime().ToString("HH:mm:ss")</span></div>
+                            <code>@registration.Target</code>
+                            <div class="registered-meta">
+                                <span>@registration.EnvironmentName</span>
+                                <span>@(registration.AuthenticationMode == SqlAuthenticationMode.WindowsIntegrated ? "Windows auth" : "SQL auth")</span>
+                                @if (!string.IsNullOrWhiteSpace(registration.Username)) { <span>@registration.Username</span> }
+                                <span class="protected">@(registration.HasProtectedCredential ? "Protected credential" : "No stored password")</span>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            <div class="m1-next-step"><small>NEXT TASK</small><strong>M1-002 — Test Connection</strong><p>The next step will resolve the registered target through the backend, perform a controlled SQL connection test, and return sanitized diagnostics without exposing the stored secret.</p></div>
+        </article>
+    </aside>
+</section>
