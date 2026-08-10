@@ -1,12 +1,13 @@
 # Project Status
 
-**Updated:** 2026-08-10 10:00 +03:00  
+**Updated:** 2026-08-10 10:05 +03:00  
 **Branch:** `agent/m0-visual-foundation`  
 **Target:** `0.0.1-ui-preview`  
 **Issue:** #1  
-**Overall:** 🟡 M0 IMPLEMENTED — CI / VISUAL VERIFICATION PENDING
+**PR:** #2  
+**Overall:** 🟡 M0 CODE + CI VERIFIED — VISUAL REVIEW PENDING
 
-## Implemented in current branch
+## Implemented and verified in current branch
 
 - ASP.NET Core .NET 8 solution and web project.
 - Secure development Admin cookie login using a PBKDF2-SHA256 hash.
@@ -18,13 +19,20 @@
 - Demo snapshot provider shared by multiple screens.
 - CI workflow for restore + Release build with warnings treated as errors.
 
-## Verification state
+## Verification evidence
 
-- `dotnet restore`: PENDING GitHub Actions
-- `dotnet build`: PENDING GitHub Actions
-- `dotnet test`: N/A — no test project exists yet
-- visual browser review: PENDING
+- Initial CI run `31364310669`: FAILED on one nullable warning in `AccountController` promoted by `--warnaserror`.
+- Fix commit: `f25b1937869eea75e4ba2d39f0df5f879c653a01`.
+- CI run `31364393808`: SUCCESS.
+- `dotnet restore`: ✅ VERIFIED by GitHub Actions.
+- `dotnet build --configuration Release --no-restore --warnaserror`: ✅ VERIFIED by GitHub Actions.
+- `dotnet test`: N/A — no test project exists yet.
+- visual browser review: ⏳ PENDING.
+
+## Merge gate
+
+Do not merge PR #2 to `main` until the visual preview is reviewed and accepted. `main` remains the stable branch.
 
 ## Next action
 
-Push branch -> open PR -> validate CI -> fix any build issue -> update this file to VERIFIED -> merge only after the visual preview is acceptable.
+Run/open the UI preview, review the real rendered screens, adjust visual details if needed, then mark M0-010 VERIFIED and merge PR #2.

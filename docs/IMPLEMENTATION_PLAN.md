@@ -6,16 +6,16 @@ This is the canonical execution plan. Update it in the same PR as material imple
 
 | Task | Description | State |
 |---|---|---|
-| M0-001 | Bootstrap repository, solution and project tracking docs | DONE |
-| M0-002 | Secure development Admin cookie authentication | IMPLEMENTED — CI PENDING |
-| M0-003 | Global premium app shell and navigation | IMPLEMENTED — CI PENDING |
-| M0-004 | SQL Command Center with centralized live area | IMPLEMENTED — CI PENDING |
-| M0-005 | Servers + Server Details | IMPLEMENTED — CI PENDING |
-| M0-006 | Database Health + Memory Health | IMPLEMENTED — CI PENDING |
-| M0-007 | Alerts / Incidents + Settings | IMPLEMENTED — CI PENDING |
-| M0-008 | Design system + controlled motion | IMPLEMENTED — CI PENDING |
-| M0-009 | GitHub Actions restore/build verification | IMPLEMENTED — CI PENDING |
-| M0-010 | Visual review and M0 verification | PENDING |
+| M0-001 | Bootstrap repository, solution and project tracking docs | VERIFIED |
+| M0-002 | Secure development Admin cookie authentication | VERIFIED — CI |
+| M0-003 | Global premium app shell and navigation | VERIFIED — CI |
+| M0-004 | SQL Command Center with centralized live area | VERIFIED — CI |
+| M0-005 | Servers + Server Details | VERIFIED — CI |
+| M0-006 | Database Health + Memory Health | VERIFIED — CI |
+| M0-007 | Alerts / Incidents + Settings | VERIFIED — CI |
+| M0-008 | Design system + controlled motion | VERIFIED — CI |
+| M0-009 | GitHub Actions restore/build verification | VERIFIED — RUN 31364393808 |
+| M0-010 | Visual browser review and M0 acceptance | PENDING |
 
 ## M1 — First Real SQL Vertical Slice
 
