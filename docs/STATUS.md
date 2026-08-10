@@ -1,11 +1,20 @@
 # Project Status
 
-**Updated:** 2026-08-10 12:25 +03:00  
-**Branch:** `agent/m2-m3-ci-reconciliation`  
-**Target:** M2/M3 CI verification reconciliation  
-**Issue:** #25  
-**PR:** TBD  
-**Overall:** 🟢 M2 THROUGH M3-004 CI VERIFIED — RECONCILIATION READY
+**Updated:** 2026-08-10 12:30 +03:00  
+**Branch:** `agent/m3-m5-25-task-batch`  
+**Target:** 25 tasks — `M3-005` through `M5-007`  
+**Issue:** TBD  
+**PR:** #28  
+**Overall:** 🟡 25-TASK M3/M4/M5 BATCH IMPLEMENTED — LOCAL VERIFICATION IN PROGRESS
+
+## M3-005 through M5-007 — 25-task continuation
+
+- Idempotent incident reads, filters, summaries, details and protected state transitions.
+- Deterministic recommendation catalog rendered for human review only.
+- AI Advisor backend boundary registered disabled by default with no network/execution path.
+- Bounded 24-hour aggregate snapshot history, observer and deterministic collection cycle.
+- Fixed-window read-only trends; background scheduling remains disabled.
+- Release build succeeds with warnings-as-errors; 54 tests pass locally.
 
 ## CI verification reconciliation
 

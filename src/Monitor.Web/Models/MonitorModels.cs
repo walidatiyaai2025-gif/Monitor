@@ -73,3 +73,16 @@ public enum FindingSeverity { Warning, Critical }
 public sealed record HealthFinding(Guid RegistrationId, string RuleId, FindingSeverity Severity, string Title, string Evidence, DateTimeOffset ObservedAtUtc);
 public enum IncidentStatus { Open, Acknowledged, Resolved }
 public sealed record HealthIncident(string Id, Guid RegistrationId, string RuleId, FindingSeverity Severity, string Title, string Evidence, DateTimeOffset FirstSeenUtc, DateTimeOffset LastSeenUtc, int Occurrences, IncidentStatus Status);
+
+public sealed record IncidentQuery(IncidentStatus? Status = null, FindingSeverity? Severity = null, string? RuleId = null, int Offset = 0, int Limit = 50);
+public sealed record IncidentSummary(int Open, int Acknowledged, int Resolved, int Critical, int Warning);
+public sealed record RecommendationStep(int Order, string Action, string Risk);
+public sealed record RecommendationPlan(string RuleId, string Explanation, IReadOnlyList<RecommendationStep> Steps);
+public sealed record IncidentDetailsViewModel(HealthIncident Incident, RecommendationPlan? Recommendation, AdvisorResult Advisor);
+public sealed record IncidentCenterViewModel(IReadOnlyList<HealthIncident> Items, IncidentSummary Summary, IncidentQuery Query);
+
+public sealed record AdvisorContext(string RuleId, FindingSeverity Severity, string Evidence, string RecommendationSummary);
+public enum AdvisorStatus { Disabled, Ready, Unavailable }
+public sealed record AdvisorResult(AdvisorStatus Status, string Message);
+public sealed record SnapshotHistoryPoint(Guid RegistrationId, DateTimeOffset CollectedAtUtc, int DatabaseOnline, int DatabaseTotal, int? MemoryPercent, int? BlockedRequests, int? RunnableTasks, SnapshotFreshness Freshness);
+public sealed record SnapshotTrendViewModel(Guid RegistrationId, string Window, IReadOnlyList<SnapshotHistoryPoint> Points);

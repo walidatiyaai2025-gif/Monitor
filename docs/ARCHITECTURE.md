@@ -61,3 +61,9 @@ M2-003 through M2-007 extend the same immutable snapshot with bounded database-s
 M2-008 through M2-013 expose those facts through a shared cache-only read projection and add bounded active-request, runnable-task and pending-I/O counts to the central collector. Dedicated module pages are presentation routes over the same snapshot, not collection triggers.
 
 M3-001 through M3-004 introduce a pure rule evaluator and an in-memory incident repository. Findings contain only allowlisted rule metadata and compact evidence. Stable registration/rule fingerprints deduplicate repeated observations; only newer fresh healthy evaluation resolves an incident. The authorized incident page evaluates cached snapshots and never executes remediation SQL.
+
+M3-005 through M3-016 add idempotent observations, bounded querying, incident details, antiforgery-protected operator transitions and deterministic rule-owned recommendations. Recommendations are presentation-only and never reach a SQL execution service.
+
+M4-001 through M4-006 establish a normalized backend advisor context and provider abstraction. The only registered provider is disabled and returns a fixed status. No network call, tool invocation, SQL execution or autonomous remediation exists.
+
+M5-001 through M5-007 add bounded in-memory aggregate history, a shared observer, a deterministic backend collection cycle and fixed-window trend reads. Schedule policy is disabled by default and no background host is activated yet.

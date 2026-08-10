@@ -1,7 +1,17 @@
-@model IReadOnlyList<IncidentRow>
-@{
-    ViewData["Title"] = "Alerts & Incidents";
-}
-<div class="data-banner"><strong>DEVELOPMENT DATA</strong><span>Incident states are intentionally varied to validate the visual language.</span></div>
-<section class="incident-summary"><div class="glass-panel"><small>OPEN CRITICAL</small><strong>@Model.Count(i => i.Severity == "Critical")</strong><span>Immediate attention</span></div><div class="glass-panel"><small>WARNINGS</small><strong>@Model.Count(i => i.Severity == "Warning")</strong><span>Review required</span></div><div class="glass-panel"><small>TOTAL ACTIVE</small><strong>@Model.Count</strong><span>Preview incidents</span></div></section>
-<article class="glass-panel table-panel"><div class="panel-heading"><div><span class="eyebrow">INCIDENT CENTER</span><h3>Operational queue</h3></div><span class="snapshot-note">No alert engine connected yet</span></div><div class="incident-table"><div class="table-head"><span>ID</span><span>Severity</span><span>Server</span><span>Incident</span><span>Age</span><span>Status</span></div>@foreach (var incident in Model){<div class="table-row"><strong>@incident.Id</strong><span class="severity severity-@incident.Severity.ToLowerInvariant()">@incident.Severity</span><span>@incident.Server</span><span>@incident.Title</span><span>@incident.Age</span><span>@incident.State</span></div>}</div></article>
+@model IncidentCenterViewModel
+@{ ViewData["Title"] = "Alerts & Incidents"; }
+<div class="data-banner"><strong>CACHED FINDINGS</strong><span>Deterministic backend rules; no remediation executes from this page.</span></div>
+<section class="incident-summary">
+    <div class="glass-panel"><small>OPEN</small><strong>@Model.Summary.Open</strong><span>Requires review</span></div>
+    <div class="glass-panel"><small>CRITICAL</small><strong>@Model.Summary.Critical</strong><span>Immediate attention</span></div>
+    <div class="glass-panel"><small>RESOLVED</small><strong>@Model.Summary.Resolved</strong><span>Fresh evidence cleared</span></div>
+</section>
+<article class="glass-panel table-panel">
+    <div class="panel-heading"><div><span class="eyebrow">INCIDENT CENTER</span><h3>Operational queue</h3></div><span class="snapshot-note">Server-side allowlisted rules</span></div>
+    <div class="incident-table"><div class="table-head"><span>ID</span><span>Severity</span><span>Rule</span><span>Incident</span><span>Observed</span><span>Status</span></div>
+    @foreach (var incident in Model.Items)
+    {
+        <a class="table-row" asp-action="IncidentDetails" asp-route-id="@incident.Id"><strong>@incident.Id[..Math.Min(12, incident.Id.Length)]</strong><span class="severity severity-@incident.Severity.ToString().ToLowerInvariant()">@incident.Severity</span><span>@incident.RuleId</span><span>@incident.Title</span><span>@incident.LastSeenUtc.ToString("u")</span><span>@incident.Status</span></a>
+    }
+    </div>
+</article>

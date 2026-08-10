@@ -57,7 +57,41 @@ This is the canonical execution plan. Update it in the same PR as material imple
 | M3-002 | Deterministic health rule evaluator | VERIFIED — CI RUN 31373849952 |
 | M3-003 | Incident dedupe and lifecycle repository | VERIFIED — CI RUN 31373849952 |
 | M3-004 | Cached incident read and UI integration | VERIFIED — CI RUN 31373849952 |
-| M3-005 | Deterministic recommendation engine with evidence-bound remediation suggestions | PLANNED |
+| M3-005 | Idempotent incident observations | IMPLEMENTED — LOCAL VERIFIED |
+| M3-006 | Bounded incident query contract | IMPLEMENTED — LOCAL VERIFIED |
+| M3-007 | Incident summary counts | IMPLEMENTED — LOCAL VERIFIED |
+| M3-008 | Severity/status/rule filters | IMPLEMENTED — LOCAL VERIFIED |
+| M3-009 | Incident detail read model and page | IMPLEMENTED — LOCAL VERIFIED |
+| M3-010 | Acknowledge transition | IMPLEMENTED — LOCAL VERIFIED |
+| M3-011 | Resolve transition | IMPLEMENTED — LOCAL VERIFIED |
+| M3-012 | Reopen transition | IMPLEMENTED — LOCAL VERIFIED |
+| M3-013 | Antiforgery-protected operator commands | IMPLEMENTED — LOCAL VERIFIED |
+| M3-014 | Deterministic recommendation contract | IMPLEMENTED — LOCAL VERIFIED |
+| M3-015 | Allowlisted recommendation catalog | IMPLEMENTED — LOCAL VERIFIED |
+| M3-016 | Recommendation detail UI | IMPLEMENTED — LOCAL VERIFIED |
+
+## M4 — AI Advisor Boundary
+
+| Task | Description | State |
+|---|---|---|
+| M4-001 | Normalized advisor context contract | IMPLEMENTED — LOCAL VERIFIED |
+| M4-002 | Redacted context builder | IMPLEMENTED — LOCAL VERIFIED |
+| M4-003 | Backend-only advisor provider abstraction | IMPLEMENTED — LOCAL VERIFIED |
+| M4-004 | Disabled-by-default provider and result | IMPLEMENTED — LOCAL VERIFIED |
+| M4-005 | Advisor orchestration on incident details | IMPLEMENTED — LOCAL VERIFIED |
+| M4-006 | Human-reviewed advisory UI with no execution path | IMPLEMENTED — LOCAL VERIFIED |
+
+## M5 — History and Operational Hardening
+
+| Task | Description | State |
+|---|---|---|
+| M5-001 | Allowlisted snapshot history contract | IMPLEMENTED — LOCAL VERIFIED |
+| M5-002 | 24-hour / 288-point retention | IMPLEMENTED — LOCAL VERIFIED |
+| M5-003 | Timestamp dedupe and per-server isolation | IMPLEMENTED — LOCAL VERIFIED |
+| M5-004 | Post-collection snapshot observer | IMPLEMENTED — LOCAL VERIFIED |
+| M5-005 | Disabled-by-default validated schedule policy | IMPLEMENTED — LOCAL VERIFIED |
+| M5-006 | Deterministic collection cycle | IMPLEMENTED — LOCAL VERIFIED |
+| M5-007 | Fixed-window read-only trends page | IMPLEMENTED — LOCAL VERIFIED |
 
 ## Delivery loop
 

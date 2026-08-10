@@ -10,11 +10,15 @@ public sealed class OperationsController : Controller
 {
     private readonly IDemoMonitorService _monitor;
     private readonly IMonitorReadService _readService;
+    private readonly IIncidentWorkflowService? _workflow;
+    private readonly ITrendReadService? _trends;
 
-    public OperationsController(IDemoMonitorService monitor, IMonitorReadService readService)
+    public OperationsController(IDemoMonitorService monitor, IMonitorReadService readService, IIncidentWorkflowService? workflow = null, ITrendReadService? trends = null)
     {
         _monitor = monitor;
         _readService = readService;
+        _workflow = workflow;
+        _trends = trends;
     }
 
     [HttpGet("/dashboard")]
@@ -56,8 +60,44 @@ public sealed class OperationsController : Controller
         View(await _readService.GetServersAsync(cancellationToken));
 
     [HttpGet("/alerts")]
-    public async Task<IActionResult> Alerts(CancellationToken cancellationToken) =>
-        View(await _readService.GetIncidentsAsync(cancellationToken));
+    public async Task<IActionResult> Alerts(IncidentStatus? status, FindingSeverity? severity, string? ruleId, CancellationToken cancellationToken)
+    {
+        await _readService.GetIncidentsAsync(cancellationToken);
+        return _workflow is null
+            ? View(new IncidentCenterViewModel([], new(0, 0, 0, 0, 0), new(status, severity, ruleId)))
+            : View(_workflow.Query(new(status, severity, ruleId)));
+    }
+
+    [HttpGet("/alerts/{id}")]
+    public async Task<IActionResult> IncidentDetails(string id, CancellationToken cancellationToken)
+    {
+        if (_workflow is null) return NotFound();
+        var model = await _workflow.GetDetailsAsync(id, cancellationToken);
+        return model is null ? NotFound() : View(model);
+    }
+
+    [HttpPost("/alerts/{id}/acknowledge")]
+    [ValidateAntiForgeryToken]
+    public IActionResult AcknowledgeIncident(string id) => Transition(id, _workflow?.Acknowledge(id) == true);
+
+    [HttpPost("/alerts/{id}/resolve")]
+    [ValidateAntiForgeryToken]
+    public IActionResult ResolveIncident(string id) => Transition(id, _workflow?.Resolve(id) == true);
+
+    [HttpPost("/alerts/{id}/reopen")]
+    [ValidateAntiForgeryToken]
+    public IActionResult ReopenIncident(string id) => Transition(id, _workflow?.Reopen(id) == true);
+
+    private IActionResult Transition(string id, bool changed) => changed
+        ? RedirectToAction(nameof(IncidentDetails), new { id })
+        : Conflict(new { message = "Incident state changed or the transition is not allowed." });
+
+    [HttpGet("/history/{registrationId:guid}")]
+    public IActionResult History(Guid registrationId, string window = "6h")
+    {
+        var model = _trends?.Read(registrationId, window);
+        return model is null ? NotFound() : View(model);
+    }
 
     [HttpGet("/settings")]
     public IActionResult Settings() => View();
