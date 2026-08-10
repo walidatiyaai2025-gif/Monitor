@@ -1,0 +1,60 @@
+@model AuditTrailViewModel
+@{
+    ViewData["Title"] = "Operator Audit Trail";
+    var acknowledgeCount = Model.Events.Count(item => item.Action == OperatorAuditAction.IncidentAcknowledged);
+    var resolveCount = Model.Events.Count(item => item.Action == OperatorAuditAction.IncidentResolved);
+    var reopenCount = Model.Events.Count(item => item.Action == OperatorAuditAction.IncidentReopened);
+    var actorCount = Model.Events.Select(item => item.Actor).Distinct(StringComparer.OrdinalIgnoreCase).Count();
+}
+
+<div class="data-banner"><strong>OPERATOR AUDIT EVIDENCE</strong><span>Append-only bounded records of successful protected incident transitions. This page is read-only and does not trigger monitoring collection.</span></div>
+
+<section class="audit-summary">
+    <article class="audit-summary-card glass-panel"><small>RECENT EVENTS</small><strong>@Model.Events.Count</strong><span>Newest-first bounded view</span></article>
+    <article class="audit-summary-card glass-panel state-healthy"><small>ACKNOWLEDGED</small><strong>@acknowledgeCount</strong><span>Open → Acknowledged</span></article>
+    <article class="audit-summary-card glass-panel state-warning"><small>RESOLVED</small><strong>@resolveCount</strong><span>Open/Acknowledged → Resolved</span></article>
+    <article class="audit-summary-card glass-panel"><small>REOPENED</small><strong>@reopenCount</strong><span>Resolved → Open</span></article>
+    <article class="audit-summary-card glass-panel"><small>OPERATORS</small><strong>@actorCount</strong><span>Authenticated identities represented</span></article>
+</section>
+
+<section class="audit-policy glass-panel">
+    <div><span class="eyebrow">AUDIT BOUNDARY</span><h2>State-transition evidence without sensitive payloads</h2><p>Events contain only operator identity, action, incident resource ID, before/after status and UTC time. Incident evidence, SQL text, credentials, endpoints, provider errors and request payloads are intentionally excluded.</p></div>
+    <div class="audit-retention"><small>IN-MEMORY CAPACITY</small><strong>@Model.RetentionCapacity</strong><span>Oldest records are evicted only when the bounded capacity is exceeded.</span></div>
+</section>
+
+<div class="section-heading">
+    <div><span class="eyebrow">GOVERNANCE</span><h2>Recent operator actions</h2></div>
+    <span class="snapshot-note">Read only · no SQL / collector calls</span>
+</div>
+
+@if (Model.Events.Count == 0)
+{
+    <div class="audit-empty glass-panel"><strong>No operator transition events yet</strong><span>A successful acknowledge, resolve or reopen action will create the first bounded audit record.</span></div>
+}
+else
+{
+    <article class="glass-panel audit-table-panel">
+        <div class="audit-table">
+            <div class="audit-table-head"><span>UTC time</span><span>Operator</span><span>Action</span><span>Resource</span><span>Transition</span><span>Event</span></div>
+            @foreach (var item in Model.Events)
+            {
+                var actionName = item.Action switch
+                {
+                    OperatorAuditAction.IncidentAcknowledged => "Acknowledge",
+                    OperatorAuditAction.IncidentResolved => "Resolve",
+                    OperatorAuditAction.IncidentReopened => "Reopen",
+                    _ => item.Action.ToString()
+                };
+                var actionState = item.Action == OperatorAuditAction.IncidentResolved ? "warning" : item.Action == OperatorAuditAction.IncidentAcknowledged ? "healthy" : "unknown";
+                <div class="audit-table-row">
+                    <span class="audit-time"><strong>@item.OccurredAtUtc.ToString("yyyy-MM-dd")</strong><small>@item.OccurredAtUtc.ToString("HH:mm:ss.fff") UTC</small></span>
+                    <strong class="audit-actor">@item.Actor</strong>
+                    <span class="severity severity-@actionState">@actionName</span>
+                    <span class="audit-resource"><small>@item.ResourceType</small><strong>@item.ResourceId</strong></span>
+                    <span class="audit-transition"><b>@item.PreviousState</b><i>→</i><b>@item.NewState</b></span>
+                    <code>@item.EventId.ToString("N")[..12]</code>
+                </div>
+            }
+        </div>
+    </article>
+}
