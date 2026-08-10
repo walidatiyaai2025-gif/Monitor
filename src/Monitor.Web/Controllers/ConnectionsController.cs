@@ -34,7 +34,7 @@ public sealed class ConnectionsController(
                 input.Encrypt,
                 input.TrustServerCertificate);
 
-            var secretReference = input.AuthenticationMode == SqlAuthenticationMode.SqlLogin
+            ConnectionSecretReference? secretReference = input.AuthenticationMode == SqlAuthenticationMode.SqlLogin
                 ? new ConnectionSecretReference(input.SecretReference!)
                 : null;
 
