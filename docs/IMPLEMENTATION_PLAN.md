@@ -25,7 +25,7 @@ This is the canonical execution plan. Update it in the same PR as material imple
 |---|---|---|
 | M1-001 | Server registration model and secure connection secret boundary | VERIFIED — CI RUN 31368239695 |
 | M1-002 | Test Connection backend workflow | VERIFIED — CI RUN 31368995784 |
-| M1-002A | SQL Connection Lab UI + timeout/retry semantics | CI VERIFIED — RUN 31370363183 / VISUAL REVIEW PENDING |
+| M1-002A | SQL Connection Lab UI + timeout/retry semantics | CI VERIFIED — RUN 31370779791 / VISUAL REVIEW PENDING |
 | M1-003 | Lightweight collector: name/version/edition/instance/uptime/database counts | VERIFIED — CI RUN 31369800023 / MERGED |
 | M1-004 | `ServerHealthSnapshot` domain contract + cache | VERIFIED — CI RUN 31370422613 / MERGED |
 | M1-005 | Replace one demo server with real snapshot data | PLANNED — NEXT |
@@ -43,7 +43,7 @@ This is the canonical execution plan. Update it in the same PR as material imple
 - Provider timeout `SqlException -2` maps to `TimedOut` rather than network failure.
 - Shared connection-string profiles explicitly set `ConnectRetryCount=0`.
 - Reconciled on top of merged M1-003 and M1-004 without reverting the shared connection factory, collector, snapshot contract or cache.
-- Verified implementation run `31370363183`: 0 warnings / 0 errors; 23 tests passed before M1-004 reconciliation. Full post-reconciliation CI remains the merge gate.
+- CI run `31370779791`: Release build succeeded with 0 warnings / 0 errors and 27 tests passed.
 
 ## Delivery loop
 
