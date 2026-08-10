@@ -1,51 +1,54 @@
 # Project Status
 
-**Updated:** 2026-08-10 17:03 +03:00  
-**Branch:** `agent/b100-031-040-observability`  
-**Target:** BATCH-100 / Batch 4 — production observability  
-**Issues:** #55 umbrella · #62 Batch 4  
-**PR:** #63  
-**Overall:** 🟢 M0–M6 VERIFIED · M7-001..M7-017 CI VERIFIED · M8 CI VERIFIED · B100-001..040 CI VERIFIED
+**Updated:** 2026-08-10 17:44 +03:00  
+**Branch:** `agent/b100-041-050-performance-scale`  
+**Target:** BATCH-100 / Batch 5 — performance & scale governance  
+**Issues:** #55 umbrella · #64 Batch 5  
+**PR:** #65  
+**Overall:** 🟢 M0–M6 VERIFIED · M7-001..M7-018 CI VERIFIED · M8 CI VERIFIED · B100-001..050 CI VERIFIED
 
-## BATCH-100 / Batch 4 — CI VERIFIED
+## BATCH-100 / Batch 5 — CI VERIFIED
 
-Authoritative implementation CI `31396619576`: **SUCCESS — Release build 0 warnings / 0 errors; 174/174 tests passed; Razor compiled.**
+Authoritative code-head CI `31399632281`: **SUCCESS — Release build 0 warnings / 0 errors; 184/184 tests passed; Razor compiled.**
 
-Earlier gates correctly blocked promotion: run `31394767369` found a Razor namespace/import error, and run `31396364876` exposed unsafe free-form collector failure text retention. Both were fixed on the same PR before verification. The telemetry implementation now stores allowlisted failure categories only.
+The first Batch 5 implementation run `31399049930` correctly failed on a C# relational-pattern compile error in dynamic page-bound validation. The validation was changed to an ordinary runtime comparison. Subsequent implementation run `31399461467` passed 184/184 tests, and the final code/Razor paging head `31399632281` also passed 184/184 with 0 warnings / 0 errors.
 
-### B100-031..040 delivered
+### B100-041..050 delivered
 
-- `/health/live` is process liveness only and has no readiness, shared-state or monitored-SQL dependency.
-- `/health/ready` evaluates Monitor control-plane readiness only. It never starts monitored-SQL collection.
-- `/health` exposes a safe aggregate application health projection and bounded runtime counters.
-- Dedicated shared-state readiness is evaluated only when that separate Monitor-owned provider is enabled.
-- Collector telemetry records attempts/success/failure category and timestamps only. Failure categories are allowlisted from `SnapshotCollectionFailure` plus `Unexpected`; arbitrary text becomes `Unknown`.
-- Snapshot-cache telemetry records fresh/stale/miss/refresh/coalescing aggregates without copying server data or SQL text.
-- Scheduler telemetry records cycle success/failure aggregates only.
-- Incident telemetry records observation/active/transition counts and never copies incident evidence.
-- Authentication telemetry records success/rejected/rate-limited outcomes only; usernames, IP addresses, passwords and request bodies are excluded.
-- Strict bounded `X-Correlation-ID` handling accepts safe tokens only; otherwise Monitor generates a server identifier.
-- Structured completion logging records correlation scope, HTTP method/status/elapsed time only; it does not log request bodies, query content, credentials, connection strings, secret references or raw provider exceptions.
-- Administrator `/observability` renders bounded aggregates and probe contracts only; opening it does not collect from monitored SQL.
+- Snapshot cache has a configurable bounded capacity and deterministic oldest-snapshot eviction; expired stale entries are removed on Peek.
+- History reads validate the supported 24-hour window and expose bounded offset/limit reads.
+- Audit reads are wrapped by configuration-backed offset/page-size bounds.
+- Incident queries retain the canonical hard 100-row ceiling and controller-level configurable page bounds.
+- Server estate GETs use bounded paging and Peek only the requested cached registrations; page navigation never initiates monitored-SQL collection.
+- Estate UI shows total/page range and Previous/Next controls so paging is visible rather than hidden backend behavior.
+- Manual refresh adds an application-wide non-blocking concurrency permit on top of the existing registration throttle and distributed single-flight lease.
+- Scheduler adds deterministic bounded jitter and collection cycles use round-robin maximum-target batches to avoid synchronized bursts and target starvation.
+- Monitored snapshot collection opts into an explicitly bounded SQL connection pool. Test Connection remains non-pooled so credential validation cannot succeed through a reused old pooled session.
+- Deterministic budget tests cover cache capacity, history/audit/incident output bounds, estate Peek count, zero collection during paging, manual-refresh concurrency, jitter, round-robin batching and SQL pool bounds.
+
+### Production regression corrected
+
+Batch 5 review found that Batch 4 health/observability controllers and service classes had been merged without their runtime DI/middleware wiring in `Program.cs`. Batch 5 wires `IMonitorTelemetry`, `IApplicationReadinessService`, collector/cache/cycle/incident telemetry decorators, correlation middleware and authentication-outcome telemetry middleware. `/health`, `/health/live`, `/health/ready` and `/observability` are now runtime-resolvable instead of unit-test-only code paths.
 
 ## BATCH-100 progress
 
-Issue #55 and `docs/BATCH_100.md` define 100 tasks as ten batches of ten. **40/100 tasks are CI verified.** Batch 5 is B100-041..050 — performance and scale governance.
+Issue #55 and `docs/BATCH_100.md` define 100 tasks as ten batches of ten. **50/100 tasks are CI verified.** Batch 6 is B100-051..060 — DBA UX & operations surfaces.
 
 ## Stable guardrails
 
-- Browser monitoring GETs and health/observability GETs never trigger monitored-SQL collection.
-- Dedicated shared-state SQL is Monitor-owned control-plane state only.
-- Recommendations and Advisor remain advisory-only; no autonomous SQL execution path exists.
+- Monitoring, health and observability GETs remain zero monitored-SQL collection paths.
+- Performance governance reduces burst/concurrency/output cost without changing snapshot-first architecture.
+- Dedicated shared-state SQL remains Monitor-owned control-plane state only.
+- Test Connection remains deliberately non-pooled; monitored background collection alone uses bounded pooling.
 - Telemetry/logging excludes free-form provider error detail and secret-bearing request data.
-- Registration/shared operational state and operational backups exclude plaintext SQL credentials and full connection strings.
-- MultiNode remains fail-closed until all remaining login-security/cache prerequisites are externally coordinated or otherwise proven HA-safe.
+- Recommendations and Advisor remain advisory-only; no autonomous SQL execution path exists.
+- MultiNode remains fail-closed until all remaining security/cache/delivery prerequisites are proven HA-safe.
 - `main` remains stable; batch work merges only after final merge-result CI.
 
 ## Merge gate
 
-Run GitHub Actions on the final code + canonical-docs head, verify `main` has not moved into overlapping observability code, then squash-merge PR #63 only if Release build with warnings-as-errors, Razor compilation and all tests remain Green.
+Run GitHub Actions on the final code + canonical-docs head, verify `main` has not moved into overlapping performance/observability code, then squash-merge PR #65 only if Release build with warnings-as-errors, Razor compilation and all tests remain Green.
 
 ## Next action
 
-After Batch 4 merge, execute **B100-041..050 — performance and scale governance** from #55 / `docs/BATCH_100.md`.
+After Batch 5 merge, execute **B100-051..060 — DBA UX & operations surfaces** from #55 / `docs/BATCH_100.md`.

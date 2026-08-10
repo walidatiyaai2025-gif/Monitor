@@ -34,8 +34,15 @@
 | Rollback-capable operational restore | B100 | CI verified | File/Shared persistence, staged apply + reverse rollback on failure; CI 31393040135 |
 | Backup retention/readiness UI | B100 | CI verified | Atomic files outside `wwwroot`, bounded retention, Admin POST controls; CI 31393040135 |
 | Application health/liveness/readiness | B100 | CI verified | Process liveness + control-plane-only readiness; zero monitored-SQL collection; CI 31396619576 |
-| Bounded runtime telemetry | B100 | CI verified | Collector/cache/scheduler/incident/auth aggregate counters only; CI 31396619576 |
-| Correlation + structured redacted logging | B100 | CI verified | Strict bounded correlation IDs; method/status/elapsed only; CI 31396619576 |
-| Administrator observability surface | B100 | CI verified | Read-only aggregate operational view; no monitored-SQL collection; CI 31396619576 |
+| Bounded runtime telemetry | B100 | CI verified | Collector/cache/scheduler/incident/auth aggregate counters only; runtime-wired in Batch 5 |
+| Correlation + structured redacted logging | B100 | CI verified | Strict bounded correlation IDs; method/status/elapsed only; runtime-wired in Batch 5 |
+| Administrator observability surface | B100 | CI verified | Read-only aggregate operational view; runtime-resolvable; no monitored-SQL collection |
+| Snapshot cache capacity governance | B100 | CI verified | Configurable cap + deterministic oldest-entry eviction; CI 31399632281 |
+| Bounded operational paging | B100 | CI verified | History/audit/incidents/server estate have explicit output/read bounds; CI 31399632281 |
+| Server estate paging UI | B100 | CI verified | Total/page range + Previous/Next; page navigation Peeks cache only; CI 31399632281 |
+| Manual refresh concurrency gate | B100 | CI verified | App-wide permit + registration throttle + distributed single-flight; CI 31399632281 |
+| Scheduler jitter + round-robin batches | B100 | CI verified | Bounded deterministic jitter and max targets/cycle; CI 31399632281 |
+| Governed monitored-SQL pooling | B100 | CI verified | Bounded collector pool; Test Connection remains non-pooled; CI 31399632281 |
+| Deterministic performance-budget suite | B100 | CI verified | Capacity/concurrency/query-count/output-size budgets; CI 31399632281 |
 | Zero-SQL monitored GETs | M8 | CI verified | Cache/Peek-only browser monitoring reads; CI 31383991126 |
 | Explicit observed manual refresh | M8 | CI verified | Operator/Admin POST; successful refresh observed once |

@@ -8,7 +8,8 @@ internal static class SqlConnectionStringFactory
     public static string Create(
         ServerRegistration registration,
         SqlLoginSecret? secret,
-        string applicationName)
+        string applicationName,
+        PerformanceScaleOptions? performance = null)
     {
         var endpoint = registration.Endpoint;
         var dataSource = endpoint.Port.HasValue
@@ -29,6 +30,11 @@ internal static class SqlConnectionStringFactory
             ApplicationName = applicationName,
             Pooling = false
         };
+
+        if (performance is not null)
+        {
+            SqlConnectionPoolPolicy.Apply(builder, performance);
+        }
 
         if (secret is not null)
         {

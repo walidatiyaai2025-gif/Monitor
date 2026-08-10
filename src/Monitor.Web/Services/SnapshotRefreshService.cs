@@ -14,7 +14,8 @@ public sealed class SnapshotRefreshService(
     TimeProvider timeProvider,
     ISnapshotObserver? observer = null,
     IDistributedLeaseManager? leases = null,
-    DistributedCoordinationOptions? coordination = null) : ISnapshotRefreshService
+    DistributedCoordinationOptions? coordination = null,
+    ManualRefreshConcurrencyGate? concurrencyGate = null) : ISnapshotRefreshService
 {
     internal static readonly TimeSpan MinimumInterval = TimeSpan.FromSeconds(15);
     private readonly ConcurrentDictionary<Guid, DateTimeOffset> _lastAccepted = new();
@@ -37,6 +38,7 @@ public sealed class SnapshotRefreshService(
         coordinationPolicy.Validate();
 
         DistributedLeaseHandle? lease = null;
+        IDisposable? concurrencyLease = null;
         if (coordinationPolicy.Enabled)
         {
             if (leases is null)
@@ -67,6 +69,14 @@ public sealed class SnapshotRefreshService(
 
         try
         {
+            if (concurrencyGate is not null && !concurrencyGate.TryAcquire(out concurrencyLease))
+            {
+                return new(
+                    SnapshotRefreshStatus.Throttled,
+                    "Manual refresh capacity is busy. Try again shortly.",
+                    RetryAfterSeconds: 2);
+            }
+
             var now = timeProvider.GetUtcNow();
             while (true)
             {
@@ -105,6 +115,7 @@ public sealed class SnapshotRefreshService(
         }
         finally
         {
+            concurrencyLease?.Dispose();
             if (lease is not null && leases is not null)
             {
                 try

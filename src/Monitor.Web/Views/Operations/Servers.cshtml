@@ -1,6 +1,15 @@
 @model IReadOnlyList<ServerCard>
 @{
     ViewData["Title"] = "Servers";
+    var totalCount = ViewData["ServerTotal"] as int? ?? Model.Count;
+    var offset = ViewData["ServerOffset"] as int? ?? 0;
+    var limit = ViewData["ServerLimit"] as int? ?? Math.Max(1, Model.Count);
+    var hasPrevious = ViewData["ServerHasPrevious"] as bool? ?? false;
+    var hasNext = ViewData["ServerHasNext"] as bool? ?? false;
+    var previousOffset = ViewData["ServerPreviousOffset"] as int? ?? 0;
+    var nextOffset = ViewData["ServerNextOffset"] as int? ?? Math.Min(totalCount, offset + limit);
+    var pageStart = totalCount == 0 ? 0 : offset + 1;
+    var pageEnd = Math.Min(totalCount, offset + Model.Count);
     var healthyCount = Model.Count(server => server.State == HealthState.Healthy);
     var warningCount = Model.Count(server => server.State == HealthState.Warning);
     var criticalCount = Model.Count(server => server.State == HealthState.Critical);
@@ -14,7 +23,7 @@
 
 @if (Model.Any(server => server.Source != ServerDataSource.Demo))
 {
-    <div class="data-banner"><strong>MIXED DATA</strong><span>One cached SQL snapshot is shown with clearly separated development fallback cards. Search and freshness movement are client-side only.</span></div>
+    <div class="data-banner"><strong>MIXED DATA</strong><span>Cached SQL snapshots are shown only for this bounded estate page. Search and freshness movement are client-side only.</span></div>
 }
 else
 {
@@ -22,28 +31,28 @@ else
 }
 
 <section class="estate-summary">
-    <article class="estate-summary-card state-healthy"><small>Reachable</small><strong>@reachableCount / @Model.Count</strong><span>SQL instances responding</span></article>
+    <article class="estate-summary-card state-healthy"><small>Reachable on page</small><strong>@reachableCount / @Model.Count</strong><span>Current bounded page only</span></article>
     <article class="estate-summary-card state-warning"><small>Needs attention</small><strong>@(warningCount + criticalCount)</strong><span>@warningCount warning · @criticalCount critical</span></article>
-    <article class="estate-summary-card state-healthy"><small>Databases online</small><strong>@databaseOnline / @databaseTotal</strong><span>Across cached server snapshots</span></article>
-    <article class="estate-summary-card state-warning"><small>Agent jobs healthy</small><strong>@jobsHealthy / @jobsTotal</strong><span>Latest preview state</span></article>
-    <article class="estate-summary-card state-offline"><small>Offline</small><strong>@offlineCount</strong><span>Connection unavailable</span></article>
+    <article class="estate-summary-card state-healthy"><small>Databases online</small><strong>@databaseOnline / @databaseTotal</strong><span>Current cached page</span></article>
+    <article class="estate-summary-card state-warning"><small>Agent jobs healthy</small><strong>@jobsHealthy / @jobsTotal</strong><span>Current cached page</span></article>
+    <article class="estate-summary-card state-offline"><small>Offline on page</small><strong>@offlineCount</strong><span>No collection triggered here</span></article>
 </section>
 
 <div class="section-heading">
-    <div><span class="eyebrow">SQL ESTATE</span><h2>@Model.Count monitored instances</h2></div>
+    <div><span class="eyebrow">SQL ESTATE</span><h2>@totalCount monitored instances</h2><p>Showing @pageStart–@pageEnd of @totalCount · page limit @limit</p></div>
     <a class="secondary-button" asp-controller="ConnectionLab" asp-action="Index">+ Register Server</a>
 </div>
 
 <section class="estate-tools" aria-label="Server estate filters">
     <div class="estate-filter-group">
-        <button class="estate-filter is-active" type="button" data-estate-filter="all">All · @Model.Count</button>
+        <button class="estate-filter is-active" type="button" data-estate-filter="all">Page · @Model.Count</button>
         <button class="estate-filter" type="button" data-estate-filter="healthy">Healthy · @healthyCount</button>
         <button class="estate-filter" type="button" data-estate-filter="warning">Warning · @warningCount</button>
         <button class="estate-filter" type="button" data-estate-filter="critical">Critical · @criticalCount</button>
         <button class="estate-filter" type="button" data-estate-filter="offline">Offline · @offlineCount</button>
     </div>
     <label class="estate-search">
-        <input type="search" data-estate-search placeholder="Find server by name…" autocomplete="off" />
+        <input type="search" data-estate-search placeholder="Find server on this page…" autocomplete="off" />
     </label>
 </section>
 
@@ -92,3 +101,20 @@ else
 }
 </section>
 <div class="empty-filter-state" data-estate-empty>No servers match the current local filter.</div>
+
+@if (totalCount > limit)
+{
+    <div class="section-heading" aria-label="Server estate pagination">
+        <div><span class="eyebrow">BOUNDED PAGE</span><p>Only this page is projected from cache. Navigation never triggers SQL collection.</p></div>
+        <div>
+            @if (hasPrevious)
+            {
+                <a class="secondary-button" asp-action="Servers" asp-route-offset="@previousOffset" asp-route-limit="@limit">← Previous</a>
+            }
+            @if (hasNext)
+            {
+                <a class="secondary-button" asp-action="Servers" asp-route-offset="@nextOffset" asp-route-limit="@limit">Next →</a>
+            }
+        </div>
+    </div>
+}

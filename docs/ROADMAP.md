@@ -21,15 +21,24 @@ Bounded trends/history, scheduler infrastructure, audit, RBAC, browser security,
 ## M6 — Real SQL Server User Journey — VERIFIED THROUGH M6-050
 Login -> Connections -> Register -> Test -> Collect -> Observe -> real multi-server estate/Dashboard/Health.
 
-## M7 — Production Persistence & Deployment Readiness — ACTIVE
+## M7 — Production Persistence & Deployment Readiness — VERIFIED THROUGH M7-018
 
-- **M7-001 — VERIFIED:** durable registration metadata outside `wwwroot`; opaque references only.
-- **M7-002 — VERIFIED:** fail-closed external secret-provider routing; `env:<alias>` reads direct process environment.
-- **M7-003 — VERIFIED:** durable independent audit/history/incident state with atomic candidate commit.
-- **M7-004 — VERIFIED:** explicit `SingleNode` topology guard; `MultiNode` startup rejected until shared state + distributed coordination exist. CI `31385935255`.
+- **M7-001..M7-004 — VERIFIED:** durable registration metadata, external secret-provider routing, durable operational state and explicit topology guard.
 - **M7-005..M7-016 — VERIFIED:** protected local SQL Login credential persistence with Data Protection, persistent key ring, `local:v1` references and fail-closed tamper/key behavior. CI `31384727247`.
-- **M7-017 — CI VERIFIED:** generic shared-state versioned-document capability plus dedicated Monitor SQL Server provider. Environment-only connection material, schema v1 deployment script, bounded JSON payloads and transactional optimistic compare/exchange. CI `31386867949` — 120/120 tests.
-- **M7-018 — NEXT:** migrate required Monitor repositories to shared state and add distributed scheduler ownership/cross-node single-flight. Only M7-018 may make `MultiNode` eligible for enablement.
+- **M7-017 — VERIFIED:** generic shared-state versioned-document capability plus dedicated Monitor SQL Server provider. Environment-only connection material, schema v1 deployment script, bounded JSON payloads and transactional optimistic compare/exchange. CI `31386867949`.
+- **M7-018 — VERIFIED via BATCH-100 Batch 1:** shared registrations/audit/incidents/history plus distributed scheduler ownership and cross-node refresh single-flight. CI `31389275376`.
 
 ## M8 — Zero-SQL Reads & Operator Refresh — CI VERIFIED
 Monitoring GET/navigation surfaces are cache/Peek-only for monitored SQL. Explicit Operator/Admin refresh remains POST + antiforgery; successful refresh observation occurs once. CI `31383991126`.
+
+## BATCH-100 — Production / Enterprise Program — 50/100 CI VERIFIED
+
+- **Batch 1 / B100-001..010:** shared state & HA foundation — VERIFIED.
+- **Batch 2 / B100-011..020:** HA secret & key management — VERIFIED.
+- **Batch 3 / B100-021..030:** backup/export/restore — VERIFIED.
+- **Batch 4 / B100-031..040:** production health, observability, correlation and redacted telemetry — VERIFIED.
+- **Batch 5 / B100-041..050:** performance & scale governance — CI VERIFIED, final merge gate in progress.
+- **Batch 6 / B100-051..060:** DBA UX & operations surfaces — NEXT.
+- **Batches 7–10 / B100-061..100:** security, reliability, deployment tooling and RC/operator features — PLANNED.
+
+The canonical task-level ledger is `docs/BATCH_100.md`.
