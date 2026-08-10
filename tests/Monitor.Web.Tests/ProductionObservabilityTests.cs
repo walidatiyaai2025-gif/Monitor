@@ -116,7 +116,7 @@ public sealed class ProductionObservabilityTests
     }
 
     [Fact]
-    public async Task LivenessEndpoint_HasNoReadinessOrCollectorDependency()
+    public void LivenessEndpoint_HasNoReadinessOrCollectorDependency()
     {
         var readiness = new FakeReadiness(ApplicationReadinessStatus.NotReady);
         var controller = new HealthController(readiness, new MonitorTelemetry(TimeProvider.System));
