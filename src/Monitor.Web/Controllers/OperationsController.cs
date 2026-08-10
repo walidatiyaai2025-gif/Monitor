@@ -22,6 +22,8 @@ public sealed class OperationsController : Controller
     private readonly IOperationalBackupService? _backupService;
     private readonly PerformanceScaleOptions _performance;
     private readonly IDbaOperationsSurfaceService? _dbaSurface;
+    private readonly IOperatorMetadataStore? _operatorMetadata;
+    private readonly TimeProvider _timeProvider;
 
     public OperationsController(
         IDemoMonitorService monitor,
@@ -37,7 +39,9 @@ public sealed class OperationsController : Controller
         ICredentialReadinessService? credentialReadiness = null,
         IOperationalBackupService? backupService = null,
         PerformanceScaleOptions? performance = null,
-        IDbaOperationsSurfaceService? dbaSurface = null)
+        IDbaOperationsSurfaceService? dbaSurface = null,
+        IOperatorMetadataStore? operatorMetadata = null,
+        TimeProvider? timeProvider = null)
     {
         _monitor = monitor;
         _readService = readService;
@@ -54,6 +58,8 @@ public sealed class OperationsController : Controller
         _performance = performance ?? new PerformanceScaleOptions();
         _performance.Validate();
         _dbaSurface = dbaSurface;
+        _operatorMetadata = operatorMetadata;
+        _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     [HttpGet("/dashboard")]
@@ -84,7 +90,18 @@ public sealed class OperationsController : Controller
     public async Task<IActionResult> ServerDetails(string id, CancellationToken cancellationToken)
     {
         var model = await _readService.GetServerAsync(id, cancellationToken);
-        return model is null ? NotFound() : View(model);
+        if (model is null) return NotFound();
+
+        if (_operatorMetadata is not null && Guid.TryParse(id, out var registrationId))
+        {
+            var metadata = _operatorMetadata.GetServer(registrationId);
+            var now = _timeProvider.GetUtcNow();
+            ViewData["ServerOperatorMetadata"] = metadata;
+            ViewData["MaintenanceActive"] = EnterpriseOperatorPolicy.IsMaintenanceActive(metadata, now);
+            ViewData["AlertSuppressed"] = EnterpriseOperatorPolicy.IsAlertSuppressed(metadata, now);
+        }
+
+        return View(model);
     }
 
     [HttpPost("/servers/{id:guid}/refresh")]
@@ -140,7 +157,18 @@ public sealed class OperationsController : Controller
     {
         if (_workflow is null) return NotFound();
         var model = await _workflow.GetDetailsAsync(id, cancellationToken);
-        return model is null ? NotFound() : View(model);
+        if (model is null) return NotFound();
+
+        if (_operatorMetadata is not null)
+        {
+            var metadata = _operatorMetadata.GetIncident(id);
+            var recommendationKey = model.Recommendation is null ? null : RecommendationAcknowledgmentKey.Create(model.Recommendation);
+            ViewData["IncidentOperatorMetadata"] = metadata;
+            ViewData["RecommendationKey"] = recommendationKey;
+            ViewData["RecommendationAcknowledged"] = recommendationKey is not null && metadata.AcknowledgedRecommendationKeys.Contains(recommendationKey, StringComparer.Ordinal);
+        }
+
+        return View(model);
     }
 
     [HttpPost("/alerts/{id}/acknowledge")]
