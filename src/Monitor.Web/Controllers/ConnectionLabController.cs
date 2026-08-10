@@ -11,8 +11,13 @@ public sealed class ConnectionLabController(
     IServerConnectionTester tester,
     IRuntimeCredentialWriter credentialWriter,
     IServerHealthSnapshotCache cache,
-    ISnapshotObserver observer) : Controller
+    ISnapshotObserver observer,
+    ICredentialLifecycleService? credentialLifecycle = null,
+    ICredentialReadinessService? credentialReadiness = null,
+    CredentialPolicyOptions? credentialPolicy = null) : Controller
 {
+    private bool AllowsLocalCredentialEntry => credentialPolicy?.AllowLocalOwnedCredentials ?? true;
+
     [HttpGet("/servers/connections")]
     public IActionResult Index() => View(BuildPage(new ConnectionLabRegistrationInput()));
 
@@ -25,6 +30,7 @@ public sealed class ConnectionLabController(
 
         if (!ModelState.IsValid)
         {
+            input.SqlPassword = null;
             return View("Index", BuildPage(input));
         }
 
@@ -40,6 +46,7 @@ public sealed class ConnectionLabController(
             if (IsDuplicate(endpoint))
             {
                 ModelState.AddModelError(string.Empty, "This SQL Server endpoint is already registered.");
+                input.SqlPassword = null;
                 return View("Index", BuildPage(input));
             }
 
@@ -50,7 +57,10 @@ public sealed class ConnectionLabController(
                 {
                     secretReference = await credentialWriter.StoreAsync(input.SqlUsername, input.SqlPassword, cancellationToken);
                 }
-                else secretReference = new ConnectionSecretReference(input.SecretReference!);
+                else
+                {
+                    secretReference = new ConnectionSecretReference(input.SecretReference!);
+                }
             }
 
             var registration = new ServerRegistration(
@@ -73,18 +83,31 @@ public sealed class ConnectionLabController(
             try
             {
                 observer.Observe(await cache.RefreshAsync(registration, cancellationToken));
-                if (ControllerContext.HttpContext is not null) TempData["ConnectionLabMessage"] = $"{registration.DisplayName} connected and its first real snapshot was collected.";
+                if (ControllerContext.HttpContext is not null)
+                {
+                    TempData["ConnectionLabMessage"] = $"{registration.DisplayName} connected and its first real snapshot was collected.";
+                }
                 return RedirectToAction("Servers", "Operations");
             }
             catch (SnapshotCollectionException exception)
             {
-                if (ControllerContext.HttpContext is not null) TempData["ConnectionLabMessage"] = $"Connection succeeded, but monitoring data is not available yet ({exception.Failure}). Review SQL monitoring permissions.";
+                if (ControllerContext.HttpContext is not null)
+                {
+                    TempData["ConnectionLabMessage"] = $"Connection succeeded, but monitoring data is not available yet ({exception.Failure}). Review SQL monitoring permissions.";
+                }
                 return RedirectToAction(nameof(Index));
             }
         }
         catch (ArgumentException exception)
         {
+            input.SqlPassword = null;
             ModelState.AddModelError(string.Empty, SafeDomainMessage(exception));
+            return View("Index", BuildPage(input));
+        }
+        catch (InvalidOperationException)
+        {
+            input.SqlPassword = null;
+            ModelState.AddModelError(string.Empty, "The selected credential mode is disabled by the current deployment policy.");
             return View("Index", BuildPage(input));
         }
     }
@@ -111,6 +134,61 @@ public sealed class ConnectionLabController(
         return View("Index", BuildPage(new ConnectionLabRegistrationInput(), result, id));
     }
 
+    [HttpPost("/servers/connections/{id:guid}/credential-reference")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ReplaceCredentialReference(
+        Guid id,
+        CredentialReferenceReplacementInput input,
+        CancellationToken cancellationToken)
+    {
+        if (credentialLifecycle is null)
+        {
+            return NotFound();
+        }
+
+        var actor = User.Identity?.Name?.Trim();
+        if (string.IsNullOrWhiteSpace(actor))
+        {
+            return Forbid();
+        }
+
+        if (!ModelState.IsValid)
+        {
+            TempData["ConnectionLabMessage"] = "Provide a valid external secret reference.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        var result = await credentialLifecycle.ReplaceWithExternalReferenceAsync(
+            id,
+            input.ExternalSecretReference,
+            actor,
+            cancellationToken);
+        TempData["ConnectionLabMessage"] = result.Message;
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpPost("/servers/connections/credentials/cleanup")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CleanupOwnedCredentials(CancellationToken cancellationToken)
+    {
+        if (credentialLifecycle is null)
+        {
+            return NotFound();
+        }
+
+        var actor = User.Identity?.Name?.Trim();
+        if (string.IsNullOrWhiteSpace(actor))
+        {
+            return Forbid();
+        }
+
+        var removed = await credentialLifecycle.CleanupOrphanedOwnedSecretsAsync(actor, cancellationToken);
+        TempData["ConnectionLabMessage"] = removed == 0
+            ? "No orphaned Monitor-owned SQL credentials were found."
+            : $"Removed {removed} orphaned Monitor-owned credential entr{(removed == 1 ? "y" : "ies")}.";
+        return RedirectToAction(nameof(Index));
+    }
+
     private ConnectionLabViewModel BuildPage(
         ConnectionLabRegistrationInput input,
         ConnectionTestResult? result = null,
@@ -120,7 +198,9 @@ public sealed class ConnectionLabController(
         Registrations = registrations.GetAll().Select(ToSummary).ToArray(),
         TestResult = result,
         TestedRegistrationId = testedId,
-        JourneyStep = registrations.GetAll().Count == 0 ? 1 : result?.Succeeded == true ? 3 : 2
+        JourneyStep = registrations.GetAll().Count == 0 ? 1 : result?.Succeeded == true ? 3 : 2,
+        AllowsLocalCredentialEntry = AllowsLocalCredentialEntry,
+        CredentialReadiness = credentialReadiness?.Get()
     };
 
     private bool IsDuplicate(SqlServerEndpoint endpoint) => registrations.GetAll().Any(item =>
@@ -136,6 +216,7 @@ public sealed class ConnectionLabController(
             : endpoint.InstanceName is null
                 ? endpoint.Host
                 : $"{endpoint.Host}\\{endpoint.InstanceName}";
+        var localOwned = registration.SecretReference?.Value.StartsWith("local:v1:", StringComparison.Ordinal) == true;
 
         return new ConnectionLabRegistrationSummary(
             registration.Id,
@@ -146,7 +227,8 @@ public sealed class ConnectionLabController(
             registration.IsEnabled,
             endpoint.Encrypt,
             endpoint.TrustServerCertificate,
-            registration.CreatedAtUtc);
+            registration.CreatedAtUtc,
+            localOwned);
     }
 
     private void ValidateInput(ConnectionLabRegistrationInput input)
@@ -161,10 +243,19 @@ public sealed class ConnectionLabController(
             ModelState.AddModelError(nameof(input.Port), "Specify either a TCP port or a named instance, not both.");
         }
 
-        if (input.AuthenticationMode == SqlAuthenticationMode.SqlLogin && string.IsNullOrWhiteSpace(input.SecretReference) &&
-            (string.IsNullOrWhiteSpace(input.SqlUsername) || string.IsNullOrEmpty(input.SqlPassword)))
+        if (input.AuthenticationMode == SqlAuthenticationMode.SqlLogin)
         {
-            ModelState.AddModelError(nameof(input.SqlUsername), "Enter a SQL username/password for this session or provide an external secret reference.");
+            var suppliedLocalCredential = !string.IsNullOrWhiteSpace(input.SqlUsername) || !string.IsNullOrEmpty(input.SqlPassword);
+            if (!AllowsLocalCredentialEntry && suppliedLocalCredential)
+            {
+                ModelState.AddModelError(nameof(input.SqlUsername), "Local SQL credential entry is disabled. Provide an external secret reference.");
+            }
+
+            if (string.IsNullOrWhiteSpace(input.SecretReference) &&
+                (string.IsNullOrWhiteSpace(input.SqlUsername) || string.IsNullOrEmpty(input.SqlPassword)))
+            {
+                ModelState.AddModelError(nameof(input.SqlUsername), "Enter a SQL username/password for this session or provide an external secret reference.");
+            }
         }
     }
 

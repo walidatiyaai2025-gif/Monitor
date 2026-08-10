@@ -4,7 +4,9 @@
 
 ## Current state
 
-M0 through M6 are CI verified. M7 production-readiness now includes durable registration metadata, fail-closed external secret routing, durable bounded operational state, protected local SQL Login credentials, a fail-closed SingleNode/MultiNode topology guard, and the first real shared-state storage capability. M8 enforces zero-SQL monitoring GETs for monitored targets.
+M0 through M6 are CI verified. M7 production-readiness includes durable registration metadata, fail-closed external secret routing, durable bounded operational state, protected local SQL Login credentials, a topology guard and a dedicated Monitor shared-state SQL capability. M8 enforces zero-SQL monitoring GETs for monitored targets.
+
+BATCH-100 is the active enterprise hardening program. Batch 1 adds shared registration/audit/history/incident state plus distributed scheduler/manual-refresh coordination. Batch 2 adds shared encrypted Data Protection key management and safe SQL credential-reference migration/rotation. `docs/BATCH_100.md` is the 100-task execution ledger.
 
 ## Run
 
@@ -21,7 +23,7 @@ The development Admin password is represented only by a PBKDF2 salt/hash in sour
 
 Dashboard, Servers, Server Details, health modules and incident navigation consume cached snapshot state. Opening those pages does **not** initiate monitored SQL collection. Collection remains an explicit backend action through Operator/Administrator manual refresh or the validated scheduler.
 
-M7-017 adds an optional **separate Monitor-owned state database**. Administrator Settings may probe that dedicated state provider when enabled; this is control-plane storage readiness, not a query against a monitored SQL target.
+The optional **separate Monitor-owned state database** carries control-plane state and coordination only. Administrator Settings may probe that dedicated state provider when enabled; this is not a query against a monitored SQL target.
 
 ## Deployment topology
 
@@ -31,9 +33,9 @@ M7-017 adds an optional **separate Monitor-owned state database**. Administrator
 }
 ```
 
-`SingleNode` remains the only enabled topology. `MultiNode` fails startup until application repositories and distributed coordination are actually migrated to shared implementations. A READY M7-017 storage provider by itself does not enable MultiNode.
+`SingleNode` remains the safe default. BATCH-100 Batch 1 introduces shared repository adapters and distributed leases, but `MultiNode` remains fail-closed until every cross-field prerequisite is HA-safe. A READY shared-state database alone does not enable MultiNode.
 
-## Shared-state provider — M7-017
+## Shared-state provider
 
 The provider is disabled by default:
 
@@ -42,6 +44,18 @@ The provider is disabled by default:
   "Provider": "Disabled",
   "ConnectionStringEnvironmentVariable": "MONITOR_SHARED_STATE_SQL_CONNECTION",
   "CommandTimeoutSeconds": 5
+},
+"HaState": {
+  "UseSharedRegistrations": false,
+  "ImportLocalRegistrationsWhenSharedEmpty": false,
+  "UseSharedOperationalState": false
+},
+"Coordination": {
+  "Enabled": false,
+  "NodeIdEnvironmentVariable": "MONITOR_NODE_ID",
+  "SchedulerLeaseSeconds": 90,
+  "RefreshLeaseSeconds": 30,
+  "MaxConflictRetries": 12
 }
 ```
 
@@ -51,15 +65,27 @@ The connection-string value is read directly from the process environment. It is
 
 The runtime application does **not** create or migrate the schema. The v1 deployment script is idempotent and refuses to overwrite an incompatible schema version.
 
-The shared-state contract is a bounded versioned JSON document store with optimistic compare/exchange. SQL Server writes use `SERIALIZABLE` plus `UPDLOCK/HOLDLOCK`; a stale expected version returns Conflict rather than overwriting newer state.
+The shared-state contract is a bounded versioned JSON document store with optimistic compare/exchange. Shared application adapters retain the existing service interfaces. Distributed scheduler and refresh coordination use expiring versioned leases in the same dedicated control-plane provider.
 
-M7-017 is storage capability only. Registration, audit, history, incidents, scheduler ownership and cross-node single-flight are still on their existing boundaries and are not migrated by this task.
+## SQL Login credentials and HA key management
 
-## SQL Login credentials
+Single-node defaults continue to allow server-generated `local:v1` credentials protected by ASP.NET Data Protection. Payloads are persisted in an encrypted atomic file outside `wwwroot`; the default Data Protection key ring is also outside `wwwroot`.
 
-UI-entered SQL Login credentials use server-generated `local:v1` references. Payloads are protected with ASP.NET Data Protection using reference-scoped purposes and persisted in an encrypted atomic file outside `wwwroot`; the Data Protection key ring is also persisted outside `wwwroot`. Lost/different keys or tampered ciphertext fail closed.
+For HA preparation, key-ring storage can be switched explicitly:
 
-The protected local secret store and key ring remain node-local. Existing `env:<alias>` and legacy external references remain compatible.
+```json
+"DataProtectionKeyStore": {
+  "Mode": "SharedState",
+  "KeyEncryptionKeyEnvironmentVariable": "MONITOR_DP_KEK"
+},
+"CredentialPolicy": {
+  "AllowLocalOwnedCredentials": false
+}
+```
+
+`MONITOR_DP_KEK` must contain a base64-encoded 256-bit key-encryption key. Shared key-ring XML is AES-256-GCM encrypted before it enters the dedicated Monitor state provider. The KEK is read directly from the process environment and is never persisted by Monitor. Missing, invalid or wrong KEK material fails closed; an explicit SharedState key-ring configuration does not silently downgrade to local files.
+
+Existing `env:<alias>` and legacy external secret references remain compatible. Connection Lab can replace an existing SQL Login reference with a tested external reference. The workflow resolves the candidate, runs bounded Test Connection, commits registration metadata only after success, then removes the old Monitor-owned local secret when safe. Failed replacement keeps the current registration/credential unchanged. Audit records only bounded actor/action/registration/outcome metadata; current and candidate references are never rendered or audited.
 
 ## Architecture rules
 
@@ -70,4 +96,4 @@ The protected local secret store and key ring remain node-local. Existing `env:<
 - Recommendations and Advisor output remain advisory-only and cannot execute production SQL.
 - Secret-provider routing stays behind `IConnectionSecretStore`.
 - Shared-state SQL is a separate Monitor-owned control-plane database, never an implicitly reused monitored target.
-- `MultiNode` stays fail-closed until M7-018 migrates required state and distributed coordination.
+- MultiNode stays fail-closed until all remaining distributed login-security and snapshot-cache/delivery prerequisites are verified.

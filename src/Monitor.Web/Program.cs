@@ -41,13 +41,25 @@ var coordinationOptions = builder.Configuration
 coordinationOptions.Validate();
 builder.Services.AddSingleton(coordinationOptions);
 
+var keyStoreOptions = builder.Configuration
+    .GetSection(DataProtectionKeyStoreOptions.SectionName)
+    .Get<DataProtectionKeyStoreOptions>() ?? new DataProtectionKeyStoreOptions();
+keyStoreOptions.Validate();
+builder.Services.AddSingleton(keyStoreOptions);
+
+var credentialPolicy = builder.Configuration
+    .GetSection(CredentialPolicyOptions.SectionName)
+    .Get<CredentialPolicyOptions>() ?? new CredentialPolicyOptions();
+builder.Services.AddSingleton(credentialPolicy);
+
 if ((haStateOptions.UseSharedRegistrations ||
      haStateOptions.UseSharedOperationalState ||
-     coordinationOptions.Enabled) &&
+     coordinationOptions.Enabled ||
+     keyStoreOptions.Mode == DataProtectionKeyStoreMode.SharedState) &&
     sharedStateOptions.Provider != SharedStateProviderKind.SqlServer)
 {
     throw new InvalidOperationException(
-        "Shared application state and distributed coordination require the dedicated Monitor shared-state SQL provider.");
+        "Shared application state, coordination and shared key management require the dedicated Monitor shared-state SQL provider.");
 }
 
 var nodeIdentity = NodeIdentity.Resolve(coordinationOptions);
@@ -173,20 +185,39 @@ var secretFilePath = OperationalStorePath.ResolveOutsideWebRoot(
     secretStoreOptions.Path, builder.Environment.ContentRootPath, builder.Environment.WebRootPath);
 var keyRingPath = OperationalStorePath.ResolveOutsideWebRoot(
     secretStoreOptions.KeyRingPath, builder.Environment.ContentRootPath, builder.Environment.WebRootPath);
-Directory.CreateDirectory(keyRingPath);
-builder.Services.AddDataProtection()
-    .SetApplicationName("Monitor.SqlSecrets.v1")
-    .PersistKeysToFileSystem(new DirectoryInfo(keyRingPath));
+var dataProtection = builder.Services.AddDataProtection().SetApplicationName("Monitor.SqlSecrets.v1");
+if (keyStoreOptions.Mode == DataProtectionKeyStoreMode.SharedState)
+{
+    var kek = Environment.GetEnvironmentVariable(keyStoreOptions.KeyEncryptionKeyEnvironmentVariable);
+    if (string.IsNullOrWhiteSpace(kek))
+    {
+        throw new InvalidOperationException("Shared Data Protection key encryption key is unavailable.");
+    }
+
+    var sharedKeyRepository = new SharedEncryptedDataProtectionXmlRepository(
+        new SqlServerSharedStateDocumentStore(sharedStateOptions),
+        kek);
+    dataProtection.AddKeyManagementOptions(options => options.XmlRepository = sharedKeyRepository);
+}
+else
+{
+    Directory.CreateDirectory(keyRingPath);
+    dataProtection.PersistKeysToFileSystem(new DirectoryInfo(keyRingPath));
+}
+
 builder.Services.AddSingleton(secretStoreOptions);
 builder.Services.AddSingleton<IExternalConnectionSecretProvider, EnvironmentConnectionSecretProvider>();
 builder.Services.AddSingleton<IConnectionSecretStore>(provider => new ProtectedFileConnectionSecretStore(
     secretFilePath,
     provider.GetRequiredService<IDataProtectionProvider>(),
     provider.GetRequiredService<IConfiguration>(),
-    provider.GetServices<IExternalConnectionSecretProvider>()));
+    provider.GetServices<IExternalConnectionSecretProvider>(),
+    credentialPolicy));
 builder.Services.AddSingleton<IRuntimeCredentialWriter>(provider => (IRuntimeCredentialWriter)provider.GetRequiredService<IConnectionSecretStore>());
 builder.Services.AddSingleton<ISqlConnectionProbe, SqlConnectionProbe>();
 builder.Services.AddSingleton<IServerConnectionTester, ServerConnectionTester>();
+builder.Services.AddSingleton<ICredentialLifecycleService, CredentialLifecycleService>();
+builder.Services.AddSingleton<ICredentialReadinessService, CredentialReadinessService>();
 builder.Services.AddSingleton<ISqlSnapshotQuery, SqlSnapshotQuery>();
 builder.Services.AddSingleton<ISqlServerSnapshotCollector, SqlServerSnapshotCollector>();
 builder.Services.AddSingleton<IServerHealthSnapshotCache, ServerHealthSnapshotCache>();
@@ -252,6 +283,15 @@ var configuredRegistration = ConfiguredServerRegistrationLoader.Load(
 if (configuredRegistration is not null)
 {
     app.Services.GetRequiredService<IServerRegistrationRepository>().Upsert(configuredRegistration);
+}
+
+if (deploymentTopologyOptions.Mode == DeploymentTopology.MultiNode)
+{
+    var credentialReadiness = app.Services.GetRequiredService<ICredentialReadinessService>().Get();
+    if (!credentialReadiness.MultiNodeCredentialReady)
+    {
+        throw new InvalidOperationException("Multi-node startup is blocked by credential/key-management readiness.");
+    }
 }
 
 if (!app.Environment.IsDevelopment())

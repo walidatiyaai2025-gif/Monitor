@@ -18,6 +18,7 @@ public sealed class OperationsController : Controller
     private readonly ISnapshotRefreshService? _snapshotRefresh;
     private readonly DeploymentReadinessViewModel _deploymentReadiness;
     private readonly ISharedStateReadinessService? _sharedStateReadiness;
+    private readonly ICredentialReadinessService? _credentialReadiness;
 
     public OperationsController(
         IDemoMonitorService monitor,
@@ -29,7 +30,8 @@ public sealed class OperationsController : Controller
         IHealthIncidentRepository? incidentRepository = null,
         ISnapshotRefreshService? snapshotRefresh = null,
         DeploymentReadinessViewModel? deploymentReadiness = null,
-        ISharedStateReadinessService? sharedStateReadiness = null)
+        ISharedStateReadinessService? sharedStateReadiness = null,
+        ICredentialReadinessService? credentialReadiness = null)
     {
         _monitor = monitor;
         _readService = readService;
@@ -41,6 +43,7 @@ public sealed class OperationsController : Controller
         _snapshotRefresh = snapshotRefresh;
         _deploymentReadiness = deploymentReadiness ?? DeploymentReadinessViewModel.SafeDefault();
         _sharedStateReadiness = sharedStateReadiness;
+        _credentialReadiness = credentialReadiness;
     }
 
     [HttpGet("/dashboard")]
@@ -211,6 +214,15 @@ public sealed class OperationsController : Controller
         var sharedState = _sharedStateReadiness is null
             ? SharedStateReadinessViewModel.Disabled()
             : await _sharedStateReadiness.GetAsync(cancellationToken);
-        return View(new SettingsViewModel(_deploymentReadiness, sharedState));
+        var credentials = _credentialReadiness?.Get() ?? new CredentialReadinessViewModel(
+            DataProtectionKeyStoreMode.LocalFile,
+            SharedKeyRingReady: false,
+            SqlLoginRegistrations: 0,
+            LocalOwnedRegistrations: 0,
+            ExternalRegistrations: 0,
+            MultiNodeCredentialReady: false,
+            Status: "HA credential readiness unavailable",
+            Message: "Credential readiness service is unavailable.");
+        return View(new SettingsViewModel(_deploymentReadiness, sharedState, credentials));
     }
 }

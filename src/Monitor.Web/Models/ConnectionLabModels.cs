@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Monitor.Web.Services;
 
 namespace Monitor.Web.Models;
 
@@ -44,6 +45,13 @@ public sealed class ConnectionLabRegistrationInput
     public bool TrustServerCertificate { get; set; }
 }
 
+public sealed class CredentialReferenceReplacementInput
+{
+    [Required]
+    [StringLength(128)]
+    public string ExternalSecretReference { get; set; } = string.Empty;
+}
+
 public sealed record ConnectionLabRegistrationSummary(
     Guid Id,
     string DisplayName,
@@ -53,7 +61,8 @@ public sealed record ConnectionLabRegistrationSummary(
     bool IsEnabled,
     bool Encrypt,
     bool TrustServerCertificate,
-    DateTimeOffset CreatedAtUtc);
+    DateTimeOffset CreatedAtUtc,
+    bool UsesLocalOwnedCredential = false);
 
 public sealed class ConnectionLabViewModel
 {
@@ -62,4 +71,6 @@ public sealed class ConnectionLabViewModel
     public ConnectionTestResult? TestResult { get; init; }
     public Guid? TestedRegistrationId { get; init; }
     public int JourneyStep { get; init; }
+    public bool AllowsLocalCredentialEntry { get; init; } = true;
+    public CredentialReadinessViewModel? CredentialReadiness { get; init; }
 }

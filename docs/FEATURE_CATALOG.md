@@ -18,10 +18,16 @@
 | Environment SQL secret provider | M7 | CI verified | `env:<alias>` direct environment; no fallback |
 | Durable operational state | M7 | CI verified | Independent audit/history/incident files |
 | Protected local SQL credential store | M7 | CI verified | `local:v1`, Data Protection, encrypted atomic file, persisted key ring; CI 31384727247 |
-| HA topology safety guard | M7 | CI verified | SingleNode supported; MultiNode fail-closed; CI 31385935255 |
+| HA topology safety guard | M7 | CI verified | Cross-field readiness; false MultiNode readiness is blocked |
 | Shared-state document contract | M7 | CI verified | Bounded JSON, versioned read/compare-exchange; CI 31386867949 |
 | Dedicated Monitor SQL shared-state provider | M7 | CI verified | Environment-only connection, schema v1, SERIALIZABLE compare/exchange; CI 31386867949 |
 | Shared-state readiness | M7 | CI verified | Provider/schema status only; no endpoint/credential disclosure |
-| Distributed repository/coordination migration | M7 | Planned | M7-018; required before MultiNode |
+| Shared registration repository | B100 | CI verified | Same application interface, optimistic CAS, deterministic import-if-empty; CI 31389275376 |
+| Shared audit/history/incident repositories | B100 | CI verified | Existing bounded semantics on dedicated control-plane state; CI 31389275376 |
+| Distributed scheduler/refresh coordination | B100 | CI verified | Expiring versioned leases, leader renewal, cross-node refresh single-flight; CI 31389275376 |
+| Shared encrypted Data Protection key ring | B100 | CI verified | AES-256-GCM shared XML; environment-only 256-bit KEK; CI 31391446513 |
+| HA credential creation policy | B100 | CI verified | New Monitor-owned local credentials can be prohibited explicitly; CI 31391446513 |
+| Credential reference migration/rotation | B100 | CI verified | Resolve -> Test -> commit -> owned cleanup; metadata-only audit; CI 31391446513 |
+| Credential HA readiness | B100 | CI verified | Aggregate counts/key-ring mode only; current references never rendered; CI 31391446513 |
 | Zero-SQL monitored GETs | M8 | CI verified | Cache/Peek-only browser monitoring reads; CI 31383991126 |
 | Explicit observed manual refresh | M8 | CI verified | Operator/Admin POST; successful refresh observed once |

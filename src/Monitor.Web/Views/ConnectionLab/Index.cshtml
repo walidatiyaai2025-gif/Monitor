@@ -4,7 +4,7 @@
     var sqlLogin = Model.Input.AuthenticationMode == SqlAuthenticationMode.SqlLogin;
 }
 
-<div class="data-banner"><strong>CONNECT A REAL SQL SERVER</strong><span>Register → Test → Collect snapshot → View health. Credentials entered here are write-only and encrypted at rest with Monitor's protected local key ring.</span></div>
+<div class="data-banner"><strong>CONNECT A REAL SQL SERVER</strong><span>Register → Test → Collect snapshot → View health. SQL Login values are write-only; production/HA profiles should use external opaque secret references.</span></div>
 
 @if (TempData["ConnectionLabMessage"] is string message)
 {
@@ -12,9 +12,18 @@
 }
 
 <section class="lab-hero glass-panel">
-    <div><span class="eyebrow">CONTROLLED CONNECTIVITY</span><h2>Register metadata. Test through the secure backend.</h2><p>One deliberate Test Connection action uses the verified backend service. The browser never receives a SQL password, connection string or raw provider exception.</p></div>
+    <div><span class="eyebrow">CONTROLLED CONNECTIVITY</span><h2>Register metadata. Test through the secure backend.</h2><p>One deliberate Test Connection action uses the verified backend service. The browser never receives a SQL password, connection string, key-encryption key or raw provider exception.</p></div>
     <div class="lab-flow"><span>Browser</span><i>→</i><span>Registration</span><i>→</i><span>Secret boundary</span><i>→</i><span>SQL probe</span></div>
 </section>
+
+@if (Model.CredentialReadiness is not null)
+{
+    <section class="glass-panel lab-panel">
+        <div class="panel-heading"><div><span class="eyebrow">CREDENTIAL READINESS</span><h3>@Model.CredentialReadiness.Status</h3></div><span class="snapshot-note">@Model.CredentialReadiness.KeyRingMode</span></div>
+        <div class="lab-target-meta"><span>SQL Login profiles<strong>@Model.CredentialReadiness.SqlLoginRegistrations</strong></span><span>External references<strong>@Model.CredentialReadiness.ExternalRegistrations</strong></span><span>Local owned<strong>@Model.CredentialReadiness.LocalOwnedRegistrations</strong></span></div>
+        <p>@Model.CredentialReadiness.Message</p>
+    </section>
+}
 
 <div asp-validation-summary="ModelOnly" class="lab-validation"></div>
 
@@ -43,15 +52,22 @@
                 @Html.ValidationMessage("AuthenticationMode", null, new { @class = "field-error" })
             </div>
             <div class="lab-field full @(sqlLogin ? string.Empty : "is-hidden")" data-lab-secret-field>
-                <label for="SqlUsername">SQL username</label>
-                <input id="SqlUsername" name="SqlUsername" value="@Model.Input.SqlUsername" maxlength="128" autocomplete="username" placeholder="monitor_reader" />
-                @Html.ValidationMessage("SqlUsername", null, new { @class = "field-error" })
-                <label for="SqlPassword">SQL password</label>
-                <input id="SqlPassword" name="SqlPassword" type="password" maxlength="256" autocomplete="new-password" />
-                <small>Write-only to this request, encrypted at rest, never returned to the browser, and never repopulated.</small>
+                @if (Model.AllowsLocalCredentialEntry)
+                {
+                    <label for="SqlUsername">SQL username</label>
+                    <input id="SqlUsername" name="SqlUsername" value="@Model.Input.SqlUsername" maxlength="128" autocomplete="username" placeholder="monitor_reader" />
+                    @Html.ValidationMessage("SqlUsername", null, new { @class = "field-error" })
+                    <label for="SqlPassword">SQL password</label>
+                    <input id="SqlPassword" name="SqlPassword" type="password" maxlength="256" autocomplete="new-password" />
+                    <small>Write-only to this request, encrypted at rest, never returned to the browser, and never repopulated.</small>
+                }
+                else
+                {
+                    <div class="lab-rule state-warning"><span>!</span><div><strong>Local SQL credential entry disabled</strong><p>This deployment requires an external secret reference. No local <code>local:v1</code> credential can be created.</p></div></div>
+                }
                 <label for="SecretReference">External secret reference</label>
                 <input id="SecretReference" name="SecretReference" value="@Model.Input.SecretReference" maxlength="128" placeholder="env:FINANCE_PROD" />
-                <small>Recommended production pattern: <code>env:FINANCE_PROD</code> resolves only from <code>MONITOR_SQL_SECRET_FINANCE_PROD_USERNAME</code> and <code>MONITOR_SQL_SECRET_FINANCE_PROD_PASSWORD</code>. These values are read directly from the process environment and never from appsettings for an <code>env:</code> reference. Existing non-<code>env:</code> references remain compatible with <code>ConnectionSecrets:&lt;reference&gt;</code>.</small>
+                <small>Recommended production pattern: <code>env:FINANCE_PROD</code> resolves only from process environment values. Existing non-<code>env:</code> references remain backward compatible.</small>
                 @Html.ValidationMessage("SecretReference", null, new { @class = "field-error" })
             </div>
             <div class="lab-options full">
@@ -64,10 +80,10 @@
 
     <aside class="glass-panel lab-panel">
         <div class="panel-heading"><div><span class="eyebrow">SECURITY BOUNDARY</span><h3>What this UI cannot expose</h3></div></div>
-        <div class="lab-rule state-healthy"><span>01</span><div><strong>No password exposure</strong><p>Runtime passwords are write-only inputs and are never repopulated or rendered. External references carry an alias, never the credential value.</p></div></div>
-        <div class="lab-rule state-healthy"><span>02</span><div><strong>No connection string output</strong><p>The verified backend constructs it transiently immediately before opening the connection.</p></div></div>
-        <div class="lab-rule state-healthy"><span>03</span><div><strong>Fail-closed external secrets</strong><p>An <code>env:</code> reference with a missing or partial environment secret stays unavailable; it never falls back to appsettings.</p></div></div>
-        <div class="lab-rule state-warning"><span>04</span><div><strong>Manual probe only</strong><p>This screen adds no polling, collector timer or background SQL activity.</p></div></div>
+        <div class="lab-rule state-healthy"><span>01</span><div><strong>No password exposure</strong><p>Passwords are write-only inputs and are never repopulated or rendered. External references carry an alias, never the credential value.</p></div></div>
+        <div class="lab-rule state-healthy"><span>02</span><div><strong>Candidate test before mutation</strong><p>Credential replacement resolves and tests the candidate reference before registration metadata changes.</p></div></div>
+        <div class="lab-rule state-healthy"><span>03</span><div><strong>Owned cleanup only</strong><p>Cleanup can delete only Monitor-owned local credential entries. External provider secrets are never mutated.</p></div></div>
+        <div class="lab-rule state-warning"><span>04</span><div><strong>Manual probe only</strong><p>This screen adds no polling, collector timer or background monitored-SQL activity.</p></div></div>
     </aside>
 </section>
 
@@ -86,13 +102,21 @@ else
             var resultState = result?.Succeeded == true ? "healthy" : result is null ? "unknown" : "critical";
             <article class="glass-panel lab-target state-@resultState">
                 <div class="lab-target-head"><div><span class="health-orb state-@(registration.IsEnabled ? "healthy" : "offline")"></span><div><strong>@registration.DisplayName</strong><small>@registration.Target</small></div></div><span class="lab-auth">@(registration.AuthenticationMode == SqlAuthenticationMode.IntegratedSecurity ? "WINDOWS" : "SQL LOGIN")</span></div>
-                <div class="lab-target-meta"><span>Encrypt<strong>@(registration.Encrypt ? "ON" : "OFF")</strong></span><span>Trust cert<strong>@(registration.TrustServerCertificate ? "YES" : "NO")</strong></span><span>Credential<strong>@(registration.HasSecretReference ? "REFERENCE" : "WINDOWS")</strong></span></div>
+                <div class="lab-target-meta"><span>Encrypt<strong>@(registration.Encrypt ? "ON" : "OFF")</strong></span><span>Trust cert<strong>@(registration.TrustServerCertificate ? "YES" : "NO")</strong></span><span>Credential<strong>@(registration.AuthenticationMode == SqlAuthenticationMode.IntegratedSecurity ? "WINDOWS" : registration.UsesLocalOwnedCredential ? "LOCAL OWNED" : "EXTERNAL")</strong></span></div>
                 @if (result is not null)
                 {
                     <div class="lab-result state-@resultState"><div><span>@(result.Succeeded ? "✓" : "!")</span><div><strong>@result.Status</strong><p>@result.Message</p></div></div><div class="lab-result-meta"><span><small>Elapsed</small><strong>@result.ElapsedMilliseconds ms</strong></span>@if (!string.IsNullOrWhiteSpace(result.ServerVersion)){<span><small>Server version</small><strong>@result.ServerVersion</strong></span>}</div></div>
                 }
                 <form asp-controller="ConnectionLab" asp-action="Test" asp-route-id="@registration.Id" method="post" class="lab-test"><span>Created @registration.CreatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span><button class="primary-button" type="submit" disabled="@(!registration.IsEnabled)">Test Connection</button></form>
+                @if (registration.AuthenticationMode == SqlAuthenticationMode.SqlLogin)
+                {
+                    <form asp-controller="ConnectionLab" asp-action="ReplaceCredentialReference" asp-route-id="@registration.Id" method="post" class="lab-form" autocomplete="off">
+                        <div class="lab-field full"><label>Replace with tested external reference</label><input name="ExternalSecretReference" maxlength="128" placeholder="env:FINANCE_PROD_V2" /><small>The candidate is resolved and Test Connection must succeed before this registration is changed. The current reference is never rendered.</small></div>
+                        <div class="lab-actions full"><button class="secondary-button" type="submit">Test & replace reference</button></div>
+                    </form>
+                }
             </article>
         }
     </section>
+    <form asp-controller="ConnectionLab" asp-action="CleanupOwnedCredentials" method="post" class="lab-test"><span>Delete encrypted Monitor-owned entries that are no longer referenced by any registration.</span><button class="secondary-button" type="submit">Clean orphaned owned credentials</button></form>
 }
