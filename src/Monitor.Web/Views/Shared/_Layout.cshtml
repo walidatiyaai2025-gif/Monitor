@@ -10,6 +10,7 @@
     <meta name="theme-color" content="#07111f" />
     <title>@ViewData["Title"] · Monitor</title>
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/command-center.css" asp-append-version="true" />
 </head>
 <body class="app-body">
     <div class="ambient-grid"></div>
@@ -47,7 +48,7 @@
                 <h1>@ViewData["Title"]</h1>
             </div>
             <div class="topbar-actions">
-                <div class="collector-state"><span class="live-dot"></span><div><strong>Collector</strong><small>Preview simulation</small></div></div>
+                <div class="collector-state"><span class="live-dot"></span><div><strong>Collector</strong><small data-scan-phase>Snapshot cache active</small></div></div>
                 <div class="user-chip"><span>AD</span><div><strong>@User.Identity?.Name</strong><small>Administrator</small></div></div>
                 <form asp-controller="Account" asp-action="Logout" method="post"><button class="icon-button" title="Sign out" type="submit">↗</button></form>
             </div>

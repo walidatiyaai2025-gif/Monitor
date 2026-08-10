@@ -3,7 +3,8 @@
 | Feature | Milestone | Status | Notes |
 |---|---|---|---|
 | Development Admin authentication | M0 | CI verified | Cookie auth; PBKDF2 hash only |
-| SQL Command Center | M0 | CI verified / visual review pending | Central live visual area |
+| SQL Command Center | M0 | CI verified / visual review pending | Central live visual area + estate topology |
+| Command Center visual telemetry layer | M0 | Implemented / CI pending | Client-only radar, freshness, scan phases; zero data calls |
 | Server estate cards | M0 | CI verified / visual review pending | Demo snapshot states |
 | Server overview | M0 | CI verified / visual review pending | Latest snapshot pattern |
 | Database Health | M0 | CI verified / visual review pending | Shared snapshot data |
