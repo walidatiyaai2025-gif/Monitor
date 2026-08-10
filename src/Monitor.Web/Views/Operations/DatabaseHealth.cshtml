@@ -1,0 +1,9 @@
+@model IReadOnlyList<ServerCard>
+@{
+    ViewData["Title"] = "Database Health";
+    var total = Model.Sum(s => s.DatabaseTotal);
+    var online = Model.Sum(s => s.DatabaseOnline);
+}
+<div class="data-banner"><strong>DEVELOPMENT DATA</strong><span>Database health is rendered from the shared server snapshot.</span></div>
+<section class="summary-strip glass-panel"><div><span class="eyebrow">DATABASE ESTATE</span><strong>@online / @total</strong><small>databases online</small></div><div><strong>@(total - online)</strong><small>need attention</small></div><div><strong>@Model.Count</strong><small>SQL instances</small></div><div><strong>Snapshot</strong><small>shared data source</small></div></section>
+<article class="glass-panel table-panel"><div class="panel-heading"><div><span class="eyebrow">BY SERVER</span><h3>Database availability</h3></div></div><div class="incident-table"><div class="table-head db-table"><span>Server</span><span>Version</span><span>Online</span><span>Total</span><span>Unavailable</span><span>State</span></div>@foreach (var server in Model){<div class="table-row db-table"><strong>@server.Name</strong><span>@server.Version</span><span>@server.DatabaseOnline</span><span>@server.DatabaseTotal</span><span>@(server.DatabaseTotal - server.DatabaseOnline)</span><span class="severity severity-@server.State.ToString().ToLowerInvariant()">@server.State</span></div>}</div></article>

@@ -1,0 +1,46 @@
+namespace Monitor.Web.Models;
+
+public enum HealthState
+{
+    Healthy,
+    Warning,
+    Critical,
+    Offline,
+    Unknown
+}
+
+public sealed record ServerCard(
+    string Id,
+    string Name,
+    string Version,
+    string Edition,
+    HealthState State,
+    int CpuPercent,
+    int MemoryPercent,
+    int DatabaseOnline,
+    int DatabaseTotal,
+    int JobsHealthy,
+    int JobsTotal,
+    int LastScanSecondsAgo);
+
+public sealed record MetricCard(string Name, string Value, string Detail, HealthState State);
+public sealed record ActivityItem(string Time, string Message, HealthState State);
+public sealed record IncidentRow(string Id, string Severity, string Server, string Title, string Age, string State);
+
+public sealed class DashboardViewModel
+{
+    public required IReadOnlyList<ServerCard> Servers { get; init; }
+    public required IReadOnlyList<MetricCard> Metrics { get; init; }
+    public required IReadOnlyList<ActivityItem> Activity { get; init; }
+    public required IReadOnlyList<IncidentRow> Incidents { get; init; }
+    public int DatabaseCount => Servers.Sum(server => server.DatabaseTotal);
+    public int OnlineDatabaseCount => Servers.Sum(server => server.DatabaseOnline);
+    public int CriticalCount => Incidents.Count(incident => incident.Severity == "Critical");
+    public int WarningCount => Incidents.Count(incident => incident.Severity == "Warning");
+}
+
+public sealed class ServerDetailsViewModel
+{
+    public required ServerCard Server { get; init; }
+    public required IReadOnlyList<MetricCard> Metrics { get; init; }
+}

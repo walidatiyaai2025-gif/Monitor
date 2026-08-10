@@ -1,0 +1,17 @@
+@model IReadOnlyList<ServerCard>
+@{
+    ViewData["Title"] = "Servers";
+}
+<div class="data-banner"><strong>DEVELOPMENT DATA</strong><span>Server cards demonstrate healthy, warning, critical and offline visual states.</span></div>
+<div class="section-heading"><div><span class="eyebrow">SQL ESTATE</span><h2>@Model.Count monitored instances</h2></div><button class="secondary-button" disabled>+ Register Server · M1</button></div>
+<section class="server-card-grid">
+@foreach (var server in Model)
+{
+    <a class="server-card glass-panel" asp-action="ServerDetails" asp-route-id="@server.Id">
+        <div class="server-card-head"><div><span class="health-orb state-@server.State.ToString().ToLowerInvariant()"></span><span class="status-word">@server.State</span></div><span class="snapshot-note">@server.LastScanSecondsAgo sec ago</span></div>
+        <h3>@server.Name</h3><p>@server.Version · @server.Edition</p>
+        <div class="server-card-metrics"><div><small>CPU</small><strong>@server.CpuPercent%</strong></div><div><small>MEMORY</small><strong>@server.MemoryPercent%</strong></div><div><small>DATABASES</small><strong>@server.DatabaseOnline / @server.DatabaseTotal</strong></div><div><small>JOBS</small><strong>@server.JobsHealthy / @server.JobsTotal</strong></div></div>
+        <div class="card-link">Open server overview <span>→</span></div>
+    </a>
+}
+</section>

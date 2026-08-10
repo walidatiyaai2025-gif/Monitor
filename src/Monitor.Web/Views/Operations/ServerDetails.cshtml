@@ -1,0 +1,19 @@
+@model ServerDetailsViewModel
+@{
+    ViewData["Title"] = Model.Server.Name;
+}
+<div class="data-banner"><strong>DEVELOPMENT DATA</strong><span>Latest cached preview snapshot · detailed screens do not continuously query SQL.</span></div>
+<section class="server-hero glass-panel">
+    <div><span class="eyebrow">SERVER OVERVIEW</span><div class="server-title-line"><span class="health-orb state-@Model.Server.State.ToString().ToLowerInvariant()"></span><h2>@Model.Server.Name</h2><span class="status-chip">@Model.Server.State</span></div><p>@Model.Server.Version · @Model.Server.Edition</p></div>
+    <div class="snapshot-box"><small>DATA COLLECTED</small><strong>@Model.Server.LastScanSecondsAgo sec ago</strong><span>Preview snapshot</span></div>
+</section>
+<section class="metric-grid server-detail-metrics">
+@foreach (var metric in Model.Metrics)
+{
+    <article class="metric-card state-@metric.State.ToString().ToLowerInvariant()"><div class="metric-top"><span>@metric.Name</span><i></i></div><strong>@metric.Value</strong><small>@metric.Detail</small></article>
+}
+</section>
+<section class="dashboard-grid">
+    <article class="glass-panel panel-span-2"><div class="panel-heading"><div><span class="eyebrow">INSTANCE PROFILE</span><h3>Operational context</h3></div></div><div class="definition-grid"><div><small>Instance</small><strong>@Model.Server.Name</strong></div><div><small>Edition</small><strong>@Model.Server.Edition</strong></div><div><small>Version</small><strong>@Model.Server.Version</strong></div><div><small>Connection</small><strong>@Model.Server.State</strong></div><div><small>Databases online</small><strong>@Model.Server.DatabaseOnline / @Model.Server.DatabaseTotal</strong></div><div><small>Agent jobs</small><strong>@Model.Server.JobsHealthy / @Model.Server.JobsTotal healthy</strong></div></div></article>
+    <article class="glass-panel"><div class="panel-heading"><div><span class="eyebrow">SAFE REFRESH</span><h3>Snapshot policy</h3></div></div><p class="panel-copy">M1 will introduce a backend-controlled refresh command with throttling. The browser will not execute SQL queries directly.</p><button class="secondary-button full-button" disabled>Refresh snapshot · M1</button></article>
+</section>

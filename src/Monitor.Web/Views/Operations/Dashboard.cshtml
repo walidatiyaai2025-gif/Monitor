@@ -1,0 +1,74 @@
+@model DashboardViewModel
+@{
+    ViewData["Title"] = "SQL Command Center";
+}
+<div class="data-banner"><strong>DEVELOPMENT DATA</strong><span>Visual preview only · not connected to production SQL Servers</span></div>
+
+<section class="live-estate glass-panel">
+    <div class="live-estate-heading">
+        <div><span class="live-label"><span class="live-dot"></span> SQL ESTATE LIVE</span><h2>Monitoring Active</h2></div>
+        <div class="scan-clock"><small>UI heartbeat</small><strong data-live-clock>--:--:--</strong></div>
+    </div>
+    <div class="live-stats">
+        <div><small>Servers</small><strong>@Model.Servers.Count(s => s.State != HealthState.Offline) / @Model.Servers.Count</strong><span>connected</span></div>
+        <div><small>Databases</small><strong>@Model.OnlineDatabaseCount / @Model.DatabaseCount</strong><span>online</span></div>
+        <div class="danger-stat"><small>Critical</small><strong>@Model.CriticalCount</strong><span>incidents</span></div>
+        <div class="warning-stat"><small>Warnings</small><strong>@Model.WarningCount</strong><span>need review</span></div>
+        <div><small>Collector</small><strong class="inline-live"><span class="live-dot"></span>Running</strong><span>demo state</span></div>
+        <div><small>Next snapshot</small><strong data-countdown>30s</strong><span>simulated</span></div>
+    </div>
+    <div class="live-track"><span></span></div>
+</section>
+
+<div class="section-heading"><div><span class="eyebrow">ESTATE HEALTH</span><h2>What needs attention now?</h2></div><span class="snapshot-note">Latest preview snapshot · no live SQL connection</span></div>
+<section class="metric-grid">
+@foreach (var metric in Model.Metrics)
+{
+    <article class="metric-card state-@metric.State.ToString().ToLowerInvariant()">
+        <div class="metric-top"><span>@metric.Name</span><i></i></div>
+        <strong>@metric.Value</strong><small>@metric.Detail</small>
+    </article>
+}
+</section>
+
+<section class="dashboard-grid">
+    <article class="glass-panel panel-span-2">
+        <div class="panel-heading"><div><span class="eyebrow">SERVER ESTATE</span><h3>Instances requiring attention</h3></div><a asp-action="Servers">View all →</a></div>
+        <div class="server-list">
+        @foreach (var server in Model.Servers)
+        {
+            <a class="server-row" asp-action="ServerDetails" asp-route-id="@server.Id">
+                <span class="health-orb state-@server.State.ToString().ToLowerInvariant()"></span>
+                <div class="server-main"><strong>@server.Name</strong><small>@server.Version · @server.Edition</small></div>
+                <div><small>CPU</small><strong>@server.CpuPercent%</strong></div>
+                <div><small>MEM</small><strong>@server.MemoryPercent%</strong></div>
+                <div><small>DB</small><strong>@server.DatabaseOnline/@server.DatabaseTotal</strong></div>
+                <div class="server-age"><small>Last snapshot</small><strong>@server.LastScanSecondsAgo sec ago</strong></div>
+                <span class="row-arrow">→</span>
+            </a>
+        }
+        </div>
+    </article>
+
+    <article class="glass-panel activity-panel">
+        <div class="panel-heading"><div><span class="eyebrow">LIVE ACTIVITY</span><h3>Collector event stream</h3></div><span class="live-dot"></span></div>
+        <div class="activity-feed">
+        @foreach (var item in Model.Activity)
+        {
+            <div class="activity-row"><time>@item.Time</time><span class="activity-marker state-@item.State.ToString().ToLowerInvariant()"></span><p>@item.Message</p></div>
+        }
+        </div>
+        <div class="feed-rule">Generated from the existing preview snapshot. This visual feed performs no SQL queries.</div>
+    </article>
+
+    <article class="glass-panel panel-span-3">
+        <div class="panel-heading"><div><span class="eyebrow">INCIDENT QUEUE</span><h3>Active incidents</h3></div><a asp-action="Alerts">Open incident center →</a></div>
+        <div class="incident-table table-scroll">
+            <div class="table-head"><span>ID</span><span>Severity</span><span>Server</span><span>Incident</span><span>Age</span><span>Status</span></div>
+            @foreach (var incident in Model.Incidents)
+            {
+                <div class="table-row"><strong>@incident.Id</strong><span class="severity severity-@incident.Severity.ToLowerInvariant()">@incident.Severity</span><span>@incident.Server</span><span>@incident.Title</span><span>@incident.Age</span><span>@incident.State</span></div>
+            }
+        </div>
+    </article>
+</section>

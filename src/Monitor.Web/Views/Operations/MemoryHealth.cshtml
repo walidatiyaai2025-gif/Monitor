@@ -1,0 +1,13 @@
+@model IReadOnlyList<ServerCard>
+@{
+    ViewData["Title"] = "Memory Health";
+}
+<div class="data-banner"><strong>DEVELOPMENT DATA</strong><span>Memory values are preview snapshot values, not live SQL measurements.</span></div>
+<div class="section-heading"><div><span class="eyebrow">MEMORY PRESSURE</span><h2>Estate memory profile</h2></div><span class="snapshot-note">Latest collected snapshot</span></div>
+<section class="memory-grid">
+@foreach (var server in Model)
+{
+    var state = server.MemoryPercent >= 85 ? "warning" : server.State == HealthState.Offline ? "offline" : "healthy";
+    <article class="glass-panel memory-card"><div class="memory-head"><div><strong>@server.Name</strong><small>@server.Version</small></div><span class="severity severity-@state">@server.MemoryPercent%</span></div><div class="memory-gauge"><span style="width:@server.MemoryPercent%"></span></div><div class="memory-scale"><span>0%</span><span>Warning 85%</span><span>100%</span></div><div class="card-link">Snapshot age · @server.LastScanSecondsAgo sec</div></article>
+}
+</section>
