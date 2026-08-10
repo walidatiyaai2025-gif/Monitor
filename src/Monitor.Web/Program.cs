@@ -10,6 +10,12 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<IAdminCredentialVerifier, AdminCredentialVerifier>();
 builder.Services.AddSingleton<ILoginAttemptLimiter, LoginAttemptLimiter>();
 builder.Services.AddSingleton<IDemoMonitorService, DemoMonitorService>();
+builder.Services.AddSingleton<IMonitorTelemetry, MonitorTelemetry>();
+
+var performanceOptions = builder.Configuration.GetSection(PerformanceScaleOptions.SectionName).Get<PerformanceScaleOptions>() ?? new();
+performanceOptions.Validate();
+builder.Services.AddSingleton(performanceOptions);
+builder.Services.AddSingleton<ManualRefreshConcurrencyGate>();
 
 var deploymentTopologyOptions = builder.Configuration.GetSection(DeploymentTopologyOptions.SectionName).Get<DeploymentTopologyOptions>() ?? new();
 deploymentTopologyOptions.Validate();
@@ -80,12 +86,24 @@ var operationalRoot = !haStateOptions.UseSharedOperationalState && operationalSt
     ? OperationalStorePath.ResolveOutsideWebRoot(operationalStoreOptions.RootPath, builder.Environment.ContentRootPath, builder.Environment.WebRootPath)
     : null;
 
-builder.Services.AddSingleton<IAuditStore>(provider => haStateOptions.UseSharedOperationalState
-    ? new SharedAuditStore(provider.GetRequiredService<ISharedStateDocumentStore>(), provider.GetRequiredService<TimeProvider>())
-    : operationalRoot is null ? new InMemoryAuditStore(provider.GetRequiredService<TimeProvider>()) : new FileAuditStore(Path.Combine(operationalRoot, "audit.json"), provider.GetRequiredService<TimeProvider>()));
-builder.Services.AddSingleton<IHealthIncidentRepository>(provider => haStateOptions.UseSharedOperationalState
-    ? new SharedHealthIncidentRepository(provider.GetRequiredService<ISharedStateDocumentStore>())
-    : operationalRoot is null ? new InMemoryHealthIncidentRepository() : new FileHealthIncidentRepository(Path.Combine(operationalRoot, "incidents.json")));
+builder.Services.AddSingleton<IAuditStore>(provider =>
+{
+    IAuditStore inner = haStateOptions.UseSharedOperationalState
+        ? new SharedAuditStore(provider.GetRequiredService<ISharedStateDocumentStore>(), provider.GetRequiredService<TimeProvider>())
+        : operationalRoot is null
+            ? new InMemoryAuditStore(provider.GetRequiredService<TimeProvider>())
+            : new FileAuditStore(Path.Combine(operationalRoot, "audit.json"), provider.GetRequiredService<TimeProvider>());
+    return new PerformanceBoundedAuditStore(inner, performanceOptions);
+});
+builder.Services.AddSingleton<IHealthIncidentRepository>(provider =>
+{
+    IHealthIncidentRepository inner = haStateOptions.UseSharedOperationalState
+        ? new SharedHealthIncidentRepository(provider.GetRequiredService<ISharedStateDocumentStore>())
+        : operationalRoot is null
+            ? new InMemoryHealthIncidentRepository()
+            : new FileHealthIncidentRepository(Path.Combine(operationalRoot, "incidents.json"));
+    return new TelemetryHealthIncidentRepository(inner, provider.GetRequiredService<IMonitorTelemetry>());
+});
 builder.Services.AddSingleton<ISnapshotHistoryStore>(provider => haStateOptions.UseSharedOperationalState
     ? new SharedSnapshotHistoryStore(provider.GetRequiredService<ISharedStateDocumentStore>(), provider.GetRequiredService<TimeProvider>())
     : operationalRoot is null ? new InMemorySnapshotHistoryStore(provider.GetRequiredService<TimeProvider>()) : new FileSnapshotHistoryStore(Path.Combine(operationalRoot, "history.json"), provider.GetRequiredService<TimeProvider>()));
@@ -115,9 +133,15 @@ builder.Services.AddSingleton<ISqlConnectionProbe, SqlConnectionProbe>();
 builder.Services.AddSingleton<IServerConnectionTester, ServerConnectionTester>();
 builder.Services.AddSingleton<ICredentialLifecycleService, CredentialLifecycleService>();
 builder.Services.AddSingleton<ICredentialReadinessService, CredentialReadinessService>();
-builder.Services.AddSingleton<ISqlSnapshotQuery, SqlSnapshotQuery>();
-builder.Services.AddSingleton<ISqlServerSnapshotCollector, SqlServerSnapshotCollector>();
-builder.Services.AddSingleton<IServerHealthSnapshotCache, ServerHealthSnapshotCache>();
+builder.Services.AddSingleton<ISqlSnapshotQuery, GovernedSqlSnapshotQuery>();
+builder.Services.AddSingleton<SqlServerSnapshotCollector>();
+builder.Services.AddSingleton<ISqlServerSnapshotCollector>(provider => new TelemetrySqlServerSnapshotCollector(
+    provider.GetRequiredService<SqlServerSnapshotCollector>(),
+    provider.GetRequiredService<IMonitorTelemetry>()));
+builder.Services.AddSingleton<ServerHealthSnapshotCache>();
+builder.Services.AddSingleton<IServerHealthSnapshotCache>(provider => new TelemetryServerHealthSnapshotCache(
+    provider.GetRequiredService<ServerHealthSnapshotCache>(),
+    provider.GetRequiredService<IMonitorTelemetry>()));
 builder.Services.AddSingleton<IHealthRuleEvaluator, HealthRuleEvaluator>();
 builder.Services.AddSingleton<IRecommendationEngine, RecommendationEngine>();
 builder.Services.AddSingleton<IAdvisorContextBuilder, AdvisorContextBuilder>();
@@ -125,13 +149,17 @@ builder.Services.AddSingleton<IAdvisorProvider, DisabledAdvisorProvider>();
 builder.Services.AddSingleton<IIncidentWorkflowService, IncidentWorkflowService>();
 builder.Services.AddSingleton<IAdvisorRequestService, AdvisorRequestService>();
 builder.Services.AddSingleton<ISnapshotObserver, SnapshotObserver>();
-builder.Services.AddSingleton<ISnapshotCollectionCycle, SnapshotCollectionCycle>();
 builder.Services.AddSingleton<ITrendReadService, TrendReadService>();
+
 var scheduleOptions = builder.Configuration.GetSection(SnapshotScheduleOptions.SectionName).Get<SnapshotScheduleOptions>() ?? new();
 scheduleOptions.Validate();
 builder.Services.AddSingleton(scheduleOptions);
 builder.Services.AddSingleton<ICollectionBackoffPolicy, CollectionBackoffPolicy>();
 builder.Services.AddSingleton<ISchedulerStatusStore>(provider => haStateOptions.UseSharedOperationalState ? new SharedSchedulerStatusStore(provider.GetRequiredService<ISharedStateDocumentStore>()) : new SchedulerStatusStore());
+builder.Services.AddSingleton<SnapshotCollectionCycle>();
+builder.Services.AddSingleton<ISnapshotCollectionCycle>(provider => new TelemetrySnapshotCollectionCycle(
+    provider.GetRequiredService<SnapshotCollectionCycle>(),
+    provider.GetRequiredService<IMonitorTelemetry>()));
 builder.Services.AddHostedService<SnapshotSchedulerService>();
 builder.Services.AddSingleton<IMonitorReadService, MonitorReadService>();
 builder.Services.AddSingleton<ISnapshotRefreshService, SnapshotRefreshService>();
@@ -146,6 +174,7 @@ builder.Services.AddSingleton<IOperationalBackupService>(provider => new Operati
 var deploymentReadiness = DeploymentReadinessEvaluator.Evaluate(deploymentTopologyOptions, sharedStateOptions, haStateOptions, coordinationOptions);
 if (deploymentTopologyOptions.Mode == DeploymentTopology.MultiNode && !deploymentReadiness.Ready) throw new InvalidOperationException(deploymentReadiness.Message);
 builder.Services.AddSingleton(deploymentReadiness);
+builder.Services.AddSingleton<IApplicationReadinessService, ApplicationReadinessService>();
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme).AddCookie(options =>
 {
@@ -174,6 +203,7 @@ if (deploymentTopologyOptions.Mode == DeploymentTopology.MultiNode && !app.Servi
     throw new InvalidOperationException("Multi-node startup is blocked by credential/key-management readiness.");
 
 if (!app.Environment.IsDevelopment()) { app.UseExceptionHandler("/login"); app.UseHsts(); }
+app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseHttpsRedirection();
 app.Use(async (context, next) =>
 {
@@ -186,6 +216,7 @@ app.Use(async (context, next) =>
 app.UseStaticFiles();
 app.UseRouting();
 app.UseAuthentication();
+app.UseMiddleware<AuthenticationTelemetryMiddleware>();
 app.UseAuthorization();
 app.MapControllerRoute(name: "default", pattern: "{controller=Account}/{action=Login}/{id?}");
 app.Run();
