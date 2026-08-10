@@ -59,6 +59,18 @@ public sealed class OperationsController : Controller
     public async Task<IActionResult> Alerts(CancellationToken cancellationToken) =>
         View(await _readService.GetIncidentsAsync(cancellationToken));
 
+    [HttpGet("/alerts/recommendation")]
+    public async Task<IActionResult> Recommendation(string? id, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(id))
+        {
+            return NotFound();
+        }
+
+        var model = await _readService.GetRecommendationAsync(id, cancellationToken);
+        return model is null ? NotFound() : View(model);
+    }
+
     [HttpGet("/settings")]
     public IActionResult Settings() => View();
 }
