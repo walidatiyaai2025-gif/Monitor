@@ -1,50 +1,59 @@
 # Project Status
 
-**Updated:** 2026-08-10 18:08 +03:00  
-**Branch:** `agent/b100-051-060-dba-ux`  
-**Target:** BATCH-100 / Batch 6 — DBA UX & operations surfaces  
-**Issues:** #55 umbrella · #66 Batch 6  
-**PR:** #67  
-**Overall:** 🟢 M0–M6 VERIFIED · M7-001..M7-018 CI VERIFIED · M8 CI VERIFIED · B100-001..060 CI VERIFIED
+**Updated:** 2026-08-11 01:40 +03:00  
+**Branch:** `agent/b100-7`  
+**Target:** BATCH-100 / Batch 7 — Web/application security hardening  
+**Issues:** #55 umbrella · #68 Batch 7  
+**PR:** pending creation after implementation/docs head  
+**Overall:** 🟢 M0–M6 VERIFIED · M7-001..M7-018 CI VERIFIED · M8 CI VERIFIED · B100-001..060 CI VERIFIED · 🟡 B100-061..070 IMPLEMENTED / FINAL CI PENDING
 
-## BATCH-100 / Batch 6 — CI VERIFIED
+## BATCH-100 / Batch 7 — IMPLEMENTED, FINAL CI PENDING
 
-Authoritative implementation CI `31402491011`: **SUCCESS — Release build 0 warnings / 0 errors; 189/189 tests passed; Razor compiled.**
+B100-061..070 are implemented on `agent/b100-7`. The verified program count remains **60/100** until the final Release build/tests on the canonical-docs head succeed.
 
-The first implementation run `31402167135` correctly stopped on a missing `Monitor.Web.Models` import for the new DBA operations projection. Run `31402312095` then reached the test project and found one incomplete `DashboardViewModel` fixture. Both issues were corrected on the same PR before verification; the product code and final acceptance suite are Green.
+### B100-061..070 delivered
 
-### B100-051..060 delivered
+- CSP is centralized in `SecurityHeadersMiddleware`, removes `unsafe-inline`/`unsafe-eval`, denies framing/object embedding, constrains form/image/style/script/connect sources and emits a cryptographically random per-request nonce.
+- A reflection-based acceptance test fails if any MVC/API `POST`, `PUT`, `PATCH` or `DELETE` action lacks `[ValidateAntiForgeryToken]`.
+- Cookie authentication uses a configurable 30-minute idle lifetime plus an immutable session-start claim enforcing an 8-hour absolute lifetime that sliding renewal cannot extend.
+- Login-attempt limiter keys are SHA-256-derived from normalized remote-IP/username material; raw IP/username values are not retained in limiter keys. Lockout is bounded to five failures per five-minute window and lockout outcomes are audited.
+- Audit fields are bounded/control-character normalized and secret-bearing connection/credential patterns are replaced with `[redacted]`.
+- Forwarded-header processing remains disabled unless at least one trusted proxy/network is explicitly configured. Enabled policy accepts only `X-Forwarded-For`/`X-Forwarded-Proto`, requires header symmetry and limits forwarding to one hop.
+- HSTS is explicit/configurable with startup validation; the default is 365 days with subdomains enabled.
+- SQL registration metadata now rejects control characters, overlong values and connection-string delimiter injection in host/instance metadata. Display names and secret references are bounded.
+- Incident rule filters use strict bounded token normalization instead of trim/truncate-only behavior.
+- Acceptance tests verify `SqlConnectionStringBuilder` treats ApplicationName/SQL username/password payloads as values rather than injected connection-string keys.
+- Secret-canary tests verify audit, telemetry and login-attempt keys do not echo sensitive input.
 
-- Dashboard now has a centralized control-plane readiness ribbon and DBA cards for topology/node, shared state, operational backup and scheduler state.
-- Node identity is deliberately opaque: a SHA-256-derived `NODE-XXXXXXXX` label is shown instead of the machine name, configured distributed node ID or lease owner.
-- Shared-state status/schema reuses the single application-readiness snapshot rather than issuing a second readiness probe.
-- Backup card exposes status, retained count, latest opaque backup ID fragment and time only; no filesystem path or secret-bearing content is rendered.
-- Scheduler card exposes Disabled / Active cycle / Passive-idle plus bounded counts; distributed lease ownership remains private.
-- Manual refresh PRG now carries status/freshness classification so refreshed, stale and throttled outcomes have distinct accessible feedback.
-- Registered servers without a usable snapshot now open a recovery-aware Server Details page instead of returning 404. Recovery links to Connection Lab and the existing bounded refresh path without exposing current secret references or credential values.
-- Incident Center adds bounded status/severity/rule/page-size filters and Previous/Next navigation that preserves safe query state.
-- Application shell adds a skip link, focus-visible treatment, main-content focus target, semantic live-status regions and Administrator Observability navigation.
-- Reduced-motion preferences suppress decorative animation, and large-screen DBA wallboard layout is CSS-only; no polling, network fetch or monitored-SQL behavior is added.
+## Security configuration defaults
 
-## BATCH-100 progress
+```json
+"WebSecurity": {
+  "SessionIdleMinutes": 30,
+  "SessionAbsoluteHours": 8,
+  "HstsDays": 365,
+  "HstsIncludeSubDomains": true,
+  "HstsPreload": false,
+  "TrustedProxies": [],
+  "TrustedNetworks": []
+}
+```
 
-Issue #55 and `docs/BATCH_100.md` define 100 tasks as ten batches of ten. **60/100 tasks are CI verified.** Batch 7 is B100-061..070 — web/application security hardening.
+Empty trusted-forwarder arrays intentionally mean Monitor does **not** process forwarded headers. Reverse-proxy deployments must explicitly add the trusted proxy IP/CIDR instead of trusting arbitrary clients.
 
 ## Stable guardrails
 
-- Dashboard DBA cards use cached/control-plane projections only and do not query monitored SQL targets.
-- Control-plane status is centralized so shared-state readiness is not multiplied per widget.
-- Recovery actions never render current SQL usernames/passwords or secret references.
-- Visual wallboard/reduced-motion/accessibility changes are client/CSS behavior only and never affect collection frequency.
-- Dedicated shared-state SQL remains Monitor-owned control-plane state only.
+- Browser monitoring GETs remain cache-only; Batch 7 adds no monitored-SQL read path.
+- Forwarded client/scheme metadata is fail-closed unless deployment trust is configured.
+- Security telemetry/audit never needs request bodies, passwords, complete connection strings or provider exception text.
+- SQL connection target metadata is constructed only through validated registration fields and `SqlConnectionStringBuilder`.
 - Recommendations and Advisor remain advisory-only; no autonomous SQL execution path exists.
-- MultiNode remains fail-closed until all remaining security/cache/delivery prerequisites are proven HA-safe.
-- `main` remains stable; batch work merges only after final merge-result CI.
+- `main` remains stable; this batch merges only after final CI succeeds.
 
 ## Merge gate
 
-Run GitHub Actions on the final code + canonical-docs head, verify `main` has not moved into overlapping DBA UX/control-plane code, then squash-merge PR #67 only if Release build with warnings-as-errors, Razor compilation and all tests remain Green.
+Create the Batch 7 PR against `main`, run GitHub Actions on the final code + canonical-docs head, require Release build with `--warnaserror` and all tests Green, then mark B100-061..070 CI VERIFIED and squash-merge only if `main` has not moved into overlapping security code.
 
 ## Next action
 
-After Batch 6 merge, execute **B100-061..070 — web/application security hardening** from #55 / `docs/BATCH_100.md`.
+After Batch 7 verification/merge, execute **B100-071..080 — reliability & concurrency verification** from #55 / `docs/BATCH_100.md`.
