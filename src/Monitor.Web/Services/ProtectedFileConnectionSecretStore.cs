@@ -11,7 +11,7 @@ public sealed class SecretStoreOptions
     public string KeyRingPath { get; set; } = "App_Data/keyring";
 }
 
-internal sealed class ProtectedFileConnectionSecretStore : IConnectionSecretStore, IRuntimeCredentialWriter
+internal sealed class ProtectedFileConnectionSecretStore : IConnectionSecretStore, IRuntimeCredentialWriter, IOwnedConnectionSecretStore
 {
     private const string Prefix = "local:v1:";
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { WriteIndented = true };
@@ -19,6 +19,7 @@ internal sealed class ProtectedFileConnectionSecretStore : IConnectionSecretStor
     private readonly IDataProtector _protector;
     private readonly IConfiguration _configuration;
     private readonly IExternalConnectionSecretProvider[] _externalProviders;
+    private readonly CredentialPolicyOptions _credentialPolicy;
     private readonly object _gate = new();
     private Dictionary<string, string> _entries;
 
@@ -26,12 +27,14 @@ internal sealed class ProtectedFileConnectionSecretStore : IConnectionSecretStor
         string path,
         IDataProtectionProvider protectionProvider,
         IConfiguration configuration,
-        IEnumerable<IExternalConnectionSecretProvider> externalProviders)
+        IEnumerable<IExternalConnectionSecretProvider> externalProviders,
+        CredentialPolicyOptions? credentialPolicy = null)
     {
         _path = Path.GetFullPath(path);
         _protector = protectionProvider.CreateProtector("Monitor.SqlSecrets.v1");
         _configuration = configuration;
         _externalProviders = externalProviders.ToArray();
+        _credentialPolicy = credentialPolicy ?? new CredentialPolicyOptions();
         _entries = Load();
     }
 
@@ -70,6 +73,12 @@ internal sealed class ProtectedFileConnectionSecretStore : IConnectionSecretStor
     public ValueTask<ConnectionSecretReference> StoreAsync(string username, string password, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (!_credentialPolicy.AllowLocalOwnedCredentials)
+        {
+            return ValueTask.FromException<ConnectionSecretReference>(
+                new InvalidOperationException("Local SQL credential creation is disabled by deployment policy."));
+        }
+
         if (string.IsNullOrWhiteSpace(username) || username.Trim().Length > 128 || string.IsNullOrEmpty(password) || password.Length > 1024)
             throw new ArgumentException("SQL credentials are outside the supported bounds.");
         var reference = new ConnectionSecretReference($"{Prefix}{Guid.NewGuid():N}");
@@ -89,6 +98,8 @@ internal sealed class ProtectedFileConnectionSecretStore : IConnectionSecretStor
         cancellationToken.ThrowIfCancellationRequested();
         if (!reference.Value.StartsWith(Prefix, StringComparison.Ordinal))
             return ValueTask.FromException(new InvalidOperationException("Only Monitor-owned local references are writable."));
+        if (!_credentialPolicy.AllowLocalOwnedCredentials)
+            return ValueTask.FromException(new InvalidOperationException("Local SQL credential creation is disabled by deployment policy."));
         var plaintext = JsonSerializer.Serialize(new SecretPayload(secret.Username, secret.Password), JsonOptions);
         lock (_gate)
         {
@@ -102,10 +113,28 @@ internal sealed class ProtectedFileConnectionSecretStore : IConnectionSecretStor
         return ValueTask.CompletedTask;
     }
 
-    public ValueTask DeleteAsync(ConnectionSecretReference reference, CancellationToken cancellationToken = default)
+    public ValueTask DeleteAsync(ConnectionSecretReference reference, CancellationToken cancellationToken = default) =>
+        DeleteOwnedAsync(reference, cancellationToken);
+
+    public bool Owns(ConnectionSecretReference reference) =>
+        reference.Value.StartsWith(Prefix, StringComparison.Ordinal);
+
+    public IReadOnlyList<ConnectionSecretReference> GetOwnedReferences()
+    {
+        lock (_gate)
+        {
+            return _entries.Keys
+                .Where(key => key.StartsWith(Prefix, StringComparison.Ordinal))
+                .OrderBy(key => key, StringComparer.Ordinal)
+                .Select(key => new ConnectionSecretReference(key))
+                .ToArray();
+        }
+    }
+
+    public ValueTask DeleteOwnedAsync(ConnectionSecretReference reference, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (!reference.Value.StartsWith(Prefix, StringComparison.Ordinal)) return ValueTask.CompletedTask;
+        if (!Owns(reference)) return ValueTask.CompletedTask;
         lock (_gate)
         {
             var candidate = new Dictionary<string, string>(_entries, StringComparer.Ordinal);
