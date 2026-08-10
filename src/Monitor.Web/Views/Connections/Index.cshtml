@@ -1,0 +1,126 @@
+@model ConnectionLabViewModel
+@{
+    ViewData["Title"] = "SQL Connection Lab";
+    var sqlLoginSelected = Model.Input.AuthenticationMode == SqlAuthenticationMode.SqlLogin;
+}
+
+<div class="data-banner"><strong>M1 REAL CONNECTION WORKFLOW</strong><span>Registration metadata is application state. SQL credentials stay in User Secrets / environment configuration and are resolved only inside the backend tester.</span></div>
+
+@if (TempData["ConnectionLabMessage"] is string message)
+{
+    <div class="connection-lab-success"><span>✓</span><strong>@message</strong></div>
+}
+
+<section class="connection-lab-hero glass-panel">
+    <div>
+        <span class="eyebrow">M1-002 · CONTROLLED CONNECTIVITY</span>
+        <h2>Register safely. Test from the backend.</h2>
+        <p>The browser never receives a SQL connection string or password. Test Connection opens one bounded, non-pooled connection through the backend and returns sanitized diagnostics only.</p>
+    </div>
+    <div class="connection-boundary">
+        <span>Browser</span><i>→</i><span>Registration</span><i>→</i><span>Secret boundary</span><i>→</i><span>SQL probe</span>
+    </div>
+</section>
+
+<div asp-validation-summary="ModelOnly" class="connection-validation"></div>
+
+<section class="connection-lab-grid">
+    <article class="glass-panel connection-form-panel">
+        <div class="panel-heading"><div><span class="eyebrow">REGISTER TARGET</span><h3>Safe SQL metadata</h3></div><span class="snapshot-note">No password field by design</span></div>
+        <form asp-controller="Connections" asp-action="Register" method="post" class="connection-form" autocomplete="off">
+            <div class="connection-field full">
+                <label for="DisplayName">Display name</label>
+                <input id="DisplayName" name="DisplayName" value="@Model.Input.DisplayName" maxlength="80" placeholder="Finance Production SQL" />
+                @Html.ValidationMessage("DisplayName", null, new { @class = "field-error" })
+            </div>
+            <div class="connection-field full">
+                <label for="Host">Server / host</label>
+                <input id="Host" name="Host" value="@Model.Input.Host" maxlength="253" placeholder="DA-SQL01 or sql01.contoso.local" />
+                @Html.ValidationMessage("Host", null, new { @class = "field-error" })
+            </div>
+            <div class="connection-field">
+                <label for="InstanceName">Named instance</label>
+                <input id="InstanceName" name="InstanceName" value="@Model.Input.InstanceName" maxlength="128" placeholder="APP01" />
+                <small>Leave empty when using a TCP port.</small>
+                @Html.ValidationMessage("InstanceName", null, new { @class = "field-error" })
+            </div>
+            <div class="connection-field">
+                <label for="Port">TCP port</label>
+                <input id="Port" name="Port" type="number" min="1" max="65535" value="@Model.Input.Port" placeholder="1433" />
+                <small>Use either port or instance, never both.</small>
+                @Html.ValidationMessage("Port", null, new { @class = "field-error" })
+            </div>
+            <div class="connection-field full">
+                <label for="AuthenticationMode">Authentication mode</label>
+                <select id="AuthenticationMode" name="AuthenticationMode" data-connection-auth-mode>
+                    <option value="IntegratedSecurity" selected="@(!sqlLoginSelected)">Windows Integrated Security</option>
+                    <option value="SqlLogin" selected="@sqlLoginSelected">SQL Login via external secret reference</option>
+                </select>
+                @Html.ValidationMessage("AuthenticationMode", null, new { @class = "field-error" })
+            </div>
+            <div class="connection-field full @(sqlLoginSelected ? string.Empty : "is-hidden")" data-secret-reference-field>
+                <label for="SecretReference">Secret reference</label>
+                <input id="SecretReference" name="SecretReference" value="@Model.Input.SecretReference" maxlength="128" placeholder="finance-prod-monitor" />
+                <small>Reference only. Configure `ConnectionSecrets:&lt;reference&gt;:Username` and `Password` outside source control.</small>
+                @Html.ValidationMessage("SecretReference", null, new { @class = "field-error" })
+            </div>
+            <div class="connection-security-options full">
+                <label><input type="checkbox" name="Encrypt" value="true" checked="@Model.Input.Encrypt" /><input type="hidden" name="Encrypt" value="false" /><span><strong>Encrypt connection</strong><small>Recommended default.</small></span></label>
+                <label><input type="checkbox" name="TrustServerCertificate" value="true" checked="@Model.Input.TrustServerCertificate" /><input type="hidden" name="TrustServerCertificate" value="false" /><span><strong>Trust server certificate</strong><small>Use only when your SQL TLS policy requires it.</small></span></label>
+            </div>
+            <div class="connection-form-actions full">
+                <a class="secondary-button" asp-controller="Operations" asp-action="Servers">Back to Servers</a>
+                <button class="primary-button" type="submit">Register target</button>
+            </div>
+        </form>
+    </article>
+
+    <aside class="glass-panel connection-security-panel">
+        <div class="panel-heading"><div><span class="eyebrow">SECURITY BOUNDARY</span><h3>What never reaches the UI</h3></div></div>
+        <div class="security-rule state-healthy"><span>01</span><div><strong>No SQL password field</strong><p>SQL Login credentials are configured in User Secrets or environment configuration, not entered into this page.</p></div></div>
+        <div class="security-rule state-healthy"><span>02</span><div><strong>No connection string output</strong><p>The builder exists only inside the backend profile factory and is passed directly to the SQL probe.</p></div></div>
+        <div class="security-rule state-healthy"><span>03</span><div><strong>Sanitized failures</strong><p>Authentication, timeout, TLS and network failures map to fixed operational messages. Raw provider exception text is not rendered.</p></div></div>
+        <div class="security-rule state-warning"><span>04</span><div><strong>One deliberate probe</strong><p>Pooling and connect retries are disabled for Test Connection so the action represents one controlled connection attempt.</p></div></div>
+    </aside>
+</section>
+
+<div class="section-heading connection-target-heading"><div><span class="eyebrow">REGISTERED SQL TARGETS</span><h2>@Model.Registrations.Count connection profile(s)</h2></div><span class="snapshot-note">Application-memory registrations · secrets external</span></div>
+
+@if (Model.Registrations.Count == 0)
+{
+    <div class="connection-empty glass-panel"><strong>No SQL target registered yet</strong><span>Create the first metadata profile above. The current Command Center remains on DEVELOPMENT DATA until M1-005.</span></div>
+}
+else
+{
+    <section class="connection-target-grid">
+        @foreach (var registration in Model.Registrations)
+        {
+            var result = Model.TestedRegistrationId == registration.Id ? Model.TestResult : null;
+            var resultState = result?.IsSuccess == true ? "healthy" : result is null ? "unknown" : "critical";
+            <article class="connection-target-card glass-panel state-@resultState">
+                <div class="connection-target-top">
+                    <div><span class="health-orb state-@(registration.IsEnabled ? "healthy" : "offline")"></span><div><strong>@registration.DisplayName</strong><small>@registration.Target</small></div></div>
+                    <span class="connection-auth-badge">@(registration.AuthenticationMode == SqlAuthenticationMode.IntegratedSecurity ? "WINDOWS" : "SQL LOGIN")</span>
+                </div>
+                <div class="connection-target-meta">
+                    <span>Encrypt <strong>@(registration.Encrypt ? "ON" : "OFF")</strong></span>
+                    <span>Trust cert <strong>@(registration.TrustServerCertificate ? "YES" : "NO")</strong></span>
+                    <span>Credential <strong>@(registration.HasSecretReference ? "EXTERNAL" : "WINDOWS")</strong></span>
+                </div>
+
+                @if (result is not null)
+                {
+                    <div class="connection-result state-@resultState">
+                        <div><span>@(result.IsSuccess ? "✓" : "!")</span><div><strong>@result.Status</strong><p>@result.Message</p></div></div>
+                        <div class="connection-result-metrics"><span><small>Elapsed</small><strong>@result.ElapsedMilliseconds ms</strong></span>@if (result.IsSuccess){<span><small>Data source</small><strong>@result.DataSource</strong></span><span><small>Server version</small><strong>@result.ServerVersion</strong></span>}</div>
+                    </div>
+                }
+
+                <form asp-controller="Connections" asp-action="TestConnection" asp-route-id="@registration.Id" method="post" class="connection-test-action">
+                    <span>Created @registration.CreatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
+                    <button class="primary-button" type="submit" disabled="@(!registration.IsEnabled)">Test Connection</button>
+                </form>
+            </article>
+        }
+    </section>
+}
