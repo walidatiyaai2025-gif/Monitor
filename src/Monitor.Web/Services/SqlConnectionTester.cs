@@ -7,7 +7,6 @@ namespace Monitor.Web.Services;
 internal enum SqlProbeFailureKind
 {
     Authentication,
-    Timeout,
     Network,
     Certificate,
     Other
@@ -16,6 +15,17 @@ internal enum SqlProbeFailureKind
 internal sealed class SqlProbeException(SqlProbeFailureKind kind) : Exception
 {
     public SqlProbeFailureKind Kind { get; } = kind;
+}
+
+internal static class SqlErrorClassifier
+{
+    public static SqlProbeFailureKind Classify(int number) => number switch
+    {
+        18456 => SqlProbeFailureKind.Authentication,
+        -2146893019 or -2146893022 => SqlProbeFailureKind.Certificate,
+        -2 or -1 or 2 or 53 or 11001 => SqlProbeFailureKind.Network,
+        _ => SqlProbeFailureKind.Other
+    };
 }
 
 internal sealed record SqlProbeResult(string? ServerVersion);
@@ -88,7 +98,6 @@ internal sealed class ServerConnectionTester(
             return exception.Kind switch
             {
                 SqlProbeFailureKind.Authentication => Result(ConnectionTestStatus.AuthenticationFailed, "Authentication failed.", stopwatch),
-                SqlProbeFailureKind.Timeout => Result(ConnectionTestStatus.TimedOut, "Connection timed out.", stopwatch),
                 SqlProbeFailureKind.Network => Result(ConnectionTestStatus.NetworkUnavailable, "The SQL Server could not be reached.", stopwatch),
                 SqlProbeFailureKind.Certificate => Result(ConnectionTestStatus.CertificateRejected, "SQL Server certificate validation failed.", stopwatch),
                 _ => Result(ConnectionTestStatus.Failed, "Connection failed.", stopwatch)
@@ -115,35 +124,13 @@ internal sealed class SqlConnectionProbe : ISqlConnectionProbe
         SqlLoginSecret? secret,
         CancellationToken cancellationToken)
     {
-        var endpoint = registration.Endpoint;
-        var dataSource = endpoint.Port.HasValue
-            ? $"{endpoint.Host},{endpoint.Port.Value}"
-            : endpoint.InstanceName is not null
-                ? $"{endpoint.Host}\\{endpoint.InstanceName}"
-                : endpoint.Host;
-
-        var builder = new SqlConnectionStringBuilder
-        {
-            DataSource = dataSource,
-            InitialCatalog = "master",
-            Encrypt = endpoint.Encrypt,
-            TrustServerCertificate = endpoint.TrustServerCertificate,
-            IntegratedSecurity = registration.AuthenticationMode == SqlAuthenticationMode.IntegratedSecurity,
-            ConnectTimeout = 5,
-            ConnectRetryCount = 0,
-            ApplicationName = "Monitor/TestConnection",
-            Pooling = false
-        };
-
-        if (secret is not null)
-        {
-            builder.UserID = secret.Username;
-            builder.Password = secret.Password;
-        }
-
         try
         {
-            await using var connection = new SqlConnection(builder.ConnectionString);
+            var connectionString = SqlConnectionStringFactory.Create(
+                registration,
+                secret,
+                "Monitor/TestConnection");
+            await using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync(cancellationToken);
 
             await using var command = connection.CreateCommand();
@@ -154,16 +141,7 @@ internal sealed class SqlConnectionProbe : ISqlConnectionProbe
         }
         catch (SqlException exception)
         {
-            throw new SqlProbeException(Classify(exception.Number));
+            throw new SqlProbeException(SqlErrorClassifier.Classify(exception.Number));
         }
     }
-
-    private static SqlProbeFailureKind Classify(int number) => number switch
-    {
-        18456 => SqlProbeFailureKind.Authentication,
-        -2146893019 or -2146893022 => SqlProbeFailureKind.Certificate,
-        -2 => SqlProbeFailureKind.Timeout,
-        -1 or 2 or 53 or 11001 => SqlProbeFailureKind.Network,
-        _ => SqlProbeFailureKind.Other
-    };
 }
