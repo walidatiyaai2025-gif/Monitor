@@ -5,5 +5,6 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>Monitor.Web</RootNamespace>
     <AssemblyName>Monitor.Web</AssemblyName>
+    <UserSecretsId>Monitor.Web-Development</UserSecretsId>
   </PropertyGroup>
 </Project>

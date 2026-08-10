@@ -1,11 +1,20 @@
 # Project Status
 
-**Updated:** 2026-08-10 10:51 +03:00  
-**Branch:** `agent/m0-visual-foundation`  
-**Target:** `0.0.1-ui-preview`  
-**Issue:** #1  
-**PR:** #2  
-**Overall:** 🟢 M0 VERIFIED — READY TO MERGE
+**Updated:** 2026-08-10 10:55 +03:00  
+**Branch:** `agent/m1-server-registration`  
+**Target:** `M1-001`  
+**Issue:** TBD  
+**PR:** TBD  
+**Overall:** 🟡 M1-001 IMPLEMENTED — LOCAL VERIFICATION COMPLETE
+
+## M1-001 — Server registration and secure secret boundary
+
+- Validated SQL Server endpoint and authentication-mode model.
+- Opaque connection-secret reference excluded from JSON serialization.
+- Backend-only configuration secret store using User Secrets/environment configuration.
+- In-memory registration repository containing no passwords or connection strings.
+- Five unit/contract tests covering model invariants, non-disclosure and fail-closed secret resolution.
+- CI now runs the test project after the warnings-as-errors Release build.
 
 ## Implemented and verified in current branch
 
@@ -57,13 +66,13 @@
 - UI-003 CI run `31366381962`: SUCCESS.
 - `dotnet restore`: ✅ VERIFIED by GitHub Actions.
 - `dotnet build --configuration Release --no-restore --warnaserror`: ✅ VERIFIED by GitHub Actions.
-- `dotnet test`: N/A — no test project exists yet.
+- `dotnet test Monitor.sln --configuration Release --no-build`: ✅ 5 PASSED locally.
 - visual acceptance: ✅ USER ACCEPTED on 2026-08-10.
 
 ## Merge gate
 
-Visual acceptance is complete. PR #2 is ready to merge into stable `main`.
+M0 PR #2 merged to stable `main` at `dfbfa19`.
 
 ## Next action
 
-Merge PR #2, then begin M1-001 on a new task branch.
+Push M1-001, verify CI, open a focused PR, then begin M1-002 Test Connection workflow.

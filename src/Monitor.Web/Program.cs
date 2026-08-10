@@ -8,6 +8,8 @@ builder.Services.Configure<AdminCredentialOptions>(
     builder.Configuration.GetSection(AdminCredentialOptions.SectionName));
 builder.Services.AddSingleton<IAdminCredentialVerifier, AdminCredentialVerifier>();
 builder.Services.AddSingleton<IDemoMonitorService, DemoMonitorService>();
+builder.Services.AddSingleton<IServerRegistrationRepository, InMemoryServerRegistrationRepository>();
+builder.Services.AddSingleton<IConnectionSecretStore, ConfigurationConnectionSecretStore>();
 
 builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
