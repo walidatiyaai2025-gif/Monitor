@@ -436,7 +436,7 @@ internal sealed class CredentialReadinessService(
     public CredentialReadinessViewModel Get()
     {
         var sqlLogin = registrations.GetAll().Where(item => item.AuthenticationMode == SqlAuthenticationMode.SqlLogin).ToArray();
-        var localOwned = sqlLogin.Count(item => item.SecretReference?.Value.Value.StartsWith("local:v1:", StringComparison.Ordinal) == true);
+        var localOwned = sqlLogin.Count(item => item.SecretReference?.Value.StartsWith("local:v1:", StringComparison.Ordinal) == true);
         var external = sqlLogin.Length - localOwned;
         var sharedKeyRing = keyStoreOptions.Mode == DataProtectionKeyStoreMode.SharedState;
         var ready = sharedKeyRing && !credentialPolicy.AllowLocalOwnedCredentials && localOwned == 0;
