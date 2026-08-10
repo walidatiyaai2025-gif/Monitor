@@ -18,7 +18,7 @@
 | Connection secret boundary | M1 | CI verified | Opaque reference; values only from User Secrets/environment |
 | Test Connection workflow | M1 | CI verified | Admin-only ID endpoint; bounded timeout and redacted outcomes |
 | Lightweight SQL collector | M1 | CI verified | One query: identity, uptime and database availability counts |
-| Server health snapshot cache | M1 | Local verified | 30s fresh, 5m stale fallback, per-server single-flight |
+| Server health snapshot cache | M1 | CI verified | 30s fresh, 5m stale fallback, per-server single-flight |
 | Real SQL connection | M1 | Planned | First vertical slice |
 | Backups | M2 | Planned | Coming soon in UI |
 | Jobs | M2 | Planned | Coming soon in UI |

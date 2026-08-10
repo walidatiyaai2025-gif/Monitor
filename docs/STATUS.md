@@ -4,8 +4,8 @@
 **Branch:** `agent/m1-snapshot-cache`  
 **Target:** `M1-004`  
 **Issue:** TBD  
-**PR:** TBD  
-**Overall:** 🟡 M1-004 IMPLEMENTED — LOCAL VERIFICATION COMPLETE
+**PR:** #12  
+**Overall:** 🟢 M1-004 VERIFIED — READY TO MERGE
 
 ## M1-004 — ServerHealthSnapshot contract and cache
 
@@ -16,6 +16,7 @@
 - Caller cancellation does not cancel shared collection required by other callers.
 - Newer collection timestamps win; future-clock ages clamp safely to zero.
 - 25 total tests pass, including concurrency, freshness, stale fallback and cancellation.
+- CI run `31370422613`: SUCCESS (Release build + 25 tests).
 
 ## M1-003 — Lightweight SQL collector
 
@@ -107,4 +108,4 @@ M0 PR #2 merged to stable `main` at `dfbfa19`.
 
 ## Next action
 
-Push M1-004, verify CI, open a focused PR, then begin M1-005 real snapshot UI replacement.
+Merge PR #12, then begin M1-005 real snapshot UI replacement.
