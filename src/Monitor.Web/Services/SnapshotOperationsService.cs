@@ -7,6 +7,12 @@ public interface ISnapshotHistoryStore
 {
     void Append(SnapshotCacheResult result);
     IReadOnlyList<SnapshotHistoryPoint> Read(Guid registrationId, TimeSpan window);
+
+    IReadOnlyList<SnapshotHistoryPoint> Read(Guid registrationId, TimeSpan window, int offset, int limit) =>
+        Read(registrationId, window)
+            .Skip(PerformanceScaleOptions.BoundOffset(offset))
+            .Take(Math.Clamp(limit, 1, 288))
+            .ToArray();
 }
 
 public sealed class InMemorySnapshotHistoryStore(TimeProvider timeProvider) : ISnapshotHistoryStore
@@ -30,14 +36,27 @@ public sealed class InMemorySnapshotHistoryStore(TimeProvider timeProvider) : IS
         }
     }
 
-    public IReadOnlyList<SnapshotHistoryPoint> Read(Guid registrationId, TimeSpan window)
+    public IReadOnlyList<SnapshotHistoryPoint> Read(Guid registrationId, TimeSpan window) =>
+        Read(registrationId, window, 0, MaxPerServer);
+
+    public IReadOnlyList<SnapshotHistoryPoint> Read(Guid registrationId, TimeSpan window, int offset, int limit)
     {
+        ValidateWindow(window);
         if (!_points.TryGetValue(registrationId, out var series)) return [];
         lock (series)
         {
             var cutoff = timeProvider.GetUtcNow() - window;
-            return series.Values.Where(point => point.CollectedAtUtc >= cutoff).ToArray();
+            return series.Values
+                .Where(point => point.CollectedAtUtc >= cutoff)
+                .Skip(PerformanceScaleOptions.BoundOffset(offset))
+                .Take(Math.Clamp(limit, 1, MaxPerServer))
+                .ToArray();
         }
+    }
+
+    private static void ValidateWindow(TimeSpan window)
+    {
+        if (window <= TimeSpan.Zero || window > Retention) throw new ArgumentOutOfRangeException(nameof(window));
     }
 }
 
@@ -59,10 +78,15 @@ public sealed class SnapshotScheduleOptions
     public bool Enabled { get; init; }
     public TimeSpan Interval { get; init; } = TimeSpan.FromMinutes(1);
     public int MaxConcurrency { get; init; } = 2;
+    public int MaxTargetsPerCycle { get; init; } = 100;
+    public int MaxJitterSeconds { get; init; } = 5;
+
     public void Validate()
     {
         if (Interval < TimeSpan.FromSeconds(30) || Interval > TimeSpan.FromHours(1)) throw new InvalidOperationException("Schedule interval is outside the allowed range.");
         if (MaxConcurrency is < 1 or > 8) throw new InvalidOperationException("Schedule concurrency is outside the allowed range.");
+        if (MaxTargetsPerCycle is < 1 or > 500) throw new InvalidOperationException("Schedule targets-per-cycle is outside the allowed range.");
+        if (MaxJitterSeconds is < 0 or > 30 || TimeSpan.FromSeconds(MaxJitterSeconds) >= Interval) throw new InvalidOperationException("Schedule jitter is outside the allowed range.");
     }
 }
 
@@ -97,12 +121,16 @@ public sealed class SnapshotCollectionCycle(
     ISchedulerStatusStore? status = null,
     TimeProvider? timeProvider = null) : ISnapshotCollectionCycle
 {
+    private readonly object _batchGate = new();
+    private int _nextOffset;
+
     public async Task RunOnceAsync(CancellationToken cancellationToken)
     {
         var policy = options ?? new SnapshotScheduleOptions();
         policy.Validate();
         var clock = timeProvider ?? TimeProvider.System;
-        var targets = registrations.GetAll().Where(item => item.IsEnabled).OrderBy(item => item.Id).ToArray();
+        var allTargets = registrations.GetAll().Where(item => item.IsEnabled).OrderBy(item => item.Id).ToArray();
+        var targets = SelectBatch(allTargets, policy.MaxTargetsPerCycle);
         var succeeded = 0;
         var failed = 0;
         var skipped = 0;
@@ -124,6 +152,28 @@ public sealed class SnapshotCollectionCycle(
         });
         status?.Set(new(policy.Enabled, false, status.Get().LastStartedUtc, clock.GetUtcNow(), targets.Length, succeeded, failed, skipped));
     }
+
+    private ServerRegistration[] SelectBatch(ServerRegistration[] targets, int maxTargets)
+    {
+        if (targets.Length <= maxTargets)
+        {
+            lock (_batchGate) _nextOffset = 0;
+            return targets;
+        }
+
+        lock (_batchGate)
+        {
+            var start = _nextOffset % targets.Length;
+            var count = Math.Min(maxTargets, targets.Length);
+            var selected = new ServerRegistration[count];
+            for (var index = 0; index < count; index++)
+            {
+                selected[index] = targets[(start + index) % targets.Length];
+            }
+            _nextOffset = (start + count) % targets.Length;
+            return selected;
+        }
+    }
 }
 
 public sealed class SnapshotSchedulerService(
@@ -133,6 +183,8 @@ public sealed class SnapshotSchedulerService(
     IDistributedLeaseManager? leases = null,
     DistributedCoordinationOptions? coordination = null) : BackgroundService
 {
+    private long _cycleSequence;
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         options.Validate();
@@ -150,9 +202,13 @@ public sealed class SnapshotSchedulerService(
             status.Set(new(true, false, null, null, 0, 0, 0, 0));
         }
 
+        var jitterSeed = ResolveJitterSeed(coordinationPolicy);
         using var timer = new PeriodicTimer(options.Interval);
         while (await timer.WaitForNextTickAsync(stoppingToken))
         {
+            var jitter = SchedulerJitter.Compute(jitterSeed, Interlocked.Increment(ref _cycleSequence), options.MaxJitterSeconds);
+            if (jitter > TimeSpan.Zero) await Task.Delay(jitter, stoppingToken);
+
             if (!coordinationPolicy.Enabled)
             {
                 await cycle.RunOnceAsync(stoppingToken);
@@ -253,6 +309,16 @@ public sealed class SnapshotSchedulerService(
         }
     }
 
+    private static string ResolveJitterSeed(DistributedCoordinationOptions coordinationPolicy)
+    {
+        if (!string.IsNullOrWhiteSpace(coordinationPolicy.NodeIdEnvironmentVariable))
+        {
+            var configured = Environment.GetEnvironmentVariable(coordinationPolicy.NodeIdEnvironmentVariable);
+            if (!string.IsNullOrWhiteSpace(configured)) return configured;
+        }
+        return Environment.MachineName;
+    }
+
     private sealed class LeaseHolder(DistributedLeaseHandle current)
     {
         private readonly object _gate = new();
@@ -266,15 +332,24 @@ public sealed class SnapshotSchedulerService(
     }
 }
 
-public interface ITrendReadService { SnapshotTrendViewModel? Read(Guid registrationId, string window); }
-public sealed class TrendReadService(IServerRegistrationRepository registrations, ISnapshotHistoryStore history) : ITrendReadService
+public interface ITrendReadService
+{
+    SnapshotTrendViewModel? Read(Guid registrationId, string window, int offset = 0, int limit = 100);
+}
+
+public sealed class TrendReadService(
+    IServerRegistrationRepository registrations,
+    ISnapshotHistoryStore history,
+    PerformanceScaleOptions? performance = null) : ITrendReadService
 {
     private static readonly IReadOnlyDictionary<string, TimeSpan> Windows = new Dictionary<string, TimeSpan>(StringComparer.OrdinalIgnoreCase)
     { ["1h"] = TimeSpan.FromHours(1), ["6h"] = TimeSpan.FromHours(6), ["24h"] = TimeSpan.FromHours(24) };
 
-    public SnapshotTrendViewModel? Read(Guid registrationId, string window)
+    public SnapshotTrendViewModel? Read(Guid registrationId, string window, int offset = 0, int limit = 100)
     {
         if (registrations.GetById(registrationId) is null || !Windows.TryGetValue(window, out var duration)) return null;
-        return new(registrationId, window.ToLowerInvariant(), history.Read(registrationId, duration));
+        var policy = performance ?? new PerformanceScaleOptions();
+        policy.Validate();
+        return new(registrationId, window.ToLowerInvariant(), history.Read(registrationId, duration, PerformanceScaleOptions.BoundOffset(offset), policy.BoundHistoryLimit(limit)));
     }
 }
