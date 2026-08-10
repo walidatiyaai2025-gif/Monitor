@@ -1,11 +1,20 @@
 # Project Status
 
 **Updated:** 2026-08-10 11:41 +03:00  
-**Branch:** `agent/m1-throttled-refresh`  
-**Target:** `M1-006`  
+**Branch:** `agent/m1-signalr-evaluation`  
+**Target:** `M1-007`  
 **Issue:** TBD  
 **PR:** TBD  
-**Overall:** 🟡 M1-006 IMPLEMENTED — LOCAL VERIFICATION COMPLETE
+**Overall:** 🟢 M1 COMPLETE — SIGNALR EVALUATED / DEFERRED
+
+## M1-007 — SignalR snapshot delivery evaluation
+
+- Decision: defer SignalR until a backend scheduler/store publishes snapshots independently.
+- Current request-driven snapshots provide no push event for a hub to deliver.
+- Revisit when multi-consumer delivery or measured polling load justifies the transport.
+- Any future hub is delivery-only and cannot call collectors or change refresh frequency.
+- Decision recorded in ADR-013; no runtime package or unnecessary attack surface added.
+- M1-006 CI run `31371676834`: SUCCESS (Release build + 32 tests).
 
 ## M1-006 — Backend-controlled throttled refresh
 
@@ -128,4 +137,4 @@ M0 PR #2 merged to stable `main` at `dfbfa19`.
 
 ## Next action
 
-Push M1-006, verify CI and merge, then complete M1-007 SignalR evaluation.
+Merge the M1-007 decision, then begin M2-001 memory snapshot contract and projection.

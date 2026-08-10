@@ -47,3 +47,7 @@ The first configured server may replace one demo estate card from the backend sn
 ## ADR-012 — Manual refresh is backend-controlled and throttled
 
 Snapshot refresh is an administrator POST accepting only a registration ID. A 15-second atomic per-server throttle rejects repeated requests before collection, while the cache single-flight coalesces concurrent accepted work. The browser cannot provide SQL text, endpoints, credentials or collection frequency.
+
+## ADR-013 — SignalR delivery is deferred until snapshots are published independently
+
+SignalR is not added in M1 because snapshots are currently produced on request and there is no backend scheduler or snapshot-published event. A hub would add transport complexity without new information. Revisit when multiple consumers need independently produced updates or measured polling load justifies push. SignalR, if adopted, is delivery-only and must never invoke collectors or alter refresh frequency.
