@@ -4,8 +4,8 @@
 **Branch:** `agent/m1-lightweight-collector`  
 **Target:** `M1-003`  
 **Issue:** TBD  
-**PR:** TBD  
-**Overall:** 🟡 M1-003 IMPLEMENTED — LOCAL VERIFICATION COMPLETE
+**PR:** #9  
+**Overall:** 🟢 M1-003 VERIFIED — READY TO MERGE
 
 ## M1-003 — Lightweight SQL collector
 
@@ -15,6 +15,7 @@
 - Seven-second overall budget, cancellation propagation and safe categorized failures.
 - Invalid counts and partial rows fail safely; secrets and provider exception text remain internal.
 - 21 total tests pass, including one-query, redaction, cancellation and mapping paths.
+- CI run `31369800023`: SUCCESS (Release build + 21 tests).
 
 ## M1-002 — Test Connection workflow
 
@@ -96,4 +97,4 @@ M0 PR #2 merged to stable `main` at `dfbfa19`.
 
 ## Next action
 
-Push M1-003, verify CI, open a focused PR, then begin M1-004 snapshot contract and cache.
+Merge PR #9, then begin M1-004 snapshot contract and cache.
