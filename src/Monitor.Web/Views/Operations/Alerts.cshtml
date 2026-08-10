@@ -1,7 +1,24 @@
 @model IReadOnlyList<IncidentRow>
 @{
     ViewData["Title"] = "Alerts & Incidents";
+    var active = Model.Where(i => !string.Equals(i.State, "Resolved", StringComparison.OrdinalIgnoreCase)).ToList();
 }
-<div class="data-banner"><strong>DEVELOPMENT DATA</strong><span>Incident states are intentionally varied to validate the visual language.</span></div>
-<section class="incident-summary"><div class="glass-panel"><small>OPEN CRITICAL</small><strong>@Model.Count(i => i.Severity == "Critical")</strong><span>Immediate attention</span></div><div class="glass-panel"><small>WARNINGS</small><strong>@Model.Count(i => i.Severity == "Warning")</strong><span>Review required</span></div><div class="glass-panel"><small>TOTAL ACTIVE</small><strong>@Model.Count</strong><span>Preview incidents</span></div></section>
-<article class="glass-panel table-panel"><div class="panel-heading"><div><span class="eyebrow">INCIDENT CENTER</span><h3>Operational queue</h3></div><span class="snapshot-note">No alert engine connected yet</span></div><div class="incident-table"><div class="table-head"><span>ID</span><span>Severity</span><span>Server</span><span>Incident</span><span>Age</span><span>Status</span></div>@foreach (var incident in Model){<div class="table-row"><strong>@incident.Id</strong><span class="severity severity-@incident.Severity.ToLowerInvariant()">@incident.Severity</span><span>@incident.Server</span><span>@incident.Title</span><span>@incident.Age</span><span>@incident.State</span></div>}</div></article>
+<div class="data-banner"><strong>CACHED INCIDENT DATA</strong><span>Incidents are produced by deterministic allowlisted rules over cached snapshots. Recommendations are advisory and never execute SQL.</span></div>
+<section class="incident-summary"><div class="glass-panel"><small>OPEN CRITICAL</small><strong>@active.Count(i => i.Severity == "Critical")</strong><span>Immediate DBA attention</span></div><div class="glass-panel"><small>OPEN WARNINGS</small><strong>@active.Count(i => i.Severity == "Warning")</strong><span>Review required</span></div><div class="glass-panel"><small>TOTAL ACTIVE</small><strong>@active.Count</strong><span>Deterministic incident state</span></div></section>
+<article class="glass-panel table-panel">
+    <div class="panel-heading"><div><span class="eyebrow">INCIDENT CENTER</span><h3>Operational queue</h3></div><span class="snapshot-note">Cached evidence · stable dedupe</span></div>
+    <div class="incident-table">
+        <div class="table-head"><span>ID</span><span>Severity</span><span>Server</span><span>Incident</span><span>Age</span><span>Status</span></div>
+        @foreach (var incident in Model)
+        {
+            <div class="table-row">
+                <strong>@incident.Id</strong>
+                <span class="severity severity-@incident.Severity.ToLowerInvariant()">@incident.Severity</span>
+                <span>@incident.Server</span>
+                <span class="incident-title-cell"><span>@incident.Title</span><a asp-action="Recommendation" asp-route-id="@incident.Id">Review recommendation →</a></span>
+                <span>@incident.Age</span>
+                <span>@incident.State</span>
+            </div>
+        }
+    </div>
+</article>
