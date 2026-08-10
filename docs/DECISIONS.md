@@ -30,7 +30,7 @@ Server registrations may contain endpoint and authentication-mode metadata, but 
 
 ## ADR-008 — Test Connection is bounded and redacted
 
-Test Connection accepts a server registration ID only and runs exclusively in the authorized backend. It uses `Microsoft.Data.SqlClient`, explicit connection/overall timeouts, cancellation, no pooling, and fixed safe result messages. Raw provider exceptions, credentials and connection strings are never returned to the browser.
+Test Connection accepts a server registration ID only and runs exclusively in the authorized backend. It uses `Microsoft.Data.SqlClient`, explicit connection/overall timeouts, cancellation, no pooling, and fixed safe result messages. Raw provider exceptions, credentials and connection strings never cross the service boundary.
 
 ## ADR-009 — The first collector uses one reusable query result
 
@@ -103,3 +103,9 @@ When no registration exists, the visual demo remains explicitly labeled. Once re
 ## ADR-026 — Incident audit enrichment must not break the workflow contract
 
 M5-026 keeps the existing boolean `IIncidentWorkflowService` transition API unchanged. The authorized controller reads the canonical `IHealthIncidentRepository` immediately before and after the existing atomic status transition and records only bounded state metadata in the existing `IAuditStore`. The canonical audit action remains `incident.transition`. If repository state cannot be observed, the audit outcome falls back to the established `applied` / `conflict` values instead of inventing state. Missing authenticated actor identity fails closed before mutation. Incident evidence, SQL text, credentials, endpoints, provider errors and arbitrary request payloads are excluded from transition audit metadata.
+
+## ADR-027 — Persist registration metadata, never runtime credential values
+
+M7-001 makes the existing `IServerRegistrationRepository` durable without broadening the secret boundary. The default implementation writes a versioned Monitor-owned metadata file outside `wwwroot`; the application may still select the in-memory implementation through configuration. The persisted contract includes endpoint/authentication metadata and, for SQL Login registrations, the opaque `ConnectionSecretReference` only. It never contains SQL usernames, passwords or full connection strings.
+
+File mutations are serialized, flushed to a same-directory temporary file and atomically moved into place. A failed write restores the prior in-memory state. Malformed, unsupported or domain-invalid persisted data fails application startup rather than silently producing an empty estate. Runtime credentials created by the M6 commissioning UI remain process-memory only and therefore intentionally cannot survive restart; their persisted opaque references become unresolved until an operator supplies a new credential or migrates the registration to an external enterprise secret reference. A future shared/HA repository may replace the file implementation behind the unchanged interface.
