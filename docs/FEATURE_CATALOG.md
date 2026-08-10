@@ -34,6 +34,6 @@
 | Deterministic findings | M3 | CI verified | Allowlisted server-side rules with bounded evidence; CI 31373849952 |
 | Incident lifecycle | M3 | CI verified | Stable dedupe; fresh healthy evidence resolves incidents; CI 31373849952 |
 | Real incident center | M3 | CI verified | Cached snapshots feed the authorized Alerts UI; CI 31373849952 |
-| Recommendation engine | M3 | Planned | Evidence-bound remediation suggestions; no autonomous execution |
+| Recommendation engine | M3 | CI pending | Deterministic problem explanation, remediation steps and optional fixed read-only diagnostic SQL; no execution |
 | AI Advisor | M4 | Planned | Advisory boundary only |
 | Reports/history | M5 | Planned | Trends and reporting |
