@@ -16,6 +16,7 @@ public sealed class OperationsController : Controller
     private readonly IAdvisorRequestService? _advisorRequests;
     private readonly IHealthIncidentRepository? _incidentRepository;
     private readonly ISnapshotRefreshService? _snapshotRefresh;
+    private readonly DeploymentReadinessViewModel _deploymentReadiness;
 
     public OperationsController(
         IDemoMonitorService monitor,
@@ -25,7 +26,8 @@ public sealed class OperationsController : Controller
         IAuditStore? audit = null,
         IAdvisorRequestService? advisorRequests = null,
         IHealthIncidentRepository? incidentRepository = null,
-        ISnapshotRefreshService? snapshotRefresh = null)
+        ISnapshotRefreshService? snapshotRefresh = null,
+        DeploymentReadinessViewModel? deploymentReadiness = null)
     {
         _monitor = monitor;
         _readService = readService;
@@ -35,6 +37,7 @@ public sealed class OperationsController : Controller
         _advisorRequests = advisorRequests;
         _incidentRepository = incidentRepository;
         _snapshotRefresh = snapshotRefresh;
+        _deploymentReadiness = deploymentReadiness ?? DeploymentReadinessViewModel.SafeDefault();
     }
 
     [HttpGet("/dashboard")]
@@ -56,12 +59,14 @@ public sealed class OperationsController : Controller
     [Authorize(Policy = MonitorPolicies.Operate)]
     public async Task<IActionResult> RefreshServer(Guid id, CancellationToken cancellationToken)
     {
-        if (_snapshotRefresh is null) return NotFound();
+        if (_snapshotRefresh is null)
+        {
+            return NotFound();
+        }
+
         var result = await _snapshotRefresh.RefreshAsync(id, cancellationToken);
-        TempData["SnapshotRefresh"] = result.Message;
-        return result.Status == SnapshotRefreshStatus.RegistrationNotFound
-            ? NotFound()
-            : RedirectToAction(nameof(ServerDetails), new { id = id.ToString("D") });
+        TempData["SnapshotRefreshMessage"] = result.Message;
+        return RedirectToAction(nameof(ServerDetails), new { id });
     }
 
     [HttpGet("/database-health")]
@@ -91,7 +96,7 @@ public sealed class OperationsController : Controller
     [HttpGet("/alerts")]
     public async Task<IActionResult> Alerts(IncidentStatus? status, FindingSeverity? severity, string? ruleId, CancellationToken cancellationToken)
     {
-        await _readService.GetIncidentsAsync(cancellationToken);
+        var incidents = await _readService.GetIncidentsAsync(cancellationToken);
         return _workflow is null
             ? View(new IncidentCenterViewModel([], new(0, 0, 0, 0, 0), new(status, severity, ruleId)))
             : View(_workflow.Query(new(status, severity, ruleId)));
@@ -199,5 +204,6 @@ public sealed class OperationsController : Controller
     }
 
     [HttpGet("/settings")]
-    public IActionResult Settings() => View();
+    [Authorize(Policy = MonitorPolicies.Manage)]
+    public IActionResult Settings() => View(_deploymentReadiness);
 }
