@@ -43,3 +43,7 @@ Cached server snapshots are fresh for 30 seconds and retained as an explicitly s
 ## ADR-011 — Mixed real and demo data is labeled per card
 
 The first configured server may replace one demo estate card from the backend snapshot cache. Every card carries an explicit Demo, LiveFresh or LiveStale source. Missing real dimensions are presented as not collected, never filled with preview numbers. If no configuration or usable snapshot exists, the unchanged estate remains explicitly development data.
+
+## ADR-012 — Manual refresh is backend-controlled and throttled
+
+Snapshot refresh is an administrator POST accepting only a registration ID. A 15-second atomic per-server throttle rejects repeated requests before collection, while the cache single-flight coalesces concurrent accepted work. The browser cannot provide SQL text, endpoints, credentials or collection frequency.

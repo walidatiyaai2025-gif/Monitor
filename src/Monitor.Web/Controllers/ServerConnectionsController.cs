@@ -8,7 +8,8 @@ namespace Monitor.Web.Controllers;
 [Authorize(Roles = "Administrator")]
 public sealed class ServerConnectionsController(
     IServerRegistrationRepository registrations,
-    IServerConnectionTester tester) : ControllerBase
+    IServerConnectionTester tester,
+    ISnapshotRefreshService refreshService) : ControllerBase
 {
     [HttpPost("/servers/{id:guid}/test-connection")]
     [ValidateAntiForgeryToken]
@@ -29,5 +30,21 @@ public sealed class ServerConnectionsController(
         return result.Status == ConnectionTestStatus.Disabled
             ? Conflict(result)
             : Ok(result);
+    }
+
+    [HttpPost("/servers/{id:guid}/refresh-snapshot")]
+    [ValidateAntiForgeryToken]
+    public async Task<ActionResult<SnapshotRefreshResult>> RefreshSnapshot(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        var result = await refreshService.RefreshAsync(id, cancellationToken);
+        return result.Status switch
+        {
+            SnapshotRefreshStatus.RegistrationNotFound => NotFound(result),
+            SnapshotRefreshStatus.Disabled => Conflict(result),
+            SnapshotRefreshStatus.Throttled => StatusCode(StatusCodes.Status429TooManyRequests, result),
+            _ => Ok(result)
+        };
     }
 }
