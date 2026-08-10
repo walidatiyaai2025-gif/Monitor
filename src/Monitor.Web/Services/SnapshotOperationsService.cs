@@ -129,15 +129,140 @@ public sealed class SnapshotCollectionCycle(
 public sealed class SnapshotSchedulerService(
     SnapshotScheduleOptions options,
     ISnapshotCollectionCycle cycle,
-    ISchedulerStatusStore status) : BackgroundService
+    ISchedulerStatusStore status,
+    IDistributedLeaseManager? leases = null,
+    DistributedCoordinationOptions? coordination = null) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         options.Validate();
-        status.Set(new(options.Enabled, false, null, null, 0, 0, 0, 0));
-        if (!options.Enabled) return;
+        var coordinationPolicy = coordination ?? new DistributedCoordinationOptions();
+        coordinationPolicy.Validate();
+
+        if (!options.Enabled)
+        {
+            status.Set(new(false, false, null, null, 0, 0, 0, 0));
+            return;
+        }
+
+        if (!coordinationPolicy.Enabled)
+        {
+            status.Set(new(true, false, null, null, 0, 0, 0, 0));
+        }
+
         using var timer = new PeriodicTimer(options.Interval);
-        while (await timer.WaitForNextTickAsync(stoppingToken)) await cycle.RunOnceAsync(stoppingToken);
+        while (await timer.WaitForNextTickAsync(stoppingToken))
+        {
+            if (!coordinationPolicy.Enabled)
+            {
+                await cycle.RunOnceAsync(stoppingToken);
+                continue;
+            }
+
+            if (leases is null)
+            {
+                continue;
+            }
+
+            DistributedLeaseHandle? lease;
+            try
+            {
+                lease = await leases.TryAcquireAsync("scheduler", TimeSpan.FromSeconds(coordinationPolicy.SchedulerLeaseSeconds), stoppingToken);
+            }
+            catch (SharedStateStoreUnavailableException)
+            {
+                continue;
+            }
+
+            if (lease is null)
+            {
+                continue;
+            }
+
+            await RunLeaderCycleAsync(lease, stoppingToken);
+        }
+    }
+
+    private async Task RunLeaderCycleAsync(DistributedLeaseHandle initialLease, CancellationToken stoppingToken)
+    {
+        if (leases is null)
+        {
+            return;
+        }
+
+        using var leaseCancellation = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+        var holder = new LeaseHolder(initialLease);
+        var renewal = RenewWhileRunningAsync(holder, leaseCancellation, stoppingToken);
+
+        try
+        {
+            await cycle.RunOnceAsync(leaseCancellation.Token);
+        }
+        finally
+        {
+            leaseCancellation.Cancel();
+            try
+            {
+                await renewal;
+            }
+            catch (OperationCanceledException)
+            {
+            }
+
+            try
+            {
+                await leases.ReleaseAsync(holder.Current, CancellationToken.None);
+            }
+            catch (SharedStateStoreUnavailableException)
+            {
+            }
+        }
+    }
+
+    private async Task RenewWhileRunningAsync(LeaseHolder holder, CancellationTokenSource leaseCancellation, CancellationToken stoppingToken)
+    {
+        if (leases is null)
+        {
+            return;
+        }
+
+        var delay = TimeSpan.FromSeconds(Math.Max(5, holder.Current.Duration.TotalSeconds / 3));
+        while (!leaseCancellation.IsCancellationRequested)
+        {
+            try
+            {
+                await Task.Delay(delay, leaseCancellation.Token);
+                var renewed = await leases.RenewAsync(holder.Current, leaseCancellation.Token);
+                if (renewed is null)
+                {
+                    leaseCancellation.Cancel();
+                    return;
+                }
+
+                holder.Current = renewed;
+            }
+            catch (SharedStateStoreUnavailableException)
+            {
+                leaseCancellation.Cancel();
+                return;
+            }
+            catch (OperationCanceledException) when (leaseCancellation.IsCancellationRequested || stoppingToken.IsCancellationRequested)
+            {
+                return;
+            }
+        }
+    }
+
+    private sealed class LeaseHolder(DistributedLeaseHandle current)
+    {
+        private readonly object _gate = new();
+        private DistributedLeaseHandle _current = current;
+
+        public DistributedLeaseHandle Current
+        {
+            get { lock (_gate) return _current; }
+            set { lock (_gate) _current = value; }
+        }
     }
 }
 
