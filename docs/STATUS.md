@@ -1,10 +1,10 @@
 # Project Status
 
-**Updated:** 2026-08-11 01:52 +03:00  
+**Updated:** 2026-08-11 01:53 +03:00  
 **Branch:** `agent/b100-8`  
 **Target:** BATCH-100 / Batch 8 — Reliability & concurrency verification  
 **Issues:** #55 umbrella · #70 Batch 8  
-**PR:** pending final branch documentation  
+**PR:** #71 — BATCH-100/8: verify reliability and concurrency  
 **Overall:** 🟢 M0–M6 VERIFIED · M7-001..M7-018 CI VERIFIED · M8 CI VERIFIED · B100-001..080 CI VERIFIED · 🟡 FINAL PR CI PENDING BEFORE MERGE
 
 ## BATCH-100 / Batch 8 — CI VERIFIED
@@ -13,11 +13,12 @@ B100-071..080 are implemented on `agent/b100-8`. Branch CI run `31439886994` is 
 
 ### CI evidence
 
+- PR: #71.
 - Branch CI: `31439886994`.
 - Release build: **0 warnings / 0 errors** with `--warnaserror`.
 - Tests: **209 passed / 0 failed / 0 skipped**.
 - An earlier branch build correctly failed two xUnit analyzer rules in the new harness (`xUnit1031`, `xUnit2031`). The tests were rewritten to use async/await and the filtering overload of `Assert.Single`; analyzers were not suppressed.
-- Final PR merge-result CI is still required after canonical documentation is complete.
+- Final PR merge-result CI is required on this canonical code + docs head before merge.
 
 ### B100-071..080 delivered
 
@@ -42,7 +43,7 @@ B100-071..080 are implemented on `agent/b100-8`. Branch CI run `31439886994` is 
 
 ## Merge gate
 
-Open the Batch 8 PR against `main`, run GitHub Actions on the final code + canonical-docs head, require Release build with `--warnaserror` and all tests Green, confirm `main` has not moved into overlapping HA/shared-state code, then squash-merge.
+Require the final PR #71 merge-result GitHub Actions run on this code + canonical-docs head to pass Release build with `--warnaserror` and all tests, confirm `main` has not moved into overlapping HA/shared-state code, then squash-merge.
 
 ## Next action
 
