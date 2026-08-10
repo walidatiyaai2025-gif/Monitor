@@ -57,12 +57,12 @@ This is the canonical execution plan. Update it in the same PR as material imple
 | Batch 6 | B100-051..060 | DBA UX & operations surfaces | CI VERIFIED — 31402491011 |
 | Batch 7 | B100-061..070 | Web/application security hardening | CI VERIFIED — 31439153733 |
 | Batch 8 | B100-071..080 | Reliability & concurrency verification | CI VERIFIED — 31439886994 |
-| Batch 9 | B100-081..090 | Deployment & operations tooling/docs | NEXT |
-| Batch 10 | B100-091..100 | Enterprise operator features & RC acceptance | PLANNED |
+| Batch 9 | B100-081..090 | Deployment & operations tooling/docs | CI VERIFIED — 31440573683 |
+| Batch 10 | B100-091..100 | Enterprise operator features & RC acceptance | NEXT |
 
-Current progress: **80/100 tasks CI verified**. Batch 8 branch validation completed with a Release build at **0 warnings / 0 errors** and **209/209 tests passed**. The new acceptance harness verifies shared-state write failure/recovery, lease expiry/re-election, dedicated state-provider outage/recovery, restart-safe migration retry, concurrent incident/audit/history/registration behavior, distributed refresh single-flight and a deterministic three-node soak simulation.
+Current progress: **90/100 tasks CI verified**. Batch 9 branch validation completed with a Release build at **0 warnings / 0 errors** and **219/219 tests passed**. The deployment package now includes a non-secret production template, IIS/Windows Service/reverse-proxy runbooks, runtime least-privilege SQL scripts, upgrade/rollback procedures, Windows Service lifetime support, versioned release packaging with SHA-256 checksum, and an HTTPS health/readiness smoke test. CI acceptance verifies those artifacts stay secret-free, privilege-bounded and control-plane-only.
 
-The next executable batch after Batch 8 is merged is **B100-081..090 — deployment & operations documentation/tooling**.
+The next executable batch after Batch 9 is merged is **B100-091..100 — enterprise operator features & release-candidate acceptance**.
 
 ## Delivery loop
 

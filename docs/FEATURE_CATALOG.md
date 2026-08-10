@@ -58,5 +58,8 @@
 | SQL connection metadata injection defense | B100 | CI verified | Strict host/instance metadata plus `SqlConnectionStringBuilder` value-injection tests; B100-069; CI 31439153733 |
 | Deterministic shared-state fault harness | B100 | CI verified | Atomic failure/recovery, provider outage, restart-safe migration and lease takeover; B100-071..074; CI 31439886994 |
 | Cross-node concurrency and soak acceptance | B100 | CI verified | Incident/audit/history/registration races, distributed refresh single-flight and 120-cycle three-node soak; B100-075..080; CI 31439886994 |
+| Production deployment configuration & hosting | B100 | CI verified | Secret-free production template, IIS, Windows Service lifetime and reverse-proxy guidance; B100-081..084; CI 31440573683 |
+| Least-privilege SQL deployment roles | B100 | CI verified | Dedicated state DB runtime role and monitored SQL read/view role; B100-085/086; CI 31440573683 |
+| Versioned release & recovery tooling | B100 | CI verified | Upgrade checklist, build/test-before-publish workflow, SHA-256 package, HTTPS smoke test and rollback runbook; B100-087..090; CI 31440573683 |
 | Zero-SQL monitored GETs | M8 | CI verified | Cache/Peek-only browser monitoring reads; CI 31383991126 |
 | Explicit observed manual refresh | M8 | CI verified | Operator/Admin POST; successful refresh observed once |
