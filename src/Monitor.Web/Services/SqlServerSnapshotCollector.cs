@@ -23,7 +23,7 @@ internal interface ISqlSnapshotQuery
 
 public interface ISqlServerSnapshotCollector
 {
-    Task<SqlServerIdentitySnapshot> CollectAsync(
+    Task<ServerHealthSnapshot> CollectAsync(
         ServerRegistration registration,
         CancellationToken cancellationToken = default);
 }
@@ -35,7 +35,7 @@ internal sealed class SqlServerSnapshotCollector(
 {
     private static readonly TimeSpan OverallTimeout = TimeSpan.FromSeconds(7);
 
-    public async Task<SqlServerIdentitySnapshot> CollectAsync(
+    public async Task<ServerHealthSnapshot> CollectAsync(
         ServerRegistration registration,
         CancellationToken cancellationToken = default)
     {
@@ -69,7 +69,7 @@ internal sealed class SqlServerSnapshotCollector(
                 throw new InvalidDataException("Invalid snapshot row.");
             }
 
-            return new SqlServerIdentitySnapshot(
+            return new ServerHealthSnapshot(
                 registration.Id,
                 row.ServerName,
                 row.ProductVersion,
