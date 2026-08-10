@@ -1,12 +1,14 @@
 # Roadmap
 
-## M0 — Visual Foundation — ACTIVE
+## M0 — Visual Foundation — COMPLETE
 
-Deliver `0.0.1-ui-preview`: authentication, premium shell, Command Center, core screens, mock snapshot, centralized live visual language, CI.
+`0.0.1-ui-preview` delivered and merged through PR #2: authentication, premium shell, Command Center, core screens, mock snapshot, centralized live visual language, Database/Memory command-view polish, and CI verification.
 
-## M1 — First Real SQL Vertical Slice
+## M1 — First Real SQL Vertical Slice — ACTIVE
 
 Register one SQL Server -> test connection -> collect lightweight identity/availability -> create health snapshot -> display real data -> update dashboard.
+
+Active task: `M1-001 — Server registration and secure secret boundary` (Issue #3).
 
 ## M2 — Health Modules
 
