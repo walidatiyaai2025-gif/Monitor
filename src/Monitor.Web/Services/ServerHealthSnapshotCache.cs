@@ -39,7 +39,7 @@ public sealed class ServerHealthSnapshotCache(
         var age = Age(snapshot);
         if (age > RetainStaleFor)
         {
-            _snapshots.TryRemove(new KeyValuePair<Guid, ServerHealthSnapshot>(registrationId, snapshot));
+            _snapshots.TryRemove(registrationId, out _);
             return null;
         }
         return new(snapshot, age <= FreshFor ? SnapshotFreshness.Fresh : SnapshotFreshness.Stale, age);
@@ -128,7 +128,7 @@ public sealed class ServerHealthSnapshotCache(
                     .ThenBy(pair => pair.Key)
                     .FirstOrDefault();
                 if (victim.Equals(default(KeyValuePair<Guid, ServerHealthSnapshot>))) return;
-                _snapshots.TryRemove(victim);
+                _snapshots.TryRemove(victim.Key, out _);
             }
         }
     }
