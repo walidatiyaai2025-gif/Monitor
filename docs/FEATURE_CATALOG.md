@@ -5,8 +5,9 @@
 | Development Admin authentication | M0 | CI verified | Cookie auth; PBKDF2 hash only |
 | SQL Command Center | M0 | CI verified / visual review pending | Central live visual area + estate topology |
 | Command Center visual telemetry layer | M0 | CI verified / visual review pending | Client-only radar, freshness, scan phases; zero data calls |
-| Server estate cards | M0 | CI verified / visual review pending | Demo snapshot states |
-| Server overview | M0 | CI verified / visual review pending | Latest snapshot pattern |
+| Server estate operations view | M0 | CI verified / visual review pending | Estate summary, local filter/search, health score, resource pressure |
+| Server operational overview | M0 | CI verified / visual review pending | DBA command header, attention assessment, resource envelope, DBA focus |
+| Snapshot freshness presentation | M0 | CI verified / visual review pending | Browser-only age progression; no collection trigger |
 | Database Health | M0 | CI verified / visual review pending | Shared snapshot data |
 | Memory Health | M0 | CI verified / visual review pending | Shared snapshot data |
 | Alerts / Incidents | M0 | CI verified / visual review pending | Preview queue |
