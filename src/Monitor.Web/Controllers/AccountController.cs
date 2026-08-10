@@ -32,9 +32,12 @@ public sealed class AccountController : Controller
     [AllowAnonymous]
     [ValidateAntiForgeryToken]
     [HttpPost("/login")]
-    public async Task<IActionResult> Login(string username, string password, string? returnUrl = null)
+    public async Task<IActionResult> Login(string? username, string? password, string? returnUrl = null)
     {
-        if (!_credentialVerifier.Verify(username ?? string.Empty, password ?? string.Empty))
+        var normalizedUsername = username ?? string.Empty;
+        var normalizedPassword = password ?? string.Empty;
+
+        if (!_credentialVerifier.Verify(normalizedUsername, normalizedPassword))
         {
             ModelState.AddModelError(string.Empty, "Invalid username or password.");
             ViewData["ReturnUrl"] = returnUrl;
@@ -43,7 +46,7 @@ public sealed class AccountController : Controller
 
         var claims = new[]
         {
-            new Claim(ClaimTypes.Name, username),
+            new Claim(ClaimTypes.Name, normalizedUsername),
             new Claim(ClaimTypes.Role, "Administrator")
         };
 
