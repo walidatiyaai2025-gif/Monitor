@@ -36,9 +36,12 @@ This is the canonical execution plan. Update it in the same PR as material imple
 | Task | Description | State |
 |---|---|---|
 | M2-001 | Memory snapshot contract + collector projection | VERIFIED — CI RUN 31372045546 |
-| M2-002 | Memory health UI from cached snapshot | IMPLEMENTED — LOCAL VERIFIED |
-| M2-003 | Database health detail contract + projection | PLANNED |
-| M2-004 | Backups, jobs, storage and blocking modules | PLANNED |
+| M2-002 | Memory health UI from cached snapshot | VERIFIED — CI RUN 31372312362 |
+| M2-003 | Database health detail contract + projection | IMPLEMENTED — LOCAL VERIFIED |
+| M2-004 | Backup health summary | IMPLEMENTED — LOCAL VERIFIED |
+| M2-005 | SQL Agent jobs summary | IMPLEMENTED — LOCAL VERIFIED |
+| M2-006 | Storage allocation summary | IMPLEMENTED — LOCAL VERIFIED |
+| M2-007 | Blocking summary | IMPLEMENTED — LOCAL VERIFIED |
 
 ## Delivery loop
 

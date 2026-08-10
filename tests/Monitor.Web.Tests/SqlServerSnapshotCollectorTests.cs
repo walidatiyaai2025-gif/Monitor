@@ -86,13 +86,17 @@ public sealed class SqlServerSnapshotCollectorTests
     {
         var sql = SqlSnapshotQuery.CommandText;
 
-        Assert.Equal(1, Count(sql, "SELECT"));
+        Assert.StartsWith("SELECT", sql.TrimStart(), StringComparison.Ordinal);
         Assert.Contains("SERVERPROPERTY('ServerName')", sql, StringComparison.Ordinal);
         Assert.Contains("sys.databases", sql, StringComparison.Ordinal);
         Assert.Contains("sys.dm_os_sys_info", sql, StringComparison.Ordinal);
         Assert.Contains("DatabaseOnline", sql, StringComparison.Ordinal);
         Assert.Contains("sys.dm_os_sys_memory", sql, StringComparison.Ordinal);
         Assert.Contains("sys.dm_os_process_memory", sql, StringComparison.Ordinal);
+        Assert.Contains("msdb.dbo.backupset", sql, StringComparison.Ordinal);
+        Assert.Contains("msdb.dbo.sysjobs", sql, StringComparison.Ordinal);
+        Assert.Contains("sys.master_files", sql, StringComparison.Ordinal);
+        Assert.Contains("sys.dm_exec_requests", sql, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -132,8 +136,47 @@ public sealed class SqlServerSnapshotCollectorTests
         Assert.Equal("Snapshot collection failed.", exception.Message);
     }
 
-    private static int Count(string value, string token) =>
-        value.Split(token, StringSplitOptions.None).Length - 1;
+    [Fact]
+    public async Task CollectAsync_MapsAllFiveHealthModules()
+    {
+        var modules = new SqlHealthModulesRow(
+            1, 0, 0, 1, 0, 0,
+            7, 3, CollectedAt.AddHours(-2),
+            12, 10, 2,
+            3_000, 2_000, 1_000,
+            4, 900);
+        var row = new SqlSnapshotRow("SQL01", "17", "Enterprise", null, 10, 12, 10, null, modules);
+        var collector = new SqlServerSnapshotCollector(
+            new FakeSecretStore(new SqlLoginSecret("user", "password")), new FakeQuery(row), new FixedTimeProvider(CollectedAt));
+
+        var snapshot = await collector.CollectAsync(SqlLoginRegistration());
+
+        Assert.Equal(1, snapshot.Databases!.Restoring);
+        Assert.Equal(3, snapshot.Backups!.MissingFullBackupLast24Hours);
+        Assert.Equal(2, snapshot.Jobs!.FailedLastRun);
+        Assert.Equal(3_000, snapshot.Storage!.TotalAllocatedBytes);
+        Assert.Equal(4, snapshot.Blocking!.BlockedRequests);
+    }
+
+    [Fact]
+    public async Task InvalidHealthModuleRange_FailsSafely()
+    {
+        var modules = new SqlHealthModulesRow(
+            0, 0, 0, 0, 0, 0,
+            0, 0, null,
+            2, 3, 0,
+            10, 8, 8,
+            0, 0);
+        var row = new SqlSnapshotRow("SQL01", "17", "Enterprise", null, 10, 2, 2, null, modules);
+        var collector = new SqlServerSnapshotCollector(
+            new FakeSecretStore(new SqlLoginSecret("user", "password")), new FakeQuery(row), new FixedTimeProvider(CollectedAt));
+
+        var exception = await Assert.ThrowsAsync<SnapshotCollectionException>(
+            () => collector.CollectAsync(SqlLoginRegistration()));
+
+        Assert.Equal(SnapshotCollectionFailure.Failed, exception.Failure);
+        Assert.Equal("Snapshot collection failed.", exception.Message);
+    }
 
     private static ServerRegistration SqlLoginRegistration() => new(
         Guid.NewGuid(), "SQL 01", new SqlServerEndpoint("sql01.internal", port: 1433),

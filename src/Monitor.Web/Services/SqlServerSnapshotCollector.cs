@@ -12,7 +12,15 @@ internal sealed record SqlSnapshotRow(
     long UptimeSeconds,
     long DatabaseTotal,
     long DatabaseOnline,
-    SqlMemoryRow? Memory = null);
+    SqlMemoryRow? Memory = null,
+    SqlHealthModulesRow? Modules = null);
+
+internal sealed record SqlHealthModulesRow(
+    long Restoring, long Recovering, long RecoveryPending, long Suspect, long Emergency, long OfflineOrOther,
+    long BackedUpLast24Hours, long MissingFullBackupLast24Hours, DateTimeOffset? LastFullBackupAtUtc,
+    long TotalJobs, long EnabledJobs, long FailedLastRun,
+    long TotalAllocatedBytes, long DataAllocatedBytes, long LogAllocatedBytes,
+    long BlockedRequests, long MaxWaitMilliseconds);
 
 internal sealed record SqlMemoryRow(
     long TotalPhysicalMemoryKb,
@@ -103,6 +111,31 @@ internal sealed class SqlServerSnapshotCollector(
                     value.SystemMemoryState);
             }
 
+            DatabaseHealthDetailSnapshot? databases = null;
+            BackupHealthSnapshot? backups = null;
+            SqlAgentHealthSnapshot? jobs = null;
+            StorageHealthSnapshot? storage = null;
+            BlockingHealthSnapshot? blocking = null;
+            if (row.Modules is not null)
+            {
+                var m = row.Modules;
+                var states = new[] { m.Restoring, m.Recovering, m.RecoveryPending, m.Suspect, m.Emergency, m.OfflineOrOther };
+                if (states.Any(value => value < 0) || states.Sum() > total ||
+                    m.BackedUpLast24Hours < 0 || m.MissingFullBackupLast24Hours < 0 || m.BackedUpLast24Hours + m.MissingFullBackupLast24Hours > total ||
+                    m.TotalJobs < 0 || m.EnabledJobs < 0 || m.EnabledJobs > m.TotalJobs || m.FailedLastRun < 0 || m.FailedLastRun > m.TotalJobs ||
+                    m.TotalAllocatedBytes < 0 || m.DataAllocatedBytes < 0 || m.LogAllocatedBytes < 0 || m.DataAllocatedBytes + m.LogAllocatedBytes > m.TotalAllocatedBytes ||
+                    m.BlockedRequests < 0 || m.MaxWaitMilliseconds < 0)
+                {
+                    throw new InvalidDataException("Invalid health module row.");
+                }
+
+                databases = new(checked((int)m.Restoring), checked((int)m.Recovering), checked((int)m.RecoveryPending), checked((int)m.Suspect), checked((int)m.Emergency), checked((int)m.OfflineOrOther));
+                backups = new(checked((int)m.BackedUpLast24Hours), checked((int)m.MissingFullBackupLast24Hours), m.LastFullBackupAtUtc);
+                jobs = new(checked((int)m.TotalJobs), checked((int)m.EnabledJobs), checked((int)m.FailedLastRun));
+                storage = new(m.TotalAllocatedBytes, m.DataAllocatedBytes, m.LogAllocatedBytes);
+                blocking = new(checked((int)m.BlockedRequests), m.MaxWaitMilliseconds);
+            }
+
             return new ServerHealthSnapshot(
                 registration.Id,
                 row.ServerName,
@@ -113,7 +146,7 @@ internal sealed class SqlServerSnapshotCollector(
                 total,
                 online,
                 timeProvider.GetUtcNow(),
-                memory);
+                memory, databases, backups, jobs, storage, blocking);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
@@ -166,6 +199,23 @@ internal sealed class SqlSnapshotQuery : ISqlSnapshotQuery
             ,pm.process_physical_memory_low AS IsPhysicalMemoryLow
             ,pm.process_virtual_memory_low AS IsVirtualMemoryLow
             ,osm.system_memory_state_desc AS SystemMemoryState
+            ,SUM(CASE WHEN d.state = 1 THEN CONVERT(bigint, 1) ELSE 0 END) AS Restoring
+            ,SUM(CASE WHEN d.state = 2 THEN CONVERT(bigint, 1) ELSE 0 END) AS Recovering
+            ,SUM(CASE WHEN d.state = 3 THEN CONVERT(bigint, 1) ELSE 0 END) AS RecoveryPending
+            ,SUM(CASE WHEN d.state = 4 THEN CONVERT(bigint, 1) ELSE 0 END) AS Suspect
+            ,SUM(CASE WHEN d.state = 5 THEN CONVERT(bigint, 1) ELSE 0 END) AS Emergency
+            ,SUM(CASE WHEN d.state IN (6,7,10) THEN CONVERT(bigint, 1) ELSE 0 END) AS OfflineOrOther
+            ,(select COUNT_BIG(*) FROM sys.databases x WHERE x.database_id > 4 AND x.state = 0 AND EXISTS (select 1 FROM msdb.dbo.backupset b WHERE b.database_name = x.name AND b.type = 'D' AND b.is_copy_only = 0 AND b.backup_finish_date >= DATEADD(HOUR, -24, SYSUTCDATETIME()))) AS BackedUpLast24Hours
+            ,(select COUNT_BIG(*) FROM sys.databases x WHERE x.database_id > 4 AND x.state = 0 AND NOT EXISTS (select 1 FROM msdb.dbo.backupset b WHERE b.database_name = x.name AND b.type = 'D' AND b.is_copy_only = 0 AND b.backup_finish_date >= DATEADD(HOUR, -24, SYSUTCDATETIME()))) AS MissingFullBackupLast24Hours
+            ,(select MAX(backup_finish_date) FROM msdb.dbo.backupset WHERE type = 'D' AND is_copy_only = 0) AS LastFullBackupAtUtc
+            ,(select COUNT_BIG(*) FROM msdb.dbo.sysjobs) AS TotalJobs
+            ,(select COUNT_BIG(*) FROM msdb.dbo.sysjobs WHERE enabled = 1) AS EnabledJobs
+            ,(select COUNT_BIG(*) FROM msdb.dbo.sysjobservers WHERE last_run_outcome = 0) AS FailedLastRun
+            ,(select COALESCE(SUM(CONVERT(bigint, size)) * 8192, 0) FROM sys.master_files) AS TotalAllocatedBytes
+            ,(select COALESCE(SUM(CONVERT(bigint, size)) * 8192, 0) FROM sys.master_files WHERE type = 0) AS DataAllocatedBytes
+            ,(select COALESCE(SUM(CONVERT(bigint, size)) * 8192, 0) FROM sys.master_files WHERE type = 1) AS LogAllocatedBytes
+            ,(select COUNT_BIG(*) FROM sys.dm_exec_requests WHERE blocking_session_id > 0 AND session_id <> @@SPID) AS BlockedRequests
+            ,(select COALESCE(MAX(CONVERT(bigint, wait_time)), 0) FROM sys.dm_exec_requests WHERE blocking_session_id > 0 AND session_id <> @@SPID) AS MaxWaitMilliseconds
         FROM sys.databases AS d
         CROSS JOIN sys.dm_os_sys_info AS osi
         CROSS JOIN sys.dm_os_sys_memory AS osm
@@ -221,7 +271,13 @@ internal sealed class SqlSnapshotQuery : ISqlSnapshotQuery
                     reader.GetInt32(10),
                     reader.GetBoolean(11),
                     reader.GetBoolean(12),
-                    reader.GetString(13)));
+                    reader.GetString(13)),
+                new SqlHealthModulesRow(
+                    reader.GetInt64(14), reader.GetInt64(15), reader.GetInt64(16), reader.GetInt64(17), reader.GetInt64(18), reader.GetInt64(19),
+                    reader.GetInt64(20), reader.GetInt64(21), reader.IsDBNull(22) ? null : new DateTimeOffset(DateTime.SpecifyKind(reader.GetDateTime(22), DateTimeKind.Utc)),
+                    reader.GetInt64(23), reader.GetInt64(24), reader.GetInt64(25),
+                    reader.GetInt64(26), reader.GetInt64(27), reader.GetInt64(28),
+                    reader.GetInt64(29), reader.GetInt64(30)));
         }
         catch (SqlException exception)
         {

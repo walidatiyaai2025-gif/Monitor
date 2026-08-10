@@ -24,11 +24,12 @@
 | SignalR snapshot delivery | M1 | Evaluated / deferred | Revisit after scheduled backend publication exists |
 | Memory snapshot projection | M2 | CI verified | System/process memory from the existing single collector query |
 | Real memory health UI | M2 | Local verified | Cached SQL process utilization with mixed/demo labeling |
+| Database state detail projection | M2 | Local verified | Validated state counts in canonical snapshot |
+| Backup health summary | M2 | Local verified | Full-backup coverage and latest full backup |
+| SQL Agent jobs summary | M2 | Local verified | Total, enabled and failed-last-run counts |
+| Storage allocation summary | M2 | Local verified | Total, data and log allocated bytes |
+| Blocking summary | M2 | Local verified | Blocked request count and maximum wait |
 | Real SQL connection | M1 | Planned | First vertical slice |
-| Backups | M2 | Planned | Coming soon in UI |
-| Jobs | M2 | Planned | Coming soon in UI |
-| Storage | M2 | Planned | Coming soon in UI |
-| Blocking | M2 | Planned | Command Center target |
 | Recommendation engine | M3 | Planned | Detailed remediation/query suggestions |
 | AI Advisor | M4 | Planned | Advisory boundary only |
 | Reports/history | M5 | Planned | Trends and reporting |
