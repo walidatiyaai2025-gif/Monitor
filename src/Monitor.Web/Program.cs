@@ -40,6 +40,7 @@ builder.Services.AddSingleton<IServerRegistrationRepository>(_ =>
     return new FileServerRegistrationRepository(storePath);
 });
 
+builder.Services.AddSingleton<IExternalConnectionSecretProvider, EnvironmentConnectionSecretProvider>();
 builder.Services.AddSingleton<IConnectionSecretStore, ConfigurationConnectionSecretStore>();
 builder.Services.AddSingleton<IRuntimeCredentialWriter>(provider => (IRuntimeCredentialWriter)provider.GetRequiredService<IConnectionSecretStore>());
 builder.Services.AddSingleton<ISqlConnectionProbe, SqlConnectionProbe>();
