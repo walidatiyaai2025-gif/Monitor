@@ -17,16 +17,18 @@ Issue #76 is the canonical umbrella for this second 100-task program. Delivery u
 
 | Task | Description | Status |
 |---|---|---|
-| B200-001 | Add Enterprise Operations primary navigation entry | IMPLEMENTED — CI PENDING |
-| B200-002 | Active navigation / role-aware enterprise shell state | IMPLEMENTED — CI PENDING |
-| B200-003 | Surface environment/group/tags on server details | IMPLEMENTED — CI PENDING |
-| B200-004 | Surface active maintenance/suppression state on server details | IMPLEMENTED — CI PENDING |
-| B200-005 | Surface assignee/notes/recommendation acknowledgment on incident details | IMPLEMENTED — CI PENDING |
-| B200-006 | Server estate environment/group/tag filters | IMPLEMENTED — CI PENDING |
-| B200-007 | Incident assignee/suppression filters | IMPLEMENTED — CI PENDING |
-| B200-008 | Validation-error UX with safe bounded messages | IMPLEMENTED — CI PENDING |
-| B200-009 | Audit coverage for all enterprise metadata mutations | IMPLEMENTED — CI PENDING |
-| B200-010 | Enterprise UX/accessibility acceptance suite | IMPLEMENTED — CI PENDING |
+| B200-001 | Add Enterprise Operations primary navigation entry | CI VERIFIED — RUN 31443481889 |
+| B200-002 | Active navigation / role-aware enterprise shell state | CI VERIFIED — RUN 31443481889 |
+| B200-003 | Surface environment/group/tags on server details | CI VERIFIED — RUN 31443481889 |
+| B200-004 | Surface active maintenance/suppression state on server details | CI VERIFIED — RUN 31443481889 |
+| B200-005 | Surface assignee/notes/recommendation acknowledgment on incident details | CI VERIFIED — RUN 31443481889 |
+| B200-006 | Server estate environment/group/tag filters | CI VERIFIED — RUN 31443481889 |
+| B200-007 | Incident assignee/suppression filters | CI VERIFIED — RUN 31443481889 |
+| B200-008 | Validation-error UX with safe bounded messages | CI VERIFIED — RUN 31443481889 |
+| B200-009 | Audit coverage for all enterprise metadata mutations | CI VERIFIED — RUN 31443481889 |
+| B200-010 | Enterprise UX/accessibility acceptance suite | CI VERIFIED — RUN 31443481889 |
+
+Batch 1 integrates the BATCH-100 enterprise governance state into the normal operator journey. Server and incident details project operator metadata without invoking collection, `/enterprise` has bounded metadata-only filters, rejected mutations use PRG with bounded messages and rejection audit metadata, and all enterprise mutations remain POST + antiforgery + named authorization policy.
 
 ## Batch 2 — Maintenance & suppression policy semantics
 
