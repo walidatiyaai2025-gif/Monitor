@@ -44,7 +44,7 @@ public sealed record SqlServerEndpoint
 
     private static string NormalizeHost(string value)
     {
-        var normalized = RequireText(value, nameof(value), 255);
+        var normalized = RequireText(value, "host", 255);
         if (normalized.Any(character => char.IsWhiteSpace(character) || char.IsControl(character) || character is ';' or '=' or ',' or '\\' or '/' or '"' or '\''))
             throw new ArgumentException("SQL host contains unsupported characters.", "host");
         return normalized;
@@ -52,7 +52,7 @@ public sealed record SqlServerEndpoint
 
     private static string NormalizeInstanceName(string value)
     {
-        var normalized = RequireText(value, nameof(value), 128);
+        var normalized = RequireText(value, "instanceName", 128);
         if (normalized.Any(character => char.IsWhiteSpace(character) || char.IsControl(character) || character is ';' or '=' or ',' or '\\' or '/' or '"' or '\''))
             throw new ArgumentException("SQL instance name contains unsupported characters.", "instanceName");
         return normalized;
