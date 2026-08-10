@@ -58,11 +58,11 @@ public sealed record ConnectionLabRegistrationSummary(
     string Target,
     SqlAuthenticationMode AuthenticationMode,
     bool HasSecretReference,
-    bool UsesLocalOwnedCredential,
     bool IsEnabled,
     bool Encrypt,
     bool TrustServerCertificate,
-    DateTimeOffset CreatedAtUtc);
+    DateTimeOffset CreatedAtUtc,
+    bool UsesLocalOwnedCredential = false);
 
 public sealed class ConnectionLabViewModel
 {
