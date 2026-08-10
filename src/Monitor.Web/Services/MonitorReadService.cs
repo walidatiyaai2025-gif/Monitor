@@ -63,12 +63,25 @@ public sealed class MonitorReadService(
             Server = card,
             Metrics =
             [
-                new("CPU", "Not collected", "Outside the M1 identity snapshot", HealthState.Unknown),
+                new("CPU", "Not collected", "Outside the current snapshot", HealthState.Unknown),
                 new("Memory", $"{card.MemoryPercent}%", "SQL process memory utilization", card.MemoryPercent >= 85 ? HealthState.Warning : HealthState.Healthy),
-                new("Databases", $"{card.DatabaseOnline} / {card.DatabaseTotal}", "Online databases", card.State),
-                new("SQL Agent", "Not collected", "Outside the M1 identity snapshot", HealthState.Unknown)
+                new("Databases", $"{card.DatabaseOnline} / {card.DatabaseTotal}", DatabaseDetail(card), card.State),
+                new("SQL Agent", "Not collected", "Outside the current snapshot", HealthState.Unknown)
             ]
         };
+    }
+
+    private static string DatabaseDetail(ServerCard card)
+    {
+        var detail = card.DatabaseHealth;
+        if (detail is null)
+        {
+            return "Online databases";
+        }
+
+        return detail.UnavailableCount == 0
+            ? $"All online · {detail.ReadOnlyCount} read-only"
+            : $"{detail.UnavailableCount} unavailable · {detail.RecoveryCount} recovering · {detail.CriticalCount} critical";
     }
 
     private async Task<ServerCard?> TryGetLiveCardAsync(
@@ -104,7 +117,8 @@ public sealed class MonitorReadService(
                 (int)Math.Clamp(result.Age.TotalSeconds, 0, int.MaxValue),
                 result.Freshness == SnapshotFreshness.Fresh
                     ? ServerDataSource.LiveFresh
-                    : ServerDataSource.LiveStale);
+                    : ServerDataSource.LiveStale,
+                snapshot.DatabaseHealth);
         }
         catch (SnapshotCollectionException)
         {
