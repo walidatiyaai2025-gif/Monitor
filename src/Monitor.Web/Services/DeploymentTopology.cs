@@ -20,28 +20,28 @@ public sealed class DeploymentTopologyOptions
         {
             throw new InvalidOperationException("Deployment:Mode is not supported.");
         }
-
-        if (Mode == DeploymentTopology.MultiNode)
-        {
-            throw new InvalidOperationException(
-                "Deployment:Mode MultiNode requires shared registration, operational-state and coordination providers. " +
-                "The current Monitor persistence and coordination implementations are single-node only.");
-        }
     }
 
     public DeploymentReadinessViewModel ToReadiness() =>
-        new(
-            Mode,
-            Ready: Mode == DeploymentTopology.SingleNode,
-            Status: "Single-node ready",
-            Message: "Local durable stores are safe for one active Monitor application instance. Multi-node startup is blocked until shared state and distributed coordination are implemented.",
-            NodeLocalState:
-            [
-                "Registration metadata store",
-                "Audit, history and incident operational stores",
-                "Protected local SQL credential store and key ring",
-                "Login attempt limiter",
-                "Snapshot cache and single-flight gates",
-                "Scheduler ownership, backoff and runtime status"
-            ]);
+        Mode == DeploymentTopology.SingleNode
+            ? new(
+                Mode,
+                Ready: true,
+                Status: "Single-node ready",
+                Message: "The current Monitor deployment is configured for one active application instance.",
+                NodeLocalState:
+                [
+                    "Registration metadata store",
+                    "Audit, history and incident operational stores",
+                    "Protected local SQL credential store and key ring",
+                    "Login attempt limiter",
+                    "Snapshot cache and single-flight gates",
+                    "Scheduler ownership, backoff and runtime status"
+                ])
+            : new(
+                Mode,
+                Ready: false,
+                Status: "Multi-node prerequisites pending",
+                Message: "Multi-node readiness must be evaluated against the selected shared-state and coordination configuration.",
+                NodeLocalState: []);
 }
