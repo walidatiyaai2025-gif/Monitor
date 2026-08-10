@@ -20,6 +20,7 @@ public sealed class OperationsController : Controller
     private readonly ISharedStateReadinessService? _sharedStateReadiness;
     private readonly ICredentialReadinessService? _credentialReadiness;
     private readonly IOperationalBackupService? _backupService;
+    private readonly PerformanceScaleOptions _performance;
 
     public OperationsController(
         IDemoMonitorService monitor,
@@ -33,7 +34,8 @@ public sealed class OperationsController : Controller
         DeploymentReadinessViewModel? deploymentReadiness = null,
         ISharedStateReadinessService? sharedStateReadiness = null,
         ICredentialReadinessService? credentialReadiness = null,
-        IOperationalBackupService? backupService = null)
+        IOperationalBackupService? backupService = null,
+        PerformanceScaleOptions? performance = null)
     {
         _monitor = monitor;
         _readService = readService;
@@ -47,13 +49,26 @@ public sealed class OperationsController : Controller
         _sharedStateReadiness = sharedStateReadiness;
         _credentialReadiness = credentialReadiness;
         _backupService = backupService;
+        _performance = performance ?? new PerformanceScaleOptions();
+        _performance.Validate();
     }
 
     [HttpGet("/dashboard")]
     public async Task<IActionResult> Dashboard(CancellationToken cancellationToken) => View(await _readService.GetDashboardAsync(cancellationToken));
 
     [HttpGet("/servers")]
-    public async Task<IActionResult> Servers(CancellationToken cancellationToken) => View(await _readService.GetServersAsync(cancellationToken));
+    public async Task<IActionResult> Servers(int offset = 0, int limit = 0, CancellationToken cancellationToken = default)
+    {
+        var page = await _readService.GetServersPageAsync(offset, limit, cancellationToken);
+        ViewData["ServerTotal"] = page.TotalCount;
+        ViewData["ServerOffset"] = page.Offset;
+        ViewData["ServerLimit"] = page.Limit;
+        ViewData["ServerHasPrevious"] = page.HasPrevious;
+        ViewData["ServerHasNext"] = page.HasNext;
+        ViewData["ServerPreviousOffset"] = page.PreviousOffset;
+        ViewData["ServerNextOffset"] = page.NextOffset;
+        return View(page.Items);
+    }
 
     [HttpGet("/servers/{id}")]
     public async Task<IActionResult> ServerDetails(string id, CancellationToken cancellationToken)
@@ -92,10 +107,11 @@ public sealed class OperationsController : Controller
     public async Task<IActionResult> MemoryHealth(CancellationToken cancellationToken) => View(await _readService.GetServersAsync(cancellationToken));
 
     [HttpGet("/alerts")]
-    public async Task<IActionResult> Alerts(IncidentStatus? status, FindingSeverity? severity, string? ruleId, CancellationToken cancellationToken)
+    public async Task<IActionResult> Alerts(IncidentStatus? status, FindingSeverity? severity, string? ruleId, int offset = 0, int limit = 50, CancellationToken cancellationToken = default)
     {
         await _readService.GetIncidentsAsync(cancellationToken);
-        return _workflow is null ? View(new IncidentCenterViewModel([], new(0, 0, 0, 0, 0), new(status, severity, ruleId))) : View(_workflow.Query(new(status, severity, ruleId)));
+        var query = new IncidentQuery(status, severity, ruleId, PerformanceScaleOptions.BoundOffset(offset), _performance.BoundIncidentLimit(limit));
+        return _workflow is null ? View(new IncidentCenterViewModel([], new(0, 0, 0, 0, 0), query)) : View(_workflow.Query(query));
     }
 
     [HttpGet("/alerts/{id}")]
@@ -146,7 +162,8 @@ public sealed class OperationsController : Controller
 
     [HttpGet("/audit")]
     [Authorize(Policy = MonitorPolicies.Manage)]
-    public IActionResult Audit(int offset = 0, int limit = 50) => View(_audit?.Read(offset, limit) ?? []);
+    public IActionResult Audit(int offset = 0, int limit = 50) =>
+        View(_audit?.Read(PerformanceScaleOptions.BoundOffset(offset), _performance.BoundAuditLimit(limit)) ?? []);
 
     [HttpPost("/alerts/{id}/advisor")]
     [ValidateAntiForgeryToken]
@@ -160,9 +177,9 @@ public sealed class OperationsController : Controller
     }
 
     [HttpGet("/history/{registrationId:guid}")]
-    public IActionResult History(Guid registrationId, string window = "6h")
+    public IActionResult History(Guid registrationId, string window = "6h", int offset = 0, int limit = 100)
     {
-        var model = _trends?.Read(registrationId, window);
+        var model = _trends?.Read(registrationId, window, PerformanceScaleOptions.BoundOffset(offset), _performance.BoundHistoryLimit(limit));
         return model is null ? NotFound() : View(model);
     }
 
