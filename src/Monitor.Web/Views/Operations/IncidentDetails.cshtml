@@ -1,9 +1,55 @@
+@using Monitor.Web.Services
 @model IncidentDetailsViewModel
-@{ ViewData["Title"] = "Incident details"; }
-<section class="page-heading"><div><span class="eyebrow">@Model.Incident.RuleId</span><h1>@Model.Incident.Title</h1><p>@Model.Incident.Evidence</p></div></section>
+@{
+    ViewData["Title"] = "Incident details";
+    var operatorMetadata = ViewData["IncidentOperatorMetadata"] as IncidentOperatorMetadata;
+    var recommendationKey = ViewData["RecommendationKey"] as string;
+    var recommendationAcknowledged = ViewData["RecommendationAcknowledged"] as bool? ?? false;
+}
+<section class="page-heading">
+    <div>
+        <span class="eyebrow">@Model.Incident.RuleId</span>
+        <h1>@Model.Incident.Title</h1>
+        <p>@Model.Incident.Evidence</p>
+    </div>
+    <a class="button secondary" asp-controller="EnterpriseOperations" asp-action="Overview">Enterprise Operations</a>
+</section>
 <section class="glass-panel panel-pad">
     <p><strong>Status:</strong> @Model.Incident.Status · <strong>Severity:</strong> @Model.Incident.Severity · <strong>Occurrences:</strong> @Model.Incident.Occurrences</p>
-    @if (Model.Recommendation is not null) { <h3>Deterministic recommendation</h3><p>@Model.Recommendation.Explanation</p><ol>@foreach (var step in Model.Recommendation.Steps) { <li>@step.Action <small>@step.Risk</small></li> }</ol> }
+
+    @if (operatorMetadata is not null)
+    {
+        <section aria-labelledby="incident-operator-context">
+            <h3 id="incident-operator-context">Operator context</h3>
+            <div class="definition-grid">
+                <div><small>Assignee</small><strong>@(operatorMetadata.Assignee ?? "Unassigned")</strong></div>
+                <div><small>Operator notes</small><strong>@operatorMetadata.Notes.Length / @EnterpriseOperatorValidation.MaxNotesPerIncident</strong></div>
+                <div><small>Recommendation review</small><strong>@(Model.Recommendation is null ? "Not available" : recommendationAcknowledged ? "Acknowledged" : "Review required")</strong></div>
+                <div><small>Metadata updated</small><strong>@operatorMetadata.UpdatedAtUtc.ToString("u")</strong></div>
+            </div>
+            @if (operatorMetadata.Notes.Length > 0)
+            {
+                <h4>Latest operator notes</h4>
+                <ul class="activity-list">
+                    @foreach (var note in operatorMetadata.Notes.OrderByDescending(item => item.OccurredAtUtc).Take(5))
+                    {
+                        <li><strong>@note.Actor</strong> · @note.OccurredAtUtc.ToString("u")<br />@note.Text</li>
+                    }
+                </ul>
+            }
+        </section>
+    }
+
+    @if (Model.Recommendation is not null)
+    {
+        <h3>Deterministic recommendation</h3>
+        <p>@Model.Recommendation.Explanation</p>
+        <ol>@foreach (var step in Model.Recommendation.Steps) { <li>@step.Action <small>@step.Risk</small></li> }</ol>
+        @if (operatorMetadata is not null && recommendationKey is not null)
+        {
+            <p class="data-banner">Recommendation review: @(recommendationAcknowledged ? "Acknowledged" : "Pending operator acknowledgment")</p>
+        }
+    }
     <h3>AI Advisor</h3><p>@Model.Advisor.Message</p>
     @if (TempData["AdvisorStatus"] is string advisorStatus) { <p class="data-banner">@advisorStatus</p> }
     <div class="form-actions">

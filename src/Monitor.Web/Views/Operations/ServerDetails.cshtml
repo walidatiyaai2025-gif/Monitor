@@ -1,7 +1,11 @@
+@using Monitor.Web.Services
 @model ServerDetailsViewModel
 @{
     ViewData["Title"] = Model.Server.Name;
     var server = Model.Server;
+    var operatorMetadata = ViewData["ServerOperatorMetadata"] as ServerOperatorMetadata;
+    var maintenanceActive = ViewData["MaintenanceActive"] as bool? ?? false;
+    var alertSuppressed = ViewData["AlertSuppressed"] as bool? ?? false;
     var isLive = server.Source is ServerDataSource.LiveFresh or ServerDataSource.LiveStale;
     var isUnavailable = server.Source == ServerDataSource.RegisteredUnavailable;
     var stateName = server.State.ToString().ToLowerInvariant();
@@ -49,6 +53,32 @@
 }
 
 <div class="data-banner"><strong>@(isLive ? (server.Source == ServerDataSource.LiveFresh ? "LIVE CACHED SNAPSHOT" : "STALE CACHED SNAPSHOT") : isUnavailable ? "REGISTERED · SNAPSHOT UNAVAILABLE" : "DEVELOPMENT DATA")</strong><span>@(isLive ? "Identity and database counts came from the backend snapshot cache; unavailable dimensions are not invented." : isUnavailable ? "Registration metadata is available, but no usable cached SQL snapshot exists yet." : "DBA operations preview over development data.") This screen never performs continuous SQL queries.</span></div>
+
+@if (operatorMetadata is not null)
+{
+    <section class="glass-panel panel-pad" aria-labelledby="enterprise-server-context">
+        <div class="panel-heading">
+            <div><span class="eyebrow">ENTERPRISE GOVERNANCE</span><h3 id="enterprise-server-context">Operator context</h3></div>
+            <a class="secondary-button" asp-controller="EnterpriseOperations" asp-action="Overview">Manage enterprise metadata</a>
+        </div>
+        <div class="definition-grid">
+            <div><small>Environment</small><strong>@operatorMetadata.Environment</strong></div>
+            <div><small>Group</small><strong>@(operatorMetadata.Group ?? "Unassigned")</strong></div>
+            <div><small>Tags</small><strong>@(operatorMetadata.Tags.Length == 0 ? "None" : string.Join(", ", operatorMetadata.Tags))</strong></div>
+            <div><small>Maintenance</small><strong class="@(maintenanceActive ? "state-warning" : "state-healthy")">@(maintenanceActive ? "Active" : "Inactive")</strong></div>
+            <div><small>Alert suppression</small><strong class="@(alertSuppressed ? "state-warning" : "state-healthy")">@(alertSuppressed ? "Active" : "Inactive")</strong></div>
+            <div><small>Metadata updated</small><strong>@operatorMetadata.UpdatedAtUtc.ToString("u")</strong></div>
+        </div>
+        @if (operatorMetadata.MaintenanceWindow is { } maintenance)
+        {
+            <p class="panel-copy"><strong>Maintenance window:</strong> @maintenance.StartsAtUtc.ToString("u") → @maintenance.EndsAtUtc.ToString("u") · @maintenance.Reason</p>
+        }
+        @if (operatorMetadata.AlertSuppressionWindow is { } suppression)
+        {
+            <p class="panel-copy"><strong>Suppression window:</strong> @suppression.StartsAtUtc.ToString("u") → @suppression.EndsAtUtc.ToString("u") · @suppression.Reason</p>
+        }
+    </section>
+}
 
 @if (!string.IsNullOrWhiteSpace(refreshMessage))
 {

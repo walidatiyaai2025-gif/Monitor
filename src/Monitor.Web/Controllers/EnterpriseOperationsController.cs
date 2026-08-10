@@ -5,6 +5,13 @@ using Monitor.Web.Services;
 
 namespace Monitor.Web.Controllers;
 
+public sealed record EnterpriseOperationsFilter(
+    ServerEnvironmentClass? Environment,
+    string? Group,
+    string? Tag,
+    string? Assignee,
+    bool? Suppressed);
+
 public sealed record EnterpriseServerOperatorRow(
     ServerRegistration Registration,
     ServerOperatorMetadata Metadata,
@@ -16,11 +23,13 @@ public sealed record EnterpriseIncidentOperatorRow(
     IncidentOperatorMetadata Metadata,
     RecommendationPlan? Recommendation,
     string? RecommendationKey,
-    bool RecommendationAcknowledged);
+    bool RecommendationAcknowledged,
+    bool AlertSuppressed);
 
 public sealed record EnterpriseOperationsViewModel(
     IReadOnlyList<EnterpriseServerOperatorRow> Servers,
-    IReadOnlyList<EnterpriseIncidentOperatorRow> Incidents);
+    IReadOnlyList<EnterpriseIncidentOperatorRow> Incidents,
+    EnterpriseOperationsFilter Filter);
 
 [Authorize(Policy = MonitorPolicies.Read)]
 public sealed class EnterpriseOperationsController : Controller
@@ -55,9 +64,21 @@ public sealed class EnterpriseOperationsController : Controller
     }
 
     [HttpGet("/enterprise")]
-    public IActionResult Overview()
+    public IActionResult Overview(
+        ServerEnvironmentClass? environment = null,
+        string? group = null,
+        string? tag = null,
+        string? assignee = null,
+        bool? suppressed = null)
     {
+        var filter = new EnterpriseOperationsFilter(
+            NormalizeFilter(environment is null ? null : environment.ToString(), 32) is null ? null : environment,
+            NormalizeFilter(group, EnterpriseOperatorValidation.MaxGroupLength),
+            NormalizeFilter(tag, 32),
+            NormalizeFilter(assignee, EnterpriseOperatorValidation.MaxAssigneeLength),
+            suppressed);
         var now = _timeProvider.GetUtcNow();
+
         var servers = _registrations.GetAll()
             .OrderBy(item => item.DisplayName, StringComparer.OrdinalIgnoreCase)
             .ThenBy(item => item.Id)
@@ -70,6 +91,9 @@ public sealed class EnterpriseOperationsController : Controller
                     EnterpriseOperatorPolicy.IsMaintenanceActive(metadata, now),
                     EnterpriseOperatorPolicy.IsAlertSuppressed(metadata, now));
             })
+            .Where(row => filter.Environment is null || row.Metadata.Environment == filter.Environment)
+            .Where(row => filter.Group is null || string.Equals(row.Metadata.Group, filter.Group, StringComparison.OrdinalIgnoreCase))
+            .Where(row => filter.Tag is null || row.Metadata.Tags.Contains(filter.Tag, StringComparer.OrdinalIgnoreCase))
             .ToArray();
 
         var incidents = _incidents.GetAll()
@@ -82,11 +106,15 @@ public sealed class EnterpriseOperationsController : Controller
                 var recommendation = _recommendations.Build(incident);
                 var key = recommendation is null ? null : RecommendationAcknowledgmentKey.Create(recommendation);
                 var acknowledged = key is not null && metadata.AcknowledgedRecommendationKeys.Contains(key, StringComparer.Ordinal);
-                return new EnterpriseIncidentOperatorRow(incident, metadata, recommendation, key, acknowledged);
+                var serverMetadata = _operatorMetadata.GetServer(incident.RegistrationId);
+                var isSuppressed = EnterpriseOperatorPolicy.IsAlertSuppressed(serverMetadata, now);
+                return new EnterpriseIncidentOperatorRow(incident, metadata, recommendation, key, acknowledged, isSuppressed);
             })
+            .Where(row => filter.Assignee is null || string.Equals(row.Metadata.Assignee, filter.Assignee, StringComparison.OrdinalIgnoreCase))
+            .Where(row => filter.Suppressed is null || row.AlertSuppressed == filter.Suppressed)
             .ToArray();
 
-        return View(new EnterpriseOperationsViewModel(servers, incidents));
+        return View(new EnterpriseOperationsViewModel(servers, incidents, filter));
     }
 
     [HttpPost("/servers/{id:guid}/operator-profile")]
@@ -123,7 +151,7 @@ public sealed class EnterpriseOperationsController : Controller
         }
         catch (ArgumentException exception)
         {
-            return BadRequest(new { message = SecurityInput.NormalizeAuditField(exception.Message, 180) });
+            return Reject("server.operator-profile", id.ToString("D"), exception);
         }
     }
 
@@ -142,7 +170,7 @@ public sealed class EnterpriseOperationsController : Controller
         }
         catch (ArgumentException exception)
         {
-            return BadRequest(new { message = SecurityInput.NormalizeAuditField(exception.Message, 180) });
+            return Reject("incident.owner", id, exception);
         }
     }
 
@@ -161,7 +189,7 @@ public sealed class EnterpriseOperationsController : Controller
         }
         catch (ArgumentException exception)
         {
-            return BadRequest(new { message = SecurityInput.NormalizeAuditField(exception.Message, 180) });
+            return Reject("incident.note", id, exception);
         }
     }
 
@@ -174,11 +202,20 @@ public sealed class EnterpriseOperationsController : Controller
         if (incident is null) return NotFound();
 
         var recommendation = _recommendations.Build(incident);
-        if (recommendation is null) return Conflict(new { message = "The incident has no current deterministic recommendation." });
+        if (recommendation is null)
+        {
+            _audit.Append(Actor(), "recommendation.acknowledgment", id, "rejected:no-current-recommendation");
+            TempData["OperatorError"] = "The incident has no current deterministic recommendation.";
+            return RedirectToAction(nameof(Overview));
+        }
 
         var currentKey = RecommendationAcknowledgmentKey.Create(recommendation);
         if (!string.Equals(currentKey, recommendationKey, StringComparison.Ordinal))
-            return Conflict(new { message = "The recommendation changed. Reload the enterprise operations view before acknowledging it." });
+        {
+            _audit.Append(Actor(), "recommendation.acknowledgment", id, "rejected:stale-recommendation");
+            TempData["OperatorError"] = "The recommendation changed. Reloaded state is required before acknowledgment.";
+            return RedirectToAction(nameof(Overview));
+        }
 
         try
         {
@@ -189,7 +226,7 @@ public sealed class EnterpriseOperationsController : Controller
         }
         catch (ArgumentException exception)
         {
-            return BadRequest(new { message = SecurityInput.NormalizeAuditField(exception.Message, 180) });
+            return Reject("recommendation.acknowledgment", id, exception);
         }
     }
 
@@ -209,9 +246,24 @@ public sealed class EnterpriseOperationsController : Controller
         return File(bytes, "application/zip", $"monitor-diagnostics-{_timeProvider.GetUtcNow():yyyyMMdd-HHmmss}.zip");
     }
 
+    private IActionResult Reject(string action, string target, ArgumentException exception)
+    {
+        _audit.Append(Actor(), action, SecurityInput.NormalizeAuditField(target, 160), "rejected");
+        TempData["OperatorError"] = SecurityInput.NormalizeAuditField(exception.Message, 180);
+        return RedirectToAction(nameof(Overview));
+    }
+
     private string Actor()
     {
         var actor = User.Identity?.Name;
         return string.IsNullOrWhiteSpace(actor) ? "unknown" : EnterpriseOperatorValidation.NormalizeActor(actor);
+    }
+
+    private static string? NormalizeFilter(string? value, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        var normalized = value.Trim();
+        if (normalized.Length > maxLength || normalized.Any(char.IsControl)) return null;
+        return normalized;
     }
 }
