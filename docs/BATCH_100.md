@@ -135,16 +135,18 @@ Batch 7 centralizes the browser security boundary in `WebSecurityOptions`, `Abso
 
 | Task | Description | Status |
 |---|---|---|
-| B100-071 | Shared-state fault injection harness | PLANNED |
-| B100-072 | Lease-loss/re-election test | PLANNED |
-| B100-073 | Dedicated state DB outage/recovery test | PLANNED |
-| B100-074 | Partial migration interruption/restart test | PLANNED |
-| B100-075 | Concurrent incident transition test | PLANNED |
-| B100-076 | Concurrent audit append test | PLANNED |
-| B100-077 | Cross-node history dedupe test | PLANNED |
-| B100-078 | Cross-node registration conflict test | PLANNED |
-| B100-079 | Distributed refresh single-flight acceptance test | PLANNED |
-| B100-080 | Multi-node soak simulation harness | PLANNED |
+| B100-071 | Shared-state fault injection harness | CI VERIFIED — RUN 31439886994 |
+| B100-072 | Lease-loss/re-election test | CI VERIFIED — RUN 31439886994 |
+| B100-073 | Dedicated state DB outage/recovery test | CI VERIFIED — RUN 31439886994 |
+| B100-074 | Partial migration interruption/restart test | CI VERIFIED — RUN 31439886994 |
+| B100-075 | Concurrent incident transition test | CI VERIFIED — RUN 31439886994 |
+| B100-076 | Concurrent audit append test | CI VERIFIED — RUN 31439886994 |
+| B100-077 | Cross-node history dedupe test | CI VERIFIED — RUN 31439886994 |
+| B100-078 | Cross-node registration conflict test | CI VERIFIED — RUN 31439886994 |
+| B100-079 | Distributed refresh single-flight acceptance test | CI VERIFIED — RUN 31439886994 |
+| B100-080 | Multi-node soak simulation harness | CI VERIFIED — RUN 31439886994 |
+
+Batch 8 verifies the existing HA contracts through deterministic in-process fault/concurrency simulation rather than relying on an external database or network in CI. The test harness supplies atomic compare-exchange, injected unavailable writes, a recoverable SQL-state backend and mutable time. Acceptance proves failed writes leave no partial document, expired leases transfer ownership while stale owners cannot renew/release, readiness degrades safely during state-provider outage and recovers, interrupted registration import is restart/retry safe, competing incident transitions preserve one legal winner, concurrent audit appends are lossless, history deduplicates the same snapshot timestamp, cross-node registration writes preserve one valid record, and distributed manual refresh permits only one collector. A three-node 120-cycle soak exercises 12 registrations, bounded audit/history/incident state and repeated lease acquisition/release. Release build completed with 0 warnings/errors and 209/209 tests passed.
 
 ## Batch 9 — Deployment & operations documentation/tooling
 
