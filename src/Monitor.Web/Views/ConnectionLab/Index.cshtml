@@ -12,7 +12,7 @@
 }
 
 <section class="lab-hero glass-panel">
-    <div><span class="eyebrow">M1-002A · CONTROLLED CONNECTIVITY</span><h2>Register metadata. Test through the secure backend.</h2><p>One deliberate Test Connection action uses the verified M1-002 service. The browser never receives a SQL password, connection string or raw provider exception.</p></div>
+    <div><span class="eyebrow">CONTROLLED CONNECTIVITY</span><h2>Register metadata. Test through the secure backend.</h2><p>One deliberate Test Connection action uses the verified backend service. The browser never receives a SQL password, connection string or raw provider exception.</p></div>
     <div class="lab-flow"><span>Browser</span><i>→</i><span>Registration</span><i>→</i><span>Secret boundary</span><i>→</i><span>SQL probe</span></div>
 </section>
 
@@ -32,12 +32,12 @@
                     @if (sqlLogin)
                     {
                         <option value="IntegratedSecurity">Windows Integrated Security</option>
-                        <option value="SqlLogin" selected>SQL Login via external secret reference</option>
+                        <option value="SqlLogin" selected>SQL Login via secure secret boundary</option>
                     }
                     else
                     {
                         <option value="IntegratedSecurity" selected>Windows Integrated Security</option>
-                        <option value="SqlLogin">SQL Login via external secret reference</option>
+                        <option value="SqlLogin">SQL Login via secure secret boundary</option>
                     }
                 </select>
                 @Html.ValidationMessage("AuthenticationMode", null, new { @class = "field-error" })
@@ -48,10 +48,10 @@
                 @Html.ValidationMessage("SqlUsername", null, new { @class = "field-error" })
                 <label for="SqlPassword">SQL password</label>
                 <input id="SqlPassword" name="SqlPassword" type="password" maxlength="256" autocomplete="new-password" />
-                <small>Stored only in this Monitor process. For production durability, use the external reference below.</small>
+                <small>Runtime option only: write-only to this request, stored only in this Monitor process, never repopulated, and lost on restart.</small>
                 <label for="SecretReference">External secret reference</label>
-                <input id="SecretReference" name="SecretReference" value="@Model.Input.SecretReference" maxlength="128" placeholder="finance-prod-monitor" />
-                <small>Configure <code>ConnectionSecrets:&lt;reference&gt;:Username</code> and <code>Password</code> through User Secrets or environment configuration. The actual credential never enters this page.</small>
+                <input id="SecretReference" name="SecretReference" value="@Model.Input.SecretReference" maxlength="128" placeholder="env:FINANCE_PROD" />
+                <small>Recommended production pattern: <code>env:FINANCE_PROD</code> resolves only from <code>MONITOR_SQL_SECRET_FINANCE_PROD_USERNAME</code> and <code>MONITOR_SQL_SECRET_FINANCE_PROD_PASSWORD</code>. These values are read directly from the process environment and never from appsettings for an <code>env:</code> reference. Existing non-<code>env:</code> references remain compatible with <code>ConnectionSecrets:&lt;reference&gt;</code>.</small>
                 @Html.ValidationMessage("SecretReference", null, new { @class = "field-error" })
             </div>
             <div class="lab-options full">
@@ -64,18 +64,18 @@
 
     <aside class="glass-panel lab-panel">
         <div class="panel-heading"><div><span class="eyebrow">SECURITY BOUNDARY</span><h3>What this UI cannot expose</h3></div></div>
-        <div class="lab-rule state-healthy"><span>01</span><div><strong>No password control</strong><p>SQL Login credentials are external configuration. The form only accepts an opaque reference name.</p></div></div>
+        <div class="lab-rule state-healthy"><span>01</span><div><strong>No password exposure</strong><p>Runtime passwords are write-only inputs and are never repopulated or rendered. External references carry an alias, never the credential value.</p></div></div>
         <div class="lab-rule state-healthy"><span>02</span><div><strong>No connection string output</strong><p>The verified backend constructs it transiently immediately before opening the connection.</p></div></div>
-        <div class="lab-rule state-healthy"><span>03</span><div><strong>Sanitized diagnostics</strong><p>Only fixed status, elapsed time and safe server version metadata can return to this page.</p></div></div>
+        <div class="lab-rule state-healthy"><span>03</span><div><strong>Fail-closed external secrets</strong><p>An <code>env:</code> reference with a missing or partial environment secret stays unavailable; it never falls back to appsettings.</p></div></div>
         <div class="lab-rule state-warning"><span>04</span><div><strong>Manual probe only</strong><p>This screen adds no polling, collector timer or background SQL activity.</p></div></div>
     </aside>
 </section>
 
-<div class="section-heading"><div><span class="eyebrow">REGISTERED TARGETS</span><h2>@Model.Registrations.Count connection profile(s)</h2></div><span class="snapshot-note">Safe application metadata · secrets external</span></div>
+<div class="section-heading"><div><span class="eyebrow">REGISTERED TARGETS</span><h2>@Model.Registrations.Count connection profile(s)</h2></div><span class="snapshot-note">Safe application metadata · secret values external</span></div>
 
 @if (Model.Registrations.Count == 0)
 {
-    <div class="lab-empty glass-panel"><strong>No real SQL target registered yet</strong><span>Create the first connection profile above. The Command Center remains on DEVELOPMENT DATA until the real snapshot milestone.</span></div>
+    <div class="lab-empty glass-panel"><strong>No real SQL target registered yet</strong><span>Create the first connection profile above. The Command Center remains on DEVELOPMENT DATA until the first real snapshot is collected.</span></div>
 }
 else
 {
@@ -86,7 +86,7 @@ else
             var resultState = result?.Succeeded == true ? "healthy" : result is null ? "unknown" : "critical";
             <article class="glass-panel lab-target state-@resultState">
                 <div class="lab-target-head"><div><span class="health-orb state-@(registration.IsEnabled ? "healthy" : "offline")"></span><div><strong>@registration.DisplayName</strong><small>@registration.Target</small></div></div><span class="lab-auth">@(registration.AuthenticationMode == SqlAuthenticationMode.IntegratedSecurity ? "WINDOWS" : "SQL LOGIN")</span></div>
-                <div class="lab-target-meta"><span>Encrypt<strong>@(registration.Encrypt ? "ON" : "OFF")</strong></span><span>Trust cert<strong>@(registration.TrustServerCertificate ? "YES" : "NO")</strong></span><span>Credential<strong>@(registration.HasSecretReference ? "EXTERNAL" : "WINDOWS")</strong></span></div>
+                <div class="lab-target-meta"><span>Encrypt<strong>@(registration.Encrypt ? "ON" : "OFF")</strong></span><span>Trust cert<strong>@(registration.TrustServerCertificate ? "YES" : "NO")</strong></span><span>Credential<strong>@(registration.HasSecretReference ? "REFERENCE" : "WINDOWS")</strong></span></div>
                 @if (result is not null)
                 {
                     <div class="lab-result state-@resultState"><div><span>@(result.Succeeded ? "✓" : "!")</span><div><strong>@result.Status</strong><p>@result.Message</p></div></div><div class="lab-result-meta"><span><small>Elapsed</small><strong>@result.ElapsedMilliseconds ms</strong></span>@if (!string.IsNullOrWhiteSpace(result.ServerVersion)){<span><small>Server version</small><strong>@result.ServerVersion</strong></span>}</div></div>
