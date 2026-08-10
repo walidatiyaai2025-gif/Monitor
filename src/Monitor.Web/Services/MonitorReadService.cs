@@ -5,6 +5,7 @@ namespace Monitor.Web.Services;
 public interface IMonitorReadService
 {
     Task<IReadOnlyList<ServerCard>> GetServersAsync(CancellationToken cancellationToken = default);
+    Task<ServerEstatePage> GetServersPageAsync(int offset, int limit, CancellationToken cancellationToken = default);
     Task<ServerDetailsViewModel?> GetServerAsync(string id, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<HealthModuleServerViewModel>> GetHealthModulesAsync(CancellationToken cancellationToken = default);
     Task<IReadOnlyList<IncidentRow>> GetIncidentsAsync(CancellationToken cancellationToken = default);
@@ -15,8 +16,19 @@ public sealed class MonitorReadService(
     IDemoMonitorService demo,
     IServerRegistrationRepository registrations,
     IServerHealthSnapshotCache cache,
-    IHealthIncidentRepository? incidents = null) : IMonitorReadService
+    IHealthIncidentRepository? incidents = null,
+    PerformanceScaleOptions? performance = null) : IMonitorReadService
 {
+    private PerformanceScaleOptions Performance
+    {
+        get
+        {
+            var value = performance ?? new PerformanceScaleOptions();
+            value.Validate();
+            return value;
+        }
+    }
+
     public async Task<IReadOnlyList<ServerCard>> GetServersAsync(
         CancellationToken cancellationToken = default)
     {
@@ -34,6 +46,43 @@ public sealed class MonitorReadService(
                 HealthState.Unknown, 0, 0, 0, 0, 0, 0, 0, ServerDataSource.RegisteredUnavailable));
         }
         return cards;
+    }
+
+    public async Task<ServerEstatePage> GetServersPageAsync(
+        int offset,
+        int limit,
+        CancellationToken cancellationToken = default)
+    {
+        var policy = Performance;
+        var boundedOffset = PerformanceScaleOptions.BoundOffset(offset);
+        var boundedLimit = policy.BoundServerLimit(limit);
+        var enabled = registrations.GetAll()
+            .Where(item => item.IsEnabled)
+            .OrderBy(item => item.CreatedAtUtc)
+            .ThenBy(item => item.Id)
+            .ToArray();
+
+        if (enabled.Length == 0)
+        {
+            var demoServers = demo.GetServers();
+            return new(
+                demoServers.Skip(boundedOffset).Take(boundedLimit).ToArray(),
+                boundedOffset,
+                boundedLimit,
+                demoServers.Count);
+        }
+
+        var pageTargets = enabled.Skip(boundedOffset).Take(boundedLimit).ToArray();
+        var cards = new List<ServerCard>(pageTargets.Length);
+        foreach (var registration in pageTargets)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            cards.Add(await TryGetLiveCardAsync(registration, cancellationToken) ?? new ServerCard(
+                registration.Id.ToString("D"), registration.DisplayName, "Not collected", "Registered target",
+                HealthState.Unknown, 0, 0, 0, 0, 0, 0, 0, ServerDataSource.RegisteredUnavailable));
+        }
+
+        return new(cards, boundedOffset, boundedLimit, enabled.Length);
     }
 
     public async Task<DashboardViewModel> GetDashboardAsync(CancellationToken cancellationToken = default)
@@ -96,6 +145,7 @@ public sealed class MonitorReadService(
         var rows = new List<HealthModuleServerViewModel>();
         foreach (var registration in registrations.GetAll().Where(item => item.IsEnabled).OrderBy(item => item.CreatedAtUtc).ThenBy(item => item.Id))
         {
+            cancellationToken.ThrowIfCancellationRequested();
             try
             {
                 var result = cache.Peek(registration.Id);
@@ -119,13 +169,18 @@ public sealed class MonitorReadService(
 
     public Task<IReadOnlyList<IncidentRow>> GetIncidentsAsync(CancellationToken cancellationToken = default)
     {
-        IReadOnlyList<IncidentRow> rows = (incidents ??= new InMemoryHealthIncidentRepository()).GetAll().Select(item => new IncidentRow(
-            item.Id,
-            item.Severity.ToString(),
-            item.RegistrationId.ToString("D"),
-            item.Title,
-            $"{Math.Max(0, (DateTimeOffset.UtcNow - item.LastSeenUtc).TotalMinutes):0}m",
-            item.Status.ToString())).ToArray();
+        cancellationToken.ThrowIfCancellationRequested();
+        var policy = Performance;
+        IReadOnlyList<IncidentRow> rows = (incidents ??= new InMemoryHealthIncidentRepository()).GetAll()
+            .Take(policy.IncidentMaxPageSize)
+            .Select(item => new IncidentRow(
+                item.Id,
+                item.Severity.ToString(),
+                item.RegistrationId.ToString("D"),
+                item.Title,
+                $"{Math.Max(0, (DateTimeOffset.UtcNow - item.LastSeenUtc).TotalMinutes):0}m",
+                item.Status.ToString()))
+            .ToArray();
         return Task.FromResult(rows);
     }
 
@@ -133,6 +188,7 @@ public sealed class MonitorReadService(
         ServerRegistration registration,
         CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         try
         {
             var result = cache.Peek(registration.Id);
