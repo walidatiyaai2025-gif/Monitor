@@ -33,5 +33,9 @@
 | Backup dry-run validation | B100 | CI verified | Format/hash/bounds/referential-integrity validation before mutation; CI 31393040135 |
 | Rollback-capable operational restore | B100 | CI verified | File/Shared persistence, staged apply + reverse rollback on failure; CI 31393040135 |
 | Backup retention/readiness UI | B100 | CI verified | Atomic files outside `wwwroot`, bounded retention, Admin POST controls; CI 31393040135 |
+| Application health/liveness/readiness | B100 | CI verified | Process liveness + control-plane-only readiness; zero monitored-SQL collection; CI 31396619576 |
+| Bounded runtime telemetry | B100 | CI verified | Collector/cache/scheduler/incident/auth aggregate counters only; CI 31396619576 |
+| Correlation + structured redacted logging | B100 | CI verified | Strict bounded correlation IDs; method/status/elapsed only; CI 31396619576 |
+| Administrator observability surface | B100 | CI verified | Read-only aggregate operational view; no monitored-SQL collection; CI 31396619576 |
 | Zero-SQL monitored GETs | M8 | CI verified | Cache/Peek-only browser monitoring reads; CI 31383991126 |
 | Explicit observed manual refresh | M8 | CI verified | Operator/Admin POST; successful refresh observed once |
