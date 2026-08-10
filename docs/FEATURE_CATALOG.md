@@ -34,12 +34,12 @@
 | Deterministic findings | M3 | CI verified | Allowlisted server-side rules with bounded evidence; CI 31373849952 |
 | Incident lifecycle | M3 | CI verified | Stable dedupe; fresh healthy evidence resolves incidents; CI 31373849952 |
 | Real incident center | M3 | CI verified | Cached snapshots feed the authorized Alerts UI; CI 31373849952 |
-| Incident operator workflow | M3 | Local verified | Acknowledge, resolve and reopen with antiforgery protection |
-| Deterministic recommendations | M3 | Local verified | Rule-owned advisory steps; no execution |
-| AI Advisor boundary | M4 | Local verified | Normalized backend context; provider disabled by default |
-| Snapshot history | M5 | Local verified | Allowlisted 24-hour in-memory aggregate retention |
-| Collection cycle | M5 | Local verified | Backend-only deterministic refresh cycle; scheduler remains disabled |
-| Snapshot trends | M5 | Local verified | Fixed 1h/6h/24h read-only windows |
+| Incident operator workflow | M3 | CI verified | Acknowledge, resolve and reopen with antiforgery protection; CI 31375034604 |
+| Deterministic recommendations | M3 | CI verified | Rule-owned advisory steps; no execution; CI 31375034604 |
+| AI Advisor boundary | M4 | CI verified | Normalized backend context; provider disabled by default; CI 31375034604 |
+| Snapshot history | M5 | CI verified | Allowlisted 24-hour in-memory aggregate retention; CI 31375034604 |
+| Collection cycle | M5 | CI verified | Backend-only deterministic refresh cycle; scheduler remains disabled; CI 31375034604 |
+| Snapshot trends | M5 | CI verified | Fixed 1h/6h/24h read-only windows; CI 31375034604 |
 | Scheduled collection runtime | M5 | Local verified | Disabled by default; bounded parallelism, backoff and status |
 | Audit trail | M5 | Local verified | Bounded append-only authentication/operator/advisor metadata |
 | Policy-based RBAC | M5 | Local verified | Viewer, Operator and Administrator authorization policies |
