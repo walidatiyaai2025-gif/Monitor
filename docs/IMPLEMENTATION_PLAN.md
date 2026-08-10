@@ -57,7 +57,7 @@ This is the canonical execution plan. Update it in the same PR as material imple
 | M3-002 | Deterministic health rule evaluator | VERIFIED — CI RUN 31373849952 |
 | M3-003 | Incident dedupe and lifecycle repository | VERIFIED — CI RUN 31373849952 |
 | M3-004 | Cached incident read and UI integration | VERIFIED — CI RUN 31373849952 |
-| M3-005 | Deterministic recommendation engine with evidence-bound remediation suggestions | PLANNED |
+| M3-005 | Deterministic recommendation engine with evidence-bound remediation suggestions | IMPLEMENTED — CI PENDING |
 
 ## Delivery loop
 
