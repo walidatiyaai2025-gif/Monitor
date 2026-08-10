@@ -37,26 +37,27 @@ This is the canonical execution plan. Update it in the same PR as material imple
 |---|---|---|
 | M2-001 | Memory snapshot contract + collector projection | VERIFIED — CI RUN 31372045546 |
 | M2-002 | Memory health UI from cached snapshot | VERIFIED — CI RUN 31372312362 |
-| M2-003 | Database health detail contract + projection | IMPLEMENTED — LOCAL VERIFIED |
-| M2-004 | Backup health summary | IMPLEMENTED — LOCAL VERIFIED |
-| M2-005 | SQL Agent jobs summary | IMPLEMENTED — LOCAL VERIFIED |
-| M2-006 | Storage allocation summary | IMPLEMENTED — LOCAL VERIFIED |
-| M2-007 | Blocking summary | IMPLEMENTED — LOCAL VERIFIED |
-| M2-008 | Shared cached health-module read projection | IMPLEMENTED — LOCAL VERIFIED |
-| M2-009 | Real database and backup health UI | IMPLEMENTED — LOCAL VERIFIED |
-| M2-010 | Real SQL Agent jobs UI | IMPLEMENTED — LOCAL VERIFIED |
-| M2-011 | Real storage allocation UI | IMPLEMENTED — LOCAL VERIFIED |
-| M2-012 | Real blocking UI | IMPLEMENTED — LOCAL VERIFIED |
-| M2-013 | Bounded baseline performance snapshot | IMPLEMENTED — LOCAL VERIFIED |
+| M2-003 | Database health detail contract + projection | VERIFIED — CI RUN 31372957383 |
+| M2-004 | Backup health summary | VERIFIED — CI RUN 31372957383 |
+| M2-005 | SQL Agent jobs summary | VERIFIED — CI RUN 31372957383 |
+| M2-006 | Storage allocation summary | VERIFIED — CI RUN 31372957383 |
+| M2-007 | Blocking summary | VERIFIED — CI RUN 31372957383 |
+| M2-008 | Shared cached health-module read projection | VERIFIED — CI RUN 31373849952 |
+| M2-009 | Real database and backup health UI | VERIFIED — CI RUN 31373849952 |
+| M2-010 | Real SQL Agent jobs UI | VERIFIED — CI RUN 31373849952 |
+| M2-011 | Real storage allocation UI | VERIFIED — CI RUN 31373849952 |
+| M2-012 | Real blocking UI | VERIFIED — CI RUN 31373849952 |
+| M2-013 | Bounded baseline performance snapshot | VERIFIED — CI RUN 31373849952 |
 
 ## M3 — Incidents and Recommendations
 
 | Task | Description | State |
 |---|---|---|
-| M3-001 | Immutable allowlisted health finding contract | IMPLEMENTED — LOCAL VERIFIED |
-| M3-002 | Deterministic health rule evaluator | IMPLEMENTED — LOCAL VERIFIED |
-| M3-003 | Incident dedupe and lifecycle repository | IMPLEMENTED — LOCAL VERIFIED |
-| M3-004 | Cached incident read and UI integration | IMPLEMENTED — LOCAL VERIFIED |
+| M3-001 | Immutable allowlisted health finding contract | VERIFIED — CI RUN 31373849952 |
+| M3-002 | Deterministic health rule evaluator | VERIFIED — CI RUN 31373849952 |
+| M3-003 | Incident dedupe and lifecycle repository | VERIFIED — CI RUN 31373849952 |
+| M3-004 | Cached incident read and UI integration | VERIFIED — CI RUN 31373849952 |
+| M3-005 | Deterministic recommendation engine with evidence-bound remediation suggestions | PLANNED |
 
 ## Delivery loop
 
