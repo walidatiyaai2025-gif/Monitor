@@ -1,49 +1,48 @@
 # Project Status
 
-**Updated:** 2026-08-10 15:14 +03:00  
-**Branch:** `agent/m7-017-shared-sql-state`  
-**Target:** M7-017 dedicated Monitor shared-state SQL capability  
-**Issue:** #52  
-**PR:** #54  
-**Overall:** 🟢 M0–M6 VERIFIED · M7-001..M7-017 CI VERIFIED · M8 CI VERIFIED
+**Updated:** 2026-08-10 15:43 +03:00  
+**Branch:** `agent/b100-001-010-ha-foundation`  
+**Target:** BATCH-100 / Batch 1 — shared repositories + distributed coordination  
+**Issues:** #55 umbrella · #56 Batch 1  
+**PR:** #57  
+**Overall:** 🟢 M0–M6 VERIFIED · M7-001..M7-017 CI VERIFIED · M8 CI VERIFIED · B100-001..010 CI VERIFIED
 
-## M7-017 — Shared-state capability + dedicated Monitor SQL Server provider — CI VERIFIED
+## BATCH-100 / Batch 1 — CI VERIFIED
 
-- Adds public `ISharedStateDocumentStore` with bounded versioned reads and optimistic compare/exchange.
-- Adds real `SqlServerSharedStateDocumentStore` using the existing Microsoft.Data.SqlClient dependency.
-- Provider connection string is read only from the configured process-environment variable; appsettings stores only its name and timeout.
-- No monitored-server registration is implicitly reused for shared state.
-- Keys are allowlisted/bounded to 128 characters; JSON payloads are validated and capped at 1 MiB.
-- SQL compare/exchange uses `SERIALIZABLE` plus `UPDLOCK/HOLDLOCK`; stale expected versions return Conflict rather than overwrite newer state.
-- The returned write result is captured while the transaction lock is held, avoiding a post-commit re-read race.
-- Provider failures are redacted to a fixed unavailable exception/status; connection strings and raw provider errors do not enter UI/audit.
-- Adds `scripts/sql/monitor_shared_state_v1.sql`: idempotent schema v1 deployment, incompatible schema refusal, no runtime DDL.
-- Administrator Settings shows provider/schema readiness only and omits endpoint/credentials.
-- Registration/audit/history/incidents and distributed scheduler coordination are **not** migrated in M7-017.
-- `Deployment:MultiNode` remains fail-closed.
-- Implementation CI `31386867949`: SUCCESS — Release build 0 warnings / 0 errors; **120/120 tests passed**; Razor compiled.
+Implementation CI `31389275376`: **SUCCESS — Release build 0 warnings / 0 errors; 136/136 tests passed; Razor compiled.**
 
-## Existing verified production-readiness baseline
+### B100-001..010 delivered
 
-- M7-004 topology guard: CI `31385935255` — 99/99 tests.
-- M7-005..M7-016 protected local credentials: CI `31384727247` — 94/94 tests.
-- M8 zero-SQL monitored reads/operator refresh: CI `31383991126` — 91/91 tests.
-- M7-001 registration persistence: final CI `31381074579`.
-- M7-002 env secret provider: final CI `31382052980`.
-- M7-003 operational state: final CI `31383226721`.
+- `SharedServerRegistrationRepository` preserves the existing registration interface and stores safe metadata plus opaque secret reference only.
+- Optional local-to-shared registration import is atomic and runs only when the shared estate is empty; existing shared registrations are never overwritten by migration.
+- Shared audit, incident and per-server history adapters preserve existing bounded contracts and use optimistic compare/exchange retries.
+- Shared history is partitioned by registration ID to avoid estate-wide history contention.
+- `SharedStateDistributedLeaseManager` provides bounded acquire / renew / release with expiry takeover and stale-owner/version rejection.
+- Scheduled collection can use one distributed scheduler-leader lease. Long cycles renew the lease and cancel the cycle if ownership is lost.
+- Manual snapshot refresh can use a cross-node per-registration lease before the existing process throttle; non-owners never call the collector.
+- Scheduler runtime status can be stored in the dedicated shared-state provider.
+- `HaState` and `Coordination` are opt-in and disabled by default; File/InMemory single-node defaults remain compatible.
+- Shared application state / coordination require the dedicated Monitor-owned SQL shared-state provider and cannot silently use a monitored SQL target.
+- `Deployment:MultiNode` now uses a cross-field readiness evaluator rather than a hard-coded topology switch.
+- MultiNode remains intentionally **blocked** because protected local SQL credentials/Data Protection key ring, login security state and snapshot cache values remain node-local. Those blockers are explicit future BATCH-100 work; Batch 1 does not claim false HA readiness.
+
+## BATCH-100 program
+
+Issue #55 and `docs/BATCH_100.md` define 100 tasks as ten batches of ten. Batch 2 is B100-011..020 — HA secret and key management.
 
 ## Stable guardrails
 
-- Monitoring browser GETs never trigger monitored SQL collection.
-- Shared-state SQL, when enabled, is a separate Monitor-owned control-plane database.
-- Shared-state readiness does not make MultiNode safe by itself.
-- Protected local SQL credentials/key ring remain node-local.
-- MultiNode stays blocked until M7-018 migrates required state and adds distributed coordination.
+- Browser monitoring GETs never trigger monitored-SQL collection.
+- Dedicated shared-state SQL is Monitor-owned control-plane state only.
+- Recommendations and Advisor remain advisory-only; no autonomous SQL execution path exists.
+- Registration/shared operational state excludes plaintext SQL credentials and full connection strings.
+- Readiness/errors omit provider endpoint, connection value and node identity.
+- `main` remains stable; batch work merges only after final merge-result CI.
 
 ## Merge gate
 
-Run GitHub Actions on this final docs head, re-check `main` for overlap, then merge PR #54 only if Release build with warnings-as-errors, Razor compilation and all tests remain Green.
+Run GitHub Actions on the final docs head, verify `main` has not moved into overlapping HA state/coordination code, then squash-merge PR #57 only if Release build with warnings-as-errors, Razor compilation and all tests remain Green.
 
 ## Next action
 
-After M7-017 merge, execute **M7-018 — shared repository migration + distributed scheduler ownership/cross-node single-flight**, preserving zero-SQL monitored GET semantics.
+After Batch 1 merge, execute **B100-011..020 — HA secret/key management** from #55 / `docs/BATCH_100.md`.
