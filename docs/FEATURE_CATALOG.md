@@ -37,11 +37,12 @@
 | Incident operator workflow | M3 | CI verified | Acknowledge, resolve and reopen with antiforgery protection; CI 31375034604 |
 | Deterministic recommendations | M3 | CI verified | Rule-owned advisory steps; no execution; CI 31375034604 |
 | AI Advisor boundary | M4 | CI verified | Normalized backend context; provider disabled by default; CI 31375034604 |
+| Guarded Advisor request | M4 | CI verified | Explicit POST, single-flight, TTL cache, timeout, circuit and audit; CI 31376448363 |
 | Snapshot history | M5 | CI verified | Allowlisted 24-hour in-memory aggregate retention; CI 31375034604 |
-| Collection cycle | M5 | CI verified | Backend-only deterministic refresh cycle; scheduler remains disabled; CI 31375034604 |
+| Collection cycle | M5 | CI verified | Backend-only deterministic refresh cycle; CI 31375034604 |
 | Snapshot trends | M5 | CI verified | Fixed 1h/6h/24h read-only windows; CI 31375034604 |
-| Scheduled collection runtime | M5 | Local verified | Disabled by default; bounded parallelism, backoff and status |
-| Audit trail | M5 | Local verified | Bounded append-only authentication/operator/advisor metadata |
-| Policy-based RBAC | M5 | Local verified | Viewer, Operator and Administrator authorization policies |
-| Web security baseline | M5 | Local verified | Strict cookie, CSP/frame/nosniff/referrer headers and login limiting |
-| Guarded Advisor request | M4 | Local verified | Explicit POST, single-flight, TTL cache, timeout, circuit and audit |
+| Scheduled collection runtime | M5 | CI verified | Disabled by default; bounded parallelism, backoff and status; CI 31376448363 |
+| Audit trail | M5 | CI verified | Bounded append-only authentication/operator/advisor metadata; CI 31376448363 |
+| Policy-based RBAC | M5 | CI verified | Viewer, Operator and Administrator authorization policies; CI 31376448363 |
+| Web security baseline | M5 | CI verified | Strict cookie, CSP/frame/nosniff/referrer headers and login limiting; CI 31376448363 |
+| Incident transition audit enrichment | M5 | Planned | Reuse canonical IAuditStore; authenticated actor plus bounded before/after state |

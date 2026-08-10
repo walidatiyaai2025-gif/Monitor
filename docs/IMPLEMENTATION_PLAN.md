@@ -80,13 +80,13 @@ This is the canonical execution plan. Update it in the same PR as material imple
 | M4-004 | Disabled-by-default provider and result | VERIFIED — CI RUN 31375034604 |
 | M4-005 | Advisor orchestration on incident details | VERIFIED — CI RUN 31375034604 |
 | M4-006 | Human-reviewed advisory UI with no execution path | VERIFIED — CI RUN 31375034604 |
-| M4-007 | Explicit advisor request service | IMPLEMENTED — LOCAL VERIFIED |
-| M4-008 | Authorized antiforgery-protected advisor POST | IMPLEMENTED — LOCAL VERIFIED |
-| M4-009 | Per-incident advisor single-flight | IMPLEMENTED — LOCAL VERIFIED |
-| M4-010 | Evidence-version advisor result cache | IMPLEMENTED — LOCAL VERIFIED |
-| M4-011 | Bounded advisor timeout | IMPLEMENTED — LOCAL VERIFIED |
-| M4-012 | Failure circuit breaker | IMPLEMENTED — LOCAL VERIFIED |
-| M4-013 | Redacted advisor request audit | IMPLEMENTED — LOCAL VERIFIED |
+| M4-007 | Explicit advisor request service | VERIFIED — CI RUN 31376448363 |
+| M4-008 | Authorized antiforgery-protected advisor POST | VERIFIED — CI RUN 31376448363 |
+| M4-009 | Per-incident advisor single-flight | VERIFIED — CI RUN 31376448363 |
+| M4-010 | Evidence-version advisor result cache | VERIFIED — CI RUN 31376448363 |
+| M4-011 | Bounded advisor timeout | VERIFIED — CI RUN 31376448363 |
+| M4-012 | Failure circuit breaker | VERIFIED — CI RUN 31376448363 |
+| M4-013 | Redacted advisor request audit | VERIFIED — CI RUN 31376448363 |
 
 ## M5 — History and Operational Hardening
 
@@ -99,24 +99,25 @@ This is the canonical execution plan. Update it in the same PR as material imple
 | M5-005 | Disabled-by-default validated schedule policy | VERIFIED — CI RUN 31375034604 |
 | M5-006 | Deterministic collection cycle | VERIFIED — CI RUN 31375034604 |
 | M5-007 | Fixed-window read-only trends page | VERIFIED — CI RUN 31375034604 |
-| M5-008 | Validated schedule configuration binding | IMPLEMENTED — LOCAL VERIFIED |
-| M5-009 | Disabled-by-default hosted scheduler | IMPLEMENTED — LOCAL VERIFIED |
-| M5-010 | Periodic no-overlap collection loop | IMPLEMENTED — LOCAL VERIFIED |
-| M5-011 | Bounded parallel collection cycle | IMPLEMENTED — LOCAL VERIFIED |
-| M5-012 | Per-server failure isolation | IMPLEMENTED — LOCAL VERIFIED |
-| M5-013 | Exponential capped collection backoff | IMPLEMENTED — LOCAL VERIFIED |
-| M5-014 | Allowlisted scheduler runtime status | IMPLEMENTED — LOCAL VERIFIED |
-| M5-015 | Exactly-once successful snapshot observation | IMPLEMENTED — LOCAL VERIFIED |
-| M5-016 | Bounded audit event contract | IMPLEMENTED — LOCAL VERIFIED |
-| M5-017 | Append-only 1000-event audit store | IMPLEMENTED — LOCAL VERIFIED |
-| M5-018 | Paginated administrator audit UI | IMPLEMENTED — LOCAL VERIFIED |
-| M5-019 | Viewer/Operator/Administrator role foundation | IMPLEMENTED — LOCAL VERIFIED |
-| M5-020 | Read policy for monitoring pages | IMPLEMENTED — LOCAL VERIFIED |
-| M5-021 | Operator policy for incident commands | IMPLEMENTED — LOCAL VERIFIED |
-| M5-022 | Administrator/advisor policies | IMPLEMENTED — LOCAL VERIFIED |
-| M5-023 | Strict secure cookie policy | IMPLEMENTED — LOCAL VERIFIED |
-| M5-024 | Baseline browser security headers | IMPLEMENTED — LOCAL VERIFIED |
-| M5-025 | Partitioned login limiting and safe login audit | IMPLEMENTED — LOCAL VERIFIED |
+| M5-008 | Validated schedule configuration binding | VERIFIED — CI RUN 31376448363 |
+| M5-009 | Disabled-by-default hosted scheduler | VERIFIED — CI RUN 31376448363 |
+| M5-010 | Periodic no-overlap collection loop | VERIFIED — CI RUN 31376448363 |
+| M5-011 | Bounded parallel collection cycle | VERIFIED — CI RUN 31376448363 |
+| M5-012 | Per-server failure isolation | VERIFIED — CI RUN 31376448363 |
+| M5-013 | Exponential capped collection backoff | VERIFIED — CI RUN 31376448363 |
+| M5-014 | Allowlisted scheduler runtime status | VERIFIED — CI RUN 31376448363 |
+| M5-015 | Exactly-once successful snapshot observation | VERIFIED — CI RUN 31376448363 |
+| M5-016 | Bounded audit event contract | VERIFIED — CI RUN 31376448363 |
+| M5-017 | Append-only 1000-event audit store | VERIFIED — CI RUN 31376448363 |
+| M5-018 | Paginated administrator audit UI | VERIFIED — CI RUN 31376448363 |
+| M5-019 | Viewer/Operator/Administrator role foundation | VERIFIED — CI RUN 31376448363 |
+| M5-020 | Read policy for monitoring pages | VERIFIED — CI RUN 31376448363 |
+| M5-021 | Operator policy for incident commands | VERIFIED — CI RUN 31376448363 |
+| M5-022 | Administrator/advisor policies | VERIFIED — CI RUN 31376448363 |
+| M5-023 | Strict secure cookie policy | VERIFIED — CI RUN 31376448363 |
+| M5-024 | Baseline browser security headers | VERIFIED — CI RUN 31376448363 |
+| M5-025 | Partitioned login limiting and safe login audit | VERIFIED — CI RUN 31376448363 |
+| M5-026 | Enrich incident transition audit with authenticated actor and bounded before/after state | PLANNED |
 
 ## Delivery loop
 
