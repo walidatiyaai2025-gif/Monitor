@@ -147,7 +147,13 @@ public sealed class MaintenanceSuppressionPolicyTests
         var nodeA = new OperatorPolicyReadService(nodeAStore, clock).GetServer(id);
         var nodeB = new OperatorPolicyReadService(nodeBStore, clock).GetServer(id);
 
-        Assert.Equal(nodeA, nodeB);
+        Assert.Equal(nodeA.RegistrationId, nodeB.RegistrationId);
+        Assert.Equal(nodeA.PolicyReadable, nodeB.PolicyReadable);
+        Assert.Equal(nodeA.MaintenanceActive, nodeB.MaintenanceActive);
+        Assert.Equal(nodeA.AlertSuppressed, nodeB.AlertSuppressed);
+        Assert.Equal(nodeA.Environment, nodeB.Environment);
+        Assert.Equal(nodeA.Group, nodeB.Group);
+        Assert.Equal(nodeA.Tags, nodeB.Tags);
         Assert.True(nodeA.MaintenanceActive);
         Assert.True(nodeA.AlertSuppressed);
     }
