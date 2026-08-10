@@ -1,0 +1,6 @@
+@model SnapshotTrendViewModel
+@{ ViewData["Title"] = "Snapshot history"; }
+<section class="page-heading"><div><span class="eyebrow">READ-ONLY HISTORY · @Model.Window</span><h1>Snapshot trends</h1><p>Bounded aggregate history; missing metrics remain empty rather than zero.</p></div></section>
+<section class="glass-panel table-panel"><div class="incident-table"><div class="table-head"><span>Collected</span><span>Databases</span><span>Memory</span><span>Blocked</span><span>Runnable</span><span>Freshness</span></div>
+@foreach (var point in Model.Points) { <div class="table-row"><span>@point.CollectedAtUtc.ToString("u")</span><span>@point.DatabaseOnline / @point.DatabaseTotal</span><span>@(point.MemoryPercent?.ToString() ?? "—")</span><span>@(point.BlockedRequests?.ToString() ?? "—")</span><span>@(point.RunnableTasks?.ToString() ?? "—")</span><span>@point.Freshness</span></div> }
+</div></section>

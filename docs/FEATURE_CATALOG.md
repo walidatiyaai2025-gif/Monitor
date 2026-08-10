@@ -34,6 +34,12 @@
 | Deterministic findings | M3 | Local verified | Allowlisted server-side rules with bounded evidence |
 | Incident lifecycle | M3 | Local verified | Stable dedupe; fresh healthy evidence resolves incidents |
 | Real incident center | M3 | Local verified | Cached snapshots feed the existing authorized Alerts UI |
+| Incident operator workflow | M3 | Local verified | Acknowledge, resolve and reopen with antiforgery protection |
+| Deterministic recommendations | M3 | Local verified | Rule-owned advisory steps; no execution |
+| AI Advisor boundary | M4 | Local verified | Normalized backend context; provider disabled by default |
+| Snapshot history | M5 | Local verified | Allowlisted 24-hour in-memory aggregate retention |
+| Collection cycle | M5 | Local verified | Backend-only deterministic refresh cycle; scheduler remains disabled |
+| Snapshot trends | M5 | Local verified | Fixed 1h/6h/24h read-only windows |
 | Real SQL connection | M1 | Planned | First vertical slice |
 | Recommendation engine | M3 | Planned | Detailed remediation/query suggestions |
 | AI Advisor | M4 | Planned | Advisory boundary only |

@@ -1,11 +1,20 @@
 # Project Status
 
 **Updated:** 2026-08-10 11:41 +03:00  
-**Branch:** `agent/m2-m3-ten-task-batch`  
-**Target:** `M2-008` through `M3-004`  
+**Branch:** `agent/m3-m5-25-task-batch`  
+**Target:** 25 tasks — `M3-005` through `M5-007`  
 **Issue:** TBD  
 **PR:** TBD  
-**Overall:** 🟡 TEN M2/M3 TASKS IMPLEMENTED — LOCAL VERIFICATION IN PROGRESS
+**Overall:** 🟡 25-TASK M3/M4/M5 BATCH IMPLEMENTED — LOCAL VERIFICATION IN PROGRESS
+
+## M3-005 through M5-007 — 25-task continuation
+
+- Idempotent incident reads, filters, summaries, details and protected state transitions.
+- Deterministic recommendation catalog rendered for human review only.
+- AI Advisor backend boundary registered disabled by default with no network/execution path.
+- Bounded 24-hour aggregate snapshot history, observer and deterministic collection cycle.
+- Fixed-window read-only trends; background scheduling remains disabled.
+- Release build succeeds with warnings-as-errors; 54 tests pass locally.
 
 ## M2-008 through M3-004 — Ten-task continuation
 

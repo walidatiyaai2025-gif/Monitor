@@ -1,0 +1,13 @@
+@model IncidentDetailsViewModel
+@{ ViewData["Title"] = "Incident details"; }
+<section class="page-heading"><div><span class="eyebrow">@Model.Incident.RuleId</span><h1>@Model.Incident.Title</h1><p>@Model.Incident.Evidence</p></div></section>
+<section class="glass-panel panel-pad">
+    <p><strong>Status:</strong> @Model.Incident.Status · <strong>Severity:</strong> @Model.Incident.Severity · <strong>Occurrences:</strong> @Model.Incident.Occurrences</p>
+    @if (Model.Recommendation is not null) { <h3>Deterministic recommendation</h3><p>@Model.Recommendation.Explanation</p><ol>@foreach (var step in Model.Recommendation.Steps) { <li>@step.Action <small>@step.Risk</small></li> }</ol> }
+    <h3>AI Advisor</h3><p>@Model.Advisor.Message</p>
+    <div class="form-actions">
+        @if (Model.Incident.Status == IncidentStatus.Open) { <form asp-action="AcknowledgeIncident" asp-route-id="@Model.Incident.Id" method="post"><button class="button primary" type="submit">Acknowledge</button></form> }
+        @if (Model.Incident.Status != IncidentStatus.Resolved) { <form asp-action="ResolveIncident" asp-route-id="@Model.Incident.Id" method="post"><button class="button" type="submit">Resolve</button></form> }
+        @if (Model.Incident.Status == IncidentStatus.Resolved) { <form asp-action="ReopenIncident" asp-route-id="@Model.Incident.Id" method="post"><button class="button" type="submit">Reopen</button></form> }
+    </div>
+</section>

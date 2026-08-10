@@ -67,3 +67,15 @@ Database, backup, SQL Agent, storage and blocking pages consume immutable module
 ## ADR-017 — Findings are deterministic and incidents resolve only from fresh evidence
 
 The rule evaluator emits allowlisted IDs, severities and compact evidence from snapshots only. Incident identity is registration plus rule ID. Repeated evidence updates one record; older observations are ignored. Missing, stale or failed collection cannot resolve an incident. Only a newer fresh evaluation without the finding may resolve it. The initial repository is intentionally in-memory and executes no remediation.
+
+## ADR-018 — Incident commands are explicit and advisory recommendations never execute
+
+Operator transitions are authorized POST actions protected by antiforgery and accept only an incident ID. Recommendation text is selected from a server-owned rule catalog. It is rendered as human-review guidance and has no path to the SQL client, collector or connection lab.
+
+## ADR-019 — AI integration starts as a disabled backend boundary
+
+Advisor context contains only normalized rule metadata, bounded evidence and deterministic recommendation text. The provider is backend-only and disabled by default. The UI displays provider status and cannot execute output, SQL or remediation. External model integration requires a later explicit configuration and security review.
+
+## ADR-020 — History is bounded aggregate evidence
+
+History stores only allowlisted snapshot aggregates, deduplicated by registration and collection time. The in-memory phase retains at most 288 points per server for 24 hours. Fixed-window reads never trigger collection. The schedule policy validates safe bounds and remains disabled by default; no hosted timer is activated in this slice.
