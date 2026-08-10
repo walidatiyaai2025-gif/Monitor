@@ -76,7 +76,8 @@ else
     var databaseState = server.DatabaseOnline == server.DatabaseTotal ? "healthy" : "critical";
     var jobsState = server.JobsHealthy == server.JobsTotal ? "healthy" : "warning";
     var registrationId = Guid.TryParse(server.Id, out var parsedId) ? parsedId : Guid.Empty;
-    var hasPolicy = registrationId != Guid.Empty && policyStates is not null && policyStates.TryGetValue(registrationId, out var operatorPolicy);
+    ServerOperatorPolicyState? operatorPolicy = null;
+    var hasPolicy = registrationId != Guid.Empty && policyStates is not null && policyStates.TryGetValue(registrationId, out operatorPolicy);
 
     <a class="server-card server-card-v2 glass-panel state-@stateName" data-server-card data-state="@stateName" data-name="@server.Name.ToLowerInvariant()" asp-action="ServerDetails" asp-route-id="@server.Id">
         <div class="server-card-v2-inner">
@@ -98,17 +99,14 @@ else
                 <div><h3>@server.Name</h3><p>@server.Version · @server.Edition</p></div>
                 <div class="health-score state-@stateName"><small>Health score</small><strong>@healthScore</strong></div>
             </div>
-
             <div class="pressure-grid">
                 <div class="pressure-item state-@cpuState"><small>CPU</small><span class="pressure-track"><span style="width:@($"{server.CpuPercent}%")"></span></span><strong>@(server.State == HealthState.Offline ? "N/A" : $"{server.CpuPercent}%")</strong></div>
                 <div class="pressure-item state-@memoryState"><small>Memory</small><span class="pressure-track"><span style="width:@($"{server.MemoryPercent}%")"></span></span><strong>@(server.State == HealthState.Offline ? "N/A" : $"{server.MemoryPercent}%")</strong></div>
             </div>
-
             <div class="server-compliance">
                 <div class="compliance-cell state-@databaseState"><small>Database availability</small><strong>@server.DatabaseOnline / @server.DatabaseTotal online</strong></div>
                 <div class="compliance-cell state-@jobsState"><small>SQL Agent</small><strong>@server.JobsHealthy / @server.JobsTotal healthy</strong></div>
             </div>
-
             <div class="card-link"><span>Open operational overview</span><span>→</span></div>
         </div>
     </a>
