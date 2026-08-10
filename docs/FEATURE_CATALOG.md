@@ -19,6 +19,7 @@
 | Test Connection workflow | M1 | CI verified | Admin-only ID endpoint; bounded timeout and redacted outcomes |
 | Lightweight SQL collector | M1 | CI verified | One query: identity, uptime and database availability counts |
 | Server health snapshot cache | M1 | CI verified | 30s fresh, 5m stale fallback, per-server single-flight |
+| Real snapshot UI card | M1 | CI verified | First configured server replaces one demo card; mixed data labeled |
 | Real SQL connection | M1 | Planned | First vertical slice |
 | Backups | M2 | Planned | Coming soon in UI |
 | Jobs | M2 | Planned | Coming soon in UI |

@@ -2,6 +2,7 @@
 @{
     ViewData["Title"] = Model.Server.Name;
     var server = Model.Server;
+    var isLive = server.Source != ServerDataSource.Demo;
     var stateName = server.State.ToString().ToLowerInvariant();
     var healthScore = server.State switch
     {
@@ -37,7 +38,7 @@
     };
 }
 
-<div class="data-banner"><strong>DEVELOPMENT DATA</strong><span>DBA operations preview over the latest cached snapshot. This screen never performs continuous SQL queries.</span></div>
+<div class="data-banner"><strong>@(isLive ? (server.Source == ServerDataSource.LiveFresh ? "LIVE CACHED SNAPSHOT" : "STALE CACHED SNAPSHOT") : "DEVELOPMENT DATA")</strong><span>@(isLive ? "Identity and database counts came from the backend snapshot cache; unavailable dimensions are not invented." : "DBA operations preview over development data.") This screen never performs continuous SQL queries.</span></div>
 
 <section class="server-command-hero glass-panel state-@stateName">
     <div class="server-command-top">

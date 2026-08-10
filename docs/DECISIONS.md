@@ -39,3 +39,7 @@ The lightweight collector issues one bounded command for SQL identity, uptime an
 ## ADR-010 — Snapshot cache is fresh/stale and single-flight
 
 Cached server snapshots are fresh for 30 seconds and retained as an explicitly stale fallback for five minutes. Concurrent refresh requests for the same registration await one shared collection task. Refresh failure never overwrites the last good value, and older collection timestamps never replace newer snapshots.
+
+## ADR-011 — Mixed real and demo data is labeled per card
+
+The first configured server may replace one demo estate card from the backend snapshot cache. Every card carries an explicit Demo, LiveFresh or LiveStale source. Missing real dimensions are presented as not collected, never filled with preview numbers. If no configuration or usable snapshot exists, the unchanged estate remains explicitly development data.

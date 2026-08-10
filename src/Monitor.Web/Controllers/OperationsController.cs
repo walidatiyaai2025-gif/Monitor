@@ -8,22 +8,25 @@ namespace Monitor.Web.Controllers;
 public sealed class OperationsController : Controller
 {
     private readonly IDemoMonitorService _monitor;
+    private readonly IMonitorReadService _readService;
 
-    public OperationsController(IDemoMonitorService monitor)
+    public OperationsController(IDemoMonitorService monitor, IMonitorReadService readService)
     {
         _monitor = monitor;
+        _readService = readService;
     }
 
     [HttpGet("/dashboard")]
     public IActionResult Dashboard() => View(_monitor.GetDashboard());
 
     [HttpGet("/servers")]
-    public IActionResult Servers() => View(_monitor.GetServers());
+    public async Task<IActionResult> Servers(CancellationToken cancellationToken) =>
+        View(await _readService.GetServersAsync(cancellationToken));
 
     [HttpGet("/servers/{id}")]
-    public IActionResult ServerDetails(string id)
+    public async Task<IActionResult> ServerDetails(string id, CancellationToken cancellationToken)
     {
-        var model = _monitor.GetServer(id);
+        var model = await _readService.GetServerAsync(id, cancellationToken);
         return model is null ? NotFound() : View(model);
     }
 

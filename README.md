@@ -17,6 +17,8 @@ dotnet run
 
 Open the URL printed by ASP.NET Core, then sign in with the development Admin credential agreed outside the repository. The repository stores **only a PBKDF2 salt/hash**, never the plaintext password.
 
+To activate the first real M1 snapshot card, configure `Monitor:PrimaryServer` metadata through environment variables or User Secrets (`Id`, `DisplayName`, `Host`, optional `Port`/`InstanceName`, `AuthenticationMode`, and opaque `SecretReference`). Store SQL login values separately under `ConnectionSecrets:{SecretReference}:Username` and `Password`. Never add passwords or full connection strings to `appsettings.json`.
+
 ## Initial screens
 
 - Login

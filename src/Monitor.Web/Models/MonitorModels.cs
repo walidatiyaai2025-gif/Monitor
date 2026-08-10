@@ -9,6 +9,13 @@ public enum HealthState
     Unknown
 }
 
+public enum ServerDataSource
+{
+    Demo,
+    LiveFresh,
+    LiveStale
+}
+
 public sealed record ServerCard(
     string Id,
     string Name,
@@ -21,7 +28,8 @@ public sealed record ServerCard(
     int DatabaseTotal,
     int JobsHealthy,
     int JobsTotal,
-    int LastScanSecondsAgo);
+    int LastScanSecondsAgo,
+    ServerDataSource Source = ServerDataSource.Demo);
 
 public sealed record MetricCard(string Name, string Value, string Detail, HealthState State);
 public sealed record ActivityItem(string Time, string Message, HealthState State);
