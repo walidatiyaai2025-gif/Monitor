@@ -104,33 +104,38 @@ public sealed class ConnectionTestTests
         Assert.DoesNotContain("ConnectionString", result.Message, StringComparison.OrdinalIgnoreCase);
     }
 
-    [Theory]
-    [InlineData(SqlProbeFailureKind.Authentication, ConnectionTestStatus.AuthenticationFailed)]
-    [InlineData(SqlProbeFailureKind.Timeout, ConnectionTestStatus.Timeout)]
-    [InlineData(SqlProbeFailureKind.Certificate, ConnectionTestStatus.CertificateFailure)]
-    [InlineData(SqlProbeFailureKind.Network, ConnectionTestStatus.NetworkFailure)]
-    [InlineData(SqlProbeFailureKind.InvalidConfiguration, ConnectionTestStatus.InvalidConfiguration)]
-    [InlineData(SqlProbeFailureKind.Unexpected, ConnectionTestStatus.UnexpectedFailure)]
-    public async Task ProbeFailures_MapToSanitizedCategories(
-        SqlProbeFailureKind probeFailure,
-        ConnectionTestStatus expectedStatus)
+    [Fact]
+    public async Task ProbeFailures_MapToSanitizedCategories()
     {
-        var repository = new InMemoryServerRegistrationRepository();
-        var registration = Registration(new SqlServerEndpoint("sql01.internal"));
-        repository.Upsert(registration);
-        var tester = new SqlConnectionTester(
-            repository,
-            new SqlConnectionProfileFactory(new FakeSecretStore()),
-            new FakeProbe(new SqlProbeOutcome(false, FailureKind: probeFailure)));
+        var cases = new (SqlProbeFailureKind ProbeFailure, ConnectionTestStatus ExpectedStatus)[]
+        {
+            (SqlProbeFailureKind.Authentication, ConnectionTestStatus.AuthenticationFailed),
+            (SqlProbeFailureKind.Timeout, ConnectionTestStatus.Timeout),
+            (SqlProbeFailureKind.Certificate, ConnectionTestStatus.CertificateFailure),
+            (SqlProbeFailureKind.Network, ConnectionTestStatus.NetworkFailure),
+            (SqlProbeFailureKind.InvalidConfiguration, ConnectionTestStatus.InvalidConfiguration),
+            (SqlProbeFailureKind.Unexpected, ConnectionTestStatus.UnexpectedFailure)
+        };
 
-        var result = await tester.TestAsync(registration.Id);
+        foreach (var testCase in cases)
+        {
+            var repository = new InMemoryServerRegistrationRepository();
+            var registration = Registration(new SqlServerEndpoint("sql01.internal"));
+            repository.Upsert(registration);
+            var tester = new SqlConnectionTester(
+                repository,
+                new SqlConnectionProfileFactory(new FakeSecretStore()),
+                new FakeProbe(new SqlProbeOutcome(false, FailureKind: testCase.ProbeFailure)));
 
-        Assert.Equal(expectedStatus, result.Status);
-        Assert.False(result.IsSuccess);
-        Assert.Null(result.DataSource);
-        Assert.Null(result.ServerVersion);
-        Assert.DoesNotContain("sql01.internal", result.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("secret", result.Message, StringComparison.OrdinalIgnoreCase);
+            var result = await tester.TestAsync(registration.Id);
+
+            Assert.Equal(testCase.ExpectedStatus, result.Status);
+            Assert.False(result.IsSuccess);
+            Assert.Null(result.DataSource);
+            Assert.Null(result.ServerVersion);
+            Assert.DoesNotContain("sql01.internal", result.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("secret", result.Message, StringComparison.OrdinalIgnoreCase);
+        }
     }
 
     [Fact]
