@@ -1,17 +1,74 @@
 @model IncidentCenterViewModel
-@{ ViewData["Title"] = "Alerts & Incidents"; }
-<div class="data-banner"><strong>CACHED FINDINGS</strong><span>Deterministic backend rules; no remediation executes from this page.</span></div>
+@{
+    ViewData["Title"] = "Alerts & Incidents";
+    var query = Model.Query;
+    var start = Model.Items.Count == 0 ? 0 : query.Offset + 1;
+    var end = query.Offset + Model.Items.Count;
+    var hasPrevious = query.Offset > 0;
+    var hasNext = Model.Items.Count == query.Limit;
+    var previousOffset = Math.Max(0, query.Offset - query.Limit);
+    var nextOffset = query.Offset + query.Limit;
+}
+<div class="data-banner"><strong>CACHED FINDINGS</strong><span>Deterministic backend rules; filters read bounded Monitor-owned incident state and no remediation executes from this page.</span></div>
 <section class="incident-summary">
     <div class="glass-panel"><small>OPEN</small><strong>@Model.Summary.Open</strong><span>Requires review</span></div>
     <div class="glass-panel"><small>CRITICAL</small><strong>@Model.Summary.Critical</strong><span>Immediate attention</span></div>
     <div class="glass-panel"><small>RESOLVED</small><strong>@Model.Summary.Resolved</strong><span>Fresh evidence cleared</span></div>
 </section>
+
+<form class="incident-filters glass-panel" method="get" asp-action="Alerts" aria-label="Incident filters">
+    <label>Status
+        <select name="status">
+            <option value="">All</option>
+            <option value="Open" selected="@(query.Status == IncidentStatus.Open ? "selected" : null)">Open</option>
+            <option value="Acknowledged" selected="@(query.Status == IncidentStatus.Acknowledged ? "selected" : null)">Acknowledged</option>
+            <option value="Resolved" selected="@(query.Status == IncidentStatus.Resolved ? "selected" : null)">Resolved</option>
+        </select>
+    </label>
+    <label>Severity
+        <select name="severity">
+            <option value="">All</option>
+            <option value="Critical" selected="@(query.Severity == FindingSeverity.Critical ? "selected" : null)">Critical</option>
+            <option value="Warning" selected="@(query.Severity == FindingSeverity.Warning ? "selected" : null)">Warning</option>
+        </select>
+    </label>
+    <label>Rule ID
+        <input name="ruleId" value="@query.RuleId" maxlength="80" autocomplete="off" placeholder="e.g. blocking.active" />
+    </label>
+    <label>Page size
+        <select name="limit">
+            <option value="25" selected="@(query.Limit == 25 ? "selected" : null)">25</option>
+            <option value="50" selected="@(query.Limit == 50 ? "selected" : null)">50</option>
+            <option value="100" selected="@(query.Limit == 100 ? "selected" : null)">100</option>
+        </select>
+    </label>
+    <div class="incident-filter-actions"><button class="secondary-button" type="submit">Apply filters</button><a class="secondary-button" asp-action="Alerts">Reset</a></div>
+</form>
+
 <article class="glass-panel table-panel">
-    <div class="panel-heading"><div><span class="eyebrow">INCIDENT CENTER</span><h3>Operational queue</h3></div><span class="snapshot-note">Server-side allowlisted rules</span></div>
+    <div class="panel-heading"><div><span class="eyebrow">INCIDENT CENTER</span><h3>Operational queue</h3></div><span class="snapshot-note">Showing @start–@end · bounded page @query.Limit</span></div>
     <div class="incident-table"><div class="table-head"><span>ID</span><span>Severity</span><span>Rule</span><span>Incident</span><span>Observed</span><span>Status</span></div>
     @foreach (var incident in Model.Items)
     {
         <a class="table-row" asp-action="IncidentDetails" asp-route-id="@incident.Id"><strong>@incident.Id[..Math.Min(12, incident.Id.Length)]</strong><span class="severity severity-@incident.Severity.ToString().ToLowerInvariant()">@incident.Severity</span><span>@incident.RuleId</span><span>@incident.Title</span><span>@incident.LastSeenUtc.ToString("u")</span><span>@incident.Status</span></a>
     }
+    @if (Model.Items.Count == 0)
+    {
+        <div class="incident-empty" role="status">No incidents match the current bounded filter.</div>
+    }
     </div>
 </article>
+
+<nav class="incident-pagination" aria-label="Incident pages">
+    <span>Offset @query.Offset · @Model.Items.Count result(s) on this page</span>
+    <div>
+        @if (hasPrevious)
+        {
+            <a class="secondary-button" asp-action="Alerts" asp-route-status="@query.Status" asp-route-severity="@query.Severity" asp-route-ruleId="@query.RuleId" asp-route-limit="@query.Limit" asp-route-offset="@previousOffset">← Previous</a>
+        }
+        @if (hasNext)
+        {
+            <a class="secondary-button" asp-action="Alerts" asp-route-status="@query.Status" asp-route-severity="@query.Severity" asp-route-ruleId="@query.RuleId" asp-route-limit="@query.Limit" asp-route-offset="@nextOffset">Next →</a>
+        }
+    </div>
+</nav>
