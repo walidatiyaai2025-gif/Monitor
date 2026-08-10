@@ -136,7 +136,7 @@ public sealed class EnterpriseUxIntegrationTests
 
         Assert.IsType<RedirectToActionResult>(result);
         Assert.NotNull(controller.TempData["OperatorError"]);
-        var rejected = Assert.Single(audit.Events.Where(item => item.Action == "incident.note"));
+        var rejected = Assert.Single(audit.Events, item => item.Action == "incident.note");
         Assert.Equal("rejected", rejected.Outcome);
         Assert.DoesNotContain("SuperSecret", rejected.Target, StringComparison.Ordinal);
         Assert.DoesNotContain("SuperSecret", controller.TempData["OperatorError"]!.ToString(), StringComparison.Ordinal);
