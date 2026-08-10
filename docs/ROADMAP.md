@@ -31,14 +31,15 @@ Login -> Connections -> Register -> Test -> Collect -> Observe -> real multi-ser
 ## M8 — Zero-SQL Reads & Operator Refresh — CI VERIFIED
 Monitoring GET/navigation surfaces are cache/Peek-only for monitored SQL. Explicit Operator/Admin refresh remains POST + antiforgery; successful refresh observation occurs once. CI `31383991126`.
 
-## BATCH-100 — Production / Enterprise Program — 50/100 CI VERIFIED
+## BATCH-100 — Production / Enterprise Program — 60/100 CI VERIFIED
 
 - **Batch 1 / B100-001..010:** shared state & HA foundation — VERIFIED.
 - **Batch 2 / B100-011..020:** HA secret & key management — VERIFIED.
 - **Batch 3 / B100-021..030:** backup/export/restore — VERIFIED.
 - **Batch 4 / B100-031..040:** production health, observability, correlation and redacted telemetry — VERIFIED.
-- **Batch 5 / B100-041..050:** performance & scale governance — CI VERIFIED, final merge gate in progress.
-- **Batch 6 / B100-051..060:** DBA UX & operations surfaces — NEXT.
-- **Batches 7–10 / B100-061..100:** security, reliability, deployment tooling and RC/operator features — PLANNED.
+- **Batch 5 / B100-041..050:** performance & scale governance — VERIFIED.
+- **Batch 6 / B100-051..060:** centralized DBA control-plane cards, recovery UX, incident navigation, accessibility and wallboard — CI VERIFIED; final merge gate in progress.
+- **Batch 7 / B100-061..070:** web/application security hardening — NEXT.
+- **Batches 8–10 / B100-071..100:** reliability, deployment tooling and RC/operator features — PLANNED.
 
 The canonical task-level ledger is `docs/BATCH_100.md`.

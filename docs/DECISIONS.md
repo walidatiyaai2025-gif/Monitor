@@ -110,3 +110,12 @@ Manual refresh uses an application-wide non-blocking concurrency permit in addit
 Only monitored background snapshot collection opts into bounded SQL connection pooling. Test Connection deliberately remains non-pooled so a credential rotation/test cannot appear valid because an old authenticated pooled session was reused.
 
 During Batch 5 review, a Batch 4 integration gap was found: observability controllers/services existed, but their DI/decorator/middleware wiring had not reached `Program.cs`. Batch 5 treats runtime wiring as part of acceptance, registering telemetry/readiness, collector/cache/cycle/incident decorators, correlation middleware and authentication-outcome telemetry before marking the batch verified.
+
+## ADR-038 — DBA operations UI uses one safe control-plane projection and recovery never exposes secrets
+B100-051..060 introduces `IDbaOperationsSurfaceService` as the single Dashboard projection for deployment readiness, node label, shared-state health, operational backup state and scheduler runtime. Shared-state status/schema is carried in the existing application-readiness result so Dashboard widgets do not multiply control-plane probes. None of these cards invokes the monitored SQL collector.
+
+The visible node label is an opaque SHA-256-derived `NODE-XXXXXXXX` token. The machine name, configured distributed node ID and lease owner are intentionally not rendered. Backup UI is limited to readiness/count/time plus opaque backup identifiers; scheduler UI is limited to enabled/running/passive state and aggregate counts.
+
+A registered server with no usable cached snapshot is still an operational object, not a 404. Server Details therefore returns a recovery-oriented model using safe registration metadata only. Administrators can move to Connection Lab for bounded retest/reference replacement and Operators/Admins can request the existing bounded refresh. Current SQL usernames/passwords and secret references remain outside the recovery surface.
+
+Refresh status/freshness is carried through PRG TempData only as bounded enum-derived classification and a safe service message. Incident filtering is bounded/paged. Accessibility and wallboard behavior are view/CSS concerns: skip/focus semantics, live-status regions, reduced-motion support and wide-screen layout never change polling, collection frequency or monitored-SQL traffic.

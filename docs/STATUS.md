@@ -1,54 +1,50 @@
 # Project Status
 
-**Updated:** 2026-08-10 17:44 +03:00  
-**Branch:** `agent/b100-041-050-performance-scale`  
-**Target:** BATCH-100 / Batch 5 — performance & scale governance  
-**Issues:** #55 umbrella · #64 Batch 5  
-**PR:** #65  
-**Overall:** 🟢 M0–M6 VERIFIED · M7-001..M7-018 CI VERIFIED · M8 CI VERIFIED · B100-001..050 CI VERIFIED
+**Updated:** 2026-08-10 18:08 +03:00  
+**Branch:** `agent/b100-051-060-dba-ux`  
+**Target:** BATCH-100 / Batch 6 — DBA UX & operations surfaces  
+**Issues:** #55 umbrella · #66 Batch 6  
+**PR:** #67  
+**Overall:** 🟢 M0–M6 VERIFIED · M7-001..M7-018 CI VERIFIED · M8 CI VERIFIED · B100-001..060 CI VERIFIED
 
-## BATCH-100 / Batch 5 — CI VERIFIED
+## BATCH-100 / Batch 6 — CI VERIFIED
 
-Authoritative code-head CI `31399632281`: **SUCCESS — Release build 0 warnings / 0 errors; 184/184 tests passed; Razor compiled.**
+Authoritative implementation CI `31402491011`: **SUCCESS — Release build 0 warnings / 0 errors; 189/189 tests passed; Razor compiled.**
 
-The first Batch 5 implementation run `31399049930` correctly failed on a C# relational-pattern compile error in dynamic page-bound validation. The validation was changed to an ordinary runtime comparison. Subsequent implementation run `31399461467` passed 184/184 tests, and the final code/Razor paging head `31399632281` also passed 184/184 with 0 warnings / 0 errors.
+The first implementation run `31402167135` correctly stopped on a missing `Monitor.Web.Models` import for the new DBA operations projection. Run `31402312095` then reached the test project and found one incomplete `DashboardViewModel` fixture. Both issues were corrected on the same PR before verification; the product code and final acceptance suite are Green.
 
-### B100-041..050 delivered
+### B100-051..060 delivered
 
-- Snapshot cache has a configurable bounded capacity and deterministic oldest-snapshot eviction; expired stale entries are removed on Peek.
-- History reads validate the supported 24-hour window and expose bounded offset/limit reads.
-- Audit reads are wrapped by configuration-backed offset/page-size bounds.
-- Incident queries retain the canonical hard 100-row ceiling and controller-level configurable page bounds.
-- Server estate GETs use bounded paging and Peek only the requested cached registrations; page navigation never initiates monitored-SQL collection.
-- Estate UI shows total/page range and Previous/Next controls so paging is visible rather than hidden backend behavior.
-- Manual refresh adds an application-wide non-blocking concurrency permit on top of the existing registration throttle and distributed single-flight lease.
-- Scheduler adds deterministic bounded jitter and collection cycles use round-robin maximum-target batches to avoid synchronized bursts and target starvation.
-- Monitored snapshot collection opts into an explicitly bounded SQL connection pool. Test Connection remains non-pooled so credential validation cannot succeed through a reused old pooled session.
-- Deterministic budget tests cover cache capacity, history/audit/incident output bounds, estate Peek count, zero collection during paging, manual-refresh concurrency, jitter, round-robin batching and SQL pool bounds.
-
-### Production regression corrected
-
-Batch 5 review found that Batch 4 health/observability controllers and service classes had been merged without their runtime DI/middleware wiring in `Program.cs`. Batch 5 wires `IMonitorTelemetry`, `IApplicationReadinessService`, collector/cache/cycle/incident telemetry decorators, correlation middleware and authentication-outcome telemetry middleware. `/health`, `/health/live`, `/health/ready` and `/observability` are now runtime-resolvable instead of unit-test-only code paths.
+- Dashboard now has a centralized control-plane readiness ribbon and DBA cards for topology/node, shared state, operational backup and scheduler state.
+- Node identity is deliberately opaque: a SHA-256-derived `NODE-XXXXXXXX` label is shown instead of the machine name, configured distributed node ID or lease owner.
+- Shared-state status/schema reuses the single application-readiness snapshot rather than issuing a second readiness probe.
+- Backup card exposes status, retained count, latest opaque backup ID fragment and time only; no filesystem path or secret-bearing content is rendered.
+- Scheduler card exposes Disabled / Active cycle / Passive-idle plus bounded counts; distributed lease ownership remains private.
+- Manual refresh PRG now carries status/freshness classification so refreshed, stale and throttled outcomes have distinct accessible feedback.
+- Registered servers without a usable snapshot now open a recovery-aware Server Details page instead of returning 404. Recovery links to Connection Lab and the existing bounded refresh path without exposing current secret references or credential values.
+- Incident Center adds bounded status/severity/rule/page-size filters and Previous/Next navigation that preserves safe query state.
+- Application shell adds a skip link, focus-visible treatment, main-content focus target, semantic live-status regions and Administrator Observability navigation.
+- Reduced-motion preferences suppress decorative animation, and large-screen DBA wallboard layout is CSS-only; no polling, network fetch or monitored-SQL behavior is added.
 
 ## BATCH-100 progress
 
-Issue #55 and `docs/BATCH_100.md` define 100 tasks as ten batches of ten. **50/100 tasks are CI verified.** Batch 6 is B100-051..060 — DBA UX & operations surfaces.
+Issue #55 and `docs/BATCH_100.md` define 100 tasks as ten batches of ten. **60/100 tasks are CI verified.** Batch 7 is B100-061..070 — web/application security hardening.
 
 ## Stable guardrails
 
-- Monitoring, health and observability GETs remain zero monitored-SQL collection paths.
-- Performance governance reduces burst/concurrency/output cost without changing snapshot-first architecture.
+- Dashboard DBA cards use cached/control-plane projections only and do not query monitored SQL targets.
+- Control-plane status is centralized so shared-state readiness is not multiplied per widget.
+- Recovery actions never render current SQL usernames/passwords or secret references.
+- Visual wallboard/reduced-motion/accessibility changes are client/CSS behavior only and never affect collection frequency.
 - Dedicated shared-state SQL remains Monitor-owned control-plane state only.
-- Test Connection remains deliberately non-pooled; monitored background collection alone uses bounded pooling.
-- Telemetry/logging excludes free-form provider error detail and secret-bearing request data.
 - Recommendations and Advisor remain advisory-only; no autonomous SQL execution path exists.
 - MultiNode remains fail-closed until all remaining security/cache/delivery prerequisites are proven HA-safe.
 - `main` remains stable; batch work merges only after final merge-result CI.
 
 ## Merge gate
 
-Run GitHub Actions on the final code + canonical-docs head, verify `main` has not moved into overlapping performance/observability code, then squash-merge PR #65 only if Release build with warnings-as-errors, Razor compilation and all tests remain Green.
+Run GitHub Actions on the final code + canonical-docs head, verify `main` has not moved into overlapping DBA UX/control-plane code, then squash-merge PR #67 only if Release build with warnings-as-errors, Razor compilation and all tests remain Green.
 
 ## Next action
 
-After Batch 5 merge, execute **B100-051..060 — DBA UX & operations surfaces** from #55 / `docs/BATCH_100.md`.
+After Batch 6 merge, execute **B100-061..070 — web/application security hardening** from #55 / `docs/BATCH_100.md`.

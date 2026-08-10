@@ -1,6 +1,7 @@
 @{
     var path = Context.Request.Path.Value?.ToLowerInvariant() ?? string.Empty;
     string Active(string value) => path.StartsWith(value) ? "nav-link active" : "nav-link";
+    var bodyClass = path.StartsWith("/dashboard") ? "app-body wallboard-ready" : "app-body";
 }
 <!DOCTYPE html>
 <html lang="en">
@@ -14,48 +15,56 @@
     <link rel="stylesheet" href="~/css/ui003.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/ui004.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/connection-lab.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/dba-operations.css" asp-append-version="true" />
 </head>
-<body class="app-body">
-    <div class="ambient-grid"></div>
+<body class="@bodyClass">
+    <a class="skip-link" href="#main-content">Skip to main content</a>
+    <div class="ambient-grid" aria-hidden="true"></div>
     <aside class="sidebar">
-        <a class="brand" asp-controller="Operations" asp-action="Dashboard">
-            <span class="brand-mark"><span></span></span>
+        <a class="brand" asp-controller="Operations" asp-action="Dashboard" aria-label="Monitor SQL Operations home">
+            <span class="brand-mark" aria-hidden="true"><span></span></span>
             <span><strong>MONITOR</strong><small>SQL OPERATIONS</small></span>
         </a>
 
         <nav class="primary-nav" aria-label="Primary navigation">
             <span class="nav-section">OPERATIONS</span>
-            <a class="@Active("/dashboard")" asp-controller="Operations" asp-action="Dashboard"><span class="nav-icon">⌁</span>Command Center</a>
-            <a class="@Active("/servers")" asp-controller="Operations" asp-action="Servers"><span class="nav-icon">▦</span>Servers</a>
-            @if (User.IsInRole(Monitor.Web.Services.MonitorRoles.Administrator)) { <a class="@Active("/servers/connections")" asp-controller="ConnectionLab" asp-action="Index"><span class="nav-icon">＋</span>Connections</a> }
-            <a class="@Active("/database-health")" asp-controller="Operations" asp-action="DatabaseHealth"><span class="nav-icon">◫</span>Database Health</a>
-            <a class="@Active("/memory-health")" asp-controller="Operations" asp-action="MemoryHealth"><span class="nav-icon">◒</span>Memory Health</a>
-            <a class="@Active("/backups")" asp-controller="Operations" asp-action="Backups"><span class="nav-icon">▣</span>Backups</a>
-            <a class="@Active("/jobs")" asp-controller="Operations" asp-action="Jobs"><span class="nav-icon">◆</span>SQL Agent</a>
-            <a class="@Active("/storage")" asp-controller="Operations" asp-action="Storage"><span class="nav-icon">◧</span>Storage</a>
-            <a class="@Active("/blocking")" asp-controller="Operations" asp-action="Blocking"><span class="nav-icon">⇄</span>Blocking</a>
-            <a class="@Active("/alerts")" asp-controller="Operations" asp-action="Alerts"><span class="nav-icon">△</span>Alerts & Incidents</a>
+            <a class="@Active("/dashboard")" asp-controller="Operations" asp-action="Dashboard"><span class="nav-icon" aria-hidden="true">⌁</span>Command Center</a>
+            <a class="@Active("/servers")" asp-controller="Operations" asp-action="Servers"><span class="nav-icon" aria-hidden="true">▦</span>Servers</a>
+            @if (User.IsInRole(Monitor.Web.Services.MonitorRoles.Administrator)) { <a class="@Active("/servers/connections")" asp-controller="ConnectionLab" asp-action="Index"><span class="nav-icon" aria-hidden="true">＋</span>Connections</a> }
+            <a class="@Active("/database-health")" asp-controller="Operations" asp-action="DatabaseHealth"><span class="nav-icon" aria-hidden="true">◫</span>Database Health</a>
+            <a class="@Active("/memory-health")" asp-controller="Operations" asp-action="MemoryHealth"><span class="nav-icon" aria-hidden="true">◒</span>Memory Health</a>
+            <a class="@Active("/backups")" asp-controller="Operations" asp-action="Backups"><span class="nav-icon" aria-hidden="true">▣</span>Backups</a>
+            <a class="@Active("/jobs")" asp-controller="Operations" asp-action="Jobs"><span class="nav-icon" aria-hidden="true">◆</span>SQL Agent</a>
+            <a class="@Active("/storage")" asp-controller="Operations" asp-action="Storage"><span class="nav-icon" aria-hidden="true">◧</span>Storage</a>
+            <a class="@Active("/blocking")" asp-controller="Operations" asp-action="Blocking"><span class="nav-icon" aria-hidden="true">⇄</span>Blocking</a>
+            <a class="@Active("/alerts")" asp-controller="Operations" asp-action="Alerts"><span class="nav-icon" aria-hidden="true">△</span>Alerts & Incidents</a>
 
             <span class="nav-section">ADVISORY</span>
-            <a class="nav-link muted" href="#"><span class="nav-icon">⌘</span>AI Advisor <em>soon</em></a>
+            <a class="nav-link muted" href="#"><span class="nav-icon" aria-hidden="true">⌘</span>AI Advisor <em>soon</em></a>
+
+            @if (User.IsInRole(Monitor.Web.Services.MonitorRoles.Administrator))
+            {
+                <span class="nav-section">ADMINISTRATION</span>
+                <a class="@Active("/observability")" asp-controller="Observability" asp-action="Index"><span class="nav-icon" aria-hidden="true">◎</span>Observability</a>
+            }
         </nav>
 
         <div class="sidebar-footer">
-            <div class="environment-badge"><span></span> SQL SNAPSHOT MODE</div>
-            <a class="@Active("/settings")" asp-controller="Operations" asp-action="Settings"><span class="nav-icon">⚙</span>Settings</a>
+            <div class="environment-badge"><span aria-hidden="true"></span> SQL SNAPSHOT MODE</div>
+            <a class="@Active("/settings")" asp-controller="Operations" asp-action="Settings"><span class="nav-icon" aria-hidden="true">⚙</span>Settings</a>
         </div>
     </aside>
 
-    <main class="main-shell">
+    <main class="main-shell" id="main-content" tabindex="-1">
         <header class="topbar">
             <div>
                 <span class="eyebrow">DATABASE OPERATIONS CENTER</span>
                 <h1>@ViewData["Title"]</h1>
             </div>
             <div class="topbar-actions">
-                <div class="collector-state"><span class="live-dot"></span><div><strong>Collector</strong><small data-scan-phase>Snapshot cache active</small></div></div>
-                <div class="user-chip"><span>AD</span><div><strong>@User.Identity?.Name</strong><small>@(User.IsInRole("Administrator") ? "Administrator" : User.IsInRole("Operator") ? "Operator" : "Viewer")</small></div></div>
-                <form asp-controller="Account" asp-action="Logout" method="post"><button class="icon-button" title="Sign out" type="submit">↗</button></form>
+                <div class="collector-state" role="status" aria-live="polite"><span class="live-dot" aria-hidden="true"></span><div><strong>Collector</strong><small data-scan-phase>Snapshot cache active</small></div></div>
+                <div class="user-chip"><span aria-hidden="true">AD</span><div><strong>@User.Identity?.Name</strong><small>@(User.IsInRole("Administrator") ? "Administrator" : User.IsInRole("Operator") ? "Operator" : "Viewer")</small></div></div>
+                <form asp-controller="Account" asp-action="Logout" method="post"><button class="icon-button" aria-label="Sign out" title="Sign out" type="submit">↗</button></form>
             </div>
         </header>
         <section class="page-content">

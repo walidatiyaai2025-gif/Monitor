@@ -1,3 +1,4 @@
+@using Monitor.Web.Services
 @model DashboardViewModel
 @{
     ViewData["Title"] = "SQL Command Center";
@@ -5,6 +6,8 @@
     var hasLive = Model.Servers.Any(server => server.Source != ServerDataSource.Demo);
     var connectedServers = Model.Servers.Count(server => server.Source is ServerDataSource.LiveFresh or ServerDataSource.LiveStale);
     var availability = Model.Servers.Count == 0 ? 0 : (int)Math.Round(connectedServers * 100d / Model.Servers.Count);
+    var ops = ViewData["DbaOperationsSurface"] as DbaOperationsSurfaceViewModel;
+    var latestBackupId = ops?.LatestBackupId is null ? "None" : ops.LatestBackupId[..Math.Min(12, ops.LatestBackupId.Length)];
 }
 
 <div class="data-banner command-data-banner">
@@ -13,16 +16,43 @@
     <span class="data-banner-rule">Fresh, stale and unavailable states are labeled per server</span>
 </div>
 
+@if (ops is not null)
+{
+    <section class="ops-readiness-ribbon state-@ops.ReadinessCss" role="status" aria-live="polite">
+        <div><span class="ops-readiness-beacon" aria-hidden="true"></span><div><small>CONTROL PLANE</small><strong>@ops.ReadinessStatus</strong><p>@ops.ReadinessMessage</p></div></div>
+        <div class="ops-readiness-meta"><span>@ops.DeploymentMode</span><span>@ops.NodeLabel</span><span>@ops.CheckedAtUtc.ToLocalTime().ToString("HH:mm:ss")</span></div>
+    </section>
+
+    <section class="ops-control-grid" aria-label="DBA control-plane status">
+        <article class="ops-control-card glass-panel state-@ops.ReadinessCss">
+            <div><span class="eyebrow">NODE / TOPOLOGY</span><strong>@ops.NodeLabel</strong></div>
+            <p>@ops.DeploymentMode deployment</p><small>Opaque runtime node label · host name is not exposed</small>
+        </article>
+        <article class="ops-control-card glass-panel state-@ops.SharedStateCss">
+            <div><span class="eyebrow">SHARED STATE</span><strong>@ops.SharedStateStatus</strong></div>
+            <p>Schema @(ops.SharedStateSchemaVersion?.ToString() ?? "N/A")</p><small>@(ops.SharedStorageReady ? "Monitor control-plane storage ready" : "Shared control-plane storage not active/ready")</small>
+        </article>
+        <article class="ops-control-card glass-panel state-@ops.BackupCss">
+            <div><span class="eyebrow">OPERATIONAL BACKUP</span><strong>@ops.BackupStatus</strong></div>
+            <p>@ops.BackupCount retained · latest @latestBackupId</p><small>@(ops.LatestBackupUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "No backup created yet")</small>
+        </article>
+        <article class="ops-control-card glass-panel state-@ops.SchedulerCss">
+            <div><span class="eyebrow">SCHEDULER</span><strong>@ops.SchedulerRole</strong></div>
+            <p>@ops.SchedulerSucceeded / @ops.SchedulerAttempted succeeded · @ops.SchedulerFailed failed</p><small>@ops.SchedulerSkipped backoff skips · lease owner identity is not exposed</small>
+        </article>
+    </section>
+}
+
 <section class="live-estate glass-panel command-live-estate">
     <div class="command-live-glow" aria-hidden="true"></div>
     <div class="live-estate-heading">
         <div>
-            <span class="live-label"><span class="live-dot"></span> SQL ESTATE LIVE</span>
+            <span class="live-label"><span class="live-dot" aria-hidden="true"></span> SQL ESTATE LIVE</span>
             <h2>Monitoring Active</h2>
             <p class="live-subtitle">One centralized snapshot powers the entire command surface.</p>
         </div>
         <div class="command-live-right">
-            <div class="signal-integrity"><span>Signal integrity</span><strong>@availability%</strong><i></i></div>
+            <div class="signal-integrity"><span>Signal integrity</span><strong>@availability%</strong><i aria-hidden="true"></i></div>
             <div class="scan-clock"><small>Operations clock</small><strong data-live-clock>--:--:--</strong></div>
         </div>
     </div>
@@ -32,10 +62,10 @@
         <div><small>Databases</small><strong>@Model.OnlineDatabaseCount / @Model.DatabaseCount</strong><span>online</span></div>
         <div class="danger-stat"><small>Critical</small><strong>@Model.CriticalCount</strong><span>incidents</span></div>
         <div class="warning-stat"><small>Warnings</small><strong>@Model.WarningCount</strong><span>need review</span></div>
-        <div><small>Collector</small><strong class="inline-live"><span class="live-dot"></span>Running</strong><span data-scan-phase>Snapshot cache active</span></div>
-        <div><small>Next snapshot</small><strong data-countdown>30s</strong><span>simulated</span></div>
+        <div><small>Collector</small><strong class="inline-live"><span class="live-dot" aria-hidden="true"></span>Running</strong><span data-scan-phase>Snapshot cache active</span></div>
+        <div><small>Visual freshness</small><strong data-countdown>30s</strong><span>client-only indicator</span></div>
     </div>
-    <div class="live-track"><span></span></div>
+    <div class="live-track" aria-hidden="true"><span></span></div>
 </section>
 
 <section class="command-visual-grid">
@@ -45,55 +75,61 @@
             <div class="topology-legend"><span class="state-healthy">● Healthy</span><span class="state-warning">● Warning</span><span class="state-critical">● Critical</span><span class="state-offline">● Offline</span></div>
         </div>
 
-        <div class="estate-radar" aria-label="Development SQL estate topology preview">
+        <div class="estate-radar" aria-label="SQL estate topology from cached snapshots">
             <div class="radar-grid" aria-hidden="true"></div>
             <div class="radar-sweep" aria-hidden="true"></div>
             <div class="collector-core">
                 <span class="core-rings" aria-hidden="true"></span>
                 <strong>MONITOR</strong>
                 <small>SNAPSHOT CORE</small>
-                <em><span class="live-dot"></span> ACTIVE</em>
+                <em><span class="live-dot" aria-hidden="true"></span> ACTIVE</em>
             </div>
             <div class="server-node-field">
             @foreach (var server in Model.Servers)
             {
                 <a class="estate-node state-@server.State.ToString().ToLowerInvariant()" asp-action="ServerDetails" asp-route-id="@server.Id" title="Open @server.Name">
-                    <span class="node-beacon"></span>
+                    <span class="node-beacon" aria-hidden="true"></span>
                     <span class="node-copy"><strong>@server.Name</strong><small>@server.DatabaseOnline/@server.DatabaseTotal DB · CPU @server.CpuPercent%</small></span>
                     <span class="node-age" data-snapshot-age="@server.LastScanSecondsAgo">@server.LastScanSecondsAgo sec</span>
                 </a>
             }
             </div>
-            <div class="radar-caption"><span>VISUALIZATION</span> Existing shared preview snapshot · no per-node polling</div>
+            <div class="radar-caption"><span>VISUALIZATION</span> Existing cached snapshots · no per-node polling</div>
         </div>
     </article>
 
     <article class="glass-panel attention-panel state-@(primaryIncident is null ? "healthy" : "critical")">
         <div class="attention-head">
             <div><span class="eyebrow">IMMEDIATE ATTENTION</span><h3>Highest priority signal</h3></div>
-            <span class="priority-beacon"><i></i> P1</span>
+            <span class="priority-beacon"><i aria-hidden="true"></i> P1</span>
         </div>
-        @if (primaryIncident is null) { <div class="attention-incident-id">NO ACTIVE FINDINGS</div><h2>No cached incident currently requires attention.</h2> }
-        else { <div class="attention-incident-id">@primaryIncident.Id · @primaryIncident.Server</div><h2>@primaryIncident.Title</h2>
-        <div class="attention-meta">
-            <div><small>Severity</small><strong class="severity severity-@primaryIncident.Severity.ToLowerInvariant()">@primaryIncident.Severity</strong></div>
-            <div><small>Age</small><strong>@primaryIncident.Age</strong></div>
-            <div><small>State</small><strong>@primaryIncident.State</strong></div>
-        </div> }
+        @if (primaryIncident is null)
+        {
+            <div class="attention-incident-id">NO ACTIVE FINDINGS</div><h2>No cached incident currently requires attention.</h2>
+        }
+        else
+        {
+            <div class="attention-incident-id">@primaryIncident.Id · @primaryIncident.Server</div><h2>@primaryIncident.Title</h2>
+            <div class="attention-meta">
+                <div><small>Severity</small><strong class="severity severity-@primaryIncident.Severity.ToLowerInvariant()">@primaryIncident.Severity</strong></div>
+                <div><small>Age</small><strong>@primaryIncident.Age</strong></div>
+                <div><small>State</small><strong>@primaryIncident.State</strong></div>
+            </div>
+        }
         <a class="attention-action" asp-action="Alerts"><span>Open incident center</span><strong>→</strong></a>
-        <div class="attention-footnote">Preview decision surface. No automated remediation is executed.</div>
+        <div class="attention-footnote">Decision surface only. No automated remediation is executed.</div>
     </article>
 </section>
 
 <div class="section-heading command-section-heading">
     <div><span class="eyebrow">ESTATE HEALTH</span><h2>What needs attention now?</h2></div>
-    <span class="snapshot-note"><span class="snapshot-pulse"></span> Latest shared snapshot · freshness updates locally</span>
+    <span class="snapshot-note"><span class="snapshot-pulse" aria-hidden="true"></span> Latest cached snapshot · freshness updates locally</span>
 </div>
 <section class="metric-grid command-metric-grid">
 @foreach (var metric in Model.Metrics)
 {
     <article class="metric-card command-metric-card state-@metric.State.ToString().ToLowerInvariant()">
-        <div class="metric-top"><span>@metric.Name</span><i></i></div>
+        <div class="metric-top"><span>@metric.Name</span><i aria-hidden="true"></i></div>
         <strong>@metric.Value</strong><small>@metric.Detail</small>
         <div class="metric-signal" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span></div>
     </article>
@@ -107,27 +143,27 @@
         @foreach (var server in Model.Servers)
         {
             <a class="server-row command-server-row" asp-action="ServerDetails" asp-route-id="@server.Id">
-                <span class="health-orb state-@server.State.ToString().ToLowerInvariant()"></span>
+                <span class="health-orb state-@server.State.ToString().ToLowerInvariant()" aria-hidden="true"></span>
                 <div class="server-main"><strong>@server.Name</strong><small>@server.Version · @server.Edition</small></div>
                 <div><small>CPU</small><strong>@server.CpuPercent%</strong></div>
                 <div><small>MEM</small><strong>@server.MemoryPercent%</strong></div>
                 <div><small>DB</small><strong>@server.DatabaseOnline/@server.DatabaseTotal</strong></div>
                 <div class="server-age"><small>Snapshot age</small><strong data-snapshot-age="@server.LastScanSecondsAgo">@server.LastScanSecondsAgo sec</strong></div>
-                <span class="row-arrow">→</span>
+                <span class="row-arrow" aria-hidden="true">→</span>
             </a>
         }
         </div>
     </article>
 
     <article class="glass-panel activity-panel command-activity-panel">
-        <div class="panel-heading"><div><span class="eyebrow">LIVE ACTIVITY</span><h3>Collector event stream</h3></div><span class="activity-live-word"><span class="live-dot"></span> LIVE VIEW</span></div>
+        <div class="panel-heading"><div><span class="eyebrow">LIVE ACTIVITY</span><h3>Collector event stream</h3></div><span class="activity-live-word"><span class="live-dot" aria-hidden="true"></span> LIVE VIEW</span></div>
         <div class="activity-feed">
         @foreach (var item in Model.Activity)
         {
-            <div class="activity-row"><time>@item.Time</time><span class="activity-marker state-@item.State.ToString().ToLowerInvariant()"></span><p>@item.Message</p></div>
+            <div class="activity-row"><time>@item.Time</time><span class="activity-marker state-@item.State.ToString().ToLowerInvariant()" aria-hidden="true"></span><p>@item.Message</p></div>
         }
         </div>
-        <div class="feed-rule">Generated from the existing preview snapshot. This visual feed performs no SQL queries.</div>
+        <div class="feed-rule">Generated from the existing cached snapshot. This visual feed performs no SQL queries.</div>
     </article>
 
     <article class="glass-panel panel-span-3 command-incident-panel">

@@ -21,6 +21,7 @@ public sealed class OperationsController : Controller
     private readonly ICredentialReadinessService? _credentialReadiness;
     private readonly IOperationalBackupService? _backupService;
     private readonly PerformanceScaleOptions _performance;
+    private readonly IDbaOperationsSurfaceService? _dbaSurface;
 
     public OperationsController(
         IDemoMonitorService monitor,
@@ -35,7 +36,8 @@ public sealed class OperationsController : Controller
         ISharedStateReadinessService? sharedStateReadiness = null,
         ICredentialReadinessService? credentialReadiness = null,
         IOperationalBackupService? backupService = null,
-        PerformanceScaleOptions? performance = null)
+        PerformanceScaleOptions? performance = null,
+        IDbaOperationsSurfaceService? dbaSurface = null)
     {
         _monitor = monitor;
         _readService = readService;
@@ -51,10 +53,18 @@ public sealed class OperationsController : Controller
         _backupService = backupService;
         _performance = performance ?? new PerformanceScaleOptions();
         _performance.Validate();
+        _dbaSurface = dbaSurface;
     }
 
     [HttpGet("/dashboard")]
-    public async Task<IActionResult> Dashboard(CancellationToken cancellationToken) => View(await _readService.GetDashboardAsync(cancellationToken));
+    public async Task<IActionResult> Dashboard(CancellationToken cancellationToken)
+    {
+        var model = await _readService.GetDashboardAsync(cancellationToken);
+        ViewData["DbaOperationsSurface"] = _dbaSurface is null
+            ? null
+            : await _dbaSurface.GetAsync(cancellationToken);
+        return View(model);
+    }
 
     [HttpGet("/servers")]
     public async Task<IActionResult> Servers(int offset = 0, int limit = 0, CancellationToken cancellationToken = default)
@@ -85,7 +95,11 @@ public sealed class OperationsController : Controller
         if (_snapshotRefresh is null) return NotFound();
         var result = await _snapshotRefresh.RefreshAsync(id, cancellationToken);
         TempData["SnapshotRefresh"] = result.Message;
-        return result.Status == SnapshotRefreshStatus.RegistrationNotFound ? NotFound() : RedirectToAction(nameof(ServerDetails), new { id = id.ToString("D") });
+        TempData["SnapshotRefreshStatus"] = result.Status.ToString();
+        TempData["SnapshotRefreshFreshness"] = result.Freshness?.ToString() ?? string.Empty;
+        return result.Status == SnapshotRefreshStatus.RegistrationNotFound
+            ? NotFound()
+            : RedirectToAction(nameof(ServerDetails), new { id = id.ToString("D") });
     }
 
     [HttpGet("/database-health")]
@@ -110,8 +124,15 @@ public sealed class OperationsController : Controller
     public async Task<IActionResult> Alerts(IncidentStatus? status, FindingSeverity? severity, string? ruleId, int offset = 0, int limit = 50, CancellationToken cancellationToken = default)
     {
         await _readService.GetIncidentsAsync(cancellationToken);
-        var query = new IncidentQuery(status, severity, ruleId, PerformanceScaleOptions.BoundOffset(offset), _performance.BoundIncidentLimit(limit));
-        return _workflow is null ? View(new IncidentCenterViewModel([], new(0, 0, 0, 0, 0), query)) : View(_workflow.Query(query));
+        var query = new IncidentQuery(
+            status,
+            severity,
+            NormalizeRuleId(ruleId),
+            PerformanceScaleOptions.BoundOffset(offset),
+            _performance.BoundIncidentLimit(limit));
+        return _workflow is null
+            ? View(new IncidentCenterViewModel([], new(0, 0, 0, 0, 0), query))
+            : View(_workflow.Query(query));
     }
 
     [HttpGet("/alerts/{id}")]
@@ -148,7 +169,9 @@ public sealed class OperationsController : Controller
         var after = _incidentRepository?.GetById(id);
         var outcome = BuildTransitionAuditOutcome(changed, before, after, repositoryAvailable);
         _audit?.Append(actor, "incident.transition", id, outcome);
-        return changed ? RedirectToAction(nameof(IncidentDetails), new { id }) : Conflict(new { message = "Incident state changed or the transition is not allowed." });
+        return changed
+            ? RedirectToAction(nameof(IncidentDetails), new { id })
+            : Conflict(new { message = "Incident state changed or the transition is not allowed." });
     }
 
     private static string BuildTransitionAuditOutcome(bool changed, HealthIncident? before, HealthIncident? after, bool repositoryAvailable)
@@ -187,9 +210,26 @@ public sealed class OperationsController : Controller
     [Authorize(Policy = MonitorPolicies.Manage)]
     public async Task<IActionResult> Settings(CancellationToken cancellationToken)
     {
-        var sharedState = _sharedStateReadiness is null ? SharedStateReadinessViewModel.Disabled() : await _sharedStateReadiness.GetAsync(cancellationToken);
-        var credentials = _credentialReadiness?.Get() ?? new CredentialReadinessViewModel(DataProtectionKeyStoreMode.LocalFile, false, 0, 0, 0, false, "HA credential readiness unavailable", "Credential readiness service is unavailable.");
+        var sharedState = _sharedStateReadiness is null
+            ? SharedStateReadinessViewModel.Disabled()
+            : await _sharedStateReadiness.GetAsync(cancellationToken);
+        var credentials = _credentialReadiness?.Get() ?? new CredentialReadinessViewModel(
+            DataProtectionKeyStoreMode.LocalFile,
+            false,
+            0,
+            0,
+            0,
+            false,
+            "HA credential readiness unavailable",
+            "Credential readiness service is unavailable.");
         var backups = _backupService?.GetReadiness();
         return View(new SettingsViewModel(_deploymentReadiness, sharedState, credentials, backups));
+    }
+
+    private static string? NormalizeRuleId(string? ruleId)
+    {
+        if (string.IsNullOrWhiteSpace(ruleId)) return null;
+        var normalized = ruleId.Trim();
+        return normalized.Length <= 80 ? normalized : normalized[..80];
     }
 }
