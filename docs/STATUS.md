@@ -4,8 +4,8 @@
 **Branch:** `agent/m1-real-snapshot-ui`  
 **Target:** `M1-005`  
 **Issue:** TBD  
-**PR:** TBD  
-**Overall:** 🟡 M1-005 IMPLEMENTED — LOCAL VERIFICATION COMPLETE
+**PR:** #13  
+**Overall:** 🟢 M1-005 VERIFIED — READY TO MERGE
 
 ## M1-005 — First real snapshot in the UI
 
@@ -16,6 +16,7 @@
 - Real details use identity/database values only; CPU, memory and jobs are Not collected.
 - MVC reads through the cache once per request and never calls SQL directly.
 - 30 total tests pass, including live mapping, stale labeling, fallback and configuration security.
+- CI run `31371256976`: SUCCESS (Release build + 30 tests).
 
 ## M1-004 — ServerHealthSnapshot contract and cache
 
@@ -118,4 +119,4 @@ M0 PR #2 merged to stable `main` at `dfbfa19`.
 
 ## Next action
 
-Push M1-005, verify CI, open a focused PR, then begin M1-006 throttled refresh.
+Merge PR #13, then begin M1-006 throttled refresh.
