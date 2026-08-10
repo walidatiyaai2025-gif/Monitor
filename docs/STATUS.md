@@ -1,30 +1,32 @@
 # Project Status
 
-**Updated:** 2026-08-10 14:18 +03:00  
-**Branch:** `agent/m7-003-durable-operational-state`  
-**Target:** M7-003 durable Monitor-owned operational state  
-**Issue:** #45  
-**PR:** #46  
-**Overall:** 🟢 M0–M6 VERIFIED — M7-001..M7-003 CI VERIFIED
+**Updated:** 2026-08-10 14:32 +03:00  
+**Branch:** `agent/m7-004-ha-topology-guard`  
+**Target:** M7-004 fail-closed HA / multi-node topology guard  
+**Issue:** #47  
+**PR:** #48  
+**Overall:** 🟢 M0–M6 VERIFIED — M7-001..M7-004 CI VERIFIED
 
-## M7-003 — Durable Monitor-owned operational state — CI VERIFIED
+## M7-004 — HA / multi-node deployment guard — CI VERIFIED
 
-- Preserves `IAuditStore`, `ISnapshotHistoryStore` and `IHealthIncidentRepository`; current controllers, observer, scheduler, Advisor and incident workflow consumers keep the same contracts.
-- Adds `OperationalStore` File/InMemory mode. File mode is the default and resolves `App_Data/operational` outside `wwwroot`.
-- Uses independent versioned `audit.json`, `history.json` and `incidents.json` files so unrelated operational state does not share one mutation transaction.
-- Mutations build a candidate state, write/flush a same-directory temporary file, atomically replace the durable file, then publish the candidate in process.
-- Corrupt, unsupported or domain-invalid persisted state fails closed on startup.
-- Audit retains bounded metadata and max 1,000 events with newest-first paging.
-- History persists only allowlisted aggregates, deduplicates registration/timestamp, keeps 24 hours and max 288 points/server.
-- Incidents preserve stable registration/rule identity, older-evidence ignore semantics, fresh reconciliation resolution and compare-and-set status transitions.
-- No SQL text, credentials, monitored-server endpoints, provider errors, job commands or arbitrary request payloads are part of the operational persistence contract.
-- Initial CI exposed one incorrect test expectation for `RunnableTasks`; production code compiled successfully. The assertion was corrected without changing production behavior.
-- CI run `31382770932`: SUCCESS — Release build 0 warnings / 0 errors; 89/89 tests passed; Razor compiled in Release.
+- Adds explicit `Deployment:Mode` with `SingleNode` as the default and only currently supported topology.
+- Topology validation runs before persistence/services are activated.
+- Selecting `MultiNode` fails application startup with a deterministic redacted message explaining that shared registration, operational-state and coordination providers are required.
+- The guard deliberately does not treat local files, process memory or a network-share path as distributed coordination.
+- Existing SQL, registration, operational-state, secret and collector service contracts remain unchanged.
+- Administrator Settings now displays the effective topology, safety status and the bounded list of state that is still node-local.
+- Node-local state explicitly includes registration/operational stores, runtime SQL credentials, login limiter, snapshot cache/single-flight and scheduler ownership/backoff/runtime status.
+- Settings is now Administrator-policy protected; it exposes no mutation control for topology.
+- CI run `31383750309`: SUCCESS — Release build 0 warnings / 0 errors; 94/94 tests passed; Razor compiled in Release.
+
+## M7-003 — Durable operational state — CI VERIFIED
+
+- Audit/history/incidents survive restart behind unchanged interfaces using independent atomic files.
+- Final CI `31383226721`: 89/89 tests; Release build 0 warnings / 0 errors.
 
 ## M7-002 — External SQL secret provider — CI VERIFIED
 
-- `env:<alias>` routes directly to strict process-environment variables behind `IConnectionSecretStore`.
-- Provider-owned missing/partial references fail closed without configuration fallback.
+- `env:<alias>` routes directly to strict process-environment variables behind `IConnectionSecretStore` and fails closed without config fallback.
 - Final CI `31382052980`: 82/82 tests; Release build 0 warnings / 0 errors.
 
 ## M7-001 — Durable registration metadata — CI VERIFIED
@@ -38,14 +40,14 @@
 - Snapshot cache remains the shared evidence/read boundary.
 - Recommendations and Advisor output remain human-review only and cannot execute production SQL.
 - Secret-provider routing remains behind `IConnectionSecretStore`.
-- Registration persistence stores metadata/opaque references only.
-- Operational persistence is Monitor-owned and bounded; it never uses monitored SQL Servers as a configuration/state write target.
-- M7 file stores provide single-node durability only; shared/HA state is deferred to M7-004.
+- Registration and operational file stores are explicitly single-node implementations.
+- `MultiNode` deployment is fail-closed until real shared state and distributed coordination are present.
+- No secret, endpoint or monitored SQL payload is included in topology validation/readiness output.
 
 ## Merge gate
 
-Run GitHub Actions on the final docs head. Confirm `main` has not introduced an overlapping operational-store change, then merge PR #46 only if restore, Release build with warnings-as-errors, Razor compilation and all tests remain Green.
+Run GitHub Actions on the final docs head. Confirm `main` has not introduced an overlapping topology/shared-state change, then merge PR #48 only if restore, Release build with warnings-as-errors, Razor compilation and all tests remain Green.
 
 ## Next action
 
-After M7-003 merge, execute M7-004: define and implement the first shared-state/HA deployment slice without weakening the existing secret, snapshot, audit or incident boundaries.
+After M7-004 merge, create the next shared-state provider capability slice. Do not enable `MultiNode` until registration, operational state, scheduler ownership and required coordination primitives are backed by a real shared implementation.

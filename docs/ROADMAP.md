@@ -34,6 +34,8 @@ M7-001 adds durable local server-registration metadata persistence behind the ex
 
 M7-002 adds external secret-provider routing behind `IConnectionSecretStore`. `env:<alias>` resolves only from strict process-environment variables and a recognized provider-owned reference never falls back to a less-specific configuration source.
 
-M7-003 makes Monitor-owned audit, snapshot history and incident lifecycle state durable behind their existing interfaces. The three stores use independent versioned files under one operational-state root, preserve bounded semantics and fail closed on corrupt state. This is single-node durability; no monitored SQL Server is used as a persistence target.
+M7-003 makes Monitor-owned audit, snapshot history and incident lifecycle state durable behind their existing interfaces. The three stores use independent versioned files under one operational-state root, preserve bounded semantics and fail closed on corrupt state.
 
-Next production-readiness priorities after M7-003: shared-state/HA strategy, deployment configuration validation, backup/restore of Monitor-owned state, and production observability.
+M7-004 makes deployment topology explicit and fail-closed. `SingleNode` is the supported default; `MultiNode` is rejected at startup until registration/operational state and coordination primitives have real shared implementations. Administrator Settings exposes a read-only readiness view and the remaining node-local boundaries.
+
+Next production-readiness priorities after M7-004: select/implement a shared-state provider, distributed scheduler/single-flight coordination, deployment configuration validation, backup/restore of Monitor-owned state, and production observability.

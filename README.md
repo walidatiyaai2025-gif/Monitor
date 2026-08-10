@@ -6,7 +6,7 @@
 
 M0 through M6 are CI verified. The project includes the premium command-center UI, real SQL Server onboarding, bounded collection/cache health modules, deterministic incidents/recommendations, guarded Advisor boundaries, audit/RBAC/security hardening, multi-server real estate projection and the complete Register → Test → Collect → View journey.
 
-M7 is the active production-readiness milestone. `M7-001` adds durable server-registration metadata, `M7-002` adds fail-closed environment-injected SQL secret references, and `M7-003` makes Monitor-owned audit/history/incident state durable across process restarts while preserving the existing service contracts.
+M7 is the active production-readiness milestone. `M7-001` adds durable server-registration metadata, `M7-002` adds fail-closed environment-injected SQL secret references, `M7-003` makes Monitor-owned audit/history/incident state durable across process restarts, and `M7-004` adds an explicit deployment-topology guard that blocks unsupported multi-node startup until shared state and distributed coordination actually exist.
 
 ## Run
 
@@ -18,6 +18,20 @@ dotnet run
 ```
 
 Open the URL printed by ASP.NET Core, then sign in with the development Admin credential agreed outside the repository. The repository stores **only a PBKDF2 salt/hash**, never the plaintext password.
+
+## Deployment topology
+
+The production-readiness default is explicit:
+
+```json
+"Deployment": {
+  "Mode": "SingleNode"
+}
+```
+
+`SingleNode` is the only currently supported topology. `MultiNode` is a recognized configuration value, but Monitor intentionally fails startup when it is selected. This is a safety gate, not a missing-feature fallback: registration/operational stores, runtime SQL credentials, login limiting, snapshot cache/single-flight and scheduler ownership still contain node-local state. Running multiple active instances before those boundaries are shared would create divergent state.
+
+The effective topology and the remaining node-local state are visible read-only on the Administrator **Settings** page. A later shared-state provider may enable `MultiNode` only after the required persistence and coordination primitives are truly externalized.
 
 ## Register a real SQL Server
 
@@ -59,7 +73,7 @@ The path is resolved from the application content root and must remain outside `
 
 ## Operational-state persistence
 
-M7-003 defaults Monitor-owned operational state to:
+The default Monitor-owned operational state is:
 
 ```json
 "OperationalStore": {
@@ -68,11 +82,11 @@ M7-003 defaults Monitor-owned operational state to:
 }
 ```
 
-The root must remain outside `wwwroot`. Monitor keeps three independent versioned files: `audit.json`, `history.json`, and `incidents.json`. Each mutation is written to a same-directory temporary file and flushed to disk before the live in-process candidate state is published. Corrupt or unsupported state fails closed on startup.
+The root must remain outside `wwwroot`. Monitor keeps independent versioned `audit.json`, `history.json`, and `incidents.json` files. Each mutation is written to a same-directory temporary file and flushed to disk before the live in-process candidate state is published. Corrupt or unsupported state fails closed on startup.
 
-The durable contracts remain bounded: audit keeps at most 1,000 metadata-only events; history keeps allowlisted aggregate points for 24 hours with at most 288 points per server; incidents keep the deterministic registration/rule lifecycle state and bounded rule evidence. These files never contain SQL credentials, SQL text, monitored-server endpoints, provider errors or job commands.
+The durable contracts remain bounded: audit keeps at most 1,000 metadata-only events; history keeps allowlisted aggregate points for 24 hours with at most 288 points per server; incidents keep deterministic registration/rule lifecycle state and bounded rule evidence. These files never contain SQL credentials, SQL text, monitored-server endpoints, provider errors or job commands.
 
-Set either store mode to `InMemory` only for intentionally ephemeral deployments/tests. M7-004 owns shared/HA state; the M7-001/M7-003 file stores are single-node durability steps.
+Set either store mode to `InMemory` only for intentionally ephemeral deployments/tests. File and in-memory modes are **single-node** implementations; M7-004 prevents them from being mistaken for HA/shared state.
 
 ## Main operator surfaces
 
@@ -96,6 +110,6 @@ Frontend motion never creates SQL traffic. Browser widgets never connect directl
 
 `SQL Server -> Central Collector -> Snapshot/Cache -> Backend -> UI`
 
-Recommendations and Advisor output are advisory-only and have no SQL execution path. Monitor-owned persistence is separate from monitored SQL Servers. Secret-provider routing remains behind `IConnectionSecretStore`; SQL probing/collection code never knows which provider resolved a credential.
+Recommendations and Advisor output are advisory-only and have no SQL execution path. Monitor-owned persistence is separate from monitored SQL Servers. Secret-provider routing remains behind `IConnectionSecretStore`; SQL probing/collection code never knows which provider resolved a credential. Multi-node deployment remains fail-closed until shared state and distributed coordination are real, not simulated with local files.
 
 See `docs/ARCHITECTURE.md`, `docs/ROADMAP.md`, `docs/IMPLEMENTATION_PLAN.md`, `docs/FEATURE_CATALOG.md`, `docs/STATUS.md`, and `docs/DECISIONS.md`.

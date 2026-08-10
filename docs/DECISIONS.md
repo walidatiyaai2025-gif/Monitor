@@ -6,7 +6,7 @@ M0 delivers a working UI preview before broad SQL monitoring capability. This al
 
 ## ADR-002 — Snapshot-first architecture
 
-Monitoring values will be centrally collected into reusable snapshots. UI widgets do not independently query SQL Servers.
+Monitoring values are centrally collected into reusable snapshots. UI widgets do not independently query SQL Servers.
 
 ## ADR-003 — One central live area
 
@@ -22,102 +22,102 @@ M0 uses a single Administrator and ASP.NET Core cookie auth. The agreed developm
 
 ## ADR-006 — AI remains advisory
 
-Future AI integration will receive normalized evidence and propose explanations/remediation/query suggestions. It will not autonomously execute production SQL.
+AI integration receives normalized evidence and proposes explanations/remediation/query suggestions. It does not autonomously execute production SQL.
 
 ## ADR-007 — Registration metadata is separate from connection secrets
 
-Server registrations may contain endpoint and authentication-mode metadata, but never passwords or full connection strings. Secret values are resolved through a backend-only boundary from external secret configuration. Registration JSON omits even the opaque secret reference, and missing secrets fail closed.
+Server registrations may contain endpoint and authentication-mode metadata, but never passwords or full connection strings. Secret values are resolved through a backend-only boundary.
 
 ## ADR-008 — Test Connection is bounded and redacted
 
-Test Connection accepts a server registration ID only and runs exclusively in the authorized backend. It uses `Microsoft.Data.SqlClient`, explicit connection/overall timeouts, cancellation, no pooling, and fixed safe result messages. Raw provider exceptions, credentials and connection strings are never returned to the browser.
+Test Connection accepts a server registration ID only and runs exclusively in the authorized backend with bounded timeouts and fixed safe result categories. Raw provider exceptions, credentials and connection strings never return to the browser.
 
-## ADR-009 — The first collector uses one reusable query result
+## ADR-009 — Collector results are reusable snapshots
 
-The lightweight collector issues one bounded command for SQL identity, uptime and database counts. One row feeds the whole identity snapshot; it does not fan out into widget or per-database queries. Invalid or partial rows fail safely instead of inventing healthy values.
+Collector work is backend-owned and bounded. One collected snapshot feeds multiple UI surfaces instead of widget/per-database SQL fan-out.
 
 ## ADR-010 — Snapshot cache is fresh/stale and single-flight
 
-Cached server snapshots are fresh for 30 seconds and retained as an explicitly stale fallback for five minutes. Concurrent refresh requests for the same registration await one shared collection task. Refresh failure never overwrites the last good value, and older collection timestamps never replace newer snapshots.
+Cached server snapshots have bounded freshness/stale fallback and concurrent refresh consumers share one collection task. Refresh failure never overwrites a newer good snapshot.
 
-## ADR-011 — Mixed real and demo data is labeled per card
+## ADR-011 — Real and demo data are explicitly labeled
 
-The first configured server may replace one demo estate card from the backend snapshot cache. Every card carries an explicit Demo, LiveFresh or LiveStale source. Missing real dimensions are presented as not collected, never filled with preview numbers. If no configuration or usable snapshot exists, the unchanged estate remains explicitly development data.
+Missing real dimensions are presented as not collected rather than invented from demo values. Once a real estate exists, unavailable real targets remain visible instead of being silently replaced by demo cards.
 
 ## ADR-012 — Manual refresh is backend-controlled and throttled
 
-Snapshot refresh is an administrator POST accepting only a registration ID. A 15-second atomic per-server throttle rejects repeated requests before collection, while the cache single-flight coalesces concurrent accepted work. The browser cannot provide SQL text, endpoints, credentials or collection frequency.
+Snapshot refresh is an administrator POST by registration ID, with atomic per-server throttling and cache single-flight. The browser cannot provide SQL text, credentials or collection frequency.
 
-## ADR-013 — SignalR delivery is deferred until snapshots are published independently
+## ADR-013 — SignalR is delivery-only and deferred until independent publication exists
 
-SignalR is not added in M1 because snapshots are currently produced on request and there is no scheduled publisher, so a hub would add reconnect/authentication/state complexity without carrying independently produced updates. Revisit when multiple consumers need independently produced updates or measured polling load justifies push. SignalR, if adopted, is delivery-only and must never invoke collectors or alter refresh frequency.
+SignalR is not introduced merely to make request-driven collection look live. It may be added only as downstream delivery for snapshots produced independently of a UI request.
 
-## ADR-014 — Memory health extends the existing collector row
+## ADR-014 — Memory and later health modules extend the shared snapshot
 
-M2 memory data is projected from `sys.dm_os_sys_memory` and `sys.dm_os_process_memory` inside the existing bounded collector command. It does not add a widget query or second connection. The snapshot stores raw validated facts; thresholds, alerts, UI and history remain later tasks.
+Memory, database states, backup, Agent, storage, blocking and baseline performance are immutable bounded facts on the canonical snapshot and shared cache boundary.
 
 ## ADR-015 — Health modules remain bounded snapshot facts
 
-Database states, backup coverage, SQL Agent, storage allocation and blocking are immutable optional modules on the canonical snapshot. One fixed backend command collects aggregate facts under the existing timeout/cache boundary. Browsers cannot supply SQL or trigger per-widget queries. Negative, inconsistent or overflowing values fail through the redacted collector boundary. Full-detail lists, history and UI policy remain separate slices.
+Aggregate health facts must not expose SQL text, job command, physical path, credentials or raw provider messages. Invalid/inconsistent facts fail through the redacted collector boundary.
 
 ## ADR-016 — Module pages consume one shared cached projection
 
-Database, backup, SQL Agent, storage and blocking pages consume immutable module facts through `IMonitorReadService`. Null means not collected, stale remains explicit, and storage allocation is never presented as disk capacity. Controllers and browser code cannot call collectors or provide SQL.
+Dedicated health pages are read projections over `IMonitorReadService`; they are not collection triggers.
 
 ## ADR-017 — Findings are deterministic and incidents resolve only from fresh evidence
 
-The rule evaluator emits allowlisted IDs, severities and compact evidence from snapshots only. Incident identity is registration plus rule ID. Repeated evidence updates one record; older observations are ignored. Missing, stale or failed collection cannot resolve an incident. Only a newer fresh evaluation without the finding may resolve it. The initial repository is intentionally in-memory and executes no remediation.
+Incident identity is registration plus rule ID. Older observations are ignored and missing/stale/failed collection cannot resolve incidents. Only newer fresh evidence may resolve them.
 
-## ADR-018 — Incident commands are explicit and advisory recommendations never execute
+## ADR-018 — Incident commands are explicit and recommendations never execute
 
-Operator transitions are authorized POST actions protected by antiforgery and accept only an incident ID. Recommendation text is selected from a server-owned rule catalog. It is rendered as human-review guidance and has no path to the SQL client, collector or connection lab.
+Operator transitions are authorized antiforgery-protected POST actions. Recommendation content is server-owned human-review guidance with no SQL execution path.
 
 ## ADR-019 — AI integration starts as a disabled backend boundary
 
-Advisor context contains only normalized rule metadata, bounded evidence and deterministic recommendation text. The provider is backend-only and disabled by default. The UI displays provider status and cannot execute output, SQL or remediation. External model integration requires a later explicit configuration and security review.
+Advisor context is normalized and bounded. Provider integration is backend-only, disabled by default and disconnected from SQL execution/autonomous remediation.
 
 ## ADR-020 — History is bounded aggregate evidence
 
-History stores only allowlisted snapshot aggregates, deduplicated by registration and collection time. The in-memory phase retains at most 288 points per server for 24 hours. Fixed-window reads never trigger collection. The schedule policy validates safe bounds and remains disabled by default; no hosted timer is activated in this slice.
+History keeps allowlisted aggregate facts, deduplicated by registration/time, with fixed retention and no collection side effect from reads.
 
 ## ADR-021 — Scheduled collection is disabled by default and failure-isolated
 
-The hosted scheduler validates interval and concurrency at startup, performs no immediate collection, and exits without cycles unless explicitly enabled. Cycles are sequential at the host level and bounded-parallel per server. Each successful snapshot is observed once; categorized server failures are isolated and receive capped exponential backoff. Runtime status exposes counts and timestamps only.
+The hosted scheduler has no immediate startup collection, validates policy, prevents overlapping host cycles, bounds server concurrency and isolates/backoffs failures.
 
 ## ADR-022 — Monitoring authorization uses named policies
 
-Viewer, Operator and Administrator roles map to explicit read, incident operation, connection management and advisor request policies. Unsafe operator and advisor actions remain POST plus antiforgery. Cookies are HttpOnly, strict SameSite and always secure outside Development. Responses receive a baseline CSP, frame denial, nosniff and no-referrer headers.
+Viewer, Operator and Administrator roles map to explicit read, incident-operation, connection-management and Advisor policies. Unsafe actions remain POST plus antiforgery.
 
 ## ADR-023 — Advisor requests are explicit, bounded and audited
 
-Incident detail reads do not grant execution capability. An Operator or Administrator explicitly POSTs an incident ID to request advice. The backend builds context, coalesces duplicate requests, caches only the matching evidence version for five minutes, applies a ten-second timeout and opens a short circuit after repeated failures. Audit stores metadata/status only, never raw prompts, credentials or provider exceptions.
+Advisor requests are explicit authorized actions with single-flight, evidence-version caching, timeout, circuit behavior and metadata-only audit.
 
 ## ADR-024 — First-run commissioning is one deliberate backend workflow
 
-After login, an administrator with no enabled registration is routed to Connections. Saving a target performs a bounded Test Connection and, only on success, one first snapshot collection through the shared cache and observer before redirecting to Servers. SQL Login credentials entered in this preview are stored only in process memory under a server-generated opaque reference; they never enter registration metadata, JSON, HTML, logs or audit, and disappear on restart. Production deployments should use the external configuration reference boundary.
+An administrator with no enabled registration is routed to Connections. Save -> Test -> first collection -> observer -> Servers is one backend-controlled journey. Runtime SQL Login values are process-memory only and never rendered/persisted.
 
 ## ADR-025 — Real registrations replace the demo estate as a whole
 
-When no registration exists, the visual demo remains explicitly labeled. Once real registrations exist, estate reads return every enabled registration in deterministic order. A target without a usable snapshot remains visible as `RegisteredUnavailable`; it is never silently replaced by demo data. Dashboard and server pages share this projection.
+When real registrations exist, all enabled registrations are returned in deterministic order and an unavailable target remains `RegisteredUnavailable`; demo cards are not mixed in.
 
 ## ADR-026 — Incident audit enrichment must not break the workflow contract
 
-M5-026 keeps the existing boolean `IIncidentWorkflowService` transition API unchanged. The authorized controller reads the canonical `IHealthIncidentRepository` immediately before and after the existing atomic status transition and records only bounded state metadata in the existing `IAuditStore`. The canonical audit action remains `incident.transition`. If repository state cannot be observed, the audit outcome falls back to the established `applied` / `conflict` values instead of inventing state. Missing authenticated actor identity fails closed before mutation. Incident evidence, SQL text, credentials, endpoints, provider errors and arbitrary request payloads are excluded from transition audit metadata.
+M5-026 keeps the boolean incident workflow API and reads canonical incident repository state around the atomic transition to produce bounded state-aware audit metadata. Missing actor identity fails closed before mutation.
 
 ## ADR-027 — Persist registration metadata, never runtime credential values
 
-M7-001 makes the existing `IServerRegistrationRepository` durable without broadening the secret boundary. The default implementation writes a versioned Monitor-owned metadata file outside `wwwroot`; the application may still select the in-memory implementation through configuration. The persisted contract includes endpoint/authentication metadata and, for SQL Login registrations, the opaque `ConnectionSecretReference` only. It never contains SQL usernames, passwords or full connection strings.
-
-File mutations are serialized, flushed to a same-directory temporary file and atomically moved into place. A failed write restores the prior in-memory state. Malformed, unsupported or domain-invalid persisted data fails application startup rather than silently producing an empty estate. Runtime credentials created by the M6 commissioning UI remain process-memory only and therefore intentionally cannot survive restart; their persisted opaque references become unresolved until an operator supplies a new credential or migrates the registration to an external enterprise secret reference. A future shared/HA repository may replace the file implementation behind the unchanged interface.
+M7-001 uses a versioned Monitor-owned file outside `wwwroot`, persisting only registration metadata and opaque secret references. Writes are atomic and corrupt state fails startup. Runtime credential values remain process-memory only.
 
 ## ADR-028 — A provider-owned secret reference never downgrades to another source
 
-M7-002 adds external secret-provider routing behind `IConnectionSecretStore` without changing SQL connection callers. Process-memory runtime credentials remain first priority. If an external provider claims a reference, its result is final for that resolution attempt; a missing or invalid provider-owned secret does not fall through to legacy configuration.
-
-The first provider owns the `env:` prefix. Its alias is a strict bounded identifier and the resulting username/password are read directly from `Environment.GetEnvironmentVariable` using `MONITOR_SQL_SECRET_<ALIAS>_USERNAME` and `_PASSWORD`. The values are intentionally not read through `IConfiguration`, so an `env:` reference cannot be satisfied accidentally by `appsettings.json`. Non-`env:` references retain the existing `ConnectionSecrets:<reference>` behavior for backward compatibility. No provider value or raw error is added to registration persistence, logs, audit, UI or monitored SQL.
+M7-002 gives external providers ownership over recognized references. A provider-owned null result is final for that attempt. `env:` references resolve directly from strict process environment variables and never from appsettings fallback.
 
 ## ADR-029 — Durable operational state is split by state machine and committed before publication
 
-M7-003 keeps audit, snapshot history and incident lifecycle persistence behind their existing interfaces but does not combine them into one storage transaction. Each state machine owns an independent versioned file under the configured Monitor operational-state root so history churn cannot block an incident mutation and a damaged audit file cannot be silently ignored as healthy incident state.
+M7-003 keeps audit, history and incident lifecycle in independent versioned files under one Monitor-owned root. Candidate state is durably committed before live state changes. Corrupt/domain-invalid state fails closed and bounded persistence excludes SQL credentials/text/endpoints/provider errors/job commands/arbitrary payloads.
 
-Every mutation builds candidate state first. The candidate is written to a same-directory temporary file, flushed to disk and atomically moved into place before the in-process reference is replaced. This preserves the invariant that a successful in-memory mutation has already been durably committed. Corrupt or domain-invalid files fail closed at startup. Persisted operational state stays bounded to its existing contracts and excludes SQL credentials, SQL text, monitored endpoints, provider errors, job commands and arbitrary payloads. The file implementations are explicitly single-node; M7-004 must prevent accidental HA/multi-node use without a shared provider.
+## ADR-030 — Multi-node intent fails closed until shared state and coordination are real
+
+M7-004 adds explicit deployment topology. `SingleNode` is supported. Selecting `MultiNode` is rejected during startup while registration/operational storage, runtime credentials, login limiting, snapshot cache/single-flight and scheduler coordination still contain node-local state.
+
+This is an intentional safety invariant: local files, process memory or a network-share path must not be treated as a distributed transaction/coordination system. A future shared provider may enable multi-node only after persistence and coordination capabilities are externally implemented and validated. The Settings readiness view is informational and cannot override the startup guard.

@@ -52,4 +52,5 @@
 | Real Dashboard projection | M6 | CI verified | Cache-backed servers, database totals and incidents; CI 31378848889 |
 | Durable registration metadata | M7 | CI verified | Atomic file store outside `wwwroot`; opaque secret references only; CI 31380699808 |
 | Environment-injected external SQL secret provider | M7 | CI verified | `env:<alias>` direct process environment; no config fallback; CI 31381465706 |
-| Durable Monitor-owned operational state | M7 | CI verified | Independent atomic audit/history/incident files; 89/89 tests; CI 31382770932 |
+| Durable Monitor-owned operational state | M7 | CI verified | Independent atomic audit/history/incident files; CI 31382770932 |
+| HA topology safety guard | M7 | CI verified | SingleNode allowed; MultiNode startup blocked until shared state exists; Settings readiness view; CI 31383750309 |
