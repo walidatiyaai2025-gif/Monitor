@@ -92,7 +92,7 @@ This is the canonical execution plan. Update it in the same PR as material imple
 | M5-005 | Disabled-by-default validated schedule policy | VERIFIED — CI RUN 31375034604 |
 | M5-006 | Deterministic collection cycle | VERIFIED — CI RUN 31375034604 |
 | M5-007 | Fixed-window read-only trends page | VERIFIED — CI RUN 31375034604 |
-| M5-008 | Immutable operator audit trail for protected incident transitions | PLANNED |
+| M5-008 | Operator audit trail for protected incident transitions + read-only Admin view | IMPLEMENTED — CI PENDING |
 
 ## Delivery loop
 
