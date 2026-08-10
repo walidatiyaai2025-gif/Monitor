@@ -55,12 +55,14 @@ This is the canonical execution plan. Update it in the same PR as material imple
 | Batch 4 | B100-031..040 | Production health, telemetry, correlation & redacted logging | CI VERIFIED — 31396619576 |
 | Batch 5 | B100-041..050 | Performance & scale governance | CI VERIFIED — 31399632281 |
 | Batch 6 | B100-051..060 | DBA UX & operations surfaces | CI VERIFIED — 31402491011 |
-| Batch 7 | B100-061..070 | Web/application security hardening | NEXT |
+| Batch 7 | B100-061..070 | Web/application security hardening | IMPLEMENTED — AWAITING FINAL CI |
 | Batch 8 | B100-071..080 | Reliability & concurrency verification | PLANNED |
 | Batch 9 | B100-081..090 | Deployment & operations tooling/docs | PLANNED |
 | Batch 10 | B100-091..100 | Enterprise operator features & RC acceptance | PLANNED |
 
-Current progress: **60/100 tasks CI verified**. The next executable batch is **B100-061..070 — web/application security hardening**.
+Current verified progress remains **60/100 tasks** until Batch 7 passes its final Release build/tests on the canonical-docs head. B100-061..070 are implemented on `agent/b100-7` and cover strict nonce-backed CSP/security headers, antiforgery regression coverage, idle + absolute session lifetime, opaque bounded login lockout, explicit trusted forwarders, HSTS policy validation, strict metadata normalization, connection-string injection tests and cross-boundary secret canaries.
+
+The next executable batch after Batch 7 is verified and merged is **B100-071..080 — reliability & concurrency verification**.
 
 ## Delivery loop
 
