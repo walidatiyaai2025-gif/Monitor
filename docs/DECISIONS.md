@@ -67,3 +67,7 @@ Database, backup, SQL Agent, storage and blocking pages consume immutable module
 ## ADR-017 — Findings are deterministic and incidents resolve only from fresh evidence
 
 The rule evaluator emits allowlisted IDs, severities and compact evidence from snapshots only. Incident identity is registration plus rule ID. Repeated evidence updates one record; older observations are ignored. Missing, stale or failed collection cannot resolve an incident. Only a newer fresh evaluation without the finding may resolve it. The initial repository is intentionally in-memory and executes no remediation.
+
+## ADR-018 — Recommendations are deterministic, advisory and non-executable
+
+M3-005 maps only known allowlisted incident rule IDs to application-owned recommendation templates. Each recommendation explains the problem, preserves bounded evidence, provides ordered remediation guidance and may include a fixed read-only diagnostic SQL statement. Incident evidence, browser input and AI output are never interpolated into diagnostic SQL. Unsupported rule IDs fail closed. Monitor provides no recommendation execution endpoint: ALTER/RESTORE/BACKUP/KILL/DBCC/job execution or any other production mutation remains a deliberate DBA/change-management action outside this recommendation service.
