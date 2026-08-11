@@ -22,10 +22,13 @@ on:
       - 'scripts/Accept-ProductionSingleNode.ps1'
       - 'scripts/Test-IisProductionPrerequisites.ps1'
       - 'scripts/Deploy-ProductionSingleNode.ps1'
+      - 'scripts/New-ProductionAcceptanceEvidencePack.ps1'
+      - 'scripts/Test-ProductionAcceptanceEvidence.ps1'
       - 'src/Monitor.Web/**'
       - 'tests/Monitor.Web.Tests/ProductionAdminCredentialGuardTests.cs'
       - 'tests/Monitor.Web.Tests/P05ProductionCandidateTests.cs'
       - 'tests/Monitor.Web.Tests/P05IisDeploymentAutomationTests.cs'
+      - 'tests/Monitor.Web.Tests/P05ProductionAcceptanceEvidencePackTests.cs'
 
 permissions:
   contents: read
@@ -64,7 +67,9 @@ jobs:
             'scripts/Test-ProductionCandidate.ps1',
             'scripts/Accept-ProductionSingleNode.ps1',
             'scripts/Test-IisProductionPrerequisites.ps1',
-            'scripts/Deploy-ProductionSingleNode.ps1'
+            'scripts/Deploy-ProductionSingleNode.ps1',
+            'scripts/New-ProductionAcceptanceEvidencePack.ps1',
+            'scripts/Test-ProductionAcceptanceEvidence.ps1'
           )
           foreach ($path in $paths) {
             $tokens = $null
@@ -78,6 +83,86 @@ jobs:
               throw ($messages -join [Environment]::NewLine)
             }
           }
+
+      - name: Exercise acceptance evidence closure validator
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = Join-Path $env:RUNNER_TEMP 'monitor-p0-5-evidence-contract'
+          Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path $root, (Join-Path $root 'evidence') | Out-Null
+
+          $source = ('a' * 40) -join ''
+          $merge = ('b' * 40) -join ''
+          $artifactHash = ('c' * 64) -join ''
+          $thumbprint = ('d' * 40) -join ''
+          $packPath = Join-Path $root 'p0-5-evidence-pack.json'
+          $summaryPath = Join-Path $root 'p0-5-closure-summary.json'
+
+          ./scripts/New-ProductionAcceptanceEvidencePack.ps1 `
+            -CandidateVersion '0.0.0-ci' `
+            -ArtifactFileName 'Monitor-0.0.0-ci-win-x64.zip' `
+            -ArtifactSha256 $artifactHash `
+            -SourceCommit $source `
+            -TestedMergeCommit $merge `
+            -HostName 'monitor.example.internal' `
+            -SiteName 'Monitor' `
+            -AppPoolName 'Monitor' `
+            -AppPoolIdentity 'IIS AppPool\Monitor' `
+            -CertificateThumbprint $thumbprint `
+            -OperationalBackupId 'ci-backup-001' `
+            -PreviousPhysicalPath 'C:\Program Files\Monitor\releases\previous' `
+            -StateRoot 'C:\ProgramData\Monitor\App_Data' `
+            -OutputPath $packPath
+
+          $pack = Get-Content -LiteralPath $packPath -Raw | ConvertFrom-Json -Depth 20
+          $gateIndex = 0
+          foreach ($property in $pack.gates.PSObject.Properties) {
+            $gateIndex++
+            $relative = "evidence/$($property.Name).txt"
+            $target = Join-Path $root $relative
+            "gate=$($property.Name);result=PASS;source=windows-ci" | Set-Content -LiteralPath $target -Encoding utf8NoBOM
+            $property.Value.passed = $true
+            $property.Value.verifiedAtUtc = [DateTimeOffset]::UtcNow.AddSeconds(-30 + $gateIndex).ToString('O')
+            $property.Value.evidenceRef = $relative
+            $property.Value.evidenceSha256 = (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash.ToLowerInvariant()
+          }
+          $pack.acceptedBy = 'ci-operator'
+          $pack.acceptedAtUtc = [DateTimeOffset]::UtcNow.ToString('O')
+          $pack | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $packPath -Encoding utf8NoBOM
+
+          ./scripts/Test-ProductionAcceptanceEvidence.ps1 -EvidencePath $packPath -ClosureSummaryPath $summaryPath | Out-Null
+          if (-not (Test-Path -LiteralPath $summaryPath -PathType Leaf)) { throw 'Positive closure validator did not create a summary.' }
+
+          function Assert-Rejected {
+            param([string]$Path, [string]$FailureMessage)
+            $rejected = $false
+            try {
+              ./scripts/Test-ProductionAcceptanceEvidence.ps1 -EvidencePath $Path | Out-Null
+            }
+            catch {
+              $rejected = $true
+            }
+            if (-not $rejected) { throw $FailureMessage }
+          }
+
+          $negativeGatePath = Join-Path $root 'negative-gate.json'
+          $negativeGate = Get-Content -LiteralPath $packPath -Raw | ConvertFrom-Json -Depth 20
+          $negativeGate.gates.artifactChecksumVerified.passed = $false
+          $negativeGate | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $negativeGatePath -Encoding utf8NoBOM
+          Assert-Rejected -Path $negativeGatePath -FailureMessage 'Negative gate unexpectedly passed.'
+
+          $tamperedHashPath = Join-Path $root 'tampered-hash.json'
+          $tamperedHash = Get-Content -LiteralPath $packPath -Raw | ConvertFrom-Json -Depth 20
+          $tamperedHash.gates.iisPreflightPassed.evidenceSha256 = ('0' * 64) -join ''
+          $tamperedHash | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $tamperedHashPath -Encoding utf8NoBOM
+          Assert-Rejected -Path $tamperedHashPath -FailureMessage 'Tampered evidence hash unexpectedly passed.'
+
+          $secretPath = Join-Path $root 'secret-bearing.json'
+          $secretPack = Get-Content -LiteralPath $packPath -Raw | ConvertFrom-Json -Depth 20
+          $secretPack | Add-Member -NotePropertyName 'password' -NotePropertyValue 'must-never-be-retained'
+          $secretPack | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $secretPath -Encoding utf8NoBOM
+          Assert-Rejected -Path $secretPath -FailureMessage 'Secret-bearing evidence unexpectedly passed.'
 
       - name: Restore Windows x64 runtime graph
         run: dotnet restore src/Monitor.Web/Monitor.Web.csproj --runtime win-x64
@@ -246,12 +331,15 @@ jobs:
           $ops = 'artifacts/publish/_operations'
           New-Item -ItemType Directory -Force -Path "$ops/deploy", "$ops/scripts", "$ops/docs" | Out-Null
           Copy-Item deploy/appsettings.Production.example.json "$ops/deploy/" -Force
+          Copy-Item deploy/production-acceptance-evidence.example.json "$ops/deploy/" -Force
           Copy-Item scripts/Smoke-Monitor.ps1 "$ops/scripts/" -Force
           Copy-Item scripts/Smoke-MonitorAuthentication.ps1 "$ops/scripts/" -Force
           Copy-Item scripts/Test-ProductionCandidate.ps1 "$ops/scripts/" -Force
           Copy-Item scripts/Accept-ProductionSingleNode.ps1 "$ops/scripts/" -Force
           Copy-Item scripts/Test-IisProductionPrerequisites.ps1 "$ops/scripts/" -Force
           Copy-Item scripts/Deploy-ProductionSingleNode.ps1 "$ops/scripts/" -Force
+          Copy-Item scripts/New-ProductionAcceptanceEvidencePack.ps1 "$ops/scripts/" -Force
+          Copy-Item scripts/Test-ProductionAcceptanceEvidence.ps1 "$ops/scripts/" -Force
           Copy-Item docs/DEPLOY_IIS.md "$ops/docs/" -Force
           Copy-Item docs/UPGRADE_CHECKLIST.md "$ops/docs/" -Force
           Copy-Item docs/ROLLBACK_RUNBOOK.md "$ops/docs/" -Force
