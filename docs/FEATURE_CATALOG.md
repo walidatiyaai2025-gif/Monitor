@@ -2,11 +2,11 @@
 
 | Feature | Milestone | Status | Notes |
 |---|---|---|---|
-| Real SQL production registration gate | P0.1 | CI verified | Issue #112 / PR #119; candidate Test precedes durable commit; failed/cancelled owned-secret compensation; final CI 31476747212, 501/501 |
-| Truthful first-snapshot projection | P0.2 | CI verified | Issue #113 / PR #121; nullable CPU/Memory evidence, actual Agent total/enabled/failed-last-run facts, safe Server Details evidence envelope; final CI 31478470867, 505/505 |
-| Server Details production source of truth | P0.3 | CI verified | Issue #114 / PR #122; evidence-first page, synthetic Health Score removed, cache-only GET; final CI 31479311552, 507/507 |
-| Real SQL end-to-end acceptance | P0.4 | Real-SQL verified | Issue #115 / PR #123 + #124; SQL Server 2022 full Add/Test/Register/Collect/View/Refresh/Restart journey plus auth/network/timeout/TLS/server-permission/msdb failures; implementation gates 31481298862 518/518 + 31481298848 8/8 RealSql; final head gate pending |
-| First Production SingleNode release | P0.5 | READY / NEXT | Issue #116; IIS/HTTPS, durable state/credentials, health smoke, read-only target, backup/rollback and versioned candidate gate after #124 merge |
+| Real SQL production registration gate | P0.1 | Complete | Issue #112 / PR #119; candidate Test precedes durable commit; failed/cancelled owned-secret compensation; final CI 31476747212, 501/501 |
+| Truthful first-snapshot projection | P0.2 | Complete | Issue #113 / PR #121; nullable CPU/Memory evidence, actual Agent total/enabled/failed-last-run facts, safe Server Details evidence envelope; final CI 31478470867, 505/505 |
+| Server Details production source of truth | P0.3 | Complete | Issue #114 / PR #122; evidence-first page, synthetic Health Score removed, cache-only GET; final CI 31479311552, 507/507 |
+| Real SQL end-to-end acceptance | P0.4 | Complete | Issue #115 / PR #123 + #124; PR #124 merged f4c08292734c293a6d0b865cc2a005b8c42b02a6; final normal CI 31481874425 518/518 + Real SQL 31481874501 8/8 |
+| First Production SingleNode release | P0.5 | Candidate CI verified / external pending | Issue #116 / PR #126; Windows HTTPS candidate run 31484860580 Green, normal CI 31484860596 Green, 527/527, auth + health before/after restart, RC.15 ZIP/SHA; actual IIS/trusted HTTPS/recycle/deployed least privilege/rollback rehearsal pending |
 | Development Admin authentication | M0 | Verified | Cookie auth; PBKDF2 hash only |
 | SQL Command Center / DBA estate UI | M0 | Verified | Central live visual language; controlled client motion |
 | Server registration + Test Connection | M1 | CI verified | Bounded backend-only connection workflow |

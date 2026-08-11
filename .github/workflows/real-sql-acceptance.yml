@@ -88,7 +88,7 @@ jobs:
           docker logs "$SQL_CONTAINER" 2>&1 | tail -n 200 >&2
           exit 1
 
-      - name: Wait for SQL Server Agent readiness
+      - name: Wait for SQL Server Agent service
         shell: bash
         run: |
           set -euo pipefail
@@ -98,12 +98,12 @@ jobs:
               -Q "SET NOCOUNT ON; SELECT CASE WHEN EXISTS (SELECT 1 FROM sys.dm_server_services WHERE servicename LIKE 'SQL Server Agent%' AND status_desc = 'Running') THEN 1 ELSE 0 END;" \
               2>/dev/null | tr -d '[:space:]' || true)
             if [ "$STATUS" = "1" ]; then
-              echo "SQL Server Agent is running after $attempt attempt(s)."
+              echo "SQL Server Agent service is running after $attempt attempt(s)."
               exit 0
             fi
             sleep 2
           done
-          echo "SQL Server Agent did not become ready." >&2
+          echo "SQL Server Agent service did not become ready." >&2
           docker logs "$SQL_CONTAINER" 2>&1 | tail -n 200 >&2
           exit 1
 
@@ -128,15 +128,42 @@ jobs:
             TO DISK = N'/var/opt/mssql/data/MonitorAcceptanceBacked.bak'
             WITH INIT, CHECKSUM;
           GO
+          SQL
+
+      - name: Seed SQL Server Agent acceptance job after operational readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 30); do
+            if docker exec -i "$SQL_CONTAINER" /opt/mssql-tools18/bin/sqlcmd \
+              -S localhost -U sa -P "$SQL_SA_PASSWORD" -C -b >/dev/null 2>&1 <<'SQL'
           USE msdb;
-          EXEC dbo.sp_add_job
-            @job_name = N'MonitorAcceptanceJob',
-            @enabled = 1,
-            @description = N'P0 real SQL acceptance metadata only';
-          EXEC dbo.sp_add_jobserver
-            @job_name = N'MonitorAcceptanceJob';
+          IF NOT EXISTS (SELECT 1 FROM dbo.sysjobs WHERE name = N'MonitorAcceptanceJob')
+          BEGIN
+              EXEC dbo.sp_add_job
+                  @job_name = N'MonitorAcceptanceJob',
+                  @enabled = 1,
+                  @description = N'P0 real SQL acceptance metadata only';
+          END;
+          IF NOT EXISTS (
+              SELECT 1
+              FROM dbo.sysjobs AS j
+              INNER JOIN dbo.sysjobservers AS js ON js.job_id = j.job_id
+              WHERE j.name = N'MonitorAcceptanceJob')
+          BEGIN
+              EXEC dbo.sp_add_jobserver @job_name = N'MonitorAcceptanceJob';
+          END;
           GO
           SQL
+            then
+              echo "SQL Server Agent accepted job metadata after $attempt attempt(s)."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "SQL Server Agent never reached operational job-metadata readiness." >&2
+          docker logs "$SQL_CONTAINER" 2>&1 | tail -n 200 >&2
+          exit 1
 
       - name: Apply monitored SQL least privilege
         shell: bash
