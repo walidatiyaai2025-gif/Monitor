@@ -65,11 +65,13 @@ public static class Batch500DeploymentEvidence
 
     public static string Fingerprint(string? environment, string? artifact, string? sha256, string? commitSha)
     {
-        var canonical = string.Join('|',
+        var canonical = string.Join("|", new[]
+        {
             NormalizeEnvironment(environment),
             NormalizeArtifactName(artifact),
             (sha256 ?? string.Empty).Trim().ToUpperInvariant(),
-            (commitSha ?? string.Empty).Trim().ToLowerInvariant());
+            (commitSha ?? string.Empty).Trim().ToLowerInvariant()
+        });
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonical)));
     }
 }
@@ -136,8 +138,16 @@ public static class Batch500IisReadiness
 
 public static class Batch500CertificateReadiness
 {
-    public static string NormalizeHostname(string? value) =>
-        Batch500DeploymentEvidence.HostLabel(value);
+    public static string NormalizeHostname(string? value)
+    {
+        var normalized = (value ?? string.Empty).Trim().ToLowerInvariant();
+        if (normalized.StartsWith("*.", StringComparison.Ordinal))
+        {
+            var suffix = Batch500DeploymentEvidence.HostLabel(normalized[2..]);
+            return string.IsNullOrEmpty(suffix) ? string.Empty : "*." + suffix;
+        }
+        return Batch500DeploymentEvidence.HostLabel(normalized);
+    }
 
     public static int RemainingDays(DateTimeOffset now, DateTimeOffset notAfter) =>
         Math.Max(0, (int)Math.Floor((notAfter - now).TotalDays));
@@ -165,7 +175,7 @@ public static class Batch500CertificateReadiness
     public static bool SanMatches(string? host, IEnumerable<string> sans)
     {
         var normalizedHost = NormalizeHostname(host);
-        if (string.IsNullOrEmpty(normalizedHost)) return false;
+        if (string.IsNullOrEmpty(normalizedHost) || normalizedHost.StartsWith("*.", StringComparison.Ordinal)) return false;
 
         foreach (var san in sans)
         {
@@ -449,7 +459,7 @@ public static class Batch500CutoverSafety
     {
         var ticket = NormalizeTicket(value);
         return ticket.Length >= 3 &&
-               ticket.Contains('-', StringComparison.Ordinal) &&
+               ticket.Contains('-') &&
                ticket.All(ch => char.IsLetterOrDigit(ch) || ch is '-' or '_');
     }
 
@@ -500,7 +510,7 @@ public static class Batch500EvidenceSafety
         var text = (value ?? string.Empty).ToLowerInvariant();
         var hasServer = text.Contains("server=", StringComparison.Ordinal) ||
                         text.Contains("data source=", StringComparison.Ordinal);
-        var hasSeparator = text.Contains(';', StringComparison.Ordinal);
+        var hasSeparator = text.Contains(';');
         var hasIdentity = text.Contains("user id=", StringComparison.Ordinal) ||
                           text.Contains("uid=", StringComparison.Ordinal) ||
                           ContainsPasswordAssignment(text);
@@ -538,7 +548,8 @@ public static class Batch500EvidenceSafety
     public static string ClampValue(string? value, int maxLength = 256)
     {
         if (maxLength < 0) throw new ArgumentOutOfRangeException(nameof(maxLength));
-        var normalized = (value ?? string.Empty).Replace('\r', ' ').Replace('\n', ' ').Trim();
+        var raw = (value ?? string.Empty).Trim();
+        var normalized = string.Join(' ', raw.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
         return normalized.Length <= maxLength ? normalized : normalized[..maxLength];
     }
 
@@ -644,7 +655,7 @@ public static class Batch500ReleaseGate
 
     public static string ContractHash()
     {
-        var canonical = string.Join('|',
+        var canonical = string.Join("|",
             new[] { SchemaVersion, TaskId(Start), TaskId(End), "external-acceptance-required" }
                 .Concat(FeatureGroups())
                 .Concat(Guardrails())
