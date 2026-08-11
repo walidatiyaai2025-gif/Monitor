@@ -52,11 +52,13 @@ public sealed class ConnectionLabController(
             }
 
             ConnectionSecretReference? secretReference = null;
+            var createdCandidateCredential = false;
             if (input.AuthenticationMode == SqlAuthenticationMode.SqlLogin)
             {
                 if (!string.IsNullOrWhiteSpace(input.SqlUsername) && !string.IsNullOrEmpty(input.SqlPassword))
                 {
                     secretReference = await credentialWriter.StoreAsync(input.SqlUsername, input.SqlPassword, cancellationToken);
+                    createdCandidateCredential = true;
                 }
                 else
                 {
@@ -73,12 +75,38 @@ public sealed class ConnectionLabController(
                 true,
                 DateTimeOffset.UtcNow);
 
-            registrations.Upsert(registration);
-            var testResult = await tester.TestAsync(registration, cancellationToken);
+            ConnectionTestResult testResult;
+            try
+            {
+                testResult = await tester.TestAsync(registration, cancellationToken);
+            }
+            catch
+            {
+                input.SqlPassword = null;
+                await TryCleanupCandidateCredentialAsync(secretReference, createdCandidateCredential);
+                throw;
+            }
+
             if (!testResult.Succeeded)
             {
                 input.SqlPassword = null;
-                return View("Index", BuildPage(input, testResult, registration.Id));
+                var cleanupSucceeded = await TryCleanupCandidateCredentialAsync(secretReference, createdCandidateCredential);
+                ModelState.AddModelError(
+                    string.Empty,
+                    cleanupSucceeded
+                        ? testResult.Message
+                        : "Connection failed and the temporary Monitor-owned credential could not be cleaned up automatically. Run owned credential cleanup before retrying.");
+                return View("Index", BuildPage(input, testResult));
+            }
+
+            try
+            {
+                registrations.Upsert(registration);
+            }
+            catch
+            {
+                await TryCleanupCandidateCredentialAsync(secretReference, createdCandidateCredential);
+                throw;
             }
 
             try
@@ -229,6 +257,23 @@ public sealed class ConnectionLabController(
         if (result.Status == ServerTargetLifecycleStatus.NotFound) return NotFound();
         TempData["ConnectionLabMessage"] = result.Message;
         return Redirect($"/servers/connections#target-{id:D}");
+    }
+
+    private async ValueTask<bool> TryCleanupCandidateCredentialAsync(
+        ConnectionSecretReference? secretReference,
+        bool createdCandidateCredential)
+    {
+        if (!createdCandidateCredential || secretReference is null) return true;
+        var reference = secretReference.Value;
+        try
+        {
+            await credentialWriter.DeleteAsync(reference, CancellationToken.None);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private ConnectionLabViewModel BuildPage(
