@@ -2,28 +2,39 @@
 
 ## CURRENT P0 — Real SQL Production MVP
 
-**Updated:** 2026-08-11 12:16 +03:00  
-**Branch:** `main`  
+**Updated:** 2026-08-11 12:33 +03:00  
+**Branch:** `agent/p0-2-truthful-snapshot-projection`  
 **Umbrella:** #111  
 **Execution ledger:** `docs/PRODUCTION_MVP.md`  
-**Priority PR:** #117 MERGED — `3674b370ca485c8fd86639f82f2a22e32bd2dacc`  
-**Priority-plan CI:** `31474556468` — Green  
 **P0.1 implementation PR:** #119 MERGED — `57ab5cae6b5bdd3a04adb5069008aae80a1f84e0`  
-**P0.1 implementation CI:** `31476430643` — Release build 0 warnings / 0 errors; **501/501 tests passed**  
 **P0.1 final code+docs CI:** `31476747212` — Release build 0 warnings / 0 errors; **501/501 tests passed**  
-**Active next gate:** #113 / P0.2 First Real Snapshot + Truthful Mapping  
-**Production target:** first trustworthy IIS/HTTPS SingleNode release after #113 -> #114 -> #115 -> #116.
+**P0.2 implementation PR:** #121  
+**P0.2 implementation CI:** `31478132641` — Release build 0 warnings / 0 errors; **505/505 tests passed**  
+**Next gate after #121 merge:** #114 / P0.3 Server Details v0.1 Source of Truth  
+**Production target:** first trustworthy IIS/HTTPS SingleNode release after #114 -> #115 -> #116.
+
+### P0.2 sprint result — IMPLEMENTATION CI VERIFIED
+
+- `ServerCard.CpuPercent` and `MemoryPercent` are now nullable evidence: absence is represented as absence rather than numeric zero.
+- CPU intentionally remains outside the current bounded SQL snapshot contract and all real production surfaces render it as `Not collected` instead of observed `0%`.
+- Real SQL Agent projection no longer invents a healthy-job count. It carries the collector's actual `TotalJobs`, `EnabledJobs`, and `FailedLastRun` facts; `JobsHealthy` remains absent for real SQL.
+- Real cards now carry safe instance name, uptime and collected-at evidence from the cached snapshot.
+- `ServerDetailsViewModel` now receives a safe cached evidence envelope for memory, database problem states, backups, SQL Agent, storage, blocking and runtime performance.
+- Dashboard, Servers and Server Details now render absent CPU/Memory/Agent evidence explicitly instead of placeholder numbers.
+- Memory Health now excludes missing memory evidence from average/peak/threshold calculations rather than treating missing evidence as zero.
+- Stale/fresh/unavailable source semantics remain explicit and all normal monitoring GETs continue to use cache `Peek` only.
+- Regression coverage proves absent CPU/Memory/Agent values remain null, real Agent facts map exactly, instance/uptime/collected-at survive projection, all safe modules reach Server Details, and Server Details uses one cache read.
+- Implementation CI `31478132641`: Release build **0 warnings / 0 errors**, **505/505 passed**, 0 failed, 0 skipped.
+- Final code+docs CI remains required before PR #121 is merged and #113 is closed.
 
 ### P0.1 sprint result — COMPLETE
 
-- Initial SQL registration now tests the candidate before durable registration commit; failed safe connection tests no longer leave a normal enabled target as a side effect.
+- Initial SQL registration tests the candidate before durable registration commit; failed safe connection tests no longer leave a normal enabled target as a side effect.
 - A newly-created Monitor-owned credential is compensated on failed/cancelled initial Test Connection and on durable-registration commit failure.
 - External secret references are not mutated by failed initial registration.
 - SQL passwords remain write-only and are cleared from failed/cancelled controller flows.
 - Integrated Security continues without creating a credential reference.
 - Successful Test Connection commits the registration before first snapshot publication; a later snapshot-permission failure retains the successfully connected durable target and reports monitoring-data unavailability explicitly.
-- Existing durable registration tests prove restart reload; protected secret-store tests prove encrypted credential resolution across store/key-ring restart without plaintext on disk.
-- New real-server-journey tests prove the repository is still empty while the candidate Test Connection executes, plus failure/cancellation cleanup, external-reference preservation and Integrated Security behavior.
 - Implementation CI `31476430643`: Release build **0 warnings / 0 errors**, **501/501 passed**, 0 failed, 0 skipped.
 - Final code+docs CI `31476747212`: Release build **0 warnings / 0 errors**, **501/501 passed**, 0 failed, 0 skipped.
 - PR #119 squash-merged to `main` as `57ab5cae6b5bdd3a04adb5069008aae80a1f84e0`.
@@ -31,25 +42,26 @@
 
 ### Management decision
 
-- The repository has a strong verified platform foundation, but the immediate delivery objective remains the end-to-end real SQL production journey rather than additional feature breadth.
+- The immediate delivery objective remains the end-to-end real SQL production journey rather than additional feature breadth.
 - Until P0.5 is accepted, production-slice blockers are higher priority than unrelated B300/B400 expansion.
-- A production-visible value must be backed by collected evidence. Missing/uncollected data is rendered explicitly; placeholder numeric zero is not acceptable as observed production data.
-- P0.1 registration ordering/credential-compensation blocker is resolved and merged.
-- **P0.2 / #113 is now ACTIVE / NEXT.** Current `ServerCard` projection sets CPU to `0` although CPU is not collected by the bounded snapshot contract, and collected SQL Agent evidence is not projected into the card used by Server Details. These are the next production-trust blockers.
-- Real-server acceptance is mandatory in #115; deterministic/fake-based CI alone does not close the production gate.
-- First production deployment is deliberately SingleNode; MultiNode activation is deferred until after the first stable production release.
+- A production-visible value must be backed by collected evidence. Missing/uncollected data is explicit; placeholder numeric zero is not acceptable as observed production data.
+- P0.1 registration ordering/credential-compensation is merged and complete.
+- P0.2 truthful projection implementation is CI verified. The CPU/SQL Agent trust blockers are resolved in PR #121 without expanding SQL collection or browser read behavior.
+- **P0.3 / #114 becomes ACTIVE / NEXT immediately after #121 merges.** It will use the safe evidence envelope now available to make Server Details the complete first DBA production source of truth.
+- Real-server acceptance remains mandatory in #115; deterministic/fake-based CI alone does not close the production gate.
+- First production deployment remains deliberately SingleNode; MultiNode activation is deferred until after the first stable production release.
 
 ### P0 release chain
 
 | Order | Release | Issue | State |
 |---|---|---|---|
 | 1 | P0.1 Real SQL Registration | #112 | COMPLETE — PR #119 MERGED / FINAL CI GREEN |
-| 2 | P0.2 First Real Snapshot + truthful mapping | #113 | ACTIVE / NEXT |
-| 3 | P0.3 Server Details v0.1 source of truth | #114 | BLOCKED BY #113 |
+| 2 | P0.2 First Real Snapshot + truthful mapping | #113 | CI VERIFIED — PR #121 / FINAL CODE+DOCS CI PENDING |
+| 3 | P0.3 Server Details v0.1 source of truth | #114 | READY / NEXT AFTER #121 MERGE |
 | 4 | P0.4 Real SQL end-to-end acceptance | #115 | BLOCKED BY #114 |
 | 5 | P0.5 First Production SingleNode | #116 | BLOCKED BY #115 |
 
-**Overall:** 🟢 verified foundation · 🟢 P0.1 COMPLETE · 🟡 P0.2 ACTIVE · 🔴 production acceptance not yet granted
+**Overall:** 🟢 verified foundation · 🟢 P0.1 COMPLETE · 🟢 P0.2 implementation CI verified · 🟡 P0.3 next · 🔴 production acceptance not yet granted
 
 ## BATCH-400 — Production DBA diagnostics continuation
 
