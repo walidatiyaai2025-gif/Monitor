@@ -149,3 +149,6 @@ Incident notes and assignees are bounded and validated; notes reject credential/
 
 CSV export uses registration/operator metadata plus snapshot-cache `Peek` only, neutralizes spreadsheet formula prefixes and excludes SQL endpoints/secret references. Administrator diagnostics contains only aggregate readiness/deployment/count metadata, is size-bounded, and excludes server identity/endpoints, incident evidence, operator notes, credentials, provider detail, environment-variable values and SQL text.
 
+## BATCH-200 release gate — fail-closed completion
+
+BATCH-200 is complete only after a one-shot release gate executes the repository Release build with `--warnaserror`, the complete test suite, and verifies exactly 100 unique B200 task rows before canonical status can become COMPLETE. The gate then removes itself and squash-merges the verified code+docs head. Final run: `31446970475`; tests: 290/290, failed: 0. This preserves BATCH-100 compatibility and prevents documentation from declaring completion before executable verification.
