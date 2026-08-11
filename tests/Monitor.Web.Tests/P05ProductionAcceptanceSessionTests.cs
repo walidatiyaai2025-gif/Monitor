@@ -10,7 +10,7 @@ public sealed class P05ProductionAcceptanceSessionTests
     public void Initializer_RequiresFreshAbsoluteSessionRootAndNeverReusesAWorkspace()
     {
         var text = Read("scripts/New-ProductionAcceptanceSession.ps1");
-        Assert.Contains("SessionRoot must be an absolute Windows path", text, StringComparison.Ordinal);
+        Assert.Contains("$Name must be an absolute Windows path", text, StringComparison.Ordinal);
         Assert.Contains("SessionRoot must be fresh and must not already exist", text, StringComparison.Ordinal);
         Assert.Contains("SessionRoot must not be a drive or UNC share root", text, StringComparison.Ordinal);
         Assert.Contains("SessionRoot parent directory must already exist", text, StringComparison.Ordinal);
