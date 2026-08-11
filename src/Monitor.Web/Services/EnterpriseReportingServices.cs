@@ -33,10 +33,14 @@ public static class EnterpriseReportContract
             if (count++ >= MaxRows) break;
             if (row.Count != headers.Count) throw new InvalidDataException("CSV row width does not match the versioned schema.");
             builder.Append(string.Join(',', row.Select(value => EscapeCell(value ?? string.Empty)))).Append('\n');
-            if (Utf8Bom.GetByteCount(builder.ToString()) > MaxBytes) throw new InvalidOperationException("CSV export exceeded the bounded size.");
+            if (Utf8Bom.GetPreamble().Length + Utf8Bom.GetByteCount(builder.ToString()) > MaxBytes) throw new InvalidOperationException("CSV export exceeded the bounded size.");
         }
 
-        var bytes = Utf8Bom.GetBytes(builder.ToString());
+        var payload = Utf8Bom.GetBytes(builder.ToString());
+        var preamble = Utf8Bom.GetPreamble();
+        var bytes = new byte[preamble.Length + payload.Length];
+        preamble.CopyTo(bytes, 0);
+        payload.CopyTo(bytes, preamble.Length);
         if (bytes.Length > MaxBytes) throw new InvalidOperationException("CSV export exceeded the bounded size.");
         return bytes;
     }
