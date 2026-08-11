@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "candidate": {
+    "version": "REPLACE_VERSION",
+    "sourceCommit": "REPLACE_40_HEX_SOURCE_COMMIT",
+    "testedMergeCommit": "REPLACE_40_HEX_TESTED_MERGE_COMMIT",
+    "artifactFileName": "Monitor-REPLACE_VERSION-win-x64.zip",
+    "sha256": "REPLACE_64_HEX_SHA256"
+  },
+  "environment": {
+    "hostName": "monitor.example.internal",
+    "siteName": "Monitor",
+    "appPoolName": "Monitor",
+    "appPoolIdentity": "IIS AppPool\\Monitor",
+    "certificateThumbprint": "REPLACE_MACHINE_CERT_THUMBPRINT",
+    "deploymentMode": "SingleNode",
+    "operationalBackupId": "REPLACE_BACKUP_ID",
+    "previousPhysicalPath": "C:\\Program Files\\Monitor\\releases\\previous",
+    "stateRoot": "C:\\ProgramData\\Monitor\\App_Data"
+  },
+  "gates": {
+    "artifactChecksumVerified": { "passed": false, "verifiedAtUtc": null, "evidenceRef": "", "evidenceSha256": "" },
+    "iisPreflightPassed": { "passed": false, "verifiedAtUtc": null, "evidenceRef": "", "evidenceSha256": "" },
+    "deploymentPlanReviewed": { "passed": false, "verifiedAtUtc": null, "evidenceRef": "", "evidenceSha256": "" },
+    "cutoverApplied": { "passed": false, "verifiedAtUtc": null, "evidenceRef": "", "evidenceSha256": "" },
+    "trustedHttpsHealthPassed": { "passed": false, "verifiedAtUtc": null, "evidenceRef": "", "evidenceSha256": "" },
+    "administratorAuthenticationPassed": { "passed": false, "verifiedAtUtc": null, "evidenceRef": "", "evidenceSha256": "" },
+    "leastPrivilegeSqlVerified": { "passed": false, "verifiedAtUtc": null, "evidenceRef": "", "evidenceSha256": "" },
+    "iisRecyclePassed": { "passed": false, "verifiedAtUtc": null, "evidenceRef": "", "evidenceSha256": "" },
+    "registrationDurabilityVerified": { "passed": false, "verifiedAtUtc": null, "evidenceRef": "", "evidenceSha256": "" },
+    "protectedCredentialDurabilityVerified": { "passed": false, "verifiedAtUtc": null, "evidenceRef": "", "evidenceSha256": "" },
+    "operationalStateDurabilityVerified": { "passed": false, "verifiedAtUtc": null, "evidenceRef": "", "evidenceSha256": "" },
+    "operationalBackupValidated": { "passed": false, "verifiedAtUtc": null, "evidenceRef": "", "evidenceSha256": "" },
+    "rollbackRehearsed": { "passed": false, "verifiedAtUtc": null, "evidenceRef": "", "evidenceSha256": "" },
+    "postRollbackHealthPassed": { "passed": false, "verifiedAtUtc": null, "evidenceRef": "", "evidenceSha256": "" },
+    "finalReadEvidencePassed": { "passed": false, "verifiedAtUtc": null, "evidenceRef": "", "evidenceSha256": "" }
+  },
+  "acceptedBy": "",
+  "acceptedAtUtc": null,
+  "note": "Operator-owned external evidence only. Never store credentials, connection strings, raw provider errors, or arbitrary SQL text in this pack or its evidence files."
+}
