@@ -152,6 +152,12 @@ The deploy automation calls `Accept-ProductionSingleNode.ps1`, which validates t
 
 It writes machine-readable evidence while deliberately leaving recycle, durable-registration, protected-credential, deployed least-privilege, backup and rollback operator checks false until the actual environment work is performed.
 
+For the standard control-plane smoke contract, run or re-run:
+
+```powershell
+.\scripts\Smoke-Monitor.ps1 -BaseUri https://monitor.example.internal
+```
+
 Then verify the remaining production gates:
 
 - `/login` renders over trusted HTTPS and authentication succeeds.
