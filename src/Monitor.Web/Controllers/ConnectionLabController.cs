@@ -264,9 +264,10 @@ public sealed class ConnectionLabController(
         bool createdCandidateCredential)
     {
         if (!createdCandidateCredential || secretReference is null) return true;
+        var reference = secretReference.Value;
         try
         {
-            await credentialWriter.DeleteAsync(secretReference, CancellationToken.None);
+            await credentialWriter.DeleteAsync(reference, CancellationToken.None);
             return true;
         }
         catch
