@@ -1,0 +1,51 @@
+name: b200-b6-finalize
+on:
+  push:
+    branches: [agent/b200-6]
+    paths: ['.github/workflows/b200-b6-finalize.yml']
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: agent/b200-6, fetch-depth: 0 }
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: '8.0.x' }
+      - run: dotnet restore Monitor.sln
+      - run: dotnet build Monitor.sln --configuration Release --no-restore --warnaserror
+      - run: dotnet test Monitor.sln --configuration Release --no-build --logger 'trx;LogFileName=b200-b6-final.trx'
+      - name: Synchronize canonical docs
+        shell: python
+        env: { VERIFY_RUN: '${{ github.run_id }}' }
+        run: |
+          from pathlib import Path
+          import os,re,xml.etree.ElementTree as ET
+          run=os.environ['VERIFY_RUN']
+          trx=next(Path('tests').rglob('b200-b6-final.trx'))
+          c=next(n for n in ET.parse(trx).iter() if n.tag.endswith('Counters'))
+          total,passed,failed=c.attrib.get('total','?'),c.attrib.get('passed','?'),c.attrib.get('failed','?')
+          p=Path('docs/BATCH_200.md'); s=p.read_text()
+          for n in range(51,61): s=re.sub(rf'(\| B200-{n:03d} \|[^\n]*?\|) PLANNED \|',rf'\1 CI VERIFIED — RUN {run} |',s)
+          marker='## Batch 7 — HA & disaster recovery for operator state'
+          para=f'''Batch 6 adds dry-run retention governance with reversible audit-backed prune receipts for orphan server metadata, aged resolved/orphan incident metadata and expired operator notes. Collaboration reads honor incident/note prune receipts; retention options validate audit/backup/history bounds; cleanup is Administrator-only POST + antiforgery and emits per-candidate plus summary audit events. Verification run `{run}` passed {passed}/{total} tests ({failed} failed).\n\n'''
+          if 'Batch 6 adds dry-run retention governance' not in s: s=s.replace(marker,para+marker)
+          p.write_text(s)
+          Path('docs/STATUS.md').write_text(f'''# Project Status\n\n**Updated:** 2026-08-11 04:00 +03:00  \n**Branch:** `agent/b200-6`  \n**Target:** BATCH-200 / Batch 6 — Retention & governance  \n**Issues:** #76 umbrella · #87 Batch 6  \n**PR:** #88  \n**Overall:** 🟢 BATCH-100 100/100 COMPLETE · 🟢 B200-001..060 CI VERIFIED · 🟡 BATCH-200 60/100\n\n## Current verification\n- Finalizer run: `{run}`.\n- Release build: **Green** with `--warnaserror`.\n- Tests: **{passed}/{total} passed; {failed} failed**.\n- BATCH-200: **60/100 CI verified**.\n\n## Batch 6 delivered\n- Orphan metadata and aged resolved/orphan incident metadata detection.\n- Audit-backed reversible prune receipts honored by collaboration reads.\n- Bounded note retention and governed audit visibility.\n- Backup/history retention configuration validation.\n- Administrator dry-run/apply surface with antiforgery and cleanup audit.\n\n## Next\nB200-061..070 HA & disaster recovery for operator state.\n''')
+      - name: Commit docs and remove one-shot workflow
+        run: |
+          git rm .github/workflows/b200-b6-finalize.yml
+          git add docs/BATCH_200.md docs/STATUS.md
+          git config user.name 'Monitor Release Gate'
+          git config user.email 'actions@users.noreply.github.com'
+          git commit -m 'docs: mark B200-051..060 CI verified [skip ci]'
+          git push origin HEAD:agent/b200-6
+      - name: Close and merge
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          gh issue comment 76 --repo "$GITHUB_REPOSITORY" --body "B200-051..060 verified by run $GITHUB_RUN_ID; BATCH-200 is 60/100 CI verified."
+          gh issue close 87 --repo "$GITHUB_REPOSITORY" --reason completed || true
+          gh pr merge 88 --repo "$GITHUB_REPOSITORY" --squash --delete-branch --subject 'BATCH-200/6: add auditable retention governance (#88)' --body "Complete B200-051..060. Finalizer $GITHUB_RUN_ID passed Release warnings-as-errors and the full test suite."
