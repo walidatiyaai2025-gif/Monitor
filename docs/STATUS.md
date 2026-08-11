@@ -1,5 +1,17 @@
 # Project Status
 
+## BATCH-400 — Portal completion and Google typography
+
+- Added dedicated Performance Health, Recommendations, and Reports & Diagnostics pages.
+- Reorganized navigation around Operations, Health, Intelligence, Administration, and contextual Help.
+- Connected previously orphaned Fleet, Help, Readiness, Audit, History, and enterprise export capabilities.
+- Made management links role-aware and removed the dead standalone AI Advisor link.
+- Adopted self-hosted Google Fonts: Inter Variable for the Latin UI and Noto Sans Arabic Variable for Arabic glyphs.
+- Kept the strict CSP by serving font assets locally with `font-src 'self'`.
+- Added bounded desktop/mobile sidebar scrolling while preserving the existing command-center visual identity.
+- Local verification: Release build **0 warnings / 0 errors**, **398/398 tests passed**, desktop and 390px browser acceptance passed with no console warnings/errors.
+- State: **LOCAL VERIFIED — awaiting PR CI receipt**.
+
 **Updated:** 2026-08-11 09:27 +03:00  
 **Branch:** `main`  
 **Target:** BATCH-300 — SQL Estate Intelligence & Safe Operations COMPLETE  

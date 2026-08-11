@@ -1,0 +1,25 @@
+@using Monitor.Web.Controllers
+@model RecommendationHubViewModel
+@{
+    ViewData["Title"] = "Recommendations";
+}
+
+<section class="page-heading"><div><span class="eyebrow">HUMAN-REVIEWED GUIDANCE</span><h1>Recommendations</h1><p>Deterministic, read-only DBA guidance derived from active incident evidence. Monitor never executes a recommendation or generated SQL.</p></div><a class="secondary-button" asp-controller="Operations" asp-action="Alerts">Incident center</a></section>
+@if (Model.Items.Count == 0)
+{
+    <div class="glass-panel lab-empty"><strong>No active recommendations</strong><span>Recommendations appear when an active incident matches an approved rule.</span></div>
+}
+else
+{
+    <section class="settings-grid">
+        @foreach (var item in Model.Items)
+        {
+            <article class="glass-panel settings-card">
+                <div class="panel-heading"><div><span class="eyebrow">@item.Incident.RuleId</span><h3>@item.Incident.Title</h3></div><span class="severity severity-@item.Incident.Severity.ToString().ToLowerInvariant()">@item.Incident.Severity</span></div>
+                <p>@item.Recommendation.Explanation</p>
+                @foreach (var step in item.Recommendation.Steps) { <div class="lab-rule"><span>@step.Order</span><div><strong>@step.Action</strong><p>@step.Risk</p></div></div> }
+                <a class="secondary-button full-button" asp-controller="Operations" asp-action="IncidentDetails" asp-route-id="@item.Incident.Id">Review incident evidence</a>
+            </article>
+        }
+    </section>
+}

@@ -1,0 +1,25 @@
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/inter-variable.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Noto Sans Arabic";
+  src: url("/fonts/noto-sans-arabic-variable.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+:root {
+  --font-ui: "Inter", "Noto Sans Arabic", ui-sans-serif, system-ui, "Segoe UI", Arial, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+}
+
+body, button, input, select, textarea { font-family: var(--font-ui); font-synthesis: none; }
+code, pre, .mono { font-family: var(--font-mono); }
+:lang(ar) { font-family: "Noto Sans Arabic", "Inter", sans-serif; line-height: 1.55; }
+:lang(ar) .eyebrow, :lang(ar) .nav-section { letter-spacing: normal; text-transform: none; }

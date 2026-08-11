@@ -1,6 +1,7 @@
 @{
     var path = Context.Request.Path.Value?.ToLowerInvariant() ?? string.Empty;
-    string Active(string value) => path.StartsWith(value) ? "nav-link active" : "nav-link";
+    string Active(string value, bool exact = false) => (exact ? path == value : path.StartsWith(value)) ? "nav-link active" : "nav-link";
+    var serverNavClass = path == "/servers" || (path.StartsWith("/servers/") && !path.StartsWith("/servers/connections")) ? "nav-link active" : "nav-link";
     var bodyClass = path.StartsWith("/dashboard") ? "app-body wallboard-ready" : "app-body";
 }
 <!DOCTYPE html>
@@ -11,11 +12,13 @@
     <meta name="theme-color" content="#07111f" />
     <title>@ViewData["Title"] · Monitor</title>
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/fonts.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/command-center.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/ui003.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/ui004.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/connection-lab.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/dba-operations.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/portal.css" asp-append-version="true" />
 </head>
 <body class="@bodyClass">
     <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -29,30 +32,37 @@
         <nav class="primary-nav" aria-label="Primary navigation">
             <span class="nav-section">OPERATIONS</span>
             <a class="@Active("/dashboard")" asp-controller="Operations" asp-action="Dashboard"><span class="nav-icon" aria-hidden="true">⌁</span>Command Center</a>
-            <a class="@Active("/servers")" asp-controller="Operations" asp-action="Servers"><span class="nav-icon" aria-hidden="true">▦</span>Servers</a>
-            @if (User.IsInRole(Monitor.Web.Services.MonitorRoles.Administrator)) { <a class="@Active("/servers/connections")" asp-controller="ConnectionLab" asp-action="Index"><span class="nav-icon" aria-hidden="true">＋</span>Connections</a> }
+            <a class="@serverNavClass" asp-controller="Operations" asp-action="Servers"><span class="nav-icon" aria-hidden="true">▦</span>Servers</a>
+            <a class="@Active("/alerts")" asp-controller="Operations" asp-action="Alerts"><span class="nav-icon" aria-hidden="true">△</span>Alerts & Incidents</a>
+
+            <span class="nav-section">HEALTH</span>
             <a class="@Active("/database-health")" asp-controller="Operations" asp-action="DatabaseHealth"><span class="nav-icon" aria-hidden="true">◫</span>Database Health</a>
             <a class="@Active("/memory-health")" asp-controller="Operations" asp-action="MemoryHealth"><span class="nav-icon" aria-hidden="true">◒</span>Memory Health</a>
+            <a class="@Active("/performance-health")" asp-controller="Portal" asp-action="Performance"><span class="nav-icon" aria-hidden="true">⌁</span>Performance</a>
             <a class="@Active("/backups")" asp-controller="Operations" asp-action="Backups"><span class="nav-icon" aria-hidden="true">▣</span>Backups</a>
             <a class="@Active("/jobs")" asp-controller="Operations" asp-action="Jobs"><span class="nav-icon" aria-hidden="true">◆</span>SQL Agent</a>
             <a class="@Active("/storage")" asp-controller="Operations" asp-action="Storage"><span class="nav-icon" aria-hidden="true">◧</span>Storage</a>
             <a class="@Active("/blocking")" asp-controller="Operations" asp-action="Blocking"><span class="nav-icon" aria-hidden="true">⇄</span>Blocking</a>
-            <a class="@Active("/alerts")" asp-controller="Operations" asp-action="Alerts"><span class="nav-icon" aria-hidden="true">△</span>Alerts & Incidents</a>
-            <a class="@Active("/enterprise")" asp-controller="EnterpriseOperations" asp-action="Overview"><span class="nav-icon" aria-hidden="true">◇</span>Enterprise Operations</a>
-
-            <span class="nav-section">ADVISORY</span>
-            <a class="nav-link muted" href="#"><span class="nav-icon" aria-hidden="true">⌘</span>AI Advisor <em>soon</em></a>
+            <span class="nav-section">INTELLIGENCE</span>
+            <a class="@Active("/enterprise/fleet")" asp-controller="FleetIntelligence" asp-action="Index"><span class="nav-icon" aria-hidden="true">◎</span>Fleet Intelligence</a>
+            <a class="@Active("/enterprise", exact: true)" asp-controller="EnterpriseOperations" asp-action="Overview"><span class="nav-icon" aria-hidden="true">◇</span>Enterprise Operations</a>
+            <a class="@Active("/recommendations")" asp-controller="Portal" asp-action="Recommendations"><span class="nav-icon" aria-hidden="true">⌘</span>Recommendations</a>
+            <a class="@Active("/reports")" asp-controller="Portal" asp-action="Reports"><span class="nav-icon" aria-hidden="true">▤</span>Reports</a>
 
             @if (User.IsInRole(Monitor.Web.Services.MonitorRoles.Administrator))
             {
                 <span class="nav-section">ADMINISTRATION</span>
+                <a class="@Active("/servers/connections")" asp-controller="ConnectionLab" asp-action="Index"><span class="nav-icon" aria-hidden="true">＋</span>Connections</a>
                 <a class="@Active("/observability")" asp-controller="Observability" asp-action="Index"><span class="nav-icon" aria-hidden="true">◎</span>Observability</a>
+                <a class="@Active("/audit")" asp-controller="Operations" asp-action="Audit"><span class="nav-icon" aria-hidden="true">≡</span>Audit Trail</a>
+                <a class="@Active("/enterprise/readiness")" asp-controller="EnterpriseHelp" asp-action="Readiness"><span class="nav-icon" aria-hidden="true">✓</span>Readiness</a>
+                <a class="@Active("/settings")" asp-controller="Operations" asp-action="Settings"><span class="nav-icon" aria-hidden="true">⚙</span>Settings</a>
             }
         </nav>
 
         <div class="sidebar-footer">
             <div class="environment-badge"><span aria-hidden="true"></span> SQL SNAPSHOT MODE</div>
-            <a class="@Active("/settings")" asp-controller="Operations" asp-action="Settings"><span class="nav-icon" aria-hidden="true">⚙</span>Settings</a>
+            <a class="@Active("/enterprise/help")" asp-controller="EnterpriseHelp" asp-action="Help"><span class="nav-icon" aria-hidden="true">?</span>Operator Help</a>
         </div>
     </aside>
 

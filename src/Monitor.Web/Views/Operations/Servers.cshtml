@@ -45,7 +45,10 @@ else
 
 <div class="section-heading">
     <div><span class="eyebrow">SQL ESTATE</span><h2>@totalCount monitored instances</h2><p>Showing @pageStart–@pageEnd of @totalCount · page limit @limit</p></div>
-    <a class="secondary-button" asp-controller="ConnectionLab" asp-action="Index">+ Register Server</a>
+    @if (User.IsInRole(MonitorRoles.Administrator))
+    {
+        <a class="secondary-button" asp-controller="ConnectionLab" asp-action="Index">Manage targets</a>
+    }
 </div>
 
 <section class="estate-tools" aria-label="Server estate filters">

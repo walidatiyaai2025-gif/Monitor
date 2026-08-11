@@ -1,0 +1,16 @@
+@using Monitor.Web.Services
+@{
+    ViewData["Title"] = "Reports & Diagnostics";
+    var canManage = User.IsInRole(MonitorRoles.Administrator);
+}
+
+<section class="page-heading"><div><span class="eyebrow">BOUNDED EXPORTS</span><h1>Reports & Diagnostics</h1><p>Versioned, size-limited exports built from Monitor-owned metadata and cached evidence. Opening this page never contacts a monitored SQL Server.</p></div></section>
+<section class="settings-grid">
+    <article class="glass-panel settings-card"><div class="panel-heading"><div><span class="eyebrow">ESTATE</span><h3>Server inventory</h3></div></div><p>Safe registration and operator metadata with spreadsheet-formula protection.</p><a class="secondary-button full-button" href="/reports/servers-v2.csv">Download servers CSV v2</a></article>
+    <article class="glass-panel settings-card"><div class="panel-heading"><div><span class="eyebrow">INCIDENTS</span><h3>Incident lifecycle</h3></div></div><p>Bounded incident state without credentials, SQL text or raw provider errors.</p><a class="secondary-button full-button" href="/reports/incidents.csv">Download incidents CSV</a></article>
+    @if (canManage)
+    {
+        <article class="glass-panel settings-card"><div class="panel-heading"><div><span class="eyebrow">AUDIT</span><h3>Operator audit</h3></div></div><p>Append-only bounded operator actions and safe outcomes.</p><a class="secondary-button full-button" href="/reports/audit.csv">Download audit CSV</a></article>
+        <article class="glass-panel settings-card"><div class="panel-heading"><div><span class="eyebrow">SUPPORT</span><h3>Redacted diagnostics</h3></div></div><p>Application diagnostics only; secret material and monitored-SQL text are excluded.</p><a class="secondary-button full-button" href="/diagnostics/package">Download diagnostics package</a><a class="secondary-button full-button" href="/diagnostics/manifest.json">View manifest</a></article>
+    }
+</section>

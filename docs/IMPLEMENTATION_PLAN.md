@@ -90,3 +90,18 @@ Current progress: **100/100 tasks CI verified**. Batch 10 verification run `3144
 ## Delivery loop
 
 Plan -> Design -> Implement -> Show -> Connect Real Data -> Verify -> Commit -> Push -> Update Plan.
+
+## BATCH-400 — Portal completion and typography
+
+| Task | Description | State |
+|---|---|---|
+| B400-001 | Dedicated Performance Health page using cached module projections | LOCAL VERIFIED |
+| B400-002 | Estate Recommendations index using the deterministic recommendation engine | LOCAL VERIFIED |
+| B400-003 | Reports & Diagnostics landing page for bounded exports and support artifacts | LOCAL VERIFIED |
+| B400-004 | Role-aware information architecture and navigation cleanup | LOCAL VERIFIED |
+| B400-005 | Fleet, Help, Readiness, Audit, History and export discoverability | LOCAL VERIFIED |
+| B400-006 | Self-hosted Google Inter Variable typography | LOCAL VERIFIED |
+| B400-007 | Self-hosted Google Noto Sans Arabic fallback and Arabic typography contract | LOCAL VERIFIED |
+| B400-008 | Explicit self-only font CSP and typography asset tests | LOCAL VERIFIED |
+| B400-009 | Desktop and mobile sidebar overflow/responsive polish | LOCAL VERIFIED |
+| B400-010 | Release build, 398-test regression gate and browser route acceptance | LOCAL VERIFIED |
