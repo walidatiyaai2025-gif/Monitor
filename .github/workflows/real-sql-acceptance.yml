@@ -1,0 +1,156 @@
+name: real-sql-acceptance
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/real-sql-acceptance.yml'
+      - 'scripts/sql/monitored_sql_least_privilege.sql'
+      - 'src/Monitor.Web/Models/**'
+      - 'src/Monitor.Web/Services/SqlConnectionStringFactory.cs'
+      - 'src/Monitor.Web/Services/SqlConnectionTester.cs'
+      - 'src/Monitor.Web/Services/SqlServerSnapshotCollector.cs'
+      - 'tests/Monitor.Web.Tests/RealSqlAcceptanceTests.cs'
+
+permissions:
+  contents: read
+
+jobs:
+  real-sql-2022:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SQL_CONTAINER: monitor-p0-sql2022
+      SQL_HOST_PORT: '14333'
+      MONITOR_LOGIN: monitor_acceptance
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Generate ephemeral SQL credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          SQL_SA_PASSWORD="Aa1!$(openssl rand -hex 18)"
+          MONITOR_SQL_PASSWORD="Bb2!$(openssl rand -hex 18)"
+          echo "::add-mask::$SQL_SA_PASSWORD"
+          echo "::add-mask::$MONITOR_SQL_PASSWORD"
+          {
+            echo "SQL_SA_PASSWORD=$SQL_SA_PASSWORD"
+            echo "MONITOR_SQL_PASSWORD=$MONITOR_SQL_PASSWORD"
+          } >> "$GITHUB_ENV"
+
+      - name: Start real SQL Server 2022 target
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run -d \
+            --name "$SQL_CONTAINER" \
+            --hostname monitor-p0-sql2022 \
+            -e ACCEPT_EULA=Y \
+            -e MSSQL_PID=Developer \
+            -e MSSQL_AGENT_ENABLED=true \
+            -e MSSQL_SA_PASSWORD="$SQL_SA_PASSWORD" \
+            -p "$SQL_HOST_PORT:1433" \
+            mcr.microsoft.com/mssql/server:2022-latest
+
+      - name: Wait for SQL Server readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 60); do
+            if docker exec "$SQL_CONTAINER" /opt/mssql-tools18/bin/sqlcmd \
+              -S localhost -U sa -P "$SQL_SA_PASSWORD" -C -b -Q "SET NOCOUNT ON; SELECT 1" >/dev/null 2>&1; then
+              echo "SQL Server is ready after $attempt attempt(s)."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "SQL Server did not become ready." >&2
+          docker logs "$SQL_CONTAINER" 2>&1 | tail -n 200 >&2
+          exit 1
+
+      - name: Seed real acceptance estate
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker exec -i "$SQL_CONTAINER" /opt/mssql-tools18/bin/sqlcmd \
+            -S localhost -U sa -P "$SQL_SA_PASSWORD" -C -b <<SQL
+          CREATE LOGIN [$MONITOR_LOGIN]
+            WITH PASSWORD = N'$MONITOR_SQL_PASSWORD', CHECK_POLICY = ON;
+          GO
+          CREATE DATABASE MonitorAcceptanceBacked;
+          GO
+          CREATE DATABASE MonitorAcceptanceUnbacked;
+          GO
+          BACKUP DATABASE MonitorAcceptanceBacked
+            TO DISK = N'/var/opt/mssql/data/MonitorAcceptanceBacked.bak'
+            WITH INIT, CHECKSUM;
+          GO
+          USE msdb;
+          EXEC dbo.sp_add_job
+            @job_name = N'MonitorAcceptanceJob',
+            @enabled = 1,
+            @description = N'P0 real SQL acceptance metadata only';
+          EXEC dbo.sp_add_jobserver
+            @job_name = N'MonitorAcceptanceJob';
+          GO
+          SQL
+
+      - name: Apply monitored SQL least privilege
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker cp scripts/sql/monitored_sql_least_privilege.sql \
+            "$SQL_CONTAINER:/tmp/monitored_sql_least_privilege.sql"
+          docker exec "$SQL_CONTAINER" /opt/mssql-tools18/bin/sqlcmd \
+            -S localhost -U sa -P "$SQL_SA_PASSWORD" -C -b \
+            -v MonitorLogin="$MONITOR_LOGIN" \
+            -i /tmp/monitored_sql_least_privilege.sql
+
+      - name: Verify monitor login is not privileged
+        shell: bash
+        run: |
+          set -euo pipefail
+          RESULT=$(docker exec "$SQL_CONTAINER" /opt/mssql-tools18/bin/sqlcmd \
+            -S localhost -U sa -P "$SQL_SA_PASSWORD" -C -b -h -1 -W \
+            -Q "SET NOCOUNT ON; SELECT IS_SRVROLEMEMBER('sysadmin', '$MONITOR_LOGIN');")
+          if [ "$(echo "$RESULT" | tr -d '[:space:]')" != "0" ]; then
+            echo "Acceptance login unexpectedly has sysadmin membership." >&2
+            exit 1
+          fi
+
+      - name: Restore
+        run: dotnet restore Monitor.sln
+
+      - name: Release build
+        run: dotnet build Monitor.sln --configuration Release --no-restore --warnaserror
+
+      - name: Run real SQL acceptance tests
+        env:
+          MONITOR_REQUIRE_REAL_SQL: '1'
+          MONITOR_REAL_SQL_HOST: '127.0.0.1'
+          MONITOR_REAL_SQL_PORT: '14333'
+          MONITOR_REAL_SQL_USERNAME: 'monitor_acceptance'
+          MONITOR_REAL_SQL_PASSWORD: ${{ env.MONITOR_SQL_PASSWORD }}
+        run: >-
+          dotnet test Monitor.sln
+          --configuration Release
+          --no-build
+          --filter "Category=RealSql"
+          --logger "console;verbosity=normal"
+
+      - name: SQL Server diagnostics on failure
+        if: failure()
+        shell: bash
+        run: docker logs "$SQL_CONTAINER" 2>&1 | tail -n 200 || true
+
+      - name: Remove ephemeral SQL Server
+        if: always()
+        shell: bash
+        run: docker rm -f "$SQL_CONTAINER" >/dev/null 2>&1 || true
