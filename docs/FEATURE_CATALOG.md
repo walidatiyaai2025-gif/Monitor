@@ -2,8 +2,8 @@
 
 | Feature | Milestone | Status | Notes |
 |---|---|---|---|
-| Real SQL production registration gate | P0.1 | READY / NEXT | Issue #112; safe Test/Save/restart-durable registration |
-| Truthful first-snapshot projection | P0.2 | BLOCKED | Issue #113; remove fake numeric defaults, reconcile CPU and SQL Agent mapping |
+| Real SQL production registration gate | P0.1 | CI verified | Issue #112 / PR #119; candidate Test precedes durable commit; failed/cancelled owned-secret compensation; CI 31476430643, 501/501 |
+| Truthful first-snapshot projection | P0.2 | READY / NEXT | Issue #113; remove fake numeric defaults, reconcile CPU and SQL Agent mapping |
 | Server Details production source of truth | P0.3 | BLOCKED | Issue #114; real-or-explicitly-unavailable cached evidence only |
 | Real SQL end-to-end acceptance | P0.4 | BLOCKED | Issue #115; mandatory real-target Add/Test/Collect/View/Refresh/Restart acceptance |
 | First Production SingleNode release | P0.5 | BLOCKED | Issue #116; IIS/HTTPS, durable state/credentials, smoke + rollback gate |
