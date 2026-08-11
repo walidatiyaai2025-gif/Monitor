@@ -75,6 +75,12 @@ function Assert-WindowsAbsolutePath {
     if ($Value -notmatch '^(?:[A-Za-z]:\\|\\\\)') {
         throw "$Name must be an absolute Windows path."
     }
+    if ($Value -ne $Value.Trim()) {
+        throw "$Name must not contain leading or trailing whitespace."
+    }
+    if ($Value -match '(?:^|[\\/])\.\.?([\\/]|$)') {
+        throw "$Name must not contain path traversal segments."
+    }
 }
 
 function Assert-SafeSessionTarget {
