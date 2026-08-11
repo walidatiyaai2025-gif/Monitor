@@ -1,0 +1,12 @@
+@using Monitor.Web.Services
+@model EnterprisePersistenceReadiness
+@{ ViewData["Title"] = "Enterprise Persistence Readiness"; var ready = Model.Status == "ready"; }
+<link rel="stylesheet" href="~/css/enterprise-operations.css" asp-append-version="true" />
+<section class="page-heading"><div><span class="eyebrow">CONTROL-PLANE READINESS</span><h1>Enterprise Persistence Readiness</h1><p>Readiness is derived only from Monitor-owned operator metadata persistence. This check never connects to a monitored SQL target.</p></div><a class="button secondary" asp-action="Help">Operator Help</a></section>
+<section class="readiness-grid">
+<article class="glass-panel panel-pad readiness-card @(ready ? "enterprise-status-ready" : "enterprise-status-degraded")"><span class="eyebrow">STATUS</span><h3>@Model.Status.ToUpperInvariant()</h3><p>@Model.Message</p></article>
+<article class="glass-panel panel-pad readiness-card"><span class="eyebrow">SERVER METADATA</span><h3>@Model.ServerMetadataRecords</h3><p>Bounded server classification, tags and policy windows.</p></article>
+<article class="glass-panel panel-pad readiness-card"><span class="eyebrow">INCIDENT METADATA</span><h3>@Model.IncidentMetadataRecords</h3><p>Owners, notes and recommendation acknowledgment state.</p></article>
+<article class="glass-panel panel-pad readiness-card"><span class="eyebrow">CHECKED</span><h3>@Model.CheckedAtUtc.ToString("u")</h3><p>Control-plane timestamp only.</p></article>
+</section>
+@if (!ready) { <section class="enterprise-callout glass-panel"><div><strong>Degraded enterprise state</strong><span>Do not rely on metadata mutations until persistence readiness is restored. Cached monitoring evidence remains separate from this status.</span></div></section> }
