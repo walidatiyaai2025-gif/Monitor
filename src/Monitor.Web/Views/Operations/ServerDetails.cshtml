@@ -3,51 +3,41 @@
 @{
     ViewData["Title"] = Model.Server.Name;
     var server = Model.Server;
+    var evidence = Model.Evidence;
     var operatorMetadata = ViewData["ServerOperatorMetadata"] as ServerOperatorMetadata;
     var maintenanceActive = ViewData["MaintenanceActive"] as bool? ?? false;
     var alertSuppressed = ViewData["AlertSuppressed"] as bool? ?? false;
     var isLive = server.Source is ServerDataSource.LiveFresh or ServerDataSource.LiveStale;
     var isUnavailable = server.Source == ServerDataSource.RegisteredUnavailable;
+    var isStale = server.Source == ServerDataSource.LiveStale;
     var stateName = server.State.ToString().ToLowerInvariant();
-    var healthScore = server.State switch
+    var freshnessLabel = server.Source switch
     {
-        HealthState.Healthy => 96,
-        HealthState.Warning => 72,
-        HealthState.Critical => 41,
-        HealthState.Offline => 0,
-        _ => 50
+        ServerDataSource.LiveFresh => "Fresh cached snapshot",
+        ServerDataSource.LiveStale => "Stale cached snapshot",
+        ServerDataSource.RegisteredUnavailable => "Snapshot unavailable",
+        _ => "Development preview"
     };
-    var databasePercent = server.DatabaseTotal == 0 ? 0 : (int)Math.Round(server.DatabaseOnline * 100d / server.DatabaseTotal);
-    var cpuKnown = server.CpuPercent.HasValue;
-    var memoryKnown = server.MemoryPercent.HasValue;
-    var jobsKnown = server.JobsTotal.HasValue && server.JobsEnabled.HasValue && server.JobsFailedLastRun.HasValue;
-    var jobsTotal = server.JobsTotal.GetValueOrDefault();
-    var jobsEnabled = server.JobsEnabled.GetValueOrDefault();
-    var jobsFailed = server.JobsFailedLastRun.GetValueOrDefault();
-    var jobsPercent = jobsKnown && jobsTotal > 0 ? (int)Math.Round(jobsEnabled * 100d / jobsTotal) : 0;
-    var cpuState = !cpuKnown ? "unknown" : server.State == HealthState.Offline ? "offline" : server.CpuPercent.GetValueOrDefault() >= 80 ? "warning" : "healthy";
-    var memoryState = !memoryKnown ? "unknown" : server.State == HealthState.Offline ? "offline" : server.MemoryPercent.GetValueOrDefault() >= 82 ? "warning" : "healthy";
+    var collectionLabel = evidence is null ? "Not collected" : evidence.CollectedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss zzz");
+    var uptime = evidence is null
+        ? "Not collected"
+        : TimeSpan.FromSeconds(Math.Max(0, evidence.UptimeSeconds)).TotalDays >= 1
+            ? $"{TimeSpan.FromSeconds(Math.Max(0, evidence.UptimeSeconds)).TotalDays:0.0} days"
+            : $"{TimeSpan.FromSeconds(Math.Max(0, evidence.UptimeSeconds)).TotalHours:0.0} hours";
+    var memory = evidence?.Memory;
+    var databases = evidence?.Databases;
+    var backups = evidence?.Backups;
+    var jobs = evidence?.Jobs;
+    var storage = evidence?.Storage;
+    var blocking = evidence?.Blocking;
+    var performance = evidence?.Performance;
+    var databaseProblems = databases is null ? (int?)null : databases.Restoring + databases.Recovering + databases.RecoveryPending + databases.Suspect + databases.Emergency + databases.OfflineOrOther;
     var databaseState = server.DatabaseTotal == 0 ? "unknown" : server.DatabaseOnline == server.DatabaseTotal ? "healthy" : "critical";
-    var jobsState = !jobsKnown ? "unknown" : jobsFailed > 0 ? "warning" : "healthy";
-
-    var attentionClass = isUnavailable ? "warning" : stateName;
-    var attentionTitle = isUnavailable ? "Registered target needs connection recovery" : server.State switch
-    {
-        HealthState.Healthy => "No immediate action required",
-        HealthState.Warning => "Server requires DBA review",
-        HealthState.Critical => "Immediate DBA attention required",
-        HealthState.Offline => "SQL instance is not reachable",
-        _ => "Server state requires validation"
-    };
-    var attentionDetail = isUnavailable ? "No usable cached snapshot exists yet. Retest connectivity, validate the credential boundary, then request a controlled refresh." : server.State switch
-    {
-        HealthState.Healthy => "Latest cached snapshot is within the expected operational envelope.",
-        HealthState.Warning => "One or more collected health dimensions crossed the warning threshold.",
-        HealthState.Critical => "Collected availability evidence is outside the expected threshold.",
-        HealthState.Offline => "Cached values are retained for context while collection is unavailable.",
-        _ => "The current health snapshot cannot be classified confidently."
-    };
-
+    var memoryState = memory is null ? "unknown" : memory.IsPhysicalMemoryLow || memory.IsVirtualMemoryLow || memory.SqlProcessMemoryUtilizationPercent >= 85 ? "warning" : "healthy";
+    var backupState = backups is null ? "unknown" : backups.MissingFullBackupLast24Hours > 0 ? "warning" : "healthy";
+    var jobsState = jobs is null ? "unknown" : jobs.FailedLastRun > 0 ? "warning" : "healthy";
+    var blockingState = blocking is null ? "unknown" : blocking.BlockedRequests > 0 ? "warning" : "healthy";
+    var runtimeState = performance is null ? "unknown" : performance.RunnableTasks > 0 || performance.PendingIoRequests > 0 ? "warning" : "healthy";
     var refreshMessage = TempData["SnapshotRefresh"] as string;
     var refreshStatus = TempData["SnapshotRefreshStatus"] as string ?? string.Empty;
     var refreshFreshness = TempData["SnapshotRefreshFreshness"] as string ?? string.Empty;
@@ -58,33 +48,10 @@
             : "unknown";
 }
 
-<div class="data-banner"><strong>@(isLive ? (server.Source == ServerDataSource.LiveFresh ? "LIVE CACHED SNAPSHOT" : "STALE CACHED SNAPSHOT") : isUnavailable ? "REGISTERED · SNAPSHOT UNAVAILABLE" : "DEVELOPMENT DATA")</strong><span>@(isLive ? "Values shown as observations came from the backend snapshot cache; uncollected dimensions are labeled explicitly." : isUnavailable ? "Registration metadata is available, but no usable cached SQL snapshot exists yet." : "DBA operations preview over development data.") This screen never performs continuous SQL queries.</span></div>
-
-@if (operatorMetadata is not null)
-{
-    <section class="glass-panel panel-pad" aria-labelledby="enterprise-server-context">
-        <div class="panel-heading">
-            <div><span class="eyebrow">ENTERPRISE GOVERNANCE</span><h3 id="enterprise-server-context">Operator context</h3></div>
-            <div><a class="secondary-button" asp-controller="Operations" asp-action="History" asp-route-registrationId="@server.Id">View history</a> <a class="secondary-button" asp-controller="EnterpriseOperations" asp-action="Overview">@(User.IsInRole(MonitorRoles.Administrator) ? "Manage" : "View") enterprise metadata</a></div>
-        </div>
-        <div class="definition-grid">
-            <div><small>Environment</small><strong>@operatorMetadata.Environment</strong></div>
-            <div><small>Group</small><strong>@(operatorMetadata.Group ?? "Unassigned")</strong></div>
-            <div><small>Tags</small><strong>@(operatorMetadata.Tags.Length == 0 ? "None" : string.Join(", ", operatorMetadata.Tags))</strong></div>
-            <div><small>Maintenance</small><strong class="@(maintenanceActive ? "state-warning" : "state-healthy")">@(maintenanceActive ? "Active" : "Inactive")</strong></div>
-            <div><small>Alert suppression</small><strong class="@(alertSuppressed ? "state-warning" : "state-healthy")">@(alertSuppressed ? "Active" : "Inactive")</strong></div>
-            <div><small>Metadata updated</small><strong>@operatorMetadata.UpdatedAtUtc.ToString("u")</strong></div>
-        </div>
-        @if (operatorMetadata.MaintenanceWindow is { } maintenance)
-        {
-            <p class="panel-copy"><strong>Maintenance window:</strong> @maintenance.StartsAtUtc.ToString("u") → @maintenance.EndsAtUtc.ToString("u") · @maintenance.Reason</p>
-        }
-        @if (operatorMetadata.AlertSuppressionWindow is { } suppression)
-        {
-            <p class="panel-copy"><strong>Suppression window:</strong> @suppression.StartsAtUtc.ToString("u") → @suppression.EndsAtUtc.ToString("u") · @suppression.Reason</p>
-        }
-    </section>
-}
+<div class="data-banner">
+    <strong>@(isLive ? (isStale ? "STALE CACHED SQL EVIDENCE" : "FRESH CACHED SQL EVIDENCE") : isUnavailable ? "REGISTERED · SNAPSHOT UNAVAILABLE" : "DEVELOPMENT DATA")</strong>
+    <span>Every production value below is either backed by the cached snapshot or explicitly labeled Not collected. Opening this page never initiates monitored-SQL collection.</span>
+</div>
 
 @if (!string.IsNullOrWhiteSpace(refreshMessage))
 {
@@ -98,41 +65,33 @@
     <div class="server-command-top">
         <div class="server-command-title">
             <span class="health-orb state-@stateName" aria-hidden="true"></span>
-            <div><span class="eyebrow">SERVER OPERATIONS</span><h2>@server.Name</h2><p>@server.Version · @server.Edition</p></div>
+            <div><span class="eyebrow">SERVER DETAILS · EVIDENCE FIRST</span><h2>@server.Name</h2><p>@server.Version · @server.Edition</p></div>
         </div>
         <div class="server-command-meta">
-            <div><small>State</small><strong class="state-@stateName">@server.State</strong></div>
+            <div><small>Availability state</small><strong class="state-@stateName">@server.State</strong></div>
+            <div><small>Freshness</small><strong>@freshnessLabel</strong></div>
             <div><small>Snapshot age</small><strong data-snapshot-age data-initial-age="@server.LastScanSecondsAgo">@(isUnavailable ? "Not collected" : $"{server.LastScanSecondsAgo} sec ago")</strong></div>
         </div>
     </div>
     <div class="server-command-band">
-        <div class="command-health state-@stateName"><strong>@healthScore</strong><div><small>Health score</small><span>@(isUnavailable ? "Awaiting evidence" : "Cached availability assessment")</span></div></div>
-        <div class="command-stat state-@cpuState"><small>CPU pressure</small><strong>@(server.CpuPercent is int cpu ? $"{cpu}%" : "Not collected")</strong></div>
-        <div class="command-stat state-@memoryState"><small>Memory pressure</small><strong>@(server.MemoryPercent is int memory ? $"{memory}%" : "Not collected")</strong></div>
-        <div class="command-stat state-@databaseState"><small>Database availability</small><strong>@(server.DatabaseTotal == 0 ? "Not collected" : $"{server.DatabaseOnline} / {server.DatabaseTotal}")</strong></div>
-        <div class="command-stat state-@jobsState"><small>SQL Agent</small><strong>@(jobsKnown ? $"{jobsEnabled} / {jobsTotal} enabled · {jobsFailed} failed" : "Not collected")</strong></div>
+        <div class="command-stat state-@(isLive ? "healthy" : "unknown")"><small>Collected at</small><strong>@collectionLabel</strong></div>
+        <div class="command-stat state-unknown"><small>CPU</small><strong>@(server.CpuPercent is int cpu ? $"{cpu}%" : "Not collected")</strong></div>
+        <div class="command-stat state-@memoryState"><small>SQL memory</small><strong>@(memory is null ? "Not collected" : $"{memory.SqlProcessMemoryUtilizationPercent}%")</strong></div>
+        <div class="command-stat state-@databaseState"><small>Databases</small><strong>@(server.DatabaseTotal == 0 ? "Not collected" : $"{server.DatabaseOnline} / {server.DatabaseTotal} online")</strong></div>
+        <div class="command-stat state-@jobsState"><small>SQL Agent</small><strong>@(jobs is null ? "Not collected" : $"{jobs.EnabledJobs}/{jobs.TotalJobs} enabled · {jobs.FailedLastRun} failed")</strong></div>
     </div>
-</section>
-
-<section class="attention-ribbon @attentionClass state-@attentionClass">
-    <div><span class="attention-icon" aria-hidden="true">!</span><div><strong>@attentionTitle</strong><p>@attentionDetail</p></div></div>
-    <span>@(isUnavailable ? "RECOVERY PATH" : "CACHED ASSESSMENT")</span>
 </section>
 
 @if (isUnavailable)
 {
     <section class="recovery-panel glass-panel" aria-labelledby="recovery-title">
-        <div>
-            <span class="eyebrow">CONNECTION RECOVERY</span>
-            <h3 id="recovery-title">Restore trustworthy monitoring evidence</h3>
-            <p>Use the protected connection workflow to retest the target, replace an external credential reference when required, then request a bounded snapshot refresh. Current secret references and credential values are never shown here.</p>
-        </div>
+        <div><span class="eyebrow">CONNECTION / COLLECTION</span><h3 id="recovery-title">Registered target has no usable cached snapshot</h3><p>Retest connectivity and the protected credential boundary, validate monitoring permissions, then request one bounded refresh. No missing metric is interpreted as zero.</p></div>
         <div class="recovery-actions">
-            @if (User.IsInRole("Administrator"))
+            @if (User.IsInRole(MonitorRoles.Administrator))
             {
                 <a class="secondary-button" asp-controller="ConnectionLab" asp-action="Index">Open Connection Lab</a>
             }
-            @if (User.IsInRole("Administrator") || User.IsInRole("Operator"))
+            @if (User.IsInRole(MonitorRoles.Administrator) || User.IsInRole(MonitorRoles.Operator))
             {
                 <form asp-action="RefreshServer" asp-route-id="@server.Id" method="post"><button class="secondary-button" type="submit">Retry bounded snapshot</button></form>
             }
@@ -140,77 +99,170 @@
     </section>
 }
 
-<section class="metric-grid server-detail-metrics">
-@foreach (var metric in Model.Metrics)
-{
-    <article class="metric-card state-@metric.State.ToString().ToLowerInvariant()"><div class="metric-top"><span>@metric.Name</span><i aria-hidden="true"></i></div><strong>@metric.Value</strong><small>@metric.Detail</small></article>
-}
-</section>
-
-@if (isLive)
-{
-<section class="server-operational-grid">
-    <article class="glass-panel ops-panel">
-        <div class="panel-heading"><div><span class="eyebrow">RESOURCE PRESSURE</span><h3>Latest snapshot envelope</h3></div><span class="snapshot-note">No direct SQL calls</span></div>
-        <div class="resource-stack">
-            @if (server.CpuPercent is int observedCpu)
-            {
-                <div class="resource-row state-@cpuState"><div class="resource-label"><strong>CPU</strong><small>Processor load</small></div><span class="resource-bar"><span style="width:@($"{observedCpu}%")"></span></span><strong class="resource-value">@observedCpu%</strong></div>
-            }
-            else
-            {
-                <div class="resource-row state-unknown"><div class="resource-label"><strong>CPU</strong><small>Outside current snapshot contract</small></div><span class="resource-bar"></span><strong class="resource-value">Not collected</strong></div>
-            }
-            @if (server.MemoryPercent is int observedMemory)
-            {
-                <div class="resource-row state-@memoryState"><div class="resource-label"><strong>Memory</strong><small>SQL process utilization</small></div><span class="resource-bar"><span style="width:@($"{observedMemory}%")"></span></span><strong class="resource-value">@observedMemory%</strong></div>
-            }
-            else
-            {
-                <div class="resource-row state-unknown"><div class="resource-label"><strong>Memory</strong><small>Evidence unavailable</small></div><span class="resource-bar"></span><strong class="resource-value">Not collected</strong></div>
-            }
-            <div class="resource-row state-@databaseState"><div class="resource-label"><strong>Databases</strong><small>Online ratio</small></div><span class="resource-bar"><span style="width:@($"{databasePercent}%")"></span></span><strong class="resource-value">@(server.DatabaseTotal == 0 ? "Not collected" : $"{databasePercent}%")</strong></div>
-            @if (jobsKnown)
-            {
-                <div class="resource-row state-@jobsState"><div class="resource-label"><strong>SQL Agent</strong><small>@jobsFailed failed on last run</small></div><span class="resource-bar"><span style="width:@($"{jobsPercent}%")"></span></span><strong class="resource-value">@jobsEnabled / @jobsTotal enabled</strong></div>
-            }
-            else
-            {
-                <div class="resource-row state-unknown"><div class="resource-label"><strong>SQL Agent</strong><small>Evidence unavailable</small></div><span class="resource-bar"></span><strong class="resource-value">Not collected</strong></div>
-            }
-        </div>
-        <div class="snapshot-age-track" title="Visual freshness indicator only"><span data-snapshot-age-bar data-initial-age="@server.LastScanSecondsAgo" style="width:@($"{Math.Max(6, Math.Min(100, server.LastScanSecondsAgo * 100 / 90))}%")"></span></div>
-        <p class="server-mini-note">Snapshot freshness advances locally in the browser. It does not trigger collection or network traffic.</p>
-    </article>
-
-    <article class="glass-panel ops-panel">
-        <div class="panel-heading"><div><span class="eyebrow">DBA FOCUS</span><h3>What to inspect next</h3></div></div>
-        <div class="dba-focus-list">
-            <div class="dba-focus-item state-@memoryState"><span>1</span><div><strong>Memory headroom</strong><p>@(!memoryKnown ? "Memory evidence is unavailable in the current snapshot." : server.MemoryPercent.GetValueOrDefault() >= 82 ? "Review max server memory, OS headroom and pressure indicators." : "Memory is currently within the bounded snapshot threshold.")</p></div></div>
-            <div class="dba-focus-item state-@databaseState"><span>2</span><div><strong>Database availability</strong><p>@(server.DatabaseTotal == 0 ? "Database availability evidence is not available." : server.DatabaseOnline == server.DatabaseTotal ? "All represented databases are online in this snapshot." : "Identify the database outside the online state before remediation.")</p></div></div>
-            <div class="dba-focus-item state-@jobsState"><span>3</span><div><strong>SQL Agent execution</strong><p>@(!jobsKnown ? "SQL Agent evidence is unavailable in the current snapshot." : jobsFailed == 0 ? "No represented job has a failed last run in this snapshot." : $"{jobsFailed} represented job(s) have a failed last run; review job history under change control.")</p></div></div>
-        </div>
-    </article>
-</section>
-}
-
 <section class="dashboard-grid" style="margin-top:14px">
-    <article class="glass-panel panel-span-2">
-        <div class="panel-heading"><div><span class="eyebrow">INSTANCE PROFILE</span><h3>Operational context</h3></div></div>
+    <article class="glass-panel panel-span-2 ops-panel">
+        <div class="panel-heading"><div><span class="eyebrow">SNAPSHOT IDENTITY</span><h3>Instance and collection context</h3></div><span class="snapshot-note">@freshnessLabel</span></div>
         <div class="definition-grid">
-            <div><small>Instance</small><strong>@server.Name</strong></div><div><small>Edition</small><strong>@server.Edition</strong></div>
-            <div><small>Version</small><strong>@server.Version</strong></div><div><small>Evidence</small><strong class="state-@stateName">@(isUnavailable ? "Awaiting snapshot" : server.State.ToString())</strong></div>
-            <div><small>Databases online</small><strong>@(server.DatabaseTotal == 0 ? "Not collected" : $"{server.DatabaseOnline} / {server.DatabaseTotal}")</strong></div><div><small>SQL Agent</small><strong>@(jobsKnown ? $"{jobsEnabled} / {jobsTotal} enabled · {jobsFailed} failed last run" : "Not collected")</strong></div>
+            <div><small>Server name</small><strong>@server.Name</strong></div>
+            <div><small>Instance</small><strong>@(string.IsNullOrWhiteSpace(evidence?.InstanceName) ? "Default / not reported" : evidence.InstanceName)</strong></div>
+            <div><small>Version</small><strong>@server.Version</strong></div>
+            <div><small>Edition</small><strong>@server.Edition</strong></div>
+            <div><small>Uptime</small><strong>@uptime</strong></div>
+            <div><small>Collected at</small><strong>@collectionLabel</strong></div>
         </div>
     </article>
-    <article class="glass-panel">
-        <div class="panel-heading"><div><span class="eyebrow">SAFE REFRESH</span><h3>Snapshot policy</h3></div></div>
-        <p class="panel-copy">Refresh is backend-controlled, concurrency-bounded and throttled. Page navigation only reads the cached snapshot and never queries SQL.</p>
-        @if (User.IsInRole("Administrator") || User.IsInRole("Operator"))
+    <article class="glass-panel ops-panel">
+        <div class="panel-heading"><div><span class="eyebrow">SAFE REFRESH</span><h3>Collection boundary</h3></div></div>
+        <p class="panel-copy">Normal GET navigation reads cache only. Manual refresh is an explicit protected POST and remains concurrency-bounded and audited.</p>
+        @if (User.IsInRole(MonitorRoles.Administrator) || User.IsInRole(MonitorRoles.Operator))
         {
-            <form asp-action="RefreshServer" asp-route-id="@server.Id" method="post">
-                <button class="secondary-button full-button" type="submit">Refresh snapshot</button>
-            </form>
+            <form asp-action="RefreshServer" asp-route-id="@server.Id" method="post"><button class="secondary-button full-button" type="submit">Refresh snapshot</button></form>
         }
     </article>
 </section>
+
+<section class="dashboard-grid" style="margin-top:14px">
+    <article class="glass-panel panel-span-2 ops-panel state-@databaseState">
+        <div class="panel-heading"><div><span class="eyebrow">DATABASE AVAILABILITY</span><h3>Observed database states</h3></div><strong>@(server.DatabaseTotal == 0 ? "Not collected" : $"{server.DatabaseOnline}/{server.DatabaseTotal} online")</strong></div>
+        @if (databases is null)
+        {
+            <p class="panel-copy">Detailed database state evidence is not collected in this snapshot.</p>
+        }
+        else
+        {
+            <div class="definition-grid">
+                <div><small>Restoring</small><strong>@databases.Restoring</strong></div>
+                <div><small>Recovering</small><strong>@databases.Recovering</strong></div>
+                <div><small>Recovery pending</small><strong>@databases.RecoveryPending</strong></div>
+                <div><small>Suspect</small><strong>@databases.Suspect</strong></div>
+                <div><small>Emergency</small><strong>@databases.Emergency</strong></div>
+                <div><small>Offline / other</small><strong>@databases.OfflineOrOther</strong></div>
+            </div>
+            <p class="server-mini-note">Problem-state count: <strong>@databaseProblems</strong>. Values are snapshot evidence, not inferred health.</p>
+        }
+    </article>
+
+    <article class="glass-panel ops-panel state-@memoryState">
+        <div class="panel-heading"><div><span class="eyebrow">MEMORY EVIDENCE</span><h3>SQL process and OS headroom</h3></div></div>
+        @if (memory is null)
+        {
+            <p class="panel-copy">Not collected.</p>
+        }
+        else
+        {
+            <div class="definition-grid">
+                <div><small>SQL utilization</small><strong>@memory.SqlProcessMemoryUtilizationPercent%</strong></div>
+                <div><small>SQL physical memory</small><strong>@((memory.SqlProcessPhysicalMemoryKb / 1024d / 1024d).ToString("0.0")) GB</strong></div>
+                <div><small>Total physical memory</small><strong>@((memory.TotalPhysicalMemoryKb / 1024d / 1024d).ToString("0.0")) GB</strong></div>
+                <div><small>Available physical memory</small><strong>@((memory.AvailablePhysicalMemoryKb / 1024d / 1024d).ToString("0.0")) GB</strong></div>
+                <div><small>Physical memory low</small><strong>@(memory.IsPhysicalMemoryLow ? "YES" : "NO")</strong></div>
+                <div><small>Virtual memory low</small><strong>@(memory.IsVirtualMemoryLow ? "YES" : "NO")</strong></div>
+            </div>
+            <p class="server-mini-note">System memory state: <strong>@memory.SystemMemoryState</strong></p>
+        }
+    </article>
+</section>
+
+<section class="dashboard-grid" style="margin-top:14px">
+    <article class="glass-panel ops-panel state-@backupState">
+        <div class="panel-heading"><div><span class="eyebrow">BACKUP EVIDENCE</span><h3>Full-backup coverage</h3></div></div>
+        @if (backups is null)
+        {
+            <p class="panel-copy">Not collected.</p>
+        }
+        else
+        {
+            <div class="definition-grid">
+                <div><small>Backed up ≤24h</small><strong>@backups.BackedUpLast24Hours</strong></div>
+                <div><small>Missing full backup ≤24h</small><strong>@backups.MissingFullBackupLast24Hours</strong></div>
+                <div><small>Last full backup</small><strong>@(backups.LastFullBackupAtUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss zzz") ?? "None observed")</strong></div>
+            </div>
+        }
+    </article>
+
+    <article class="glass-panel ops-panel state-@jobsState">
+        <div class="panel-heading"><div><span class="eyebrow">SQL AGENT</span><h3>Observed job facts</h3></div></div>
+        @if (jobs is null)
+        {
+            <p class="panel-copy">Not collected.</p>
+        }
+        else
+        {
+            <div class="definition-grid">
+                <div><small>Total jobs</small><strong>@jobs.TotalJobs</strong></div>
+                <div><small>Enabled jobs</small><strong>@jobs.EnabledJobs</strong></div>
+                <div><small>Failed last run</small><strong>@jobs.FailedLastRun</strong></div>
+            </div>
+            <p class="server-mini-note">No synthetic “healthy job” count is calculated.</p>
+        }
+    </article>
+
+    <article class="glass-panel ops-panel">
+        <div class="panel-heading"><div><span class="eyebrow">STORAGE ALLOCATION</span><h3>Observed SQL files</h3></div></div>
+        @if (storage is null)
+        {
+            <p class="panel-copy">Not collected.</p>
+        }
+        else
+        {
+            <div class="definition-grid">
+                <div><small>Total allocated</small><strong>@((storage.TotalAllocatedBytes / 1024d / 1024d / 1024d).ToString("0.00")) GB</strong></div>
+                <div><small>Data allocated</small><strong>@((storage.DataAllocatedBytes / 1024d / 1024d / 1024d).ToString("0.00")) GB</strong></div>
+                <div><small>Log allocated</small><strong>@((storage.LogAllocatedBytes / 1024d / 1024d / 1024d).ToString("0.00")) GB</strong></div>
+            </div>
+        }
+    </article>
+</section>
+
+<section class="dashboard-grid" style="margin-top:14px">
+    <article class="glass-panel ops-panel state-@blockingState">
+        <div class="panel-heading"><div><span class="eyebrow">BLOCKING</span><h3>Current blocking evidence</h3></div></div>
+        @if (blocking is null)
+        {
+            <p class="panel-copy">Not collected.</p>
+        }
+        else
+        {
+            <div class="definition-grid">
+                <div><small>Blocked requests</small><strong>@blocking.BlockedRequests</strong></div>
+                <div><small>Maximum wait</small><strong>@blocking.MaxWaitMilliseconds ms</strong></div>
+            </div>
+        }
+    </article>
+
+    <article class="glass-panel ops-panel state-@runtimeState">
+        <div class="panel-heading"><div><span class="eyebrow">RUNTIME PRESSURE</span><h3>Bounded scheduler / I/O facts</h3></div></div>
+        @if (performance is null)
+        {
+            <p class="panel-copy">Not collected.</p>
+        }
+        else
+        {
+            <div class="definition-grid">
+                <div><small>Active requests</small><strong>@performance.ActiveRequests</strong></div>
+                <div><small>Runnable tasks</small><strong>@performance.RunnableTasks</strong></div>
+                <div><small>Pending I/O requests</small><strong>@performance.PendingIoRequests</strong></div>
+            </div>
+        }
+    </article>
+
+    <article class="glass-panel ops-panel state-unknown">
+        <div class="panel-heading"><div><span class="eyebrow">CPU</span><h3>Collection status</h3></div></div>
+        <p class="panel-copy"><strong>Not collected.</strong> CPU remains outside the v0.1 bounded snapshot contract. This page intentionally does not infer CPU pressure from another signal.</p>
+    </article>
+</section>
+
+@if (operatorMetadata is not null)
+{
+    <section class="glass-panel panel-pad" style="margin-top:14px" aria-labelledby="enterprise-server-context">
+        <div class="panel-heading"><div><span class="eyebrow">ENTERPRISE GOVERNANCE</span><h3 id="enterprise-server-context">Operator context</h3></div><div><a class="secondary-button" asp-controller="Operations" asp-action="History" asp-route-registrationId="@server.Id">View history</a> <a class="secondary-button" asp-controller="EnterpriseOperations" asp-action="Overview">@(User.IsInRole(MonitorRoles.Administrator) ? "Manage" : "View") metadata</a></div></div>
+        <div class="definition-grid">
+            <div><small>Environment</small><strong>@operatorMetadata.Environment</strong></div>
+            <div><small>Group</small><strong>@(operatorMetadata.Group ?? "Unassigned")</strong></div>
+            <div><small>Tags</small><strong>@(operatorMetadata.Tags.Length == 0 ? "None" : string.Join(", ", operatorMetadata.Tags))</strong></div>
+            <div><small>Maintenance</small><strong>@(maintenanceActive ? "Active" : "Inactive")</strong></div>
+            <div><small>Alert suppression</small><strong>@(alertSuppressed ? "Active" : "Inactive")</strong></div>
+            <div><small>Metadata updated</small><strong>@operatorMetadata.UpdatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss zzz")</strong></div>
+        </div>
+    </section>
+}
