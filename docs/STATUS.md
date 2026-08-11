@@ -1,40 +1,39 @@
 # Project Status
 
-**Updated:** 2026-08-11 03:15 +03:00  
-**Branch:** `agent/b200-3`  
-**Target:** BATCH-200 / Batch 3 — Incident collaboration workflow  
-**Issues:** #76 umbrella · #81 Batch 3  
-**Overall:** 🟢 M0–M8 VERIFIED · 🟢 BATCH-100 100/100 COMPLETE · 🟢 B200-001..030 CI VERIFIED · 🟡 BATCH-200 30/100
+**Updated:** 2026-08-11 03:30 +03:00  
+**Branch:** `agent/b200-4`  
+**Target:** BATCH-200 / Batch 4 — Reporting & diagnostics expansion  
+**Issues:** #76 umbrella · #83 Batch 4  
+**Overall:** 🟢 M0–M8 VERIFIED · 🟢 BATCH-100 100/100 COMPLETE · 🟢 B200-001..040 CI VERIFIED · 🟡 BATCH-200 40/100
 
 ## Current verification
 
-- GitHub Actions implementation run: `31444920282`.
+- GitHub Actions implementation run: `31445480775`.
 - Release build: **Green — 0 warnings / 0 errors** with `--warnaserror`.
-- Tests: **256/256 passed; 0 failed**.
-- B200-021..030: CI VERIFIED.
-- BATCH-200 progress: **30/100 CI verified**.
+- Tests: **268/268 passed; 0 failed**.
+- B200-031..040: CI VERIFIED.
+- BATCH-200 progress: **40/100 CI verified**.
 
-## Batch 3 delivered
+## Batch 4 delivered
 
-- Assignee-aware incident collaboration projection reuses durable operator metadata instead of creating a competing incident record.
-- Owner changes create bounded audit timeline entries with previous-to-next ownership state.
-- Operator notes support server-side bounded paging and immutable note identity checks.
-- Note submission includes a replay key; a hashed durable audit receipt prevents normal duplicate request replay without storing the raw key.
-- Incident age is projected into deterministic Fresh/Aging/Breached/Resolved SLA buckets.
-- Severity escalation can create an explicit Warning-to-Critical audit marker/history entry.
-- Reopen reasons and resolution notes are validated, secret-safe operator notes kept separate from immutable incident evidence.
-- Reason-aware resolve/reopen endpoints require POST, antiforgery and the Operate policy.
-- Enterprise and incident-detail UX expose SLA, replay-safe note submission and reason-aware collaboration controls.
-- Acceptance coverage maps one executable test to every B200-021..030 task.
+- Added `monitor-export-v2` as a deterministic versioned CSV schema contract.
+- Added filtered server export using registrations/operator metadata and snapshot-cache `Peek` only; monitored SQL endpoints and secret references are omitted.
+- Added formula-safe incident export without incident evidence.
+- Added bounded 1h/6h/24h history export and Administrator-only audit export.
+- Added explicit 1000-row, 1 MiB and 500-character cell limits.
+- Added UTF-8 BOM + LF compatibility; CI caught and fixed the .NET preamble emission assumption.
+- Added formula-injection coverage for `=`, `+`, `-`, `@`, tab and carriage-return prefixes.
+- Added Administrator diagnostics build/revision manifest without environment-variable values.
+- Added GET-only report endpoint acceptance coverage and a cache fake proving no `GetAsync`/`RefreshAsync` collection is used by server reporting.
 
 ## Stable guardrails
 
-- Collaboration state does not modify `HealthIncident.Evidence`.
-- Notes/reasons reject credential or connection-shaped material.
-- Assignee, note and SLA reads remain Monitor-owned control-plane operations.
+- Reporting and diagnostics GETs remain Monitor-owned/cache-only.
+- Server exports do not expose host/port or secret references.
+- Incident export does not expose incident evidence.
+- Audit export remains Administrator-only.
 - No autonomous remediation or AI SQL execution.
-- MultiNode remains fail-closed behind existing readiness/security/state prerequisites.
 
 ## Next
 
-Batch 3 requires final code+docs PR CI and squash merge to `main`, then B200-031..040 Reporting & Diagnostics begins.
+Batch 4 requires final code+docs PR CI and squash merge to `main`, then B200-041..050 Fleet Intelligence begins.
