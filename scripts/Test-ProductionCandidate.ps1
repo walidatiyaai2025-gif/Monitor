@@ -40,7 +40,8 @@ foreach ($file in $forbiddenFiles) {
 
 $appSettingsPath = Join-Path $publish 'appsettings.json'
 $appSettings = Get-Content -LiteralPath $appSettingsPath -Raw | ConvertFrom-Json
-Assert-Condition ($null -eq $appSettings.DevelopmentAdmin) 'Published appsettings.json must not contain DevelopmentAdmin credentials.'
+$developmentAdminProperty = $appSettings.PSObject.Properties['DevelopmentAdmin']
+Assert-Condition ($null -eq $developmentAdminProperty) 'Published appsettings.json must not contain DevelopmentAdmin credentials.'
 Assert-Condition ([string]$appSettings.Deployment.Mode -eq 'SingleNode') 'Published baseline must default to Deployment:Mode=SingleNode.'
 Assert-Condition ([string]$appSettings.SharedState.Provider -eq 'Disabled') 'Published baseline must keep SharedState disabled.'
 Assert-Condition (-not [bool]$appSettings.HaState.UseSharedRegistrations) 'Published baseline must not enable shared registrations.'
