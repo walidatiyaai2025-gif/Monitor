@@ -184,7 +184,7 @@ public sealed class RealSqlAcceptanceTests
         using var listener = new TcpListener(IPAddress.Loopback, 0);
         listener.Start();
         var endpoint = (IPEndPoint)listener.LocalEndpoint;
-        var acceptTask = listener.AcceptTcpClientAsync().AsTask();
+        var acceptTask = listener.AcceptTcpClientAsync();
         var store = SecretStore(environment.Username, environment.Password);
         var collector = new SqlServerSnapshotCollector(store, new SqlSnapshotQuery(), TimeProvider.System);
         var stalled = new ServerRegistration(
