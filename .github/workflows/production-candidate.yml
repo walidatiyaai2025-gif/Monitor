@@ -74,7 +74,7 @@ jobs:
               [ref]$tokens,
               [ref]$errors) | Out-Null
             if ($errors.Count -gt 0) {
-              $messages = $errors | ForEach-Object { "$path:$($_.Extent.StartLineNumber): $($_.Message)" }
+              $messages = $errors | ForEach-Object { "${path}:$($_.Extent.StartLineNumber): $($_.Message)" }
               throw ($messages -join [Environment]::NewLine)
             }
           }
