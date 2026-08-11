@@ -61,7 +61,9 @@ public static class Batch400FleetCorrelation
             var radius = BlastRadius(items);
             var severityWeight = items.Max(item => SeverityWeight(item.Severity));
             var score = Math.Round(Math.Clamp(severityWeight * 0.7 + Math.Min(100, radius * 10d) * 0.3, 0, 100), 2);
-            var severity = score >= 80 ? B400Severity.Critical : score >= 45 ? B400Severity.Warning : score > 0 ? B400Severity.Info : B400Severity.None;
+            var severity = items.Any(item => item.Severity == B400Severity.Critical)
+                ? B400Severity.Critical
+                : score >= 45 ? B400Severity.Warning : score > 0 ? B400Severity.Info : B400Severity.None;
             return new SignalCluster(group.Key, Bucket(items.Min(item => item.AtUtc), boundedWindow), DominantRule(items), radius, Environments(items), severity, score);
         }).OrderByDescending(item => item.Score).ThenBy(item => item.ClusterKey, StringComparer.Ordinal).Take(boundedLimit).ToArray();
     }
