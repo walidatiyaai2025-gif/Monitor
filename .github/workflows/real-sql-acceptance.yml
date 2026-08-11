@@ -25,6 +25,8 @@ jobs:
       SQL_CONTAINER: monitor-p0-sql2022
       SQL_HOST_PORT: '14333'
       MONITOR_LOGIN: monitor_acceptance
+      MONITOR_NO_SERVER_STATE_LOGIN: monitor_no_server_state
+      MONITOR_NO_MSDB_LOGIN: monitor_no_msdb
     steps:
       - uses: actions/checkout@v4
 
@@ -103,6 +105,10 @@ jobs:
             -S localhost -U sa -P "$SQL_SA_PASSWORD" -C -b <<SQL
           CREATE LOGIN [$MONITOR_LOGIN]
             WITH PASSWORD = N'$MONITOR_SQL_PASSWORD', CHECK_POLICY = ON;
+          CREATE LOGIN [$MONITOR_NO_SERVER_STATE_LOGIN]
+            WITH PASSWORD = N'$MONITOR_SQL_PASSWORD', CHECK_POLICY = ON;
+          CREATE LOGIN [$MONITOR_NO_MSDB_LOGIN]
+            WITH PASSWORD = N'$MONITOR_SQL_PASSWORD', CHECK_POLICY = ON;
           GO
           CREATE DATABASE MonitorAcceptanceBacked;
           GO
@@ -128,22 +134,41 @@ jobs:
           set -euo pipefail
           docker cp scripts/sql/monitored_sql_least_privilege.sql \
             "$SQL_CONTAINER:/tmp/monitored_sql_least_privilege.sql"
-          docker exec "$SQL_CONTAINER" /opt/mssql-tools18/bin/sqlcmd \
-            -S localhost -U sa -P "$SQL_SA_PASSWORD" -C -b \
-            -v MonitorLogin="$MONITOR_LOGIN" \
-            -i /tmp/monitored_sql_least_privilege.sql
+          for login in "$MONITOR_LOGIN" "$MONITOR_NO_SERVER_STATE_LOGIN" "$MONITOR_NO_MSDB_LOGIN"; do
+            docker exec "$SQL_CONTAINER" /opt/mssql-tools18/bin/sqlcmd \
+              -S localhost -U sa -P "$SQL_SA_PASSWORD" -C -b \
+              -v MonitorLogin="$login" \
+              -i /tmp/monitored_sql_least_privilege.sql
+          done
 
-      - name: Verify monitor login is not privileged
+      - name: Remove one required permission from negative targets
         shell: bash
         run: |
           set -euo pipefail
-          RESULT=$(docker exec "$SQL_CONTAINER" /opt/mssql-tools18/bin/sqlcmd \
-            -S localhost -U sa -P "$SQL_SA_PASSWORD" -C -b -h -1 -W \
-            -Q "SET NOCOUNT ON; SELECT IS_SRVROLEMEMBER('sysadmin', '$MONITOR_LOGIN');")
-          if [ "$(echo "$RESULT" | tr -d '[:space:]')" != "0" ]; then
-            echo "Acceptance login unexpectedly has sysadmin membership." >&2
-            exit 1
-          fi
+          docker exec -i "$SQL_CONTAINER" /opt/mssql-tools18/bin/sqlcmd \
+            -S localhost -U sa -P "$SQL_SA_PASSWORD" -C -b <<SQL
+          DENY VIEW SERVER PERFORMANCE STATE TO [$MONITOR_NO_SERVER_STATE_LOGIN];
+          GO
+          USE msdb;
+          DENY SELECT ON dbo.backupset TO [$MONITOR_NO_MSDB_LOGIN];
+          DENY SELECT ON dbo.sysjobs TO [$MONITOR_NO_MSDB_LOGIN];
+          DENY SELECT ON dbo.sysjobservers TO [$MONITOR_NO_MSDB_LOGIN];
+          GO
+          SQL
+
+      - name: Verify acceptance logins are not privileged
+        shell: bash
+        run: |
+          set -euo pipefail
+          for login in "$MONITOR_LOGIN" "$MONITOR_NO_SERVER_STATE_LOGIN" "$MONITOR_NO_MSDB_LOGIN"; do
+            RESULT=$(docker exec "$SQL_CONTAINER" /opt/mssql-tools18/bin/sqlcmd \
+              -S localhost -U sa -P "$SQL_SA_PASSWORD" -C -b -h -1 -W \
+              -Q "SET NOCOUNT ON; SELECT IS_SRVROLEMEMBER('sysadmin', '$login');")
+            if [ "$(echo "$RESULT" | tr -d '[:space:]')" != "0" ]; then
+              echo "Acceptance login unexpectedly has sysadmin membership." >&2
+              exit 1
+            fi
+          done
 
       - name: Restore
         run: dotnet restore Monitor.sln
@@ -157,6 +182,8 @@ jobs:
           MONITOR_REAL_SQL_HOST: '127.0.0.1'
           MONITOR_REAL_SQL_PORT: '14333'
           MONITOR_REAL_SQL_USERNAME: 'monitor_acceptance'
+          MONITOR_REAL_SQL_NO_SERVER_STATE_USERNAME: 'monitor_no_server_state'
+          MONITOR_REAL_SQL_NO_MSDB_USERNAME: 'monitor_no_msdb'
           MONITOR_REAL_SQL_PASSWORD: ${{ env.MONITOR_SQL_PASSWORD }}
         run: >-
           dotnet test Monitor.sln
