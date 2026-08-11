@@ -25,6 +25,8 @@ jobs:
       SQL_CONTAINER: monitor-p0-sql2022
       SQL_HOST_PORT: '14333'
       MONITOR_LOGIN: monitor_acceptance
+      LIMITED_LOGIN: monitor_limited
+      NO_MSDB_LOGIN: monitor_no_msdb
     steps:
       - uses: actions/checkout@v4
 
@@ -39,11 +41,16 @@ jobs:
           set -euo pipefail
           SQL_SA_PASSWORD="Aa1!$(openssl rand -hex 18)"
           MONITOR_SQL_PASSWORD="Bb2!$(openssl rand -hex 18)"
-          echo "::add-mask::$SQL_SA_PASSWORD"
-          echo "::add-mask::$MONITOR_SQL_PASSWORD"
+          LIMITED_SQL_PASSWORD="Cc3!$(openssl rand -hex 18)"
+          NO_MSDB_SQL_PASSWORD="Dd4!$(openssl rand -hex 18)"
+          for secret in "$SQL_SA_PASSWORD" "$MONITOR_SQL_PASSWORD" "$LIMITED_SQL_PASSWORD" "$NO_MSDB_SQL_PASSWORD"; do
+            echo "::add-mask::$secret"
+          done
           {
             echo "SQL_SA_PASSWORD=$SQL_SA_PASSWORD"
             echo "MONITOR_SQL_PASSWORD=$MONITOR_SQL_PASSWORD"
+            echo "LIMITED_SQL_PASSWORD=$LIMITED_SQL_PASSWORD"
+            echo "NO_MSDB_SQL_PASSWORD=$NO_MSDB_SQL_PASSWORD"
           } >> "$GITHUB_ENV"
 
       - name: Start real SQL Server 2022 target
@@ -103,6 +110,10 @@ jobs:
             -S localhost -U sa -P "$SQL_SA_PASSWORD" -C -b <<SQL
           CREATE LOGIN [$MONITOR_LOGIN]
             WITH PASSWORD = N'$MONITOR_SQL_PASSWORD', CHECK_POLICY = ON;
+          CREATE LOGIN [$LIMITED_LOGIN]
+            WITH PASSWORD = N'$LIMITED_SQL_PASSWORD', CHECK_POLICY = ON;
+          CREATE LOGIN [$NO_MSDB_LOGIN]
+            WITH PASSWORD = N'$NO_MSDB_SQL_PASSWORD', CHECK_POLICY = ON;
           GO
           CREATE DATABASE MonitorAcceptanceBacked;
           GO
@@ -133,6 +144,19 @@ jobs:
             -v MonitorLogin="$MONITOR_LOGIN" \
             -i /tmp/monitored_sql_least_privilege.sql
 
+      - name: Prepare intentionally incomplete permission profiles
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker exec -i "$SQL_CONTAINER" /opt/mssql-tools18/bin/sqlcmd \
+            -S localhost -U sa -P "$SQL_SA_PASSWORD" -C -b <<SQL
+          ALTER SERVER ROLE MonitorObserverServerRole ADD MEMBER [$NO_MSDB_LOGIN];
+          USE master;
+          CREATE USER [$NO_MSDB_LOGIN] FOR LOGIN [$NO_MSDB_LOGIN];
+          ALTER ROLE MonitorObserverMasterRole ADD MEMBER [$NO_MSDB_LOGIN];
+          GO
+          SQL
+
       - name: Verify monitor login is not privileged
         shell: bash
         run: |
@@ -158,6 +182,10 @@ jobs:
           MONITOR_REAL_SQL_PORT: '14333'
           MONITOR_REAL_SQL_USERNAME: 'monitor_acceptance'
           MONITOR_REAL_SQL_PASSWORD: ${{ env.MONITOR_SQL_PASSWORD }}
+          MONITOR_LIMITED_SQL_USERNAME: 'monitor_limited'
+          MONITOR_LIMITED_SQL_PASSWORD: ${{ env.LIMITED_SQL_PASSWORD }}
+          MONITOR_NO_MSDB_SQL_USERNAME: 'monitor_no_msdb'
+          MONITOR_NO_MSDB_SQL_PASSWORD: ${{ env.NO_MSDB_SQL_PASSWORD }}
         run: >-
           dotnet test Monitor.sln
           --configuration Release
