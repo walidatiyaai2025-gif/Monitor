@@ -1,5 +1,15 @@
 # Project Status
 
+## BATCH-400 — Production DBA diagnostics continuation
+
+- Issue #108 tracks **100 additional code tasks B400-011..110**, preserving the portal/typography work already merged by PR #107 as B400-001..010.
+- Added deterministic wait-stat intelligence, query-regression scoring, TempDB pressure, transaction-log health, I/O latency, SQL Agent reliability, HA readiness, maintenance decision safety and fleet signal correlation.
+- Added the Read-policy-protected `/intelligence/v2/contract` endpoint and a fail-closed 100-task continuation release contract.
+- Clean implementation CI on top of PR #107: `31467831498`.
+- Release build: **0 warnings / 0 errors** with `--warnaserror`.
+- Full regression suite: **498/498 passed; 0 failed**.
+- B400-011..110: **CI VERIFIED** with 100 mapped acceptance tests; final closure requires PR CI and squash merge.
+
 ## BATCH-400 — Portal completion and Google typography
 
 - Added dedicated Performance Health, Recommendations, and Reports & Diagnostics pages.
@@ -10,13 +20,13 @@
 - Kept the strict CSP by serving font assets locally with `font-src 'self'`.
 - Added bounded desktop/mobile sidebar scrolling while preserving the existing command-center visual identity.
 - Local verification: Release build **0 warnings / 0 errors**, **398/398 tests passed**, desktop and 390px browser acceptance passed with no console warnings/errors.
-- State: **LOCAL VERIFIED — awaiting PR CI receipt**.
+- State: **MERGED — PR #107**.
 
-**Updated:** 2026-08-11 09:27 +03:00  
-**Branch:** `main`  
-**Target:** BATCH-300 — SQL Estate Intelligence & Safe Operations COMPLETE  
-**Issue:** #97 CLOSED · **PR:** #102 MERGED  
-**Overall:** 🟢 M0–M8 VERIFIED · 🟢 BATCH-100 100/100 COMPLETE · 🟢 BATCH-200 100/100 COMPLETE · 🟢 BATCH-300 B300-001..100 COMPLETE
+**Updated:** 2026-08-11 10:10 +03:00  
+**Branch:** `agent/b400-diagnostics-v2`  
+**Target:** BATCH-400 — B400-011..110 final PR gate  
+**Issue:** #108  
+**Overall:** 🟢 M0–M8 VERIFIED · 🟢 BATCH-100 100/100 COMPLETE · 🟢 BATCH-200 100/100 COMPLETE · 🟢 BATCH-300 100/100 COMPLETE · 🟡 BATCH-400 B400-011..110 CI VERIFIED / MERGE PENDING
 
 ## BATCH-300 final verification
 
@@ -66,7 +76,7 @@
 
 ## Stable guardrails
 
-- Navigation, reporting, diagnostics, fleet, help, readiness and BATCH-300 intelligence GETs do not initiate monitored-SQL collection.
+- Navigation, reporting, diagnostics, fleet, help, readiness and intelligence GETs do not initiate monitored-SQL collection.
 - No browser connects directly to monitored SQL.
 - No autonomous remediation or AI SQL execution.
 - Credentials/full connection strings/raw provider errors/SQL text remain outside UI, audit, exports and diagnostics.
@@ -74,4 +84,4 @@
 - Maintenance affects scheduled collection only; manual refresh is explicit and audited.
 - Mutations remain POST + antiforgery + named authorization policy.
 - MultiNode remains fail-closed behind shared-state/security/credential readiness.
-- Concurrent team lifecycle/reconnect work remains preserved.
+- Concurrent team lifecycle/reconnect and portal/typography work remain preserved.
