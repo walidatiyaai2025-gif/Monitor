@@ -62,6 +62,21 @@ This is the canonical execution plan. Update it in the same PR as material imple
 
 Current progress: **100/100 tasks CI verified**. Batch 10 verification run `31442930470` passed Release build with warnings-as-errors and the complete RC suite (229/229 passed; 0 failed). The BATCH-100 production/enterprise program is complete.
 
+## BATCH-300 — Daily target lifecycle
+
+| Task | Description | State |
+|---|---|---|
+| B300-001 | Administrator pause-monitoring command | LOCAL VERIFIED |
+| B300-002 | Administrator resume-monitoring command | LOCAL VERIFIED |
+| B300-003 | Durable registration state preservation | LOCAL VERIFIED |
+| B300-004 | Snapshot eviction on pause | LOCAL VERIFIED |
+| B300-005 | In-flight generation guard after pause | LOCAL VERIFIED |
+| B300-006 | Bounded lifecycle audit event | LOCAL VERIFIED |
+| B300-007 | Idempotent repeated lifecycle commands | LOCAL VERIFIED |
+| B300-008 | Connection Lab pause/resume operator UX | LOCAL VERIFIED |
+| B300-009 | Antiforgery-protected POST/PRG workflow | LOCAL VERIFIED |
+| B300-010 | Release build and 293-test regression gate | LOCAL VERIFIED |
+
 ## Delivery loop
 
 Plan -> Design -> Implement -> Show -> Connect Real Data -> Verify -> Commit -> Push -> Update Plan.

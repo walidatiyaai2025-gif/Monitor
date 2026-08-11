@@ -7,6 +7,14 @@
 **PR:** #96  
 **Overall:** 🟢 M0–M8 VERIFIED · 🟢 BATCH-100 100/100 COMPLETE · 🟢 BATCH-200 100/100 COMPLETE
 
+## BATCH-300 / 1 — Daily target lifecycle — LOCAL VERIFIED
+
+- Administrators can pause and resume each registered target from Connection Lab.
+- Pausing persists `IsEnabled=false`, evicts the cached snapshot and prevents an older in-flight collection from republishing evidence.
+- Resuming preserves registration ID, endpoint, credential reference, creation time, history and incidents.
+- Repeated commands are idempotent; committed transitions emit bounded audit metadata.
+- Local Release gate: 0 warnings / 0 errors; 293/293 tests passed.
+
 ## Final verification
 
 - GitHub Actions final release-candidate run: `31446970475`.
