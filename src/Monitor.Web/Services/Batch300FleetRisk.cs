@@ -10,7 +10,7 @@ public enum FleetRiskLevel
 }
 
 public sealed record FleetRiskSignal(string Key, int Severity, DateTimeOffset ObservedAtUtc, bool Suppressed = false, bool InMaintenance = false);
-public sealed record FleetRiskSummary(int Score, FleetRiskLevel Level, int ActionableCount, int SuppressedCount, string[] TopKeys);
+public sealed record Batch300FleetRiskSummary(int Score, FleetRiskLevel Level, int ActionableCount, int SuppressedCount, string[] TopKeys);
 
 public static class Batch300FleetRisk
 {
@@ -78,7 +78,7 @@ public static class Batch300FleetRisk
         return safe.Length == 0 ? "unknown" : safe[..Math.Min(safe.Length, 64)];
     }
 
-    public static FleetRiskSummary Summarize(IEnumerable<FleetRiskSignal> signals, DateTimeOffset nowUtc)
+    public static Batch300FleetRiskSummary Summarize(IEnumerable<FleetRiskSignal> signals, DateTimeOffset nowUtc)
     {
         ArgumentNullException.ThrowIfNull(signals);
         var values = signals.Select(signal => signal with { Key = SafeKey(signal.Key) }).ToArray();
