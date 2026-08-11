@@ -56,20 +56,28 @@ public sealed class P05ProductionCandidateTests
     }
 
     [Fact]
-    public void CandidateWorkflow_RequiresReleaseTestsRestartSmokeAndChecksum()
+    public void CandidateWorkflow_RequiresReleaseTestsAuthenticationRestartSmokeAndChecksum()
     {
         var root = FindRepoRoot();
         var workflow = File.ReadAllText(Path.Combine(root, ".github", "workflows", "production-candidate.yml"));
+        var authSmokePath = Path.Combine(root, "scripts", "Smoke-MonitorAuthentication.ps1");
+        var authSmoke = File.ReadAllText(authSmokePath);
 
         Assert.Contains("windows-latest", workflow, StringComparison.Ordinal);
         Assert.Contains("--warnaserror", workflow, StringComparison.Ordinal);
         Assert.Contains("dotnet test Monitor.sln", workflow, StringComparison.Ordinal);
         Assert.Contains("Smoke-Monitor.ps1", workflow, StringComparison.Ordinal);
+        Assert.Contains("Smoke-MonitorAuthentication.ps1", workflow, StringComparison.Ordinal);
+        Assert.Contains("Rfc2898DeriveBytes", workflow, StringComparison.Ordinal);
+        Assert.Contains("MONITOR_CANDIDATE_ADMIN_PASSWORD", workflow, StringComparison.Ordinal);
         Assert.Contains("Restart same published candidate", workflow, StringComparison.Ordinal);
         Assert.Contains("Test-ProductionCandidate.ps1", workflow, StringComparison.Ordinal);
         Assert.Contains("Get-FileHash", workflow, StringComparison.Ordinal);
         Assert.Contains("SHA-256", workflow, StringComparison.Ordinal);
         Assert.Contains("upload-artifact@v4", workflow, StringComparison.Ordinal);
+        Assert.Contains("__RequestVerificationToken", authSmoke, StringComparison.Ordinal);
+        Assert.Contains("/servers/connections", authSmoke, StringComparison.Ordinal);
+        Assert.DoesNotContain("Write-Host $Password", authSmoke, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string FindRepoRoot()
