@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using Microsoft.AspNetCore.Hosting;
 using Monitor.Web.Models;
 
 namespace Monitor.Web.Services;
@@ -21,24 +22,43 @@ public interface IServerHealthSnapshotCache
         CancellationToken cancellationToken = default);
 }
 
-public sealed class ServerHealthSnapshotCache(
-    ISqlServerSnapshotCollector collector,
-    TimeProvider timeProvider,
-    PerformanceScaleOptions? performance = null,
-    ILatestSnapshotStore? latestSnapshotStore = null) : IServerHealthSnapshotCache
+public sealed class ServerHealthSnapshotCache : IServerHealthSnapshotCache
 {
     internal static readonly TimeSpan FreshFor = TimeSpan.FromSeconds(30);
     internal static readonly TimeSpan RetainStaleFor = TimeSpan.FromMinutes(5);
 
-    private readonly ILatestSnapshotStore _latestSnapshotStore = latestSnapshotStore ?? NullLatestSnapshotStore.Instance;
-    private readonly ConcurrentDictionary<Guid, ServerHealthSnapshot> _snapshots = new(
-        (latestSnapshotStore ?? NullLatestSnapshotStore.Instance)
-            .LoadAll()
-            .ToDictionary(item => item.RegistrationId));
+    private readonly ISqlServerSnapshotCollector _collector;
+    private readonly TimeProvider _timeProvider;
+    private readonly ILatestSnapshotStore _latestSnapshotStore;
+    private readonly ConcurrentDictionary<Guid, ServerHealthSnapshot> _snapshots;
     private readonly ConcurrentDictionary<Guid, Lazy<Task<ServerHealthSnapshot>>> _inflight = new();
     private readonly ConcurrentDictionary<Guid, long> _generations = new();
     private readonly object _trimGate = new();
-    private readonly int _maxEntries = ResolveCapacity(performance);
+    private readonly int _maxEntries;
+
+    public ServerHealthSnapshotCache(
+        ISqlServerSnapshotCollector collector,
+        TimeProvider timeProvider,
+        PerformanceScaleOptions? performance = null,
+        ILatestSnapshotStore? latestSnapshotStore = null,
+        OperationalStoreOptions? operationalStore = null,
+        HaStateOptions? haState = null,
+        ISharedStateDocumentStore? sharedState = null,
+        IWebHostEnvironment? environment = null)
+    {
+        _collector = collector ?? throw new ArgumentNullException(nameof(collector));
+        _timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
+        _maxEntries = ResolveCapacity(performance);
+        _latestSnapshotStore = ResolveLatestSnapshotStore(
+            latestSnapshotStore,
+            operationalStore,
+            haState,
+            sharedState,
+            environment);
+        _snapshots = new ConcurrentDictionary<Guid, ServerHealthSnapshot>(
+            _latestSnapshotStore.LoadAll().ToDictionary(item => item.RegistrationId));
+        TrimToCapacity();
+    }
 
     public SnapshotCacheResult? Peek(Guid registrationId)
     {
@@ -117,7 +137,7 @@ public sealed class ServerHealthSnapshotCache(
     {
         try
         {
-            var snapshot = await collector.CollectAsync(registration, CancellationToken.None);
+            var snapshot = await _collector.CollectAsync(registration, CancellationToken.None);
             if (_generations.GetOrAdd(registration.Id, 0) != generation)
             {
                 throw new SnapshotCollectionException(
@@ -125,22 +145,22 @@ public sealed class ServerHealthSnapshotCache(
                     "The collected snapshot was discarded because monitoring state changed.");
             }
 
-            var retained = _snapshots.AddOrUpdate(
-                registration.Id,
-                snapshot,
-                (_, current) => snapshot.CollectedAtUtc > current.CollectedAtUtc ? snapshot : current);
+            _snapshots.TryGetValue(registration.Id, out var current);
+            var retained = current is null || snapshot.CollectedAtUtc > current.CollectedAtUtc
+                ? snapshot
+                : current;
             try
             {
                 _latestSnapshotStore.Upsert(retained);
             }
             catch (Exception exception) when (exception is IOException or InvalidDataException or UnauthorizedAccessException or SharedStateStoreUnavailableException or SharedStateConcurrencyException)
             {
-                _snapshots.TryRemove(registration.Id, out _);
                 throw new SnapshotCollectionException(
                     SnapshotCollectionFailure.Failed,
                     "Snapshot persistence failed.");
             }
 
+            _snapshots.AddOrUpdate(registration.Id, retained, (_, _) => retained);
             TrimToCapacity();
             return retained;
         }
@@ -170,7 +190,7 @@ public sealed class ServerHealthSnapshotCache(
 
     private TimeSpan Age(ServerHealthSnapshot snapshot)
     {
-        var age = timeProvider.GetUtcNow() - snapshot.CollectedAtUtc;
+        var age = _timeProvider.GetUtcNow() - snapshot.CollectedAtUtc;
         return age < TimeSpan.Zero ? TimeSpan.Zero : age;
     }
 
@@ -179,5 +199,33 @@ public sealed class ServerHealthSnapshotCache(
         var value = options ?? new PerformanceScaleOptions();
         value.Validate();
         return value.SnapshotCacheMaxEntries;
+    }
+
+    private static ILatestSnapshotStore ResolveLatestSnapshotStore(
+        ILatestSnapshotStore? explicitStore,
+        OperationalStoreOptions? operationalStore,
+        HaStateOptions? haState,
+        ISharedStateDocumentStore? sharedState,
+        IWebHostEnvironment? environment)
+    {
+        if (explicitStore is not null) return explicitStore;
+
+        if (haState?.UseSharedOperationalState == true)
+        {
+            if (sharedState is null)
+                throw new InvalidOperationException("Shared latest snapshot persistence requires the shared-state provider.");
+            return new SharedLatestSnapshotStore(sharedState);
+        }
+
+        if (operationalStore?.Mode == OperationalStoreMode.File && environment is not null)
+        {
+            var root = OperationalStorePath.ResolveOutsideWebRoot(
+                operationalStore.RootPath,
+                environment.ContentRootPath,
+                environment.WebRootPath);
+            return new FileLatestSnapshotStore(Path.Combine(root, "latest-snapshots.json"));
+        }
+
+        return NullLatestSnapshotStore.Instance;
     }
 }
