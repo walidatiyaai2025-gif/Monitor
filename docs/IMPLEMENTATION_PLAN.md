@@ -2,6 +2,34 @@
 
 This is the canonical execution plan. Update it in the same PR as material implementation changes.
 
+## CURRENT P0 — Real SQL Production MVP
+
+**Umbrella:** Issue #111  
+**Execution ledger:** `docs/PRODUCTION_MVP.md`  
+**Project rule:** until P0.5 is accepted, production-slice blockers take priority over unrelated feature expansion.
+
+The immediate product outcome is one trustworthy vertical slice:
+
+`Login -> Add SQL Server -> Test -> Save -> Collect -> View Server Details -> Refresh -> Restart Monitor -> View trustworthy persisted target again`
+
+Production-visible values must come from collected evidence. Missing, stale, permission-limited or uncollected dimensions must be explicit; default numeric values must never masquerade as measurements.
+
+| Order | Release gate | Issue | Outcome | State |
+|---|---|---|---|---|
+| 1 | P0.1 | #112 | Real SQL registration: safe, testable and restart durable | READY / NEXT |
+| 2 | P0.2 | #113 | First real snapshot + truthful read-model mapping | BLOCKED BY P0.1 |
+| 3 | P0.3 | #114 | Server Details v0.1 becomes the trusted source of truth | BLOCKED BY P0.2 |
+| 4 | P0.4 | #115 | Real SQL end-to-end acceptance under success/failure cases | BLOCKED BY P0.3 |
+| 5 | P0.5 | #116 | First IIS/HTTPS SingleNode production release | BLOCKED BY P0.4 |
+
+### P0 production blockers already identified
+
+- The collector already gathers SQL Agent evidence, but the current `ServerCard` projection does not carry it into Server Details.
+- `ServerCard.CpuPercent` is currently projected as `0` while CPU is not part of the current bounded SQL snapshot contract; production UI must not interpret this placeholder as observed 0% CPU.
+- P0.2 must either add a defined real CPU evidence source or render CPU explicitly as `Not collected`.
+- Deterministic/fake-based CI is necessary but P0.4 additionally requires the complete journey against a real production-like SQL Server.
+- First production activation is deliberately SingleNode; MultiNode production activation is deferred until after P0.5.
+
 ## Verified foundation
 
 | Milestone | Scope | State |
@@ -90,6 +118,8 @@ Current progress: **100/100 tasks CI verified**. Batch 10 verification run `3144
 ## Delivery loop
 
 Plan -> Design -> Implement -> Show -> Connect Real Data -> Verify -> Commit -> Push -> Update Plan.
+
+For the active P0 program, `Connect Real Data` includes the mandatory real-SQL acceptance gate in #115 before the first production release.
 
 ## BATCH-400 — Portal completion and typography
 

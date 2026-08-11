@@ -2,6 +2,11 @@
 
 | Feature | Milestone | Status | Notes |
 |---|---|---|---|
+| Real SQL production registration gate | P0.1 | READY / NEXT | Issue #112; safe Test/Save/restart-durable registration |
+| Truthful first-snapshot projection | P0.2 | BLOCKED | Issue #113; remove fake numeric defaults, reconcile CPU and SQL Agent mapping |
+| Server Details production source of truth | P0.3 | BLOCKED | Issue #114; real-or-explicitly-unavailable cached evidence only |
+| Real SQL end-to-end acceptance | P0.4 | BLOCKED | Issue #115; mandatory real-target Add/Test/Collect/View/Refresh/Restart acceptance |
+| First Production SingleNode release | P0.5 | BLOCKED | Issue #116; IIS/HTTPS, durable state/credentials, smoke + rollback gate |
 | Development Admin authentication | M0 | Verified | Cookie auth; PBKDF2 hash only |
 | SQL Command Center / DBA estate UI | M0 | Verified | Central live visual language; controlled client motion |
 | Server registration + Test Connection | M1 | CI verified | Bounded backend-only connection workflow |
@@ -20,7 +25,7 @@
 | Protected local SQL credential store | M7 | CI verified | `local:v1`, Data Protection, encrypted atomic file, persisted key ring; CI 31384727247 |
 | HA topology safety guard | M7 | CI verified | Cross-field readiness; false MultiNode readiness is blocked |
 | Shared-state document contract | M7 | CI verified | Bounded JSON, versioned read/compare-exchange; CI 31386867949 |
-| Dedicated Monitor SQL shared-state provider | M7 | CI verified | Environment-only connection, schema v1, SERIALIZABLE compare/exchange; CI 31386867949 |
+| Dedicated Monitor SQL shared-state provider | M7 | CI verified | Environment-only connection, schema v1, SERIALIZABLE compare-exchange; CI 31386867949 |
 | Shared-state readiness | M7 | CI verified | Provider/schema status only; no endpoint/credential disclosure |
 | Shared registration repository | B100 | CI verified | Same application interface, optimistic CAS, deterministic import-if-empty; CI 31389275376 |
 | Shared audit/history/incident repositories | B100 | CI verified | Existing bounded semantics on dedicated control-plane state; CI 31389275376 |

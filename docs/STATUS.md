@@ -1,5 +1,35 @@
 # Project Status
 
+## CURRENT P0 — Real SQL Production MVP
+
+**Updated:** 2026-08-11 11:41 +03:00  
+**Branch:** `agent/production-mvp-priority`  
+**Umbrella:** #111  
+**Execution ledger:** `docs/PRODUCTION_MVP.md`  
+**Active next gate:** #112 / P0.1 Real SQL Registration  
+**Production target:** first trustworthy IIS/HTTPS SingleNode release after #112 -> #113 -> #114 -> #115 -> #116.
+
+### Management decision
+
+- The repository has a strong verified platform foundation, but the immediate delivery objective is now the end-to-end real SQL production journey rather than additional feature breadth.
+- Until P0.5 is accepted, production-slice blockers are higher priority than unrelated B300/B400 expansion.
+- A production-visible value must be backed by collected evidence. Missing/uncollected data is rendered explicitly; placeholder numeric zero is not acceptable as observed production data.
+- Known P0.2 reconciliation: current `ServerCard` projection sets CPU to `0` although CPU is not collected by the current bounded snapshot contract, and collected SQL Agent evidence is not projected into the card used by Server Details. Issue #113 owns this fix.
+- Real-server acceptance is mandatory in #115; deterministic/fake-based CI alone does not close the production gate.
+- First production deployment is deliberately SingleNode; MultiNode activation is deferred until after the first stable production release.
+
+### P0 release chain
+
+| Order | Release | Issue | State |
+|---|---|---|---|
+| 1 | P0.1 Real SQL Registration | #112 | READY / NEXT |
+| 2 | P0.2 First Real Snapshot + truthful mapping | #113 | BLOCKED BY #112 |
+| 3 | P0.3 Server Details v0.1 source of truth | #114 | BLOCKED BY #113 |
+| 4 | P0.4 Real SQL end-to-end acceptance | #115 | BLOCKED BY #114 |
+| 5 | P0.5 First Production SingleNode | #116 | BLOCKED BY #115 |
+
+**Overall:** 🟢 verified foundation · 🟡 P0 production vertical slice ACTIVE · 🔴 production acceptance not yet granted
+
 ## BATCH-400 — Production DBA diagnostics continuation
 
 - Issue #108 delivered **100 additional code tasks B400-011..110**, preserving the portal/typography work already merged by PR #107 as B400-001..010.
@@ -23,11 +53,12 @@
 - Local verification: Release build **0 warnings / 0 errors**, **398/398 tests passed**, desktop and 390px browser acceptance passed with no console warnings/errors.
 - State: **MERGED — PR #107**.
 
-**Updated:** 2026-08-11 10:15 +03:00  
-**Branch:** `main`  
-**Target:** BATCH-400 — Production DBA Diagnostics & Decision Safety COMPLETE  
-**Issues:** #108 CLOSED · **PR:** #109 MERGED  
-**Overall:** 🟢 M0–M8 VERIFIED · 🟢 BATCH-100 100/100 COMPLETE · 🟢 BATCH-200 100/100 COMPLETE · 🟢 BATCH-300 100/100 COMPLETE · 🟢 BATCH-400 B400-001..110 COMPLETE
+## Verified historical baseline
+
+**Prior canonical update:** 2026-08-11 10:15 +03:00  
+**Prior target:** BATCH-400 — Production DBA Diagnostics & Decision Safety COMPLETE  
+**Prior issues:** #108 CLOSED · **PR:** #109 MERGED  
+**Foundation:** 🟢 M0–M8 VERIFIED · 🟢 BATCH-100 100/100 COMPLETE · 🟢 BATCH-200 100/100 COMPLETE · 🟢 BATCH-300 100/100 COMPLETE · 🟢 BATCH-400 B400-001..110 COMPLETE
 
 ## BATCH-300 final verification
 
