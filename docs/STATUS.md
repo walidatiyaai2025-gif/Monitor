@@ -2,32 +2,47 @@
 
 ## CURRENT P0 — Real SQL Production MVP
 
-**Updated:** 2026-08-11 12:46 +03:00  
-**Branch:** `agent/p0-3-server-details-source-of-truth`  
+**Updated:** 2026-08-11 13:18 +03:00  
+**Branch:** `agent/p0-4-full-journey`  
 **Umbrella:** #111  
 **Execution ledger:** `docs/PRODUCTION_MVP.md`  
+**Real SQL evidence:** `docs/REAL_SQL_ACCEPTANCE.md`  
 **P0.1:** COMPLETE — PR #119 / final CI `31476747212` / 501/501  
-**P0.2:** COMPLETE — PR #121 MERGED `a294c6530d60f17e7c60e3a1ac070ce562af7b18` / final CI `31478470867` / 505/505  
-**P0.3 implementation PR:** #122  
-**P0.3 implementation CI:** `31479005170` — Release build 0 warnings / 0 errors; **507/507 tests passed**  
-**Next gate after #122 merge:** #115 / P0.4 Real SQL End-to-End Acceptance  
-**Production target:** first trustworthy IIS/HTTPS SingleNode release after #115 -> #116.
+**P0.2:** COMPLETE — PR #121 / final CI `31478470867` / 505/505  
+**P0.3:** COMPLETE — PR #122 MERGED `245bb0770d7ec6e7a334f7763d3560cef80324fe` / final CI `31479311552` / 507/507  
+**P0.4 foundation:** PR #123 MERGED `83540afe15f5d52ee528ff7de46430682444594d`; first Green real-engine run `31480624953` / 4/4 RealSql  
+**P0.4 full-journey PR:** #124  
+**P0.4 implementation gates:** normal CI `31481298862` — 518/518 Green; Real SQL `31481298848` — 8/8 Green  
+**Next gate after final #124 same-head verification/merge:** #116 / P0.5 First Production SingleNode  
+**Production target:** actual IIS/HTTPS SingleNode release acceptance.
 
-### P0.3 sprint result — IMPLEMENTATION CI VERIFIED
+### P0.4 sprint result — REAL SQL VERIFIED / FINAL HEAD GATE PENDING
 
-- Server Details is now an evidence-first DBA page rather than a composite scorecard.
-- The synthetic numeric Health Score was removed. The page shows explicit availability state, cache freshness, collected-at timestamp and snapshot age instead.
-- Instance name, SQL version, edition and uptime are surfaced from the cached snapshot evidence.
-- Database availability includes online/total plus restoring, recovering, recovery pending, suspect, emergency and offline/other problem-state counts.
-- Memory surfaces SQL process utilization/working-set evidence plus total/available physical memory and low-memory flags when collected; otherwise it says `Not collected`.
-- Backup evidence surfaces the ≤24h covered count, missing full backups and the last observed full backup timestamp.
-- SQL Agent exposes actual total/enabled/failed-last-run facts and explicitly avoids a synthetic healthy-job count.
-- Storage allocation, blocked-request/max-wait evidence and active/runnable/pending-I/O runtime facts are visible on the same page.
-- CPU remains explicitly `Not collected` because it is outside the v0.1 bounded snapshot contract; no proxy signal is substituted.
-- Registered targets without a usable snapshot retain a clear recovery path; manual refresh remains an explicit protected POST.
-- New P0.3 source acceptance tests fail if the synthetic Health Score returns, if any required evidence module disappears, or if the page stops stating its cache-only GET boundary.
-- Implementation CI `31479005170`: Release build **0 warnings / 0 errors**, **507/507 passed**, 0 failed, 0 skipped.
-- Final code+docs CI remains required before PR #122 is merged and #114 is closed.
+- The acceptance harness boots a real Microsoft SQL Server 2022 Developer Linux engine and waits independently for SQL Server and SQL Server Agent readiness.
+- All SQL passwords are generated at workflow runtime, immediately masked and destroyed with the disposable container; no acceptance credential is committed.
+- The primary monitor login is explicitly verified not to be `sysadmin`.
+- The exact `scripts/sql/monitored_sql_least_privilege.sql` is applied before production tester/collector execution.
+- Real SQL discovery corrected the deployment script so `sqlcmd -v MonitorLogin=...` is not overridden by an internal `:setvar`.
+- Real SQL discovery proved `sys.master_files` metadata visibility needed the read-only metadata permission now included in the baseline.
+- Cross-platform closed-port behavior exposed a structured socket-classification gap; the tester now classifies structured SocketException evidence instead of matching provider text or treating every unknown provider error as network failure.
+- SQL Server Agent startup was separated from engine readiness to remove fixture timing races.
+- The full application path now passes against SQL Server 2022: `ConnectionLabController` registration → protected local credential → durable file registration → Test Connection → first collection/cache → `MonitorReadService`/`OperationsController.ServerDetails` → explicit `SnapshotRefreshService` refresh → service/persistence/key-ring reconstruction → Test/Collect/View again after simulated process restart.
+- The full-journey test proves registration identity and the opaque secret reference survive restart, while username/password canaries are absent from both registration metadata and the encrypted secret file.
+- Controlled real failure cases are Green: bad password, strict self-signed TLS rejection, closed-port network unavailable, accepted-but-silent TCP timeout, generic insufficient monitoring permissions and deliberately missing msdb permissions.
+- The complete collector role succeeds while incomplete permission profiles fail closed with bounded safe messages.
+- Implementation normal CI `31481298862`: Release build **0 warnings / 0 errors**, **518/518 passed**, 0 failed, 0 skipped.
+- Implementation Real SQL run `31481298848`: Release build **0 warnings / 0 errors**, **8/8 RealSql passed**.
+- Durable acceptance evidence is recorded in `docs/REAL_SQL_ACCEPTANCE.md`.
+- The workflow now triggers for the canonical P0 acceptance docs as well, so the final documentation-synchronized head must pass both normal CI and the real SQL workflow before merge and #115 closure.
+
+### P0.3 sprint result — COMPLETE
+
+- PR #122 squash-merged to `main` as `245bb0770d7ec6e7a334f7763d3560cef80324fe`.
+- Issue #114 closed — completed.
+- Final code+docs CI `31479311552`: Release build **0 warnings / 0 errors**, **507/507 passed**, 0 failed, 0 skipped.
+- Server Details is evidence-first: synthetic numeric Health Score removed; availability/freshness/collected-at/age are explicit; instance/uptime, database states, memory, backups, SQL Agent, storage, blocking and runtime evidence are visible or explicitly Not collected.
+- CPU remains outside the v0.1 bounded snapshot contract and is not inferred from proxy data.
+- Normal Server Details GET remains cache-only.
 
 ### P0.2 sprint result — COMPLETE
 
@@ -52,13 +67,13 @@
 
 ### Management decision
 
-- The immediate delivery objective remains the end-to-end real SQL production journey rather than additional feature breadth.
-- Until P0.5 is accepted, production-slice blockers remain higher priority than unrelated feature expansion.
-- Production-visible values must be backed by cached collected evidence; absent evidence is explicit and never replaced with placeholder numeric zero.
-- P0.1 and P0.2 are merged and complete.
-- P0.3 Server Details implementation is CI verified in PR #122 and removes the remaining source-of-truth presentation gap.
-- **P0.4 / #115 becomes ACTIVE / NEXT immediately after #122 merges.** This is the first gate that cannot be closed by deterministic CI alone: the exact user journey must be exercised against a real production-like SQL Server with least-privilege permissions plus controlled authentication/network/TLS/permission failures.
-- First production deployment remains deliberately SingleNode; MultiNode activation is deferred until after the first stable production release.
+- The immediate delivery objective is now the first actual SingleNode production release, not additional feature breadth.
+- Until P0.5 is accepted, production deployment blockers remain higher priority than unrelated feature expansion.
+- Production-visible SQL evidence rules from P0.2/P0.3 remain unchanged: observed data or explicit absence, never placeholder numeric zero.
+- P0.1, P0.2 and P0.3 are merged and complete.
+- P0.4 has real SQL Server 2022 evidence for the complete application journey and controlled failure matrix. Only final same-head normal/real-SQL verification and merge remain before #115 can close.
+- **P0.5 / #116 becomes ACTIVE / NEXT immediately after #124 merges.** P0.5 owns real IIS/HTTPS SingleNode deployment, process recycle/restart durability, health smoke, read-only monitored-target validation, backup/rollback and versioned candidate artifact acceptance.
+- MultiNode activation remains deferred until after the first stable SingleNode production release.
 
 ### P0 release chain
 
@@ -66,11 +81,11 @@
 |---|---|---|---|
 | 1 | P0.1 Real SQL Registration | #112 | COMPLETE — PR #119 MERGED / FINAL CI GREEN |
 | 2 | P0.2 First Real Snapshot + truthful mapping | #113 | COMPLETE — PR #121 MERGED / FINAL CI GREEN |
-| 3 | P0.3 Server Details v0.1 source of truth | #114 | CI VERIFIED — PR #122 / FINAL CODE+DOCS CI PENDING |
-| 4 | P0.4 Real SQL end-to-end acceptance | #115 | READY / NEXT AFTER #122 MERGE |
-| 5 | P0.5 First Production SingleNode | #116 | BLOCKED BY #115 |
+| 3 | P0.3 Server Details v0.1 source of truth | #114 | COMPLETE — PR #122 MERGED / FINAL CI GREEN |
+| 4 | P0.4 Real SQL end-to-end acceptance | #115 | REAL-SQL VERIFIED — PR #124 FINAL SAME-HEAD GATES PENDING |
+| 5 | P0.5 First Production SingleNode | #116 | READY / NEXT AFTER #124 MERGE |
 
-**Overall:** 🟢 verified foundation · 🟢 P0.1 COMPLETE · 🟢 P0.2 COMPLETE · 🟢 P0.3 implementation CI verified · 🟡 P0.4 next · 🔴 production acceptance not yet granted
+**Overall:** 🟢 verified foundation · 🟢 P0.1 COMPLETE · 🟢 P0.2 COMPLETE · 🟢 P0.3 COMPLETE · 🟢 P0.4 real-engine verified · 🟡 P0.5 next · 🔴 production deployment acceptance not yet granted
 
 ## BATCH-400 — Production DBA diagnostics continuation
 

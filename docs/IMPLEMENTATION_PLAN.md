@@ -6,6 +6,7 @@ This is the canonical execution plan. Update it in the same PR as material imple
 
 **Umbrella:** Issue #111  
 **Execution ledger:** `docs/PRODUCTION_MVP.md`  
+**Real SQL evidence:** `docs/REAL_SQL_ACCEPTANCE.md`  
 **Project rule:** until P0.5 is accepted, production-slice blockers take priority over unrelated feature expansion.
 
 The immediate product outcome is one trustworthy vertical slice:
@@ -18,18 +19,19 @@ Production-visible values must come from collected evidence. Missing, stale, per
 |---|---|---|---|---|
 | 1 | P0.1 | #112 | Real SQL registration: safe, testable and restart durable | COMPLETE — PR #119 / FINAL CI 31476747212 |
 | 2 | P0.2 | #113 | First real snapshot + truthful read-model mapping | COMPLETE — PR #121 / FINAL CI 31478470867 |
-| 3 | P0.3 | #114 | Server Details v0.1 becomes the trusted source of truth | CI VERIFIED — PR #122 / IMPLEMENTATION CI 31479005170 |
-| 4 | P0.4 | #115 | Real SQL end-to-end acceptance under success/failure cases | READY / NEXT AFTER #122 MERGE |
-| 5 | P0.5 | #116 | First IIS/HTTPS SingleNode production release | BLOCKED BY P0.4 |
+| 3 | P0.3 | #114 | Server Details v0.1 becomes the trusted source of truth | COMPLETE — PR #122 / FINAL CI 31479311552 |
+| 4 | P0.4 | #115 | Real SQL end-to-end acceptance under success/failure cases | REAL-SQL VERIFIED — PR #123 + #124 / FINAL HEAD GATE PENDING |
+| 5 | P0.5 | #116 | First IIS/HTTPS SingleNode production release | READY / NEXT AFTER #124 MERGE |
 
 ### P0 production blockers and resolved gates
 
 - P0.1 is complete: candidate Test Connection precedes durable registration commit, and newly-created Monitor-owned candidate credentials are compensated on failed/cancelled test or commit failure.
-- P0.2 is complete: uncollected CPU/Memory/Agent evidence is explicit rather than numeric zero; SQL Agent projects actual total/enabled/failed-last-run facts; Server Details receives safe instance/uptime/database/backup/Agent/storage/blocking/performance evidence from cache.
-- P0.3 implementation is CI verified. Server Details now exposes availability/freshness/collected-at context plus all v0.1 evidence modules, and the synthetic numeric Health Score has been removed.
-- CPU deliberately remains outside the v0.1 bounded SQL snapshot contract and is labeled `Not collected`; no proxy signal is substituted.
-- P0.4 is next after #122 merges. Unlike prior gates, deterministic CI alone cannot close P0.4: it requires the full Add -> Test -> Register -> Collect -> View -> Refresh -> Restart journey against a production-like real SQL Server with least-privilege permissions and controlled failure cases.
-- First production activation remains deliberately SingleNode; MultiNode production activation is deferred until after P0.5.
+- P0.2 is complete: uncollected CPU/Memory/Agent evidence is explicit rather than numeric zero; SQL Agent projects actual total/enabled/failed-last-run facts; Server Details receives safe snapshot evidence from cache.
+- P0.3 is complete: Server Details exposes availability/freshness/collected-at context plus the v0.1 evidence modules, and the synthetic numeric Health Score is removed.
+- P0.4 is real-engine verified on SQL Server 2022. The full Add -> Test -> Register -> Collect -> View -> Refresh -> Restart -> View path passes with a non-sysadmin least-privilege login, and controlled bad-password/network/timeout/TLS/server-permission/msdb-permission cases fail safely.
+- P0.4 implementation evidence: normal CI `31481298862` passed 518/518; Real SQL run `31481298848` passed 8/8. Durable evidence is recorded in `docs/REAL_SQL_ACCEPTANCE.md`.
+- The final P0.4 PR head must rerun both normal CI and `real-sql-acceptance` after documentation synchronization before #115 closes.
+- P0.5 is next after #124 merges. First production activation remains deliberately SingleNode; MultiNode production activation is deferred until after P0.5.
 
 ## Verified foundation
 
@@ -120,7 +122,7 @@ Current progress: **100/100 tasks CI verified**. Batch 10 verification run `3144
 
 Plan -> Design -> Implement -> Show -> Connect Real Data -> Verify -> Commit -> Push -> Update Plan.
 
-For the active P0 program, `Connect Real Data` now means the mandatory real-SQL acceptance gate in #115 before the first production release.
+For P0.5, `Connect Real Data` means deploy the accepted SingleNode candidate to an actual IIS/HTTPS production-like host, run health/restart/rollback smoke, and keep monitored-SQL access read-only/least-privilege.
 
 ## BATCH-400 — Portal completion and typography
 
