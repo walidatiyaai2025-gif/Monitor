@@ -22,6 +22,8 @@ on:
       - 'scripts/Accept-ProductionSingleNode.ps1'
       - 'scripts/Test-IisProductionPrerequisites.ps1'
       - 'scripts/Deploy-ProductionSingleNode.ps1'
+      - 'scripts/New-ProductionAcceptanceSession.ps1'
+      - 'scripts/Test-ProductionAcceptanceSession.ps1'
       - 'scripts/New-ProductionAcceptanceEvidencePack.ps1'
       - 'scripts/Set-ProductionAcceptanceGate.ps1'
       - 'scripts/Complete-ProductionAcceptance.ps1'
@@ -30,6 +32,7 @@ on:
       - 'tests/Monitor.Web.Tests/ProductionAdminCredentialGuardTests.cs'
       - 'tests/Monitor.Web.Tests/P05ProductionCandidateTests.cs'
       - 'tests/Monitor.Web.Tests/P05IisDeploymentAutomationTests.cs'
+      - 'tests/Monitor.Web.Tests/P05ProductionAcceptanceSessionTests.cs'
       - 'tests/Monitor.Web.Tests/P05ProductionAcceptanceEvidencePackTests.cs'
       - 'tests/Monitor.Web.Tests/P05ProductionAcceptanceGateRecorderTests.cs'
       - 'tests/Monitor.Web.Tests/P05ProductionAcceptanceFinalizationTests.cs'
@@ -72,6 +75,8 @@ jobs:
             'scripts/Accept-ProductionSingleNode.ps1',
             'scripts/Test-IisProductionPrerequisites.ps1',
             'scripts/Deploy-ProductionSingleNode.ps1',
+            'scripts/New-ProductionAcceptanceSession.ps1',
+            'scripts/Test-ProductionAcceptanceSession.ps1',
             'scripts/New-ProductionAcceptanceEvidencePack.ps1',
             'scripts/Set-ProductionAcceptanceGate.ps1',
             'scripts/Complete-ProductionAcceptance.ps1',
@@ -89,6 +94,10 @@ jobs:
               throw ($messages -join [Environment]::NewLine)
             }
           }
+
+      - name: Exercise immutable production acceptance session initializer
+        shell: pwsh
+        run: ./scripts/Test-ProductionAcceptanceSession.ps1
 
       - name: Exercise explicit acceptance gate recorder
         shell: pwsh
@@ -449,6 +458,7 @@ jobs:
           Copy-Item scripts/Accept-ProductionSingleNode.ps1 "$ops/scripts/" -Force
           Copy-Item scripts/Test-IisProductionPrerequisites.ps1 "$ops/scripts/" -Force
           Copy-Item scripts/Deploy-ProductionSingleNode.ps1 "$ops/scripts/" -Force
+          Copy-Item scripts/New-ProductionAcceptanceSession.ps1 "$ops/scripts/" -Force
           Copy-Item scripts/New-ProductionAcceptanceEvidencePack.ps1 "$ops/scripts/" -Force
           Copy-Item scripts/Set-ProductionAcceptanceGate.ps1 "$ops/scripts/" -Force
           Copy-Item scripts/Complete-ProductionAcceptance.ps1 "$ops/scripts/" -Force

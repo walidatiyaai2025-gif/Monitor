@@ -18,7 +18,7 @@ This document is the operator evidence record for the first IIS/HTTPS production
 
 ## Selected candidate
 
-The live selected candidate, SHA-256, source head, tested merge ref and Actions artifact are tracked on Issue #116 so this runbook does not drift every time an equivalent later RC is generated. Preserve those exact values in the external evidence pack before cutover.
+The live selected candidate, SHA-256, source head, tested merge ref and Actions artifact are tracked on Issue #116 so this runbook does not drift every time an equivalent later RC is generated. Preserve those exact values in one immutable acceptance session before cutover.
 
 ## Pre-cutover evidence
 
@@ -34,44 +34,16 @@ Record these values before changing IIS:
 - Operational backup ID.
 - Stable `App_Data` state root.
 
-## Deployment procedure
+## Initialize one immutable production acceptance session
 
-1. Obtain the exact candidate selected on #116 and verify its SHA-256.
-2. Create and validate the operational backup and preserve the previous release as the rollback point.
-3. Run `_operations/scripts/Test-IisProductionPrerequisites.ps1` and retain its non-secret output as evidence.
-4. Run `_operations/scripts/Deploy-ProductionSingleNode.ps1` without `-Apply`; review and retain the PLAN ONLY output.
-5. Apply the reviewed plan with explicit `-Apply`.
-6. Run the HTTPS acceptance harness:
+Issue #150 adds a fail-closed session initializer so the selected candidate bytes, checksum and external-environment metadata are bound into one fresh workspace before any production mutation. Use the packaged `_operations` scripts after the operational backup and rollback point are known:
 
 ```powershell
-.\_operations\scripts\Accept-ProductionSingleNode.ps1 `
-  -BaseUri https://monitor.example.internal/ `
-  -ArtifactPath .\Monitor-<version>-win-x64.zip `
-  -ChecksumPath .\Monitor-<version>-win-x64.zip.sha256 `
-  -EvidencePath .\evidence\health-acceptance.json
-```
-
-7. Authenticate through the actual trusted HTTPS endpoint.
-8. Register/Test/Refresh the approved least-privilege SQL target and retain bounded non-secret evidence.
-9. Recycle the IIS application pool and repeat health/auth/read checks.
-10. Prove registration, protected credential, audit/history/incident and cached/read state survived the recycle.
-11. Validate the operational backup, execute the approved rollback rehearsal and repeat health/auth/read checks after rollback.
-
-`Accept-ProductionSingleNode.ps1` validates artifact checksum and the three control-plane health endpoints. It intentionally does **not** claim recycle, credential, SQL privilege, backup or rollback success.
-
-## External acceptance evidence pack
-
-Issue #141 adds a machine-verifiable closure record. The pack does not perform IIS deployment, does not recycle IIS and does not execute SQL. The fail-closed generator never marks a production gate PASS. Issue #144 adds an explicit one-gate-at-a-time recorder so the operator does not have to hand-edit gate timestamps, evidence references or SHA-256 values. Issue #147 removes the last manual JSON-edit step by adding a fail-closed finalizer for `acceptedBy`, `acceptedAtUtc` and the closure summary.
-
-### 1. Create the fail-closed pack
-
-Use the packaged `_operations` scripts and the exact candidate metadata from #116:
-
-```powershell
-.\_operations\scripts\New-ProductionAcceptanceEvidencePack.ps1 `
+.\_operations\scripts\New-ProductionAcceptanceSession.ps1 `
+  -SessionRoot 'C:\ProgramData\Monitor\Acceptance\p0-5-rc-N' `
+  -ArtifactPath '.\Monitor-0.1.0-rc.N-win-x64.zip' `
+  -ChecksumPath '.\Monitor-0.1.0-rc.N-win-x64.zip.sha256' `
   -CandidateVersion '0.1.0-rc.N' `
-  -ArtifactFileName 'Monitor-0.1.0-rc.N-win-x64.zip' `
-  -ArtifactSha256 '<64-hex-product-sha256>' `
   -SourceCommit '<40-hex-source-head>' `
   -TestedMergeCommit '<40-hex-tested-merge-ref>' `
   -HostName 'monitor.example.internal' `
@@ -81,19 +53,75 @@ Use the packaged `_operations` scripts and the exact candidate metadata from #11
   -CertificateThumbprint '<approved-machine-certificate-thumbprint>' `
   -OperationalBackupId '<validated-backup-id>' `
   -PreviousPhysicalPath 'C:\Program Files\Monitor\releases\previous' `
-  -StateRoot 'C:\ProgramData\Monitor\App_Data' `
-  -OutputPath '.\evidence\p0-5-evidence-pack.json'
+  -StateRoot 'C:\ProgramData\Monitor\App_Data'
 ```
 
-The generator creates exactly 15 required gates and sets every `passed` field to `false`. It cannot create a completed production acceptance.
+The session initializer requires a fresh absolute Windows session root and refuses reuse. Before creating the session it verifies the exact candidate filename, exact checksum filename/content, actual SHA-256 and readable ZIP structure. It rejects secret-like metadata, provider errors, connection-string material and arbitrary SQL text.
+
+A successful session contains:
+
+- `candidate/Monitor-<version>-win-x64.zip` and its matching `.sha256` copied from the selected bytes;
+- `evidence/p0-5-evidence-pack.json` created through `New-ProductionAcceptanceEvidencePack.ps1`;
+- `evidence/proof/` as the bounded root for real gate evidence;
+- `session-manifest.json` with candidate/environment identity and `status = PreparedFailClosed`;
+- `session-manifest.sha256` locking the exact session manifest;
+- `OPERATOR-NEXT-STEPS.txt` with the deterministic cutover sequence.
+
+Session creation proves **0/15** external gates. Every evidence-pack gate remains `false`, `acceptedBy` remains empty, `acceptedAtUtc` remains null and no production acceptance is granted. The initializer does **not** deploy or recycle IIS, execute SQL, record a gate PASS, finalize acceptance, call GitHub or close #116/#111.
+
+Verify `session-manifest.sha256` before the first production operation. After initialization, use the candidate copy and evidence pack inside that same session for the complete cutover; do not mix evidence or candidate bytes from another workspace.
+
+## Deployment procedure
+
+1. Obtain the exact candidate selected on #116 and verify its SHA-256.
+2. Create and validate the operational backup and preserve the previous release as the rollback point.
+3. Create the immutable acceptance session above; verify `session-manifest.sha256` and confirm `PreparedFailClosed` / 0/15.
+4. Run `_operations/scripts/Test-IisProductionPrerequisites.ps1` and retain its non-secret output beneath the session `evidence/proof` root.
+5. Run `_operations/scripts/Deploy-ProductionSingleNode.ps1` without `-Apply`; review and retain the PLAN ONLY output.
+6. Apply the reviewed plan with explicit `-Apply`.
+7. Run the HTTPS acceptance harness against the session-bound candidate:
+
+```powershell
+.\_operations\scripts\Accept-ProductionSingleNode.ps1 `
+  -BaseUri https://monitor.example.internal/ `
+  -ArtifactPath 'C:\ProgramData\Monitor\Acceptance\p0-5-rc-N\candidate\Monitor-0.1.0-rc.N-win-x64.zip' `
+  -ChecksumPath 'C:\ProgramData\Monitor\Acceptance\p0-5-rc-N\candidate\Monitor-0.1.0-rc.N-win-x64.zip.sha256' `
+  -EvidencePath 'C:\ProgramData\Monitor\Acceptance\p0-5-rc-N\evidence\proof\health-acceptance.json'
+```
+
+8. Authenticate through the actual trusted HTTPS endpoint.
+9. Register/Test/Refresh the approved least-privilege SQL target and retain bounded non-secret evidence.
+10. Recycle the IIS application pool and repeat health/auth/read checks.
+11. Prove registration, protected credential, audit/history/incident and cached/read state survived the recycle.
+12. Validate the operational backup, execute the approved rollback rehearsal and repeat health/auth/read checks after rollback.
+
+`Accept-ProductionSingleNode.ps1` validates artifact checksum and the three control-plane health endpoints. It intentionally does **not** claim recycle, credential, SQL privilege, backup or rollback success.
+
+## External acceptance evidence pack
+
+Issue #141 adds a machine-verifiable closure record. The pack does not perform IIS deployment, does not recycle IIS and does not execute SQL. The fail-closed generator never marks a production gate PASS. Issue #144 adds an explicit one-gate-at-a-time recorder so the operator does not have to hand-edit gate timestamps, evidence references or SHA-256 values. Issue #147 removes the manual final JSON-edit step by adding a fail-closed finalizer for `acceptedBy`, `acceptedAtUtc` and the closure summary. Issue #150 binds the selected candidate/checksum and the initial fail-closed pack into one immutable session workspace before cutover.
+
+### 1. Use the session-generated fail-closed pack
+
+`New-ProductionAcceptanceSession.ps1` invokes the canonical `New-ProductionAcceptanceEvidencePack.ps1` with the candidate/environment metadata supplied for that session. The low-level generator remains the evidence schema authority, but operators should start a real cutover with the session initializer so candidate bytes and evidence cannot be accidentally mixed across workspaces.
+
+Immediately after session creation, verify:
+
+- the candidate copy hashes to the selected product SHA-256;
+- `session-manifest.sha256` matches `session-manifest.json`;
+- the manifest state is `PreparedFailClosed`;
+- the evidence pack contains exactly 15 required gates and all 15 are false;
+- no closure summary or final operator acceptance metadata exists.
+
+The generator/session initializer cannot create a completed production acceptance.
 
 ### 2. Record each external gate explicitly
 
-For each real environment gate, save one bounded text/JSON evidence file beneath the pack's evidence root. Do not use screenshots or binary blobs as the authoritative machine-verifiable evidence. After the operator has actually performed and reviewed a gate, record that **one gate at a time** with explicit `-AcknowledgePass`:
+For each real environment gate, save one bounded text/JSON evidence file beneath the session's `evidence/proof` root. Do not use screenshots or binary blobs as the authoritative machine-verifiable evidence. After the operator has actually performed and reviewed a gate, record that **one gate at a time** with explicit `-AcknowledgePass`:
 
 ```powershell
 .\_operations\scripts\Set-ProductionAcceptanceGate.ps1 `
-  -EvidencePath '.\evidence\p0-5-evidence-pack.json' `
+  -EvidencePath 'C:\ProgramData\Monitor\Acceptance\p0-5-rc-N\evidence\p0-5-evidence-pack.json' `
   -GateName 'iisPreflightPassed' `
   -EvidenceFile 'proof\iis-preflight.txt' `
   -AcknowledgePass
@@ -134,11 +162,11 @@ The 15 required gates are:
 
 ### 3. Explicitly finalize the real 15/15 operator evidence
 
-Do **not** hand-edit `acceptedBy` or `acceptedAtUtc`. After all 15 gates were actually performed and recorded, run the dedicated finalizer:
+Do **not** hand-edit `acceptedBy` or `acceptedAtUtc`. After all 15 gates were actually performed and recorded, run the dedicated finalizer against the same session pack:
 
 ```powershell
 .\_operations\scripts\Complete-ProductionAcceptance.ps1 `
-  -EvidencePath '.\evidence\p0-5-evidence-pack.json' `
+  -EvidencePath 'C:\ProgramData\Monitor\Acceptance\p0-5-rc-N\evidence\p0-5-evidence-pack.json' `
   -AcceptedBy 'DOMAIN\approved.operator' `
   -ClosureSummaryFile 'p0-5-closure-summary.json' `
   -AcknowledgeFinalAcceptance
@@ -164,13 +192,13 @@ The finalizer already runs the validator twice. An operator/reviewer can indepen
 
 ```powershell
 .\_operations\scripts\Test-ProductionAcceptanceEvidence.ps1 `
-  -EvidencePath '.\evidence\p0-5-evidence-pack.json' `
-  -ClosureSummaryPath '.\evidence\p0-5-review-summary.json'
+  -EvidencePath 'C:\ProgramData\Monitor\Acceptance\p0-5-rc-N\evidence\p0-5-evidence-pack.json' `
+  -ClosureSummaryPath 'C:\ProgramData\Monitor\Acceptance\p0-5-rc-N\evidence\p0-5-review-summary.json'
 ```
 
 The validator fails if any required gate is missing or false, if an unknown gate/property is injected, if candidate metadata is malformed, if the deployment mode is not exactly SingleNode, if a gate evidence file is missing or escapes the evidence root, if any evidence SHA-256 differs, or if pack/evidence content contains password/connection-string/provider-error/arbitrary SQL text material. It generates a PASS closure summary only after all 15/15 gates validate and final operator acceptance metadata is valid.
 
-A validator/finalizer PASS is necessary but still represents evidence supplied from the real environment; repository CI only proves the recorder/finalizer/validator behavior. The actual production operations must still be performed on the intended Windows/IIS host.
+A validator/finalizer PASS is necessary but still represents evidence supplied from the real environment; repository CI only proves the session/recorder/finalizer/validator behavior. The actual production operations must still be performed on the intended Windows/IIS host.
 
 ## Mandatory restart/recycle acceptance
 
@@ -213,6 +241,7 @@ These results map to `operationalBackupValidated`, `rollbackRehearsed` and `post
 
 P0.5 can be marked COMPLETE only when all of the following are true:
 
+- the selected candidate/checksum and environment identity were captured in one verified immutable session before cutover;
 - all 15 external evidence-pack gates are PASS from the real intended environment;
 - every gate has a matching evidence file and SHA-256;
 - the explicit finalizer succeeds with the approved operator identity;
@@ -225,4 +254,4 @@ Finalizing the evidence pack **does not close GitHub issues automatically**. #11
 
 ## Stop conditions
 
-Do not cut over, or rollback immediately, if readiness is not Green, the checksum does not match, the application starts in an unintended MultiNode mode, IIS/certificate/app-pool prerequisites fail, the key ring/state paths are unavailable, protected credentials cannot resolve after recycle, monitored SQL requires unexpected write/high privilege, backup/rollback evidence is missing, or the finalizer/closure validator does not return PASS.
+Do not cut over, or rollback immediately, if the session manifest lock is invalid, candidate/checksum bytes do not match, readiness is not Green, the application starts in an unintended MultiNode mode, IIS/certificate/app-pool prerequisites fail, the key ring/state paths are unavailable, protected credentials cannot resolve after recycle, monitored SQL requires unexpected write/high privilege, backup/rollback evidence is missing, or the finalizer/closure validator does not return PASS.

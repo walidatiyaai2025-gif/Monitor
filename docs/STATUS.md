@@ -9,6 +9,7 @@
 **Production acceptance guide:** `docs/PRODUCTION_SINGLENODE_ACCEPTANCE.md`  
 **Active external release gate:** #116 / P0.5 First Production SingleNode  
 **Repository finalization workflow:** COMPLETE through #147 / PR #148  
+**Additional cutover-session hardening:** #150 IN PROGRESS  
 **Production target:** actual Windows/IIS trusted-HTTPS SingleNode acceptance.
 
 ### P0 release chain
@@ -31,6 +32,7 @@
 - Issue #141 / PR #142 COMPLETE: machine-verifiable exact 15-gate external acceptance pack + fail-closed closure validator, merged `5ee5431cce26e875d80a4cfb623553f762c8a161`.
 - Issue #144 / PR #145 COMPLETE: explicit one-gate recorder `Set-ProductionAcceptanceGate.ps1`, merged `8a548c984c62b904a184e54415ea7bf491dc78fb`.
 - Issue #147 / PR #148 COMPLETE: `Complete-ProductionAcceptance.ps1` removes the last manual `acceptedBy` / `acceptedAtUtc` edit and adds explicit final acknowledgement, prospective 15/15 validation, concurrent-pack mutation detection, atomic final metadata commit, authoritative revalidation/closure summary and fail-closed rollback. PR #148 squash-merged as `e15a9654fbe744e426c95d5965a5faba60868e14`.
+- Issue #150 is **IN PROGRESS** on `agent/p0-5-acceptance-session`: add an immutable candidate-bound acceptance-session initializer so the operator starts from one fresh workspace containing verified candidate/checksum bytes, a SHA-locked non-secret manifest, a canonical fail-closed 15-gate pack and deterministic next steps. Session creation must remain 0/15 and must not perform IIS/SQL/GitHub/final-acceptance side effects.
 
 ### Final PR #148 / RC.43 repository evidence
 
@@ -48,7 +50,7 @@
 - product SHA-256 `95d6d545cfa53fb514814fb22c82cfafc2c14cf28c1e07c15177852b677234aa`;
 - Actions artifact ID `9119560465`.
 
-RC.43 supersedes RC.41 unless a later equivalently verified candidate is explicitly selected on #116. The packaged `_operations` directory now contains IIS preflight/deploy/acceptance/smoke tooling, the 15-gate pack generator, one-gate recorder, explicit finalizer, closure validator and rollback runbooks. No manual JSON gate/final-acceptance editing is required.
+RC.43 supersedes RC.41 unless a later equivalently verified candidate is explicitly selected on #116. The packaged `_operations` directory currently contains IIS preflight/deploy/acceptance/smoke tooling, the 15-gate pack generator, one-gate recorder, explicit finalizer, closure validator and rollback runbooks. #150 is hardening the pre-cutover session boundary; it does not reopen any already-complete external gate because no external gate has passed yet.
 
 **No external IIS gate is implied by repository CI. #116 and #111 remain OPEN until the real trusted-certificate Windows/IIS SingleNode target produces a valid real 15/15 evidence pack, explicit approved operator finalization and reviewed closure summary.**
 
@@ -64,7 +66,7 @@ RC.43 supersedes RC.41 unless a later equivalently verified candidate is explici
 | P0-046 deployment health smoke | CI HTTPS VERIFIED; tooling READY; **real IIS endpoint pending external** |
 | P0-047 least-privilege monitored target | P0.4 prerequisite VERIFIED; **deployed IIS identity/target pending external** |
 | P0-048 backup + rollback/recovery | code/unit/tooling VERIFIED; **production rehearsal pending external** |
-| P0-049 versioned artifact/checksum/evidence workflow | **REPOSITORY/CI COMPLETE** — RC.43 + generator + recorder + finalizer + validator VERIFIED |
+| P0-049 versioned artifact/checksum/evidence workflow | **REPOSITORY/CI COMPLETE** — RC.43 + generator + recorder + finalizer + validator VERIFIED; additional session-boundary hardening #150 IN PROGRESS |
 | P0-050 final production acceptance | **PENDING EXTERNAL** |
 
 ## BATCH-600 — Live Operator Readiness & Evidence Orchestration
@@ -128,4 +130,4 @@ B600 delivered deterministic fail-closed repository orchestration for evidence f
 - MultiNode remains fail-closed and deferred until after stable SingleNode production acceptance.
 - Concurrent team work must be preserved; external P0.5 acceptance cannot be inferred from CI.
 
-**Overall:** 🟢 verified foundation · 🟢 P0.1–P0.4 COMPLETE · 🟢 P0.5 repository cutover/evidence/finalization workflow COMPLETE · 🟡 external IIS/HTTPS 15-gate acceptance pending · 🔴 production acceptance not yet granted
+**Overall:** 🟢 verified foundation · 🟢 P0.1–P0.4 COMPLETE · 🟢 P0.5 core repository cutover/evidence/finalization workflow COMPLETE · 🟡 #150 immutable session hardening IN PROGRESS · 🟡 external IIS/HTTPS 15-gate acceptance pending · 🔴 production acceptance not yet granted
