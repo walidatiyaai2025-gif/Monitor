@@ -136,4 +136,9 @@ Assert-SessionRejected `
     -Action { ./scripts/New-ProductionAcceptanceSession.ps1 @common -SessionRoot 'relative-session' } `
     -FailureMessage 'Relative session root unexpectedly passed.'
 
-Write-Host 'Immutable production acceptance session initializer contract passed: candidate-bound workspace created at 0/15 gates; negative reuse/checksum/ZIP/secret/path cases rejected.'
+$traversalRoot = "$root\segment\..\session-traversal"
+Assert-SessionRejected `
+    -Action { ./scripts/New-ProductionAcceptanceSession.ps1 @common -SessionRoot $traversalRoot } `
+    -FailureMessage 'Traversal-bearing absolute session root unexpectedly passed.'
+
+Write-Host 'Immutable production acceptance session initializer contract passed: candidate-bound workspace created at 0/15 gates; negative reuse/checksum/ZIP/secret/relative/traversal path cases rejected.'
