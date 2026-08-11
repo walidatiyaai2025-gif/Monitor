@@ -24,7 +24,8 @@ public sealed record EnterpriseIncidentOperatorRow(
     RecommendationPlan? Recommendation,
     string? RecommendationKey,
     bool RecommendationAcknowledged,
-    bool AlertSuppressed);
+    bool AlertSuppressed,
+    IncidentSlaBucket SlaBucket);
 
 public sealed record EnterpriseOperationsViewModel(
     IReadOnlyList<EnterpriseServerOperatorRow> Servers,
@@ -96,21 +97,20 @@ public sealed class EnterpriseOperationsController : Controller
             .Where(row => filter.Tag is null || row.Metadata.Tags.Contains(filter.Tag, StringComparer.OrdinalIgnoreCase))
             .ToArray();
 
-        var incidents = _incidents.GetAll()
-            .OrderBy(item => item.Status)
-            .ThenByDescending(item => item.Severity)
-            .ThenByDescending(item => item.LastSeenUtc)
-            .Select(incident =>
+        var collaboration = Collaboration();
+        var collaborationRows = collaboration.QueryByAssignee(_incidents.GetAll(), filter.Assignee);
+        var incidents = collaborationRows
+            .Select(item =>
             {
+                var incident = item.Incident;
                 var metadata = _operatorMetadata.GetIncident(incident.Id);
                 var recommendation = _recommendations.Build(incident);
                 var key = recommendation is null ? null : RecommendationAcknowledgmentKey.Create(recommendation);
                 var acknowledged = key is not null && metadata.AcknowledgedRecommendationKeys.Contains(key, StringComparer.Ordinal);
                 var serverMetadata = _operatorMetadata.GetServer(incident.RegistrationId);
                 var isSuppressed = EnterpriseOperatorPolicy.IsAlertSuppressed(serverMetadata, now);
-                return new EnterpriseIncidentOperatorRow(incident, metadata, recommendation, key, acknowledged, isSuppressed);
+                return new EnterpriseIncidentOperatorRow(incident, metadata, recommendation, key, acknowledged, isSuppressed, item.SlaBucket);
             })
-            .Where(row => filter.Assignee is null || string.Equals(row.Metadata.Assignee, filter.Assignee, StringComparison.OrdinalIgnoreCase))
             .Where(row => filter.Suppressed is null || row.AlertSuppressed == filter.Suppressed)
             .ToArray();
 
@@ -163,8 +163,7 @@ public sealed class EnterpriseOperationsController : Controller
         if (_incidents.GetById(id) is null) return NotFound();
         try
         {
-            _operatorMetadata.AssignIncident(id, assignee);
-            _audit.Append(Actor(), "incident.owner", id, string.IsNullOrWhiteSpace(assignee) ? "cleared" : "assigned");
+            Collaboration().Assign(id, assignee, Actor());
             TempData["OperatorStatus"] = "Incident owner updated.";
             return RedirectToAction(nameof(Overview));
         }
@@ -177,14 +176,13 @@ public sealed class EnterpriseOperationsController : Controller
     [HttpPost("/alerts/{id}/notes")]
     [ValidateAntiForgeryToken]
     [Authorize(Policy = MonitorPolicies.Operate)]
-    public IActionResult AddIncidentNote(string id, string note)
+    public IActionResult AddIncidentNote(string id, string note, string requestKey)
     {
         if (_incidents.GetById(id) is null) return NotFound();
         try
         {
-            _operatorMetadata.AddIncidentNote(id, Actor(), note);
-            _audit.Append(Actor(), "incident.note", id, "added");
-            TempData["OperatorStatus"] = "Incident note added.";
+            var added = Collaboration().TryAddNote(id, Actor(), note, requestKey);
+            TempData[added ? "OperatorStatus" : "OperatorError"] = added ? "Incident note added." : "This note request was already applied.";
             return RedirectToAction(nameof(Overview));
         }
         catch (ArgumentException exception)
@@ -252,6 +250,8 @@ public sealed class EnterpriseOperationsController : Controller
         TempData["OperatorError"] = SecurityInput.NormalizeAuditField(exception.Message, 180);
         return RedirectToAction(nameof(Overview));
     }
+
+    private IIncidentCollaborationService Collaboration() => new IncidentCollaborationService(_operatorMetadata, _audit, _timeProvider);
 
     private string Actor()
     {
