@@ -11,7 +11,6 @@ public sealed record SnapshotCacheResult(
 public interface IServerHealthSnapshotCache
 {
     SnapshotCacheResult? Peek(Guid registrationId) => null;
-    void Evict(Guid registrationId) { }
     Task<SnapshotCacheResult> GetAsync(
         ServerRegistration registration,
         CancellationToken cancellationToken = default);
@@ -31,7 +30,6 @@ public sealed class ServerHealthSnapshotCache(
 
     private readonly ConcurrentDictionary<Guid, ServerHealthSnapshot> _snapshots = new();
     private readonly ConcurrentDictionary<Guid, Lazy<Task<ServerHealthSnapshot>>> _inflight = new();
-    private readonly ConcurrentDictionary<Guid, long> _generations = new();
     private readonly object _trimGate = new();
     private readonly int _maxEntries = ResolveCapacity(performance);
 
@@ -45,12 +43,6 @@ public sealed class ServerHealthSnapshotCache(
             return null;
         }
         return new(snapshot, age <= FreshFor ? SnapshotFreshness.Fresh : SnapshotFreshness.Stale, age);
-    }
-
-    public void Evict(Guid registrationId)
-    {
-        _generations.AddOrUpdate(registrationId, 1, (_, current) => checked(current + 1));
-        _snapshots.TryRemove(registrationId, out _);
     }
 
     public async Task<SnapshotCacheResult> GetAsync(
@@ -88,7 +80,7 @@ public sealed class ServerHealthSnapshotCache(
         var flight = _inflight.GetOrAdd(
             registration.Id,
             _ => new Lazy<Task<ServerHealthSnapshot>>(
-                () => CollectAndStoreAsync(registration, _generations.GetOrAdd(registration.Id, 0)),
+                () => CollectAndStoreAsync(registration),
                 LazyThreadSafetyMode.ExecutionAndPublication));
 
         try
@@ -106,17 +98,11 @@ public sealed class ServerHealthSnapshotCache(
         }
     }
 
-    private async Task<ServerHealthSnapshot> CollectAndStoreAsync(ServerRegistration registration, long generation)
+    private async Task<ServerHealthSnapshot> CollectAndStoreAsync(ServerRegistration registration)
     {
         try
         {
             var snapshot = await collector.CollectAsync(registration, CancellationToken.None);
-            if (_generations.GetOrAdd(registration.Id, 0) != generation)
-            {
-                throw new SnapshotCollectionException(
-                    SnapshotCollectionFailure.Disabled,
-                    "The collected snapshot was discarded because monitoring state changed.");
-            }
             _snapshots.AddOrUpdate(
                 registration.Id,
                 snapshot,

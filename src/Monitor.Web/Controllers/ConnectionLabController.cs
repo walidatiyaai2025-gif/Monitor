@@ -14,8 +14,7 @@ public sealed class ConnectionLabController(
     ISnapshotObserver observer,
     ICredentialLifecycleService? credentialLifecycle = null,
     ICredentialReadinessService? credentialReadiness = null,
-    CredentialPolicyOptions? credentialPolicy = null,
-    IServerTargetLifecycleService? targetLifecycle = null) : Controller
+    CredentialPolicyOptions? credentialPolicy = null) : Controller
 {
     private bool AllowsLocalCredentialEntry => credentialPolicy?.AllowLocalOwnedCredentials ?? true;
 
@@ -168,28 +167,6 @@ public sealed class ConnectionLabController(
         return RedirectToAction(nameof(Index));
     }
 
-    [HttpPost("/servers/connections/{id:guid}/credentials/local")]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> ReplaceLocalCredential(
-        Guid id,
-        LocalCredentialReplacementInput input,
-        CancellationToken cancellationToken)
-    {
-        if (credentialLifecycle is null || !AllowsLocalCredentialEntry) return NotFound();
-        var actor = User.Identity?.Name?.Trim();
-        if (string.IsNullOrWhiteSpace(actor)) return Forbid();
-        if (!ModelState.IsValid)
-        {
-            TempData["ConnectionLabMessage"] = "Provide a valid SQL username and password.";
-            return Redirect($"/servers/connections#target-{id:D}");
-        }
-        var result = await credentialLifecycle.ReplaceWithLocalCredentialAsync(
-            id, input.SqlUsername, input.SqlPassword, actor, cancellationToken);
-        input.SqlPassword = string.Empty;
-        TempData["ConnectionLabMessage"] = result.Message;
-        return Redirect($"/servers/connections#target-{id:D}");
-    }
-
     [HttpPost("/servers/connections/credentials/cleanup")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CleanupOwnedCredentials(CancellationToken cancellationToken)
@@ -210,25 +187,6 @@ public sealed class ConnectionLabController(
             ? "No orphaned Monitor-owned SQL credentials were found."
             : $"Removed {removed} orphaned Monitor-owned credential entr{(removed == 1 ? "y" : "ies")}.";
         return RedirectToAction(nameof(Index));
-    }
-
-    [HttpPost("/servers/connections/{id:guid}/enable")]
-    [ValidateAntiForgeryToken]
-    public IActionResult Enable(Guid id) => SetEnabled(id, true);
-
-    [HttpPost("/servers/connections/{id:guid}/disable")]
-    [ValidateAntiForgeryToken]
-    public IActionResult Disable(Guid id) => SetEnabled(id, false);
-
-    private IActionResult SetEnabled(Guid id, bool enabled)
-    {
-        if (targetLifecycle is null) return NotFound();
-        var actor = User.Identity?.Name?.Trim();
-        if (string.IsNullOrWhiteSpace(actor)) return Forbid();
-        var result = targetLifecycle.SetEnabled(id, enabled, actor);
-        if (result.Status == ServerTargetLifecycleStatus.NotFound) return NotFound();
-        TempData["ConnectionLabMessage"] = result.Message;
-        return Redirect($"/servers/connections#target-{id:D}");
     }
 
     private ConnectionLabViewModel BuildPage(

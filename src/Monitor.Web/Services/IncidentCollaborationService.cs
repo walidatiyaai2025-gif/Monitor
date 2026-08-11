@@ -44,6 +44,7 @@ public sealed class IncidentCollaborationService(
         ArgumentNullException.ThrowIfNull(incidents);
         var normalized = EnterpriseOperatorValidation.NormalizeAssignee(assignee);
         return incidents
+            .Where(incident => !HasPruneReceipt("governance.prune.incident", incident.Id))
             .Select(incident => new IncidentCollaborationProjection(
                 incident,
                 metadata.GetIncident(incident.Id).Assignee,
@@ -60,6 +61,7 @@ public sealed class IncidentCollaborationService(
     {
         incidentId = EnterpriseOperatorValidation.NormalizeIncidentId(incidentId);
         return metadata.GetIncident(incidentId).Notes
+            .Where(note => !HasPruneReceipt("governance.prune.note", note.Id.ToString("D")))
             .OrderByDescending(item => item.OccurredAtUtc)
             .ThenByDescending(item => item.Id)
             .Skip(Math.Max(0, offset))
@@ -73,7 +75,7 @@ public sealed class IncidentCollaborationService(
         actor = EnterpriseOperatorValidation.NormalizeActor(actor);
         note = EnterpriseOperatorValidation.NormalizeNote(note);
         var receiptTarget = BuildReceiptTarget(incidentId, requestKey);
-        if (audit.Read(0, 100).Any(item => item.Action == "incident.note.request" && item.Target == receiptTarget && item.Outcome == "applied"))
+        if (AuditAny(item => item.Action == "incident.note.request" && item.Target == receiptTarget && item.Outcome == "applied"))
             return false;
 
         metadata.AddIncidentNote(incidentId, actor, note);
@@ -126,6 +128,21 @@ public sealed class IncidentCollaborationService(
             bounded = bounded[..EnterpriseOperatorValidation.MaxNoteLength];
         metadata.AddIncidentNote(incidentId, actor, bounded);
         audit.Append(actor, $"incident.{category.ToLowerInvariant()}.note", incidentId, "added");
+    }
+
+    private bool HasPruneReceipt(string action, string target) =>
+        AuditAny(item => item.Action == action && item.Target == target && item.Outcome == "applied");
+
+    private bool AuditAny(Func<AuditEvent, bool> predicate)
+    {
+        const int pageSize = 100;
+        for (var offset = 0; offset < 1000; offset += pageSize)
+        {
+            var page = audit.Read(offset, pageSize);
+            if (page.Any(predicate)) return true;
+            if (page.Count < pageSize) break;
+        }
+        return false;
     }
 
     private static string BuildReceiptTarget(string incidentId, string requestKey)

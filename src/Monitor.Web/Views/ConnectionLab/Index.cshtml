@@ -100,7 +100,7 @@ else
         {
             var result = Model.TestedRegistrationId == registration.Id ? Model.TestResult : null;
             var resultState = result?.Succeeded == true ? "healthy" : result is null ? "unknown" : "critical";
-            <article id="target-@registration.Id" class="glass-panel lab-target state-@resultState">
+            <article class="glass-panel lab-target state-@resultState">
                 <div class="lab-target-head"><div><span class="health-orb state-@(registration.IsEnabled ? "healthy" : "offline")"></span><div><strong>@registration.DisplayName</strong><small>@registration.Target</small></div></div><span class="lab-auth">@(registration.AuthenticationMode == SqlAuthenticationMode.IntegratedSecurity ? "WINDOWS" : "SQL LOGIN")</span></div>
                 <div class="lab-target-meta"><span>Encrypt<strong>@(registration.Encrypt ? "ON" : "OFF")</strong></span><span>Trust cert<strong>@(registration.TrustServerCertificate ? "YES" : "NO")</strong></span><span>Credential<strong>@(registration.AuthenticationMode == SqlAuthenticationMode.IntegratedSecurity ? "WINDOWS" : registration.UsesLocalOwnedCredential ? "LOCAL OWNED" : "EXTERNAL")</strong></span></div>
                 @if (result is not null)
@@ -108,26 +108,8 @@ else
                     <div class="lab-result state-@resultState"><div><span>@(result.Succeeded ? "✓" : "!")</span><div><strong>@result.Status</strong><p>@result.Message</p></div></div><div class="lab-result-meta"><span><small>Elapsed</small><strong>@result.ElapsedMilliseconds ms</strong></span>@if (!string.IsNullOrWhiteSpace(result.ServerVersion)){<span><small>Server version</small><strong>@result.ServerVersion</strong></span>}</div></div>
                 }
                 <form asp-controller="ConnectionLab" asp-action="Test" asp-route-id="@registration.Id" method="post" class="lab-test"><span>Created @registration.CreatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span><button class="primary-button" type="submit" disabled="@(!registration.IsEnabled)">Test Connection</button></form>
-                <form asp-controller="ConnectionLab" asp-action="@(registration.IsEnabled ? "Disable" : "Enable")" asp-route-id="@registration.Id" method="post" class="lab-test">
-                    <span>@(registration.IsEnabled ? "Scheduled and manual collection are active." : "Monitoring is paused; metadata and history are retained.")</span>
-                    <button class="secondary-button" type="submit">@(registration.IsEnabled ? "Pause monitoring" : "Resume monitoring")</button>
-                </form>
                 @if (registration.AuthenticationMode == SqlAuthenticationMode.SqlLogin)
                 {
-                    @if (Model.AllowsLocalCredentialEntry)
-                    {
-                        <details class="lab-form">
-                            <summary>Reconnect protected credential</summary>
-                            <form asp-controller="ConnectionLab" asp-action="ReplaceLocalCredential" asp-route-id="@registration.Id" method="post" autocomplete="off">
-                                <fieldset><legend>New credential for @registration.DisplayName</legend>
-                                    <div class="lab-field full"><label for="sql-user-@registration.Id">SQL username</label><input id="sql-user-@registration.Id" name="SqlUsername" maxlength="128" autocomplete="username" /></div>
-                                    <div class="lab-field full"><label for="sql-password-@registration.Id">SQL password</label><input id="sql-password-@registration.Id" name="SqlPassword" type="password" maxlength="1024" autocomplete="new-password" /></div>
-                                    <small>The candidate is tested before this target changes. Passwords are write-only; metadata and history stay attached to this target.</small>
-                                    <div class="lab-actions full"><button class="secondary-button" type="submit">Test & reconnect</button></div>
-                                </fieldset>
-                            </form>
-                        </details>
-                    }
                     <form asp-controller="ConnectionLab" asp-action="ReplaceCredentialReference" asp-route-id="@registration.Id" method="post" class="lab-form" autocomplete="off">
                         <div class="lab-field full"><label>Replace with tested external reference</label><input name="ExternalSecretReference" maxlength="128" placeholder="env:FINANCE_PROD_V2" /><small>The candidate is resolved and Test Connection must succeed before this registration is changed. The current reference is never rendered.</small></div>
                         <div class="lab-actions full"><button class="secondary-button" type="submit">Test & replace reference</button></div>

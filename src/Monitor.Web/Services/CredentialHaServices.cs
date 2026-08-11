@@ -261,15 +261,6 @@ public sealed record CredentialReplacementResult(
 
 public interface ICredentialLifecycleService
 {
-    Task<CredentialReplacementResult> ReplaceWithLocalCredentialAsync(
-        Guid registrationId,
-        string username,
-        string password,
-        string actor,
-        CancellationToken cancellationToken = default) => Task.FromResult(new CredentialReplacementResult(
-            CredentialReplacementStatus.Failed,
-            "Local protected credential replacement is unavailable."));
-
     Task<CredentialReplacementResult> ReplaceWithExternalReferenceAsync(
         Guid registrationId,
         string externalReference,
@@ -376,89 +367,6 @@ internal sealed class CredentialLifecycleService(
 
         Audit(actor, registrationId, "applied");
         return new(CredentialReplacementStatus.Applied, "Credential reference replaced and Test Connection succeeded.", test);
-    }
-
-    public async Task<CredentialReplacementResult> ReplaceWithLocalCredentialAsync(
-        Guid registrationId,
-        string username,
-        string password,
-        string actor,
-        CancellationToken cancellationToken = default)
-    {
-        actor = NormalizeActor(actor);
-        var registration = registrations.GetById(registrationId);
-        if (registration is null)
-        {
-            Audit(actor, registrationId, "not-found");
-            return new(CredentialReplacementStatus.RegistrationNotFound, "Server registration was not found.");
-        }
-        if (registration.AuthenticationMode != SqlAuthenticationMode.SqlLogin)
-        {
-            Audit(actor, registrationId, "not-sql-login");
-            return new(CredentialReplacementStatus.NotSqlLogin, "This registration does not use SQL Login authentication.");
-        }
-        if (secrets is not IRuntimeCredentialWriter writer || secrets is not IOwnedConnectionSecretStore owned)
-        {
-            Audit(actor, registrationId, "local-unsupported");
-            return new(CredentialReplacementStatus.Failed, "Local protected credential replacement is unavailable.");
-        }
-
-        ConnectionSecretReference nextReference;
-        try
-        {
-            nextReference = await writer.StoreAsync(username, password, cancellationToken);
-        }
-        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException)
-        {
-            Audit(actor, registrationId, "invalid-local-credential");
-            return new(CredentialReplacementStatus.Failed, "Provide a valid SQL username and password.");
-        }
-
-        var candidate = new ServerRegistration(
-            registration.Id, registration.DisplayName, registration.Endpoint,
-            registration.AuthenticationMode, nextReference, registration.IsEnabled, registration.CreatedAtUtc);
-        try
-        {
-            var test = await tester.TestAsync(candidate, cancellationToken);
-            if (!test.Succeeded)
-            {
-                await DeleteCandidateAsync(owned, nextReference);
-                Audit(actor, registrationId, $"test-{test.Status}");
-                return new(CredentialReplacementStatus.ConnectionRejected, "The credential was not changed because the candidate did not connect.", test);
-            }
-
-            try
-            {
-                registrations.Upsert(candidate);
-            }
-            catch (Exception exception) when (exception is IOException or InvalidOperationException or SharedStateConcurrencyException)
-            {
-                await DeleteCandidateAsync(owned, nextReference);
-                Audit(actor, registrationId, "commit-failed");
-                return new(CredentialReplacementStatus.Failed, "The credential could not be committed safely.", test);
-            }
-
-            var previous = registration.SecretReference;
-            if (previous is not null && owned.Owns(previous.Value) &&
-                !registrations.GetAll().Any(item => item.Id != registration.Id && item.SecretReference?.Value == previous.Value.Value))
-            {
-                try { await owned.DeleteOwnedAsync(previous.Value, CancellationToken.None); }
-                catch (Exception exception) when (exception is IOException or InvalidOperationException) { }
-            }
-            Audit(actor, registrationId, "applied");
-            return new(CredentialReplacementStatus.Applied, "Credential updated and connection verified. Monitoring can resume.", test);
-        }
-        catch (OperationCanceledException)
-        {
-            await DeleteCandidateAsync(owned, nextReference);
-            throw;
-        }
-    }
-
-    private static async Task DeleteCandidateAsync(IOwnedConnectionSecretStore owned, ConnectionSecretReference reference)
-    {
-        try { await owned.DeleteOwnedAsync(reference, CancellationToken.None); }
-        catch (Exception exception) when (exception is IOException or InvalidOperationException) { }
     }
 
     public async Task<int> CleanupOrphanedOwnedSecretsAsync(string actor, CancellationToken cancellationToken = default)

@@ -139,50 +139,6 @@ public sealed class CredentialHaServicesTests
     }
 
     [Fact]
-    public async Task LocalReplacement_TestsThenCommitsSameRegistration_AndDeletesOldOwnedSecret()
-    {
-        var registrations = new InMemoryServerRegistrationRepository();
-        var oldReference = new ConnectionSecretReference("local:v1:old");
-        var registration = Registration(oldReference);
-        registrations.Upsert(registration);
-        var secrets = new FakeSecretStore();
-        secrets.AddOwned(oldReference, new SqlLoginSecret("old-user", "old-password"));
-        var tester = new FakeTester(ConnectionTestStatus.Succeeded);
-        var service = new CredentialLifecycleService(registrations, secrets, tester, new InMemoryAuditStore(TimeProvider.System));
-
-        var result = await service.ReplaceWithLocalCredentialAsync(registration.Id, "new-user", "new-password", "Admin");
-        var updated = registrations.GetById(registration.Id)!;
-
-        Assert.True(result.Applied);
-        Assert.Equal(registration.Id, updated.Id);
-        Assert.Equal(registration.Endpoint, updated.Endpoint);
-        Assert.NotEqual(oldReference.Value, updated.SecretReference!.Value.Value);
-        Assert.Equal(updated.SecretReference, tester.LastRegistration!.SecretReference);
-        Assert.False(secrets.ContainsOwned(oldReference));
-        Assert.True(secrets.ContainsOwned(updated.SecretReference.Value));
-    }
-
-    [Fact]
-    public async Task FailedLocalReplacement_CompensatesCandidateAndKeepsExistingReference()
-    {
-        var registrations = new InMemoryServerRegistrationRepository();
-        var oldReference = new ConnectionSecretReference("local:v1:old");
-        var registration = Registration(oldReference);
-        registrations.Upsert(registration);
-        var secrets = new FakeSecretStore();
-        secrets.AddOwned(oldReference, new SqlLoginSecret("old-user", "old-password"));
-        var service = new CredentialLifecycleService(
-            registrations, secrets, new FakeTester(ConnectionTestStatus.AuthenticationFailed), new InMemoryAuditStore(TimeProvider.System));
-
-        var result = await service.ReplaceWithLocalCredentialAsync(registration.Id, "bad-user", "bad-password", "Admin");
-
-        Assert.Equal(CredentialReplacementStatus.ConnectionRejected, result.Status);
-        Assert.Equal(oldReference, registrations.GetById(registration.Id)!.SecretReference);
-        Assert.Single(secrets.GetOwnedReferences());
-        Assert.True(secrets.ContainsOwned(oldReference));
-    }
-
-    [Fact]
     public async Task UnavailableReplacementReference_DoesNotInvokeTestOrMutate()
     {
         var registrations = new InMemoryServerRegistrationRepository();
@@ -299,7 +255,7 @@ public sealed class CredentialHaServicesTests
         }
     }
 
-    private sealed class FakeSecretStore : IConnectionSecretStore, IOwnedConnectionSecretStore, IRuntimeCredentialWriter
+    private sealed class FakeSecretStore : IConnectionSecretStore, IOwnedConnectionSecretStore
     {
         private readonly Dictionary<string, SqlLoginSecret> _owned = new(StringComparer.Ordinal);
         private readonly Dictionary<string, SqlLoginSecret> _external = new(StringComparer.Ordinal);
@@ -309,12 +265,6 @@ public sealed class CredentialHaServicesTests
         public bool ContainsOwned(ConnectionSecretReference reference) => _owned.ContainsKey(reference.Value);
         public bool Owns(ConnectionSecretReference reference) => reference.Value.StartsWith("local:v1:", StringComparison.Ordinal);
         public IReadOnlyList<ConnectionSecretReference> GetOwnedReferences() => _owned.Keys.Select(value => new ConnectionSecretReference(value)).ToArray();
-        public ValueTask<ConnectionSecretReference> StoreAsync(string username, string password, CancellationToken cancellationToken = default)
-        {
-            var reference = new ConnectionSecretReference($"local:v1:{Guid.NewGuid():N}");
-            _owned[reference.Value] = new SqlLoginSecret(username, password);
-            return ValueTask.FromResult(reference);
-        }
         public ValueTask DeleteOwnedAsync(ConnectionSecretReference reference, CancellationToken cancellationToken = default)
         {
             _owned.Remove(reference.Value);

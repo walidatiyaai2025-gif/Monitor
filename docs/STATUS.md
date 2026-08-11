@@ -1,47 +1,29 @@
 # Project Status
 
-**Updated:** 2026-08-11 05:00 +03:00  
-**Branch:** `agent/b200-10`  
-**Target:** BATCH-200 — Enterprise Operations Expansion COMPLETE  
-**Issues:** #76 umbrella · #95 Batch 10  
-**PR:** #96  
-**Overall:** 🟢 M0–M8 VERIFIED · 🟢 BATCH-100 100/100 COMPLETE · 🟢 BATCH-200 100/100 COMPLETE
+**Updated:** 2026-08-11 09:19 +03:00  
+**Branch:** `agent/b200-reconcile`  
+**Target:** BATCH-200 baseline reconciliation before BATCH-300  
+**Issues:** #99 reconciliation · #101 BATCH-300  
+**Overall:** 🟢 M0–M8 VERIFIED · 🟢 BATCH-100 COMPLETE · 🟡 BATCH-200 reconciliation PR pending · ⚪ BATCH-300 0/100
 
-## BATCH-300 / 1 — Daily target lifecycle — LOCAL VERIFIED
+## Reconciliation verification
 
-- Administrators can pause and resume each registered target from Connection Lab.
-- Pausing persists `IsEnabled=false`, evicts the cached snapshot and prevents an older in-flight collection from republishing evidence.
-- Resuming preserves registration ID, endpoint, credential reference, creation time, history and incidents.
-- Repeated commands are idempotent; committed transitions emit bounded audit metadata.
-- Local Release gate: 0 warnings / 0 errors; 293/293 tests passed.
+- GitHub Actions reconciliation run: `31464529775`.
+- Release build: **Green — 0 warnings / 0 errors** with `--warnaserror`.
+- Tests: **327/327 passed; 0 failed**.
+- Restored code that had remained only on B200-6/B200-8/B200-9 branches: retention governance, enterprise security hardening and enterprise scale primitives.
+- Governance prune receipts now affect collaboration projections; secure download/text/route policies are wired into enterprise endpoints; diagnostics are time-bounded.
+- The reconciliation is a baseline correction and is **not counted** toward BATCH-300.
 
-## BATCH-300 / 2 — Protected credential reconnect — LOCAL VERIFIED
+## BATCH-300
 
-- Administrators can provide a new write-only SQL username/password for the existing target.
-- The encrypted candidate is tested before registration metadata changes.
-- Failed/cancelled candidates are compensated; the previous reference remains active.
-- A successful replacement preserves registration ID, endpoint, timestamps, history and incidents, then removes the old Monitor-owned secret when safe.
-- Local Release gate: 0 warnings / 0 errors; 295/295 tests passed.
-
-## Final verification
-
-- GitHub Actions final release-candidate run: `31446970475`.
-- Release build: **Green** with `--warnaserror`.
-- Tests: **290/290 passed; 0 failed**.
-- B200-001..100: **CI VERIFIED**.
-- BATCH-200: **100/100 COMPLETE**.
-
-## BATCH-200 delivered
-
-- Enterprise Operations integration, maintenance/suppression policy semantics and incident collaboration.
-- Versioned safe reporting, diagnostics manifest and cache-only fleet intelligence.
-- Auditable retention governance and shared operator-state backup/restore.
-- Enterprise security hardening, bounded scale primitives and operator readiness/help/runbooks.
-- BATCH-100 compatibility and cache/control-plane-only smoke contract.
+- Umbrella issue: #101.
+- Scope: **100 new code tasks** B300-001..100.
+- Delivery rule: production code + mapped acceptance test + Release build/full tests + PR CI + squash merge before a task range is considered closed.
 
 ## Stable guardrails
 
-- Navigation, reporting, diagnostics, fleet, help and readiness GETs do not initiate monitored-SQL collection.
+- Navigation, reporting, diagnostics, fleet, help, readiness and new BATCH-300 read models do not initiate monitored-SQL collection.
 - No browser connects directly to monitored SQL.
 - No autonomous remediation or AI SQL execution.
 - Credentials/full connection strings/raw provider errors/SQL text remain outside UI, audit, exports and diagnostics.
