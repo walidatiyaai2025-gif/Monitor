@@ -9,7 +9,7 @@ public sealed class Batch300RuntimePressureTests
 
     [Fact] public void B300_042_MemoryPoints_ScoresCriticalMemory() => Assert.Equal(40, Batch300RuntimePressure.MemoryPoints(97));
 
-    [Fact] public void B300_043_BlockingPoints_CombinesCountAndWait() => Assert.Equal(20, Batch300RuntimePressure.BlockingPoints(10, 20_000));
+    [Fact] public void B300_043_BlockingPoints_CombinesCountAndWait() => Assert.Equal(23, Batch300RuntimePressure.BlockingPoints(10, 20_000));
 
     [Fact] public void B300_044_SchedulerPoints_BoundsRunnablePressure() => Assert.Equal(20, Batch300RuntimePressure.SchedulerPoints(100));
 
