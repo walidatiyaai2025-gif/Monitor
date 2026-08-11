@@ -30,7 +30,7 @@ Production-visible values must be backed by collected evidence. If a dimension i
 | 2 | P0.2 | #113 | First snapshot is mapped truthfully into production read models | COMPLETE — PR #121 / final CI `31478470867` |
 | 3 | P0.3 | #114 | Server Details v0.1 is the trusted operator source of truth | COMPLETE — PR #122 / final CI `31479311552` |
 | 4 | P0.4 | #115 | Full journey passes against a real SQL Server | COMPLETE — PR #124 / normal `31481874425` / Real SQL `31481874501` |
-| 5 | P0.5 | #116 | First IIS/HTTPS SingleNode production release is accepted | **ACTIVE — core repository workflow complete; #150 session hardening in progress; external IIS acceptance pending** |
+| 5 | P0.5 | #116 | First IIS/HTTPS SingleNode production release is accepted | **ACTIVE — repository workflow complete including immutable session boundary; external IIS acceptance pending** |
 
 ---
 
@@ -89,7 +89,7 @@ Every production-visible health dimension is supported by actual cached snapshot
 ## P0.3 — Server Details v0.1 Source of Truth
 
 **Issue:** #114 — CLOSED / COMPLETED  
-**Implementation PR:** #122 — squash-merged to `main` as `245bb0770d7ec6e7a334f7763d3560cef80324fe`  
+**Implementation PR:** #122 — squash-merged as `245bb0770d7ec6e7a334f7763d3560cef80324fe`  
 **Final code+docs CI:** `31479311552` — Release build 0 warnings / 0 errors; 507/507 tests passed.  
 **Release gate:** COMPLETE.
 
@@ -146,9 +146,8 @@ The complete `Add -> Test -> Register -> Collect -> View -> Refresh -> Restart -
 **Issue:** #116 — OPEN / ACTIVE  
 **Dependency:** P0.4 COMPLETE  
 **Live selected candidate/evidence:** #116  
-**Repository cutover/evidence/finalization workflow:** COMPLETE through #147 / PR #148  
-**Active repository hardening:** #150 / immutable production acceptance session initializer  
-**Release gate:** CORE REPOSITORY WORKFLOW COMPLETE / SESSION HARDENING ACTIVE / EXTERNAL IIS ACCEPTANCE PENDING.
+**Repository cutover/evidence/session/finalization workflow:** COMPLETE through #150 / PR #151  
+**Release gate:** REPOSITORY WORKFLOW COMPLETE / EXTERNAL IIS ACCEPTANCE PENDING.
 
 ### Stable repository milestones
 
@@ -159,31 +158,31 @@ The complete `Add -> Test -> Register -> Collect -> View -> Refresh -> Restart -
 - PR #142 / #141 COMPLETE: exact 15-gate fail-closed evidence pack and `Test-ProductionAcceptanceEvidence.ps1` closure validator.
 - PR #145 / #144 COMPLETE: `Set-ProductionAcceptanceGate.ps1` records one real gate at a time only after explicit `-AcknowledgePass`; no manual gate hash/timestamp editing.
 - PR #148 / #147 COMPLETE: `Complete-ProductionAcceptance.ps1` removes manual final acceptance metadata editing; merged `e15a9654fbe744e426c95d5965a5faba60868e14`.
-- Issue #150 / PR #151 **IN PROGRESS**: immutable candidate-bound session initialization before any real cutover mutation; this is additive P0-049 hardening and cannot create external acceptance.
+- PR #151 / #150 COMPLETE: `New-ProductionAcceptanceSession.ps1` creates one fresh immutable candidate-bound session before real cutover mutation; squash-merged `9a76abe61422502c4889b04ce8b6a59f18ac04f4`.
 
-### Selected repository-verified candidate — RC.43
+### Selected repository-verified candidate — RC.53
 
-- package `Monitor-0.1.0-rc.43-win-x64.zip`;
-- product SHA-256 `95d6d545cfa53fb514814fb22c82cfafc2c14cf28c1e07c15177852b677234aa`;
-- Actions artifact `9119560465`;
-- source head `d05bea3ea1372a6566eb9c237bb06e84de681014`;
-- exact tested merge ref `0445ac9c8bbeafb075a506a06231dd87c4b1b27b`;
-- normal CI `31537914600` Green;
-- Real SQL `31537914667` Green, 8/8;
-- Windows production-candidate `31537914596` Green, Release 0 warnings/errors, 761/761;
+- package `Monitor-0.1.0-rc.53-win-x64.zip`;
+- product SHA-256 `466e056a85b1389b817fcbd9c622aeacd448c77596e2d5b3a6e450a7f0afca00`;
+- Actions artifact `9120696113`;
+- source head `b2b004e1a811dfe0eb4197be893aac5116c58cc2`;
+- exact tested merge ref `68cd8f25819f82a9cb7205ed81523f4beb55d5e5`;
+- normal CI `31540968009` Green;
+- Real SQL `31540967997` Green, 8/8;
+- Windows production-candidate `31540968010` Green, Release 0 warnings/errors, 769/769;
+- immutable session initializer runtime Green at 0/15 with reuse/tampered-checksum/non-ZIP/secret/relative/traversal negatives rejected;
 - recorder + finalizer runtime Green;
 - synthetic prospective and authoritative exact 15/15 validation plus independent validator recheck Green;
-- negative premature/no-ack/path/operator/re-finalization/false-gate/tampered-hash/secret-bearing cases rejected;
 - HTTPS health/authentication before and after process restart Green;
 - SingleNode clean package validation Green.
 
-#116 remains the live source of truth if a later equivalently verified candidate supersedes RC.43.
+#116 remains the live source of truth if a later equivalently verified candidate supersedes RC.53.
 
 ### Deterministic evidence/finalization workflow — COMPLETE
 
 The packaged operator workflow is:
 
-`candidate/checksum -> fail-closed 15-gate pack -> perform real operation -> record one explicit PASS with SHA-bound evidence -> repeat 15 gates -> explicit final operator acknowledgement -> prospective validator -> atomic final metadata commit -> authoritative validator -> closure summary -> human review`
+`candidate/checksum -> immutable fail-closed session at 0/15 -> perform real operation -> record one explicit PASS with SHA-bound evidence -> repeat 15 gates -> explicit final operator acknowledgement -> prospective validator -> atomic final metadata commit -> authoritative validator -> closure summary -> human review`
 
 `Complete-ProductionAcceptance.ps1`:
 
@@ -198,18 +197,19 @@ The packaged operator workflow is:
 - refuses existing acceptance metadata, existing summary, unsafe paths and re-finalization;
 - has no IIS deployment/recycle, SQL execution, GitHub API call or issue-closing authority.
 
-### Immutable acceptance session hardening — #150 ACTIVE
+### Immutable acceptance session hardening — #150 COMPLETE
 
 `New-ProductionAcceptanceSession.ps1` makes pre-cutover setup candidate-bound and fail-closed:
 
-- fresh absolute Windows session root only; reuse, drive/share roots and traversal-bearing roots are rejected;
+- fresh absolute Windows session root only; reuse, drive/share roots, leading/trailing whitespace, relative roots and explicit traversal segments are rejected;
 - exact `Monitor-<version>-win-x64.zip` + `.sha256` names, checksum content, actual SHA-256 and readable non-empty ZIP are verified before session creation;
 - source/tested-merge SHA and environment metadata are validated through the existing production evidence contract and secret-like/provider-error/connection-string/SQL text is rejected;
 - session construction happens under a temporary sibling directory and moves atomically into the final fresh root;
 - exact artifact/checksum bytes are copied under `candidate/` and rehashed after copy;
 - the canonical pack generator creates exactly 15 gates and the initializer verifies all remain false with no `acceptedBy` / `acceptedAtUtc`;
 - `session-manifest.json`, `session-manifest.sha256`, `evidence/proof/` and deterministic `OPERATOR-NEXT-STEPS.txt` are created;
-- session creation reports 0/15 and `ProductionAccepted=false` and has no IIS/SQL/gate-PASS/finalizer/GitHub side effects.
+- session creation reports 0/15 and `ProductionAccepted=false` and has no IIS/SQL/gate-PASS/finalizer/GitHub side effects;
+- Windows candidate `31540968010` executed the initializer and rejected the negative reuse/checksum/non-ZIP/secret/path cases.
 
 | Task | Description | State |
 |---|---|---|
@@ -221,7 +221,7 @@ The packaged operator workflow is:
 | P0-046 | Run `/health/live`, `/health/ready`, `/health` deployment smoke | CI HTTPS VERIFIED + tooling READY; **actual IIS endpoint pending external** |
 | P0-047 | Validate monitored target remains read-only/least-privilege from deployed application identity | P0.4 prerequisite VERIFIED; **deployed IIS identity/target pending external** |
 | P0-048 | Validate operational backup and rollback/recovery path | code/unit/tooling VERIFIED; **production rollback rehearsal pending external** |
-| P0-049 | Versioned candidate/checksum + deterministic external evidence/finalization workflow | **COMPLETE — repository/CI; RC.43 verified; #150 additional session hardening ACTIVE** |
+| P0-049 | Versioned candidate/checksum + deterministic session/evidence/finalization workflow | **COMPLETE — repository/CI; RC.53 verified; #150 COMPLETE** |
 | P0-050 | Final production acceptance; close #111 only after real gates are Green | **PENDING EXTERNAL** |
 
 ### P0.5 external acceptance checklist
