@@ -59,7 +59,7 @@
     <section class="glass-panel panel-pad" aria-labelledby="enterprise-server-context">
         <div class="panel-heading">
             <div><span class="eyebrow">ENTERPRISE GOVERNANCE</span><h3 id="enterprise-server-context">Operator context</h3></div>
-            <a class="secondary-button" asp-controller="EnterpriseOperations" asp-action="Overview">Manage enterprise metadata</a>
+            <div><a class="secondary-button" asp-controller="Operations" asp-action="History" asp-route-registrationId="@server.Id">View history</a> <a class="secondary-button" asp-controller="EnterpriseOperations" asp-action="Overview">@(User.IsInRole(MonitorRoles.Administrator) ? "Manage" : "View") enterprise metadata</a></div>
         </div>
         <div class="definition-grid">
             <div><small>Environment</small><strong>@operatorMetadata.Environment</strong></div>

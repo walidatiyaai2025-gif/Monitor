@@ -21,7 +21,7 @@ public sealed class EnterpriseUxIntegrationTests
         var layout = Read("src/Monitor.Web/Views/Shared/_Layout.cshtml");
 
         Assert.Contains("Enterprise Operations", layout, StringComparison.Ordinal);
-        Assert.Contains("@Active(\"/enterprise\")", layout, StringComparison.Ordinal);
+        Assert.Contains("@Active(\"/enterprise\", exact: true)", layout, StringComparison.Ordinal);
         Assert.Contains("asp-controller=\"EnterpriseOperations\"", layout, StringComparison.Ordinal);
     }
 

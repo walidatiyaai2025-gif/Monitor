@@ -15,7 +15,9 @@
             <p>Maintenance, classification, suppression, incident ownership, exports and redacted diagnostics. Filters and navigation read Monitor-owned metadata and cached evidence only.</p>
         </div>
         <div class="hero-actions">
-            <a class="button secondary" href="/reports/servers.csv">Export safe CSV</a>
+            <a class="button secondary" asp-controller="FleetIntelligence" asp-action="Index">Fleet intelligence</a>
+            <a class="button secondary" asp-controller="Portal" asp-action="Reports">Reports & diagnostics</a>
+            <a class="button secondary" asp-controller="EnterpriseHelp" asp-action="Help">Operator help</a>
             @if (canManage) { <a class="button secondary" href="/diagnostics/package">Download diagnostics</a> }
         </div>
     </div>

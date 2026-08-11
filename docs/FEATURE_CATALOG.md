@@ -67,6 +67,11 @@
 | Release-candidate enterprise acceptance | B100 | CI verified | One explicit regression test per B100-091..100 plus route authorization/antiforgery gate; B100-100; CI 31442930470 |
 | Zero-SQL monitored GETs | M8 | CI verified | Cache/Peek-only browser monitoring reads; CI 31383991126 |
 | Explicit observed manual refresh | M8 | CI verified | Operator/Admin POST; successful refresh observed once |
+| Performance Health portal | BATCH-400 | Local verified | Dedicated cache-only performance page; monitored SQL is never contacted by GET |
+| Estate Recommendations portal | BATCH-400 | Local verified | Deterministic active-incident recommendations; advisory only |
+| Reports & Diagnostics center | BATCH-400 | Local verified | Discoverable bounded exports, diagnostics package and manifest |
+| Google typography system | BATCH-400 | Local verified | Self-hosted Inter Variable + Noto Sans Arabic Variable under strict CSP |
+| Role-aware portal navigation | BATCH-400 | Local verified | Connected fleet/help/readiness/audit/history surfaces and policy-aware management links |
 
 ## BATCH-200 Enterprise Operations Expansion
 

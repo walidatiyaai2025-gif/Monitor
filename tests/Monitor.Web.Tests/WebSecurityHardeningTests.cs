@@ -36,6 +36,8 @@ public sealed class WebSecurityHardeningTests
         Assert.Contains("frame-ancestors 'none'", firstCsp, StringComparison.Ordinal);
         Assert.Contains("object-src 'none'", firstCsp, StringComparison.Ordinal);
         Assert.Contains("form-action 'self'", firstCsp, StringComparison.Ordinal);
+        Assert.Contains("font-src 'self'", firstCsp, StringComparison.Ordinal);
+        Assert.DoesNotContain("fonts.googleapis", firstCsp, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("unsafe-inline", firstCsp, StringComparison.Ordinal);
         Assert.DoesNotContain("unsafe-eval", firstCsp, StringComparison.Ordinal);
         Assert.False(string.IsNullOrWhiteSpace(firstNonce));

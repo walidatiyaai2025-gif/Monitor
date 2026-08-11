@@ -1,0 +1,33 @@
+@model HealthModulePageViewModel
+@{
+    ViewData["Title"] = Model.Title;
+}
+
+<section class="page-heading">
+    <div><span class="eyebrow">CACHED PERFORMANCE</span><h1>@Model.Title</h1><p>@Model.Description Navigation never starts monitored-SQL collection.</p></div>
+    <a class="secondary-button" asp-controller="Operations" asp-action="Servers">View servers</a>
+</section>
+
+<section class="glass-panel table-panel">
+    <div class="panel-heading"><div><span class="eyebrow">ESTATE PRESSURE</span><h3>Latest collected facts</h3></div><span class="snapshot-note">Cache only</span></div>
+    @if (Model.Servers.Count == 0)
+    {
+        <div class="lab-empty"><strong>No cached performance snapshots</strong><span>Connect and collect a server snapshot to populate this page.</span></div>
+    }
+    else
+    {
+        <div class="table-scroll">
+            <div class="table-head db-table"><span>Server</span><span>Source</span><span>Active requests</span><span>Runnable tasks</span><span>Pending I/O</span><span>Age</span></div>
+            @foreach (var server in Model.Servers)
+            {
+                var pressure = server.Performance;
+                <a class="table-row db-table" asp-controller="Operations" asp-action="ServerDetails" asp-route-id="@server.Id">
+                    <strong>@server.Name</strong><span>@server.Source</span>
+                    <span>@(pressure?.ActiveRequests.ToString() ?? "Not collected")</span>
+                    <span class="@(pressure?.RunnableTasks > 4 ? "state-warning" : "")">@(pressure?.RunnableTasks.ToString() ?? "Not collected")</span>
+                    <span>@(pressure?.PendingIoRequests.ToString() ?? "Not collected")</span><span>@server.AgeSeconds s</span>
+                </a>
+            }
+        </div>
+    }
+</section>
