@@ -1,0 +1,88 @@
+@using Monitor.Web.Services
+@model DbaIntelligenceDashboardViewModel
+@{ ViewData["Title"] = "DBA Intelligence"; }
+
+<section class="page-heading">
+    <div>
+        <span class="eyebrow">DBA INTELLIGENCE · READ ONLY</span>
+        <h1>Production SQL Estate Intelligence</h1>
+        <p>Risk, trends, incident priority, capacity compliance and estate lifecycle are projected from retained Monitor control-plane state. Opening this page never initiates monitored SQL collection.</p>
+    </div>
+    <span class="snapshot-note">@Model.GeneratedAtUtc.ToString("u")</span>
+</section>
+
+@if (Model.IsEmpty)
+{
+    <div class="status-banner" role="status"><strong>Empty estate.</strong> @Model.StateMessage</div>
+}
+else if (Model.IsDegraded)
+{
+    <div class="status-banner warning" role="status"><strong>Degraded retained data.</strong> @Model.StateMessage</div>
+}
+else
+{
+    <div class="status-banner" role="status">@Model.StateMessage</div>
+}
+
+<section class="glass-panel table-panel">
+    <div class="panel-heading"><div><span class="eyebrow">RISK RANKING</span><h3>Fleet risk</h3></div><span class="snapshot-note">Highest score first</span></div>
+    <div class="incident-table">
+        <div class="table-head"><span>Server</span><span>Environment</span><span>Risk</span><span>Level</span><span>Freshness</span><span>Actionable</span></div>
+        @foreach (var row in Model.RiskFleet.Take(50))
+        {
+            <div class="table-row">
+                <strong>@row.DisplayName</strong><span>@row.Environment</span><span>@row.Score / 100</span><span>@row.Level</span><span>@row.Freshness</span><span>@(row.Actionable ? "Yes" : "No")</span>
+            </div>
+        }
+        @if (Model.RiskFleet.Count == 0) { <div class="incident-empty">No retained risk rows.</div> }
+    </div>
+</section>
+
+<section class="glass-panel table-panel">
+    <div class="panel-heading"><div><span class="eyebrow">TRENDS</span><h3>Six-hour baselines</h3></div><span class="snapshot-note">Monitor history only</span></div>
+    <div class="incident-table">
+        <div class="table-head"><span>Server</span><span>Memory</span><span>Blocking</span><span>Runnable</span><span>DB availability</span><span>Confidence</span></div>
+        @foreach (var row in Model.Trends.Take(50))
+        {
+            <div class="table-row">
+                <strong>@row.DisplayName</strong><span>@row.Memory.Direction</span><span>@row.Blocking.Direction</span><span>@row.Runnable.Direction</span><span>@row.DatabaseAvailability.Direction</span><span>@row.DatabaseAvailability.Confidence</span>
+            </div>
+        }
+    </div>
+</section>
+
+<section class="glass-panel table-panel">
+    <div class="panel-heading"><div><span class="eyebrow">PRIORITY QUEUE</span><h3>Actionable incidents</h3></div><span class="snapshot-note">Deterministic Top 25</span></div>
+    <div class="incident-table">
+        <div class="table-head"><span>Rule</span><span>Severity</span><span>Priority</span><span>SLA</span><span>Owner</span><span>Actionable</span></div>
+        @foreach (var row in Model.PriorityIncidents)
+        {
+            <div class="table-row"><strong>@row.RuleId</strong><span>@row.Severity</span><span>@row.Score</span><span>@row.SlaBucket</span><span>@(row.Assignee ?? "Unassigned")</span><span>@(row.Actionable ? "Yes" : "No")</span></div>
+        }
+        @if (Model.PriorityIncidents.Count == 0) { <div class="incident-empty">No active priority incidents.</div> }
+    </div>
+</section>
+
+<section class="glass-panel table-panel">
+    <div class="panel-heading"><div><span class="eyebrow">CAPACITY & COMPLIANCE</span><h3>Policy projection</h3></div><span class="snapshot-note">Requires configured storage capacity</span></div>
+    <div class="incident-table">
+        <div class="table-head"><span>Server</span><span>Available</span><span>Storage</span><span>Backup</span><span>Database</span><span>Memory</span></div>
+        @foreach (var row in Model.CapacityCompliance.Take(50))
+        {
+            <div class="table-row">
+                <strong>@row.DisplayName</strong><span>@(row.Available ? "Yes" : "No")</span><span>@(row.Projection?.StorageState.ToString() ?? "Unknown")</span><span>@(row.Projection?.BackupState.ToString() ?? "Unknown")</span><span>@(row.Projection?.DatabaseState.ToString() ?? "Unknown")</span><span>@(row.Projection?.MemoryState.ToString() ?? row.Message)</span>
+            </div>
+        }
+    </div>
+</section>
+
+<section class="glass-panel table-panel">
+    <div class="panel-heading"><div><span class="eyebrow">ESTATE LIFECYCLE</span><h3>Version and posture</h3></div><span class="snapshot-note">No credential fields</span></div>
+    <div class="incident-table">
+        <div class="table-head"><span>Server</span><span>Generation</span><span>Edition</span><span>Encryption</span><span>Lifecycle</span><span>Upgrade candidate</span></div>
+        @foreach (var row in Model.EstateLifecycle.Take(50))
+        {
+            <div class="table-row"><strong>@row.DisplayName</strong><span>@row.Generation</span><span>@row.Edition</span><span>@row.Encryption</span><span>@row.Lifecycle</span><span>@(row.UpgradeCandidate ? "Yes" : "No")</span></div>
+        }
+    </div>
+</section>
