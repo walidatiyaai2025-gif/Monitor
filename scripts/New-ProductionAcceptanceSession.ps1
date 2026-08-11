@@ -112,7 +112,7 @@ function Read-ChecksumContract {
 
     $line = (Get-Content -LiteralPath $Path -Raw).Trim()
     $escaped = [Regex]::Escape($ExpectedFileName)
-    if ($line -notmatch "^(?<hash>[a-fA-F0-9]{64})\\s+\\*?$escaped$") {
+    if ($line -notmatch "^(?<hash>[a-fA-F0-9]{64})\s+\*?$escaped$") {
         throw "Checksum file must contain exactly '<64-hex-sha256>  $ExpectedFileName'."
     }
 
