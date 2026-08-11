@@ -37,7 +37,9 @@
 - Windows production-candidate `31527104897`: **Green end-to-end**, Release **0 warnings / 0 errors**, **746/746 tests passed**, production PowerShell parser Green, synthetic **15/15 evidence closure PASS**, false-gate/tampered-hash/secret-bearing negative packs rejected, HTTPS health/authentication passed before and after restart, package validation and upload Green.
 - Current selected repository-verified cutover candidate: `Monitor-0.1.0-rc.39-win-x64.zip`; product SHA-256 `5e354bc0cf8b5935b078f1cacc5b7f06f2c5226fe58228a92f050376f382c1cb`; Actions artifact ID `9115424834`.
 - RC.39 `_operations` includes `production-acceptance-evidence.example.json`, `New-ProductionAcceptanceEvidencePack.ps1`, and `Test-ProductionAcceptanceEvidence.ps1` in addition to IIS preflight/deploy/acceptance/smoke and rollback tooling.
-- **Repository evidence tooling is complete; no external gate is implied by CI. #116 and #111 remain OPEN until the real trusted-certificate Windows/IIS SingleNode target produces a valid 15/15 external evidence pack and closure summary.**
+- P0.5 Issue #144 is **IN PROGRESS** on `agent/p0-5-gate-recorder`: add `Set-ProductionAcceptanceGate.ps1` so an operator can record one of the exact 15 gates without hand-editing JSON. It requires explicit `-AcknowledgePass`, SHA-256-binds a relative in-root evidence file, rejects unsafe evidence/closed packs/implicit overwrites, changes only the named gate, and never produces a closure summary or final acceptance metadata.
+- PR/CI for #144 remains required before this recorder becomes part of the selected cutover candidate. No external IIS gate is implied by this repository work.
+- **#116 and #111 remain OPEN until the real trusted-certificate Windows/IIS SingleNode target produces a valid 15/15 external evidence pack and closure summary.**
 
 ### P0.5 task status
 
@@ -51,7 +53,7 @@
 | P0-046 deployment health smoke | CI HTTPS VERIFIED; tooling READY; **real IIS endpoint pending external** |
 | P0-047 least-privilege monitored target | P0.4 prerequisite VERIFIED; **deployed IIS identity/target pending external** |
 | P0-048 backup + rollback/recovery | code/unit/tooling VERIFIED; **production rehearsal pending external** |
-| P0-049 versioned artifact/checksum/evidence | **REPOSITORY/CI COMPLETE**; RC.39 + 15-gate closure tooling VERIFIED |
+| P0-049 versioned artifact/checksum/evidence | **REPOSITORY/CI COMPLETE**; RC.39 + 15-gate closure tooling VERIFIED; explicit recorder #144 IN PROGRESS |
 | P0-050 final production acceptance | **PENDING EXTERNAL** |
 
 ## BATCH-600 — Live Operator Readiness & Evidence Orchestration
@@ -115,4 +117,4 @@ B600 delivered deterministic fail-closed repository orchestration for evidence f
 - MultiNode remains fail-closed and deferred until after stable SingleNode production acceptance.
 - Concurrent team work must be preserved; external P0.5 acceptance cannot be inferred from CI.
 
-**Overall:** 🟢 verified foundation · 🟢 P0.1–P0.4 COMPLETE · 🟢 P0.5 repository automation/evidence tooling COMPLETE · 🟢 BATCH-500 100/100 COMPLETE · 🟢 BATCH-600 100/100 COMPLETE · 🟢 #141 COMPLETE · 🟡 external IIS/HTTPS 15-gate acceptance pending · 🔴 production acceptance not yet granted
+**Overall:** 🟢 verified foundation · 🟢 P0.1–P0.4 COMPLETE · 🟢 P0.5 repository automation/evidence pack VERIFIED · 🟢 BATCH-500 100/100 COMPLETE · 🟢 BATCH-600 100/100 COMPLETE · 🟢 #141 COMPLETE · 🟡 #144 gate recorder IN PROGRESS · 🟡 external IIS/HTTPS 15-gate acceptance pending · 🔴 production acceptance not yet granted
