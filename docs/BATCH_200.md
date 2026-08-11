@@ -34,16 +34,18 @@ Batch 1 integrates the BATCH-100 enterprise governance state into the normal ope
 
 | Task | Description | Status |
 |---|---|---|
-| B200-011 | Scheduler skips targets in active maintenance windows | PLANNED |
-| B200-012 | Manual refresh during maintenance remains explicit/audited | PLANNED |
-| B200-013 | Fleet/server projections expose maintenance-active state | PLANNED |
-| B200-014 | Alert suppression projection without evidence mutation | PLANNED |
-| B200-015 | Actionable-vs-suppressed incident counts | PLANNED |
-| B200-016 | Automatic suppression expiry semantics | PLANNED |
-| B200-017 | Start-inclusive/end-exclusive boundary tests | PLANNED |
-| B200-018 | Cross-node policy consistency | PLANNED |
-| B200-019 | Corrupt policy metadata fails closed | PLANNED |
-| B200-020 | Maintenance/suppression acceptance suite | PLANNED |
+| B200-011 | Scheduler skips targets in active maintenance windows | CI VERIFIED — RUN 31444314976 |
+| B200-012 | Manual refresh during maintenance remains explicit/audited | CI VERIFIED — RUN 31444314976 |
+| B200-013 | Fleet/server projections expose maintenance-active state | CI VERIFIED — RUN 31444314976 |
+| B200-014 | Alert suppression projection without evidence mutation | CI VERIFIED — RUN 31444314976 |
+| B200-015 | Actionable-vs-suppressed incident counts | CI VERIFIED — RUN 31444314976 |
+| B200-016 | Automatic suppression expiry semantics | CI VERIFIED — RUN 31444314976 |
+| B200-017 | Start-inclusive/end-exclusive boundary tests | CI VERIFIED — RUN 31444314976 |
+| B200-018 | Cross-node policy consistency | CI VERIFIED — RUN 31444314976 |
+| B200-019 | Corrupt policy metadata fails closed | CI VERIFIED — RUN 31444314976 |
+| B200-020 | Maintenance/suppression acceptance suite | CI VERIFIED — RUN 31444314976 |
+
+Batch 2 turns operator windows into explicit backend policy semantics. Scheduled collection skips active maintenance and fails closed when operator policy cannot be read; manual refresh remains an explicit operator override and is audited before/after execution. Alert suppression changes actionability projections only and leaves incident status/evidence untouched. Policy windows are start-inclusive/end-exclusive and shared-state readers converge across nodes.
 
 ## Batch 3 — Incident collaboration workflow
 

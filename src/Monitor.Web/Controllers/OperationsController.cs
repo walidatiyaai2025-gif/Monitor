@@ -83,6 +83,17 @@ public sealed class OperationsController : Controller
         ViewData["ServerHasNext"] = page.HasNext;
         ViewData["ServerPreviousOffset"] = page.PreviousOffset;
         ViewData["ServerNextOffset"] = page.NextOffset;
+
+        var policy = PolicyService();
+        if (policy is not null)
+        {
+            var ids = page.Items.Select(item => Guid.TryParse(item.Id, out var id) ? id : Guid.Empty).Where(id => id != Guid.Empty).ToArray();
+            var states = policy.GetServers(ids);
+            ViewData["ServerPolicyStates"] = states;
+            ViewData["MaintenanceActiveCount"] = states.Values.Count(item => item.PolicyReadable && item.MaintenanceActive);
+            ViewData["OperatorPolicyUnavailableCount"] = states.Values.Count(item => !item.PolicyReadable);
+        }
+
         return View(page.Items);
     }
 
@@ -94,11 +105,25 @@ public sealed class OperationsController : Controller
 
         if (_operatorMetadata is not null && Guid.TryParse(id, out var registrationId))
         {
-            var metadata = _operatorMetadata.GetServer(registrationId);
-            var now = _timeProvider.GetUtcNow();
-            ViewData["ServerOperatorMetadata"] = metadata;
-            ViewData["MaintenanceActive"] = EnterpriseOperatorPolicy.IsMaintenanceActive(metadata, now);
-            ViewData["AlertSuppressed"] = EnterpriseOperatorPolicy.IsAlertSuppressed(metadata, now);
+            var state = PolicyService()!.GetServer(registrationId);
+            ViewData["MaintenanceActive"] = state.MaintenanceActive;
+            ViewData["AlertSuppressed"] = state.AlertSuppressed;
+            ViewData["OperatorPolicyUnavailable"] = !state.PolicyReadable;
+            if (state.PolicyReadable)
+            {
+                try
+                {
+                    ViewData["ServerOperatorMetadata"] = _operatorMetadata.GetServer(registrationId);
+                }
+                catch (InvalidDataException)
+                {
+                    ViewData["OperatorPolicyUnavailable"] = true;
+                }
+                catch (SharedStateStoreUnavailableException)
+                {
+                    ViewData["OperatorPolicyUnavailable"] = true;
+                }
+            }
         }
 
         return View(model);
@@ -110,7 +135,26 @@ public sealed class OperationsController : Controller
     public async Task<IActionResult> RefreshServer(Guid id, CancellationToken cancellationToken)
     {
         if (_snapshotRefresh is null) return NotFound();
+
+        var policyState = PolicyService()?.GetServer(id);
+        var maintenanceOverride = policyState is { PolicyReadable: true, MaintenanceActive: true };
+        var policyUnavailable = policyState is { PolicyReadable: false };
+        if (maintenanceOverride)
+        {
+            _audit?.Append(Actor(), "snapshot.refresh.maintenance-override", id.ToString("D"), "requested");
+        }
+        else if (policyUnavailable)
+        {
+            _audit?.Append(Actor(), "snapshot.refresh.policy-unavailable", id.ToString("D"), "manual-requested");
+        }
+
         var result = await _snapshotRefresh.RefreshAsync(id, cancellationToken);
+        if (maintenanceOverride)
+        {
+            _audit?.Append(Actor(), "snapshot.refresh.maintenance-override", id.ToString("D"), result.Status.ToString());
+            TempData["SnapshotMaintenanceOverride"] = "Manual refresh was explicitly requested during an active maintenance window.";
+        }
+
         TempData["SnapshotRefresh"] = result.Message;
         TempData["SnapshotRefreshStatus"] = result.Status.ToString();
         TempData["SnapshotRefreshFreshness"] = result.Freshness?.ToString() ?? string.Empty;
@@ -147,9 +191,21 @@ public sealed class OperationsController : Controller
             NormalizeRuleId(ruleId),
             PerformanceScaleOptions.BoundOffset(offset),
             _performance.BoundIncidentLimit(limit));
-        return _workflow is null
-            ? View(new IncidentCenterViewModel([], new(0, 0, 0, 0, 0), query))
-            : View(_workflow.Query(query));
+        var model = _workflow is null
+            ? new IncidentCenterViewModel([], new(0, 0, 0, 0, 0), query)
+            : _workflow.Query(query);
+
+        var policy = PolicyService();
+        if (policy is not null)
+        {
+            var states = policy.GetIncidents(model.Items);
+            ViewData["IncidentPolicyStates"] = states;
+            ViewData["ActionableIncidentCount"] = states.Values.Count(item => item.PolicyReadable && !item.AlertSuppressed);
+            ViewData["SuppressedIncidentCount"] = states.Values.Count(item => item.PolicyReadable && item.AlertSuppressed);
+            ViewData["IncidentPolicyUnavailableCount"] = states.Values.Count(item => !item.PolicyReadable);
+        }
+
+        return View(model);
     }
 
     [HttpGet("/alerts/{id}")]
@@ -161,11 +217,26 @@ public sealed class OperationsController : Controller
 
         if (_operatorMetadata is not null)
         {
-            var metadata = _operatorMetadata.GetIncident(id);
-            var recommendationKey = model.Recommendation is null ? null : RecommendationAcknowledgmentKey.Create(model.Recommendation);
-            ViewData["IncidentOperatorMetadata"] = metadata;
-            ViewData["RecommendationKey"] = recommendationKey;
-            ViewData["RecommendationAcknowledged"] = recommendationKey is not null && metadata.AcknowledgedRecommendationKeys.Contains(recommendationKey, StringComparer.Ordinal);
+            try
+            {
+                var metadata = _operatorMetadata.GetIncident(id);
+                var recommendationKey = model.Recommendation is null ? null : RecommendationAcknowledgmentKey.Create(model.Recommendation);
+                ViewData["IncidentOperatorMetadata"] = metadata;
+                ViewData["RecommendationKey"] = recommendationKey;
+                ViewData["RecommendationAcknowledged"] = recommendationKey is not null && metadata.AcknowledgedRecommendationKeys.Contains(recommendationKey, StringComparer.Ordinal);
+            }
+            catch (InvalidDataException)
+            {
+                ViewData["OperatorPolicyUnavailable"] = true;
+            }
+            catch (SharedStateStoreUnavailableException)
+            {
+                ViewData["OperatorPolicyUnavailable"] = true;
+            }
+
+            var state = PolicyService()!.GetServer(model.Incident.RegistrationId);
+            ViewData["IncidentAlertSuppressed"] = state.PolicyReadable && state.AlertSuppressed;
+            if (!state.PolicyReadable) ViewData["OperatorPolicyUnavailable"] = true;
         }
 
         return View(model);
@@ -252,6 +323,15 @@ public sealed class OperationsController : Controller
             "Credential readiness service is unavailable.");
         var backups = _backupService?.GetReadiness();
         return View(new SettingsViewModel(_deploymentReadiness, sharedState, credentials, backups));
+    }
+
+    private IOperatorPolicyReadService? PolicyService() =>
+        _operatorMetadata is null ? null : new OperatorPolicyReadService(_operatorMetadata, _timeProvider);
+
+    private string Actor()
+    {
+        var actor = User.Identity?.Name?.Trim();
+        return string.IsNullOrWhiteSpace(actor) ? "unknown" : EnterpriseOperatorValidation.NormalizeActor(actor);
     }
 
     private static string? NormalizeRuleId(string? ruleId) => SecurityInput.NormalizeOptionalToken(ruleId, 80);
