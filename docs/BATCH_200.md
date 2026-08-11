@@ -85,16 +85,18 @@ Batch 4 introduces the versioned `monitor-export-v2` contract with explicit row/
 
 | Task | Description | Status |
 |---|---|---|
-| B200-041 | Health summary by environment | PLANNED |
-| B200-042 | Health summary by server group | PLANNED |
-| B200-043 | Health summary by tag | PLANNED |
-| B200-044 | Stale/unavailable snapshot counts | PLANNED |
-| B200-045 | Active maintenance counts | PLANNED |
-| B200-046 | Active suppression counts | PLANNED |
-| B200-047 | Incident hot-spots by deterministic rule | PLANNED |
-| B200-048 | Backup-risk fleet summary | PLANNED |
-| B200-049 | Memory/blocking/performance risk summary | PLANNED |
-| B200-050 | Fleet intelligence zero-monitored-SQL acceptance suite | PLANNED |
+| B200-041 | Health summary by environment | CI VERIFIED — RUN 31446020409 |
+| B200-042 | Health summary by server group | CI VERIFIED — RUN 31446020409 |
+| B200-043 | Health summary by tag | CI VERIFIED — RUN 31446020409 |
+| B200-044 | Stale/unavailable snapshot counts | CI VERIFIED — RUN 31446020409 |
+| B200-045 | Active maintenance counts | CI VERIFIED — RUN 31446020409 |
+| B200-046 | Active suppression counts | CI VERIFIED — RUN 31446020409 |
+| B200-047 | Incident hot-spots by deterministic rule | CI VERIFIED — RUN 31446020409 |
+| B200-048 | Backup-risk fleet summary | CI VERIFIED — RUN 31446020409 |
+| B200-049 | Memory/blocking/performance risk summary | CI VERIFIED — RUN 31446020409 |
+| B200-050 | Fleet intelligence zero-monitored-SQL acceptance suite | CI VERIFIED — RUN 31446020409 |
+
+Batch 5 provides cache-only fleet intelligence by environment, group and tag; freshness/unavailable, maintenance and suppression counts; deterministic incident rule hot-spots; and backup/memory/blocking/runnable risk summaries. The B200-050 acceptance gate uses a cache fake that rejects `GetAsync`/`RefreshAsync`, proving fleet reads use `Peek` only. Verification run `31446020409` passed Release warnings-as-errors and 281/281 tests (0 failed).
 
 ## Batch 6 — Retention & governance
 
