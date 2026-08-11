@@ -2,10 +2,12 @@
 
 ## CURRENT P0 — Real SQL Production MVP
 
-**Updated:** 2026-08-11 11:41 +03:00  
-**Branch:** `agent/production-mvp-priority`  
+**Updated:** 2026-08-11 11:46 +03:00  
+**Branch:** `main`  
 **Umbrella:** #111  
 **Execution ledger:** `docs/PRODUCTION_MVP.md`  
+**Priority PR:** #117 MERGED — `3674b370ca485c8fd86639f82f2a22e32bd2dacc`  
+**Priority-plan CI:** `31474556468` — Green  
 **Active next gate:** #112 / P0.1 Real SQL Registration  
 **Production target:** first trustworthy IIS/HTTPS SingleNode release after #112 -> #113 -> #114 -> #115 -> #116.
 
@@ -14,6 +16,7 @@
 - The repository has a strong verified platform foundation, but the immediate delivery objective is now the end-to-end real SQL production journey rather than additional feature breadth.
 - Until P0.5 is accepted, production-slice blockers are higher priority than unrelated B300/B400 expansion.
 - A production-visible value must be backed by collected evidence. Missing/uncollected data is rendered explicitly; placeholder numeric zero is not acceptable as observed production data.
+- P0.1 audit found that `ConnectionLabController.Register` currently persists the registration before Test Connection completes. A failed test therefore leaves a normal enabled registration. Issue #112 now owns test-candidate-before-commit semantics plus candidate-secret compensation.
 - Known P0.2 reconciliation: current `ServerCard` projection sets CPU to `0` although CPU is not collected by the current bounded snapshot contract, and collected SQL Agent evidence is not projected into the card used by Server Details. Issue #113 owns this fix.
 - Real-server acceptance is mandatory in #115; deterministic/fake-based CI alone does not close the production gate.
 - First production deployment is deliberately SingleNode; MultiNode activation is deferred until after the first stable production release.
@@ -22,7 +25,7 @@
 
 | Order | Release | Issue | State |
 |---|---|---|---|
-| 1 | P0.1 Real SQL Registration | #112 | READY / NEXT |
+| 1 | P0.1 Real SQL Registration | #112 | ACTIVE / NEXT |
 | 2 | P0.2 First Real Snapshot + truthful mapping | #113 | BLOCKED BY #112 |
 | 3 | P0.3 Server Details v0.1 source of truth | #114 | BLOCKED BY #113 |
 | 4 | P0.4 Real SQL end-to-end acceptance | #115 | BLOCKED BY #114 |
