@@ -4,7 +4,7 @@ Issue: #116
 Dependency: P0.4 / #115 COMPLETE  
 Scope: first production activation only; `Deployment:Mode=SingleNode`.
 
-This document is the operator evidence record for the first IIS/HTTPS production cutover. Repository CI can prove package, configuration and recovery contracts, but it cannot truthfully close #116 without exercising the actual Windows/IIS environment. **#116 must remain OPEN until the external evidence pack validates 15/15 required production gates.**
+This document is the operator evidence record for the first IIS/HTTPS production cutover. Repository CI can prove package, configuration and recovery contracts, but it cannot truthfully close #116 without exercising the actual Windows/IIS environment. **#116 must remain OPEN until the external evidence pack validates 15/15 required production gates and the real operator explicitly finalizes that evidence.**
 
 ## Release candidate contract
 
@@ -61,7 +61,7 @@ Record these values before changing IIS:
 
 ## External acceptance evidence pack
 
-Issue #141 adds a machine-verifiable closure record. The pack does not perform IIS deployment, does not recycle IIS and does not execute SQL. The fail-closed generator never marks a production gate PASS. Issue #144 adds an explicit one-gate-at-a-time recorder so the operator does not have to hand-edit gate timestamps, evidence references or SHA-256 values.
+Issue #141 adds a machine-verifiable closure record. The pack does not perform IIS deployment, does not recycle IIS and does not execute SQL. The fail-closed generator never marks a production gate PASS. Issue #144 adds an explicit one-gate-at-a-time recorder so the operator does not have to hand-edit gate timestamps, evidence references or SHA-256 values. Issue #147 removes the last manual JSON-edit step by adding a fail-closed finalizer for `acceptedBy`, `acceptedAtUtc` and the closure summary.
 
 ### 1. Create the fail-closed pack
 
@@ -132,19 +132,45 @@ The 15 required gates are:
 14. `postRollbackHealthPassed`
 15. `finalReadEvidencePassed`
 
-After all gates are truly complete, set `acceptedBy` to the operator identity and `acceptedAtUtc` to an ISO-8601 timestamp not earlier than the latest gate timestamp. Do not use the recorder to fabricate or backfill an unperformed gate.
+### 3. Explicitly finalize the real 15/15 operator evidence
 
-### 3. Run the fail-closed closure validator
+Do **not** hand-edit `acceptedBy` or `acceptedAtUtc`. After all 15 gates were actually performed and recorded, run the dedicated finalizer:
+
+```powershell
+.\_operations\scripts\Complete-ProductionAcceptance.ps1 `
+  -EvidencePath '.\evidence\p0-5-evidence-pack.json' `
+  -AcceptedBy 'DOMAIN\approved.operator' `
+  -ClosureSummaryFile 'p0-5-closure-summary.json' `
+  -AcknowledgeFinalAcceptance
+```
+
+The finalizer is deliberately fail-closed:
+
+- it requires explicit `-AcknowledgeFinalAcceptance` and a bounded non-secret operator identity;
+- it refuses an already accepted pack, an existing closure summary, or a rooted/traversal summary path;
+- it never changes any gate from FAIL to PASS and never creates missing gate evidence;
+- it creates a **prospective** finalized copy first and invokes `Test-ProductionAcceptanceEvidence.ps1` against all 15 SHA-bound evidence files before touching the authoritative pack;
+- it re-hashes the authoritative pack after prospective validation and aborts if another process/operator changed it concurrently;
+- it atomically commits only the final operator acceptance metadata (`acceptedBy` and `acceptedAtUtc`);
+- it validates the authoritative finalized pack again and writes the closure summary only after that second validation succeeds;
+- if the final authoritative validation unexpectedly fails, it restores the original unaccepted pack and removes any partial closure summary;
+- it does not deploy or recycle IIS, execute SQL, call GitHub, close #116/#111, or infer production acceptance from repository CI.
+
+The explicit final acknowledgement means: the named operator has reviewed the real environment evidence and asserts that all recorded gates correspond to operations that were actually executed on the intended production host.
+
+### 4. Re-run the fail-closed closure validator when reviewing or transferring evidence
+
+The finalizer already runs the validator twice. An operator/reviewer can independently re-run it at any time after finalization:
 
 ```powershell
 .\_operations\scripts\Test-ProductionAcceptanceEvidence.ps1 `
   -EvidencePath '.\evidence\p0-5-evidence-pack.json' `
-  -ClosureSummaryPath '.\evidence\p0-5-closure-summary.json'
+  -ClosureSummaryPath '.\evidence\p0-5-review-summary.json'
 ```
 
-The validator fails if any required gate is missing or false, if an unknown gate/property is injected, if candidate metadata is malformed, if the deployment mode is not exactly SingleNode, if a gate evidence file is missing or escapes the evidence root, if any evidence SHA-256 differs, or if pack/evidence content contains password/connection-string/provider-error/arbitrary SQL text material. It generates a PASS closure summary only after all 15/15 gates validate.
+The validator fails if any required gate is missing or false, if an unknown gate/property is injected, if candidate metadata is malformed, if the deployment mode is not exactly SingleNode, if a gate evidence file is missing or escapes the evidence root, if any evidence SHA-256 differs, or if pack/evidence content contains password/connection-string/provider-error/arbitrary SQL text material. It generates a PASS closure summary only after all 15/15 gates validate and final operator acceptance metadata is valid.
 
-A validator PASS is necessary but still represents evidence supplied from the real environment; repository CI only proves the recorder/validator behavior. The actual production operations must still be performed on the intended Windows/IIS host.
+A validator/finalizer PASS is necessary but still represents evidence supplied from the real environment; repository CI only proves the recorder/finalizer/validator behavior. The actual production operations must still be performed on the intended Windows/IIS host.
 
 ## Mandatory restart/recycle acceptance
 
@@ -187,15 +213,16 @@ These results map to `operationalBackupValidated`, `rollbackRehearsed` and `post
 
 P0.5 can be marked COMPLETE only when all of the following are true:
 
-- all 15 external evidence-pack gates are PASS;
+- all 15 external evidence-pack gates are PASS from the real intended environment;
 - every gate has a matching evidence file and SHA-256;
-- the closure validator returns PASS and writes the closure summary;
+- the explicit finalizer succeeds with the approved operator identity;
+- the closure validator returns PASS and the closure summary is retained;
 - the selected candidate metadata matches Issue #116;
 - the operations were executed on the intended trusted-certificate Windows/IIS SingleNode host;
 - no secret-bearing evidence was retained.
 
-Only then may #116 be closed. Umbrella #111 may close only after #116 is accepted.
+Finalizing the evidence pack **does not close GitHub issues automatically**. #116 must remain OPEN until the closure summary and real evidence are reviewed and accepted. Only then may #116 be closed. Umbrella #111 may close only after #116 is accepted.
 
 ## Stop conditions
 
-Do not cut over, or rollback immediately, if readiness is not Green, the checksum does not match, the application starts in an unintended MultiNode mode, IIS/certificate/app-pool prerequisites fail, the key ring/state paths are unavailable, protected credentials cannot resolve after recycle, monitored SQL requires unexpected write/high privilege, backup/rollback evidence is missing, or the closure validator does not return PASS.
+Do not cut over, or rollback immediately, if readiness is not Green, the checksum does not match, the application starts in an unintended MultiNode mode, IIS/certificate/app-pool prerequisites fail, the key ring/state paths are unavailable, protected credentials cannot resolve after recycle, monitored SQL requires unexpected write/high privilege, backup/rollback evidence is missing, or the finalizer/closure validator does not return PASS.

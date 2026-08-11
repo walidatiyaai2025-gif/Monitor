@@ -24,6 +24,7 @@ on:
       - 'scripts/Deploy-ProductionSingleNode.ps1'
       - 'scripts/New-ProductionAcceptanceEvidencePack.ps1'
       - 'scripts/Set-ProductionAcceptanceGate.ps1'
+      - 'scripts/Complete-ProductionAcceptance.ps1'
       - 'scripts/Test-ProductionAcceptanceEvidence.ps1'
       - 'src/Monitor.Web/**'
       - 'tests/Monitor.Web.Tests/ProductionAdminCredentialGuardTests.cs'
@@ -31,6 +32,7 @@ on:
       - 'tests/Monitor.Web.Tests/P05IisDeploymentAutomationTests.cs'
       - 'tests/Monitor.Web.Tests/P05ProductionAcceptanceEvidencePackTests.cs'
       - 'tests/Monitor.Web.Tests/P05ProductionAcceptanceGateRecorderTests.cs'
+      - 'tests/Monitor.Web.Tests/P05ProductionAcceptanceFinalizationTests.cs'
 
 permissions:
   contents: read
@@ -72,6 +74,7 @@ jobs:
             'scripts/Deploy-ProductionSingleNode.ps1',
             'scripts/New-ProductionAcceptanceEvidencePack.ps1',
             'scripts/Set-ProductionAcceptanceGate.ps1',
+            'scripts/Complete-ProductionAcceptance.ps1',
             'scripts/Test-ProductionAcceptanceEvidence.ps1'
           )
           foreach ($path in $paths) {
@@ -158,7 +161,7 @@ jobs:
             -Action { ./scripts/Set-ProductionAcceptanceGate.ps1 -EvidencePath $packPath -GateName artifactChecksumVerified -EvidenceFile $goodRelative -AcknowledgePass | Out-Null } `
             -FailureMessage 'Duplicate PASS unexpectedly passed.'
 
-      - name: Exercise acceptance evidence closure validator
+      - name: Exercise final operator acceptance finalizer
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -189,6 +192,17 @@ jobs:
             -StateRoot 'C:\ProgramData\Monitor\App_Data' `
             -OutputPath $packPath
 
+          function Assert-FinalizerRejected {
+            param([scriptblock]$Action, [string]$FailureMessage)
+            $rejected = $false
+            try { & $Action } catch { $rejected = $true }
+            if (-not $rejected) { throw $FailureMessage }
+          }
+
+          Assert-FinalizerRejected `
+            -Action { ./scripts/Complete-ProductionAcceptance.ps1 -EvidencePath $packPath -AcceptedBy 'ci-operator' -ClosureSummaryFile 'too-early.json' -AcknowledgeFinalAcceptance | Out-Null } `
+            -FailureMessage 'Finalizer before all gates unexpectedly passed.'
+
           $pack = Get-Content -LiteralPath $packPath -Raw | ConvertFrom-Json -Depth 20
           foreach ($property in $pack.gates.PSObject.Properties) {
             $relative = "evidence/$($property.Name).txt"
@@ -200,13 +214,36 @@ jobs:
               -EvidenceFile $relative `
               -AcknowledgePass | Out-Null
           }
-          $pack = Get-Content -LiteralPath $packPath -Raw | ConvertFrom-Json -Depth 20
-          $pack.acceptedBy = 'ci-operator'
-          $pack.acceptedAtUtc = [DateTimeOffset]::UtcNow.ToString('O')
-          $pack | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $packPath -Encoding utf8NoBOM
 
-          ./scripts/Test-ProductionAcceptanceEvidence.ps1 -EvidencePath $packPath -ClosureSummaryPath $summaryPath | Out-Null
-          if (-not (Test-Path -LiteralPath $summaryPath -PathType Leaf)) { throw 'Positive closure validator did not create a summary.' }
+          Assert-FinalizerRejected `
+            -Action { ./scripts/Complete-ProductionAcceptance.ps1 -EvidencePath $packPath -AcceptedBy 'ci-operator' -ClosureSummaryFile 'no-ack.json' | Out-Null } `
+            -FailureMessage 'Finalizer without acknowledgement unexpectedly passed.'
+
+          Assert-FinalizerRejected `
+            -Action { ./scripts/Complete-ProductionAcceptance.ps1 -EvidencePath $packPath -AcceptedBy 'ci-operator' -ClosureSummaryFile '../escape.json' -AcknowledgeFinalAcceptance | Out-Null } `
+            -FailureMessage 'Unsafe finalizer summary path unexpectedly passed.'
+
+          Assert-FinalizerRejected `
+            -Action { ./scripts/Complete-ProductionAcceptance.ps1 -EvidencePath $packPath -AcceptedBy 'password=must-never-be-retained' -ClosureSummaryFile 'unsafe-operator.json' -AcknowledgeFinalAcceptance | Out-Null } `
+            -FailureMessage 'Unsafe finalizer operator identity unexpectedly passed.'
+
+          ./scripts/Complete-ProductionAcceptance.ps1 `
+            -EvidencePath $packPath `
+            -AcceptedBy 'ci-operator' `
+            -ClosureSummaryFile 'p0-5-closure-summary.json' `
+            -AcknowledgeFinalAcceptance | Out-Null
+
+          if (-not (Test-Path -LiteralPath $summaryPath -PathType Leaf)) { throw 'Positive finalizer did not create a closure summary.' }
+          $acceptedPack = Get-Content -LiteralPath $packPath -Raw | ConvertFrom-Json -Depth 20
+          if ($acceptedPack.acceptedBy -ne 'ci-operator' -or $null -eq $acceptedPack.acceptedAtUtc) {
+            throw 'Positive finalizer did not record final operator acceptance metadata.'
+          }
+
+          Assert-FinalizerRejected `
+            -Action { ./scripts/Complete-ProductionAcceptance.ps1 -EvidencePath $packPath -AcceptedBy 'ci-operator' -ClosureSummaryFile 'second-summary.json' -AcknowledgeFinalAcceptance | Out-Null } `
+            -FailureMessage 'Second finalization unexpectedly passed.'
+
+          ./scripts/Test-ProductionAcceptanceEvidence.ps1 -EvidencePath $packPath -ClosureSummaryPath (Join-Path $root 'validator-recheck.json') | Out-Null
 
           function Assert-Rejected {
             param([string]$Path, [string]$FailureMessage)
@@ -414,6 +451,7 @@ jobs:
           Copy-Item scripts/Deploy-ProductionSingleNode.ps1 "$ops/scripts/" -Force
           Copy-Item scripts/New-ProductionAcceptanceEvidencePack.ps1 "$ops/scripts/" -Force
           Copy-Item scripts/Set-ProductionAcceptanceGate.ps1 "$ops/scripts/" -Force
+          Copy-Item scripts/Complete-ProductionAcceptance.ps1 "$ops/scripts/" -Force
           Copy-Item scripts/Test-ProductionAcceptanceEvidence.ps1 "$ops/scripts/" -Force
           Copy-Item docs/DEPLOY_IIS.md "$ops/docs/" -Force
           Copy-Item docs/UPGRADE_CHECKLIST.md "$ops/docs/" -Force
