@@ -1,4 +1,5 @@
 using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Hosting;
 using Monitor.Web.Services;
 using Xunit;
 
