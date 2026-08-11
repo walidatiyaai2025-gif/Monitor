@@ -12,6 +12,7 @@ internal enum SqlProbeFailureKind
     Timeout,
     Network,
     Certificate,
+    Permission,
     Other
 }
 
@@ -28,6 +29,7 @@ internal static class SqlErrorClassifier
         -2146893019 or -2146893022 => SqlProbeFailureKind.Certificate,
         -2 => SqlProbeFailureKind.Timeout,
         -1 or 2 or 53 or 11001 => SqlProbeFailureKind.Network,
+        229 or 297 or 300 or 916 => SqlProbeFailureKind.Permission,
         _ => SqlProbeFailureKind.Other
     };
 
@@ -138,6 +140,7 @@ internal sealed class ServerConnectionTester(
                 SqlProbeFailureKind.Timeout => Result(ConnectionTestStatus.TimedOut, "Connection timed out.", stopwatch),
                 SqlProbeFailureKind.Network => Result(ConnectionTestStatus.NetworkUnavailable, "The SQL Server could not be reached.", stopwatch),
                 SqlProbeFailureKind.Certificate => Result(ConnectionTestStatus.CertificateRejected, "SQL Server certificate validation failed.", stopwatch),
+                SqlProbeFailureKind.Permission => Result(ConnectionTestStatus.PermissionDenied, "The SQL Server login does not have the required monitoring permissions.", stopwatch),
                 _ => Result(ConnectionTestStatus.Failed, "Connection failed.", stopwatch)
             };
         }
