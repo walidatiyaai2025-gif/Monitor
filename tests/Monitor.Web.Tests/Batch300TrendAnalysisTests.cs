@@ -86,7 +86,7 @@ public sealed class Batch300TrendAnalysisTests
     public void B300_019_SparseAndStaleHistoryLowersConfidence()
     {
         Assert.Equal(DbaTrendConfidence.None, DbaTrendAnalysis.Confidence(Samples(1, 2)));
-        Assert.Equal(DbaTrendConfidence.Low, DbaTrendAnalysis.Confidence(Enumerable.Range(0, 6).Select(i => new DbaTrendSample(Start.AddMinutes(i), i, stale: i < 4))));
+        Assert.Equal(DbaTrendConfidence.Low, DbaTrendAnalysis.Confidence(Enumerable.Range(0, 6).Select(i => new DbaTrendSample(Start.AddMinutes(i), i, Stale: i < 4))));
         Assert.Equal(DbaTrendConfidence.High, DbaTrendAnalysis.Confidence(Enumerable.Range(0, 20).Select(i => new DbaTrendSample(Start.AddMinutes(i), i))));
     }
 
