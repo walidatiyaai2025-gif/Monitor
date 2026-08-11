@@ -87,8 +87,10 @@ public sealed class P05ProductionAcceptanceEvidencePackTests
     {
         var text = Read(".github/workflows/production-candidate.yml");
         Assert.Contains("scripts/New-ProductionAcceptanceEvidencePack.ps1", text, StringComparison.Ordinal);
+        Assert.Contains("scripts/Set-ProductionAcceptanceGate.ps1", text, StringComparison.Ordinal);
+        Assert.Contains("scripts/Complete-ProductionAcceptance.ps1", text, StringComparison.Ordinal);
         Assert.Contains("scripts/Test-ProductionAcceptanceEvidence.ps1", text, StringComparison.Ordinal);
-        Assert.Contains("Exercise acceptance evidence closure validator", text, StringComparison.Ordinal);
+        Assert.Contains("Exercise final operator acceptance finalizer", text, StringComparison.Ordinal);
         Assert.Contains("production-acceptance-evidence.example.json", text, StringComparison.Ordinal);
         Assert.Contains("negative gate unexpectedly passed", text, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("tampered evidence hash unexpectedly passed", text, StringComparison.OrdinalIgnoreCase);
@@ -101,6 +103,8 @@ public sealed class P05ProductionAcceptanceEvidencePackTests
         var text = Read("docs/PRODUCTION_SINGLENODE_ACCEPTANCE.md");
         Assert.Contains("External acceptance evidence pack", text, StringComparison.Ordinal);
         Assert.Contains("New-ProductionAcceptanceEvidencePack.ps1", text, StringComparison.Ordinal);
+        Assert.Contains("Set-ProductionAcceptanceGate.ps1", text, StringComparison.Ordinal);
+        Assert.Contains("Complete-ProductionAcceptance.ps1", text, StringComparison.Ordinal);
         Assert.Contains("Test-ProductionAcceptanceEvidence.ps1", text, StringComparison.Ordinal);
         Assert.Contains("does not perform IIS deployment", text, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("#116", text, StringComparison.Ordinal);
