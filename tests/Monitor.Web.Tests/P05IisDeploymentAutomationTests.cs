@@ -11,7 +11,7 @@ public sealed class P05IisDeploymentAutomationTests
         var script = Read(root, "scripts/Test-IisProductionPrerequisites.ps1");
 
         Assert.Contains("WebAdministration", script, StringComparison.Ordinal);
-        Assert.Contains("Microsoft.AspNetCore.App 8", script, StringComparison.Ordinal);
+        Assert.Contains("Microsoft\\.AspNetCore\\.App 8\\.", script, StringComparison.Ordinal);
         Assert.Contains("Asp.Net Core Module", script, StringComparison.Ordinal);
         Assert.Contains("No Managed Code", script, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("LocalSystem", script, StringComparison.Ordinal);
