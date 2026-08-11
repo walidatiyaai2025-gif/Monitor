@@ -24,12 +24,17 @@ public interface IServerHealthSnapshotCache
 public sealed class ServerHealthSnapshotCache(
     ISqlServerSnapshotCollector collector,
     TimeProvider timeProvider,
-    PerformanceScaleOptions? performance = null) : IServerHealthSnapshotCache
+    PerformanceScaleOptions? performance = null,
+    ILatestSnapshotStore? latestSnapshotStore = null) : IServerHealthSnapshotCache
 {
     internal static readonly TimeSpan FreshFor = TimeSpan.FromSeconds(30);
     internal static readonly TimeSpan RetainStaleFor = TimeSpan.FromMinutes(5);
 
-    private readonly ConcurrentDictionary<Guid, ServerHealthSnapshot> _snapshots = new();
+    private readonly ILatestSnapshotStore _latestSnapshotStore = latestSnapshotStore ?? NullLatestSnapshotStore.Instance;
+    private readonly ConcurrentDictionary<Guid, ServerHealthSnapshot> _snapshots = new(
+        (latestSnapshotStore ?? NullLatestSnapshotStore.Instance)
+            .LoadAll()
+            .ToDictionary(item => item.RegistrationId));
     private readonly ConcurrentDictionary<Guid, Lazy<Task<ServerHealthSnapshot>>> _inflight = new();
     private readonly ConcurrentDictionary<Guid, long> _generations = new();
     private readonly object _trimGate = new();
@@ -42,6 +47,7 @@ public sealed class ServerHealthSnapshotCache(
         if (age > RetainStaleFor)
         {
             _snapshots.TryRemove(registrationId, out _);
+            _latestSnapshotStore.Remove(registrationId);
             return null;
         }
         return new(snapshot, age <= FreshFor ? SnapshotFreshness.Fresh : SnapshotFreshness.Stale, age);
@@ -51,6 +57,7 @@ public sealed class ServerHealthSnapshotCache(
     {
         _generations.AddOrUpdate(registrationId, 1, (_, current) => checked(current + 1));
         _snapshots.TryRemove(registrationId, out _);
+        _latestSnapshotStore.Remove(registrationId);
     }
 
     public async Task<SnapshotCacheResult> GetAsync(
@@ -117,12 +124,25 @@ public sealed class ServerHealthSnapshotCache(
                     SnapshotCollectionFailure.Disabled,
                     "The collected snapshot was discarded because monitoring state changed.");
             }
-            _snapshots.AddOrUpdate(
+
+            var retained = _snapshots.AddOrUpdate(
                 registration.Id,
                 snapshot,
                 (_, current) => snapshot.CollectedAtUtc > current.CollectedAtUtc ? snapshot : current);
+            try
+            {
+                _latestSnapshotStore.Upsert(retained);
+            }
+            catch (Exception exception) when (exception is IOException or InvalidDataException or UnauthorizedAccessException or SharedStateStoreUnavailableException or SharedStateConcurrencyException)
+            {
+                _snapshots.TryRemove(registration.Id, out _);
+                throw new SnapshotCollectionException(
+                    SnapshotCollectionFailure.Failed,
+                    "Snapshot persistence failed.");
+            }
+
             TrimToCapacity();
-            return _snapshots.TryGetValue(registration.Id, out var retained) ? retained : snapshot;
+            return retained;
         }
         finally
         {
@@ -142,7 +162,8 @@ public sealed class ServerHealthSnapshotCache(
                     .ThenBy(pair => pair.Key)
                     .FirstOrDefault();
                 if (victim.Equals(default(KeyValuePair<Guid, ServerHealthSnapshot>))) return;
-                _snapshots.TryRemove(victim.Key, out _);
+                if (_snapshots.TryRemove(victim.Key, out _))
+                    _latestSnapshotStore.Remove(victim.Key);
             }
         }
     }
