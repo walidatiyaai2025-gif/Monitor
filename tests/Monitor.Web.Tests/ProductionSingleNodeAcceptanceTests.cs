@@ -41,12 +41,13 @@ public sealed class ProductionSingleNodeAcceptanceTests
 
         Assert.Contains("Deployment:Mode=SingleNode", text, StringComparison.Ordinal);
         Assert.Contains("MultiNode is explicitly out of scope", text, StringComparison.Ordinal);
-        Assert.Contains("IIS HTTPS binding", text, StringComparison.Ordinal);
+        Assert.Contains("trusted HTTPS certificate", text, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Recycle the IIS application pool", text, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("Protected credential durability", text, StringComparison.Ordinal);
-        Assert.Contains("Operational backup", text, StringComparison.Ordinal);
+        Assert.Contains("protectedCredentialDurabilityVerified", text, StringComparison.Ordinal);
+        Assert.Contains("operationalBackupValidated", text, StringComparison.Ordinal);
         Assert.Contains("ROLLBACK_RUNBOOK.md", text, StringComparison.Ordinal);
-        Assert.Contains("all rows are PASS", text, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("15/15", text, StringComparison.Ordinal);
+        Assert.Contains("#116 must remain OPEN", text, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
