@@ -5,6 +5,7 @@
     var operatorMetadata = ViewData["IncidentOperatorMetadata"] as IncidentOperatorMetadata;
     var recommendationKey = ViewData["RecommendationKey"] as string;
     var recommendationAcknowledged = ViewData["RecommendationAcknowledged"] as bool? ?? false;
+    var canOperate = User.IsInRole(MonitorRoles.Operator) || User.IsInRole(MonitorRoles.Administrator);
 }
 <section class="page-heading">
     <div>
@@ -14,6 +15,10 @@
     </div>
     <a class="button secondary" asp-controller="EnterpriseOperations" asp-action="Overview">Enterprise Operations</a>
 </section>
+
+@if (TempData["OperatorStatus"] is string operatorStatus) { <div class="status-banner" role="status" aria-live="polite">@operatorStatus</div> }
+@if (TempData["OperatorError"] is string operatorError) { <div class="status-banner state-warning" role="alert">@operatorError</div> }
+
 <section class="glass-panel panel-pad">
     <p><strong>Status:</strong> @Model.Incident.Status · <strong>Severity:</strong> @Model.Incident.Severity · <strong>Occurrences:</strong> @Model.Incident.Occurrences</p>
 
@@ -36,6 +41,10 @@
                         <li><strong>@note.Actor</strong> · @note.OccurredAtUtc.ToString("u")<br />@note.Text</li>
                     }
                 </ul>
+                @if (operatorMetadata.Notes.Length > 5)
+                {
+                    <p class="panel-copy">Showing the latest 5 of @operatorMetadata.Notes.Length bounded notes. Enterprise collaboration APIs page notes server-side.</p>
+                }
             }
         </section>
     }
@@ -50,12 +59,37 @@
             <p class="data-banner">Recommendation review: @(recommendationAcknowledged ? "Acknowledged" : "Pending operator acknowledgment")</p>
         }
     }
+
     <h3>AI Advisor</h3><p>@Model.Advisor.Message</p>
     @if (TempData["AdvisorStatus"] is string advisorStatus) { <p class="data-banner">@advisorStatus</p> }
+
     <div class="form-actions">
-        @if (Model.Incident.Status == IncidentStatus.Open) { <form asp-action="AcknowledgeIncident" asp-route-id="@Model.Incident.Id" method="post"><button class="button primary" type="submit">Acknowledge</button></form> }
-        @if (Model.Incident.Status != IncidentStatus.Resolved) { <form asp-action="ResolveIncident" asp-route-id="@Model.Incident.Id" method="post"><button class="button" type="submit">Resolve</button></form> }
-        @if (Model.Incident.Status == IncidentStatus.Resolved) { <form asp-action="ReopenIncident" asp-route-id="@Model.Incident.Id" method="post"><button class="button" type="submit">Reopen</button></form> }
+        @if (Model.Incident.Status == IncidentStatus.Open)
+        {
+            <form asp-action="AcknowledgeIncident" asp-route-id="@Model.Incident.Id" method="post"><button class="button primary" type="submit">Acknowledge</button></form>
+        }
         <form asp-action="RequestAdvisor" asp-route-id="@Model.Incident.Id" method="post"><button class="button" type="submit">Request AI advice</button></form>
     </div>
+
+    @if (canOperate && Model.Incident.Status != IncidentStatus.Resolved)
+    {
+        <section class="glass-panel panel-pad" aria-labelledby="resolve-note-heading">
+            <h3 id="resolve-note-heading">Resolve with operator note</h3>
+            <form asp-controller="IncidentCollaboration" asp-action="ResolveWithNote" asp-route-id="@Model.Incident.Id" method="post" class="stack-form">
+                <label>Resolution note<textarea name="resolutionNote" maxlength="500" rows="3" required></textarea></label>
+                <button class="button primary" type="submit">Resolve incident</button>
+            </form>
+        </section>
+    }
+
+    @if (canOperate && Model.Incident.Status == IncidentStatus.Resolved)
+    {
+        <section class="glass-panel panel-pad" aria-labelledby="reopen-reason-heading">
+            <h3 id="reopen-reason-heading">Reopen with reason</h3>
+            <form asp-controller="IncidentCollaboration" asp-action="ReopenWithReason" asp-route-id="@Model.Incident.Id" method="post" class="stack-form">
+                <label>Reopen reason<textarea name="reopenReason" maxlength="500" rows="3" required></textarea></label>
+                <button class="button primary" type="submit">Reopen incident</button>
+            </form>
+        </section>
+    }
 </section>
