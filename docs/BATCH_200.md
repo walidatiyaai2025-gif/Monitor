@@ -51,16 +51,18 @@ Batch 2 turns operator windows into explicit backend policy semantics. Scheduled
 
 | Task | Description | Status |
 |---|---|---|
-| B200-021 | Assignee-aware incident query/filter | PLANNED |
-| B200-022 | Owner-change audit timeline | PLANNED |
-| B200-023 | Bounded note paging | PLANNED |
-| B200-024 | Immutable operator-note identity validation | PLANNED |
-| B200-025 | Note replay/idempotency protection | PLANNED |
-| B200-026 | Incident age/SLA bucket projection | PLANNED |
-| B200-027 | Severity escalation marker/history | PLANNED |
-| B200-028 | Bounded reopen reason | PLANNED |
-| B200-029 | Bounded resolution note | PLANNED |
-| B200-030 | Collaboration workflow acceptance suite | PLANNED |
+| B200-021 | Assignee-aware incident query/filter | CI VERIFIED — RUN 31444920282 |
+| B200-022 | Owner-change audit timeline | CI VERIFIED — RUN 31444920282 |
+| B200-023 | Bounded note paging | CI VERIFIED — RUN 31444920282 |
+| B200-024 | Immutable operator-note identity validation | CI VERIFIED — RUN 31444920282 |
+| B200-025 | Note replay/idempotency protection | CI VERIFIED — RUN 31444920282 |
+| B200-026 | Incident age/SLA bucket projection | CI VERIFIED — RUN 31444920282 |
+| B200-027 | Severity escalation marker/history | CI VERIFIED — RUN 31444920282 |
+| B200-028 | Bounded reopen reason | CI VERIFIED — RUN 31444920282 |
+| B200-029 | Bounded resolution note | CI VERIFIED — RUN 31444920282 |
+| B200-030 | Collaboration workflow acceptance suite | CI VERIFIED — RUN 31444920282 |
+
+Batch 3 adds bounded incident collaboration over the existing durable operator metadata and audit stores. Assignee filtering and deterministic SLA buckets are service-level projections; owner changes create previous-to-next audit history; notes support bounded paging and durable audit receipts for replay protection; note identity remains immutable; Warning-to-Critical escalation has an explicit audit marker; reopen/resolution reasons are validated operator notes separate from incident evidence; and the primary incident UI exposes reason-aware protected transition paths.
 
 ## Batch 4 — Reporting & diagnostics expansion
 
