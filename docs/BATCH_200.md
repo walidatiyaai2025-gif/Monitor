@@ -117,16 +117,18 @@ Batch 5 provides cache-only fleet intelligence by environment, group and tag; fr
 
 | Task | Description | Status |
 |---|---|---|
-| B200-061 | Shared operator-state fault injection | PLANNED |
-| B200-062 | Concurrent report consistency under metadata writes | PLANNED |
-| B200-063 | Redacted diagnostics during shared-state degradation | PLANNED |
-| B200-064 | Include operator metadata in operational backup contract | PLANNED |
-| B200-065 | Operator metadata restore dry-run validation | PLANNED |
-| B200-066 | Atomic operator metadata restore/rollback | PLANNED |
-| B200-067 | Cross-node recommendation-ack convergence | PLANNED |
-| B200-068 | Cross-node note concurrency verification | PLANNED |
-| B200-069 | Cross-node maintenance/scheduler policy verification | PLANNED |
-| B200-070 | HA/operator-state acceptance suite | PLANNED |
+| B200-061 | Shared operator-state fault injection | CI VERIFIED — RUN 31446424746 |
+| B200-062 | Concurrent report consistency under metadata writes | CI VERIFIED — RUN 31446424746 |
+| B200-063 | Redacted diagnostics during shared-state degradation | CI VERIFIED — RUN 31446424746 |
+| B200-064 | Include operator metadata in operational backup contract | CI VERIFIED — RUN 31446424746 |
+| B200-065 | Operator metadata restore dry-run validation | CI VERIFIED — RUN 31446424746 |
+| B200-066 | Atomic operator metadata restore/rollback | CI VERIFIED — RUN 31446424746 |
+| B200-067 | Cross-node recommendation-ack convergence | CI VERIFIED — RUN 31446424746 |
+| B200-068 | Cross-node note concurrency verification | CI VERIFIED — RUN 31446424746 |
+| B200-069 | Cross-node maintenance/scheduler policy verification | CI VERIFIED — RUN 31446424746 |
+| B200-070 | HA/operator-state acceptance suite | CI VERIFIED — RUN 31446424746 |
+
+Batch 7 adds shared operator-state disaster recovery around the raw `monitor:operator-metadata:v1` shared document: checksummed/versioned export, dry-run validation, CAS restore, read-back verification and rollback. HA tests cover shared-state failure diagnostics, reporting during concurrent metadata writes, cross-node recommendation acknowledgments, note convergence and maintenance/scheduler consistency. Verification run `31446424746` passed 281/281 tests (0 failed).
 
 ## Batch 8 — Enterprise security hardening II
 
