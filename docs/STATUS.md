@@ -8,7 +8,7 @@
 **Real SQL evidence:** `docs/REAL_SQL_ACCEPTANCE.md`  
 **Production acceptance guide:** `docs/PRODUCTION_SINGLENODE_ACCEPTANCE.md`  
 **Active external release gate:** #116 / P0.5 First Production SingleNode  
-**Active repository subtask:** #147 / fail-closed final operator acceptance finalizer  
+**Repository finalization workflow:** COMPLETE through #147 / PR #148  
 **Production target:** actual Windows/IIS trusted-HTTPS SingleNode acceptance.
 
 ### P0 release chain
@@ -19,29 +19,38 @@
 | P0.2 / #113 | COMPLETE | PR #121; final CI `31478470867`; 505/505 |
 | P0.3 / #114 | COMPLETE | PR #122 merged `245bb0770d7ec6e7a334f7763d3560cef80324fe`; final CI `31479311552`; 507/507 |
 | P0.4 / #115 | COMPLETE | PR #124 merged `f4c08292734c293a6d0b865cc2a005b8c42b02a6`; normal `31481874425` 518/518; Real SQL `31481874501` 8/8 |
-| P0.5 / #116 | ACTIVE | repository deployment/evidence tooling ready; #147 finalizer in progress; external IIS/HTTPS acceptance pending |
+| P0.5 / #116 | ACTIVE | repository deployment/evidence/finalization tooling complete; external IIS/HTTPS acceptance pending |
 
-## P0.5 repository preparation
+## P0.5 repository preparation — COMPLETE · EXTERNAL IIS PENDING
 
 - Acceptance tooling PR #127 merged as `9bdd96940454f2586c0e81ff0c25a524d7f1281c`.
 - Production-candidate PR #126 merged as `d512ee156f07db566898a817f3c76dd3f46c1091`.
 - Candidate/docs reconciliation PR #128 merged as `564f7655a1001da98addd793a000a15d069a243a`.
-- Safe IIS SingleNode deployment automation merged on `main` as `7cb47945b47aab6558f7132dcfa818b9f02d2b20`.
-- Deployment automation includes read-only IIS preflight, plan-first/apply-gated versioned deployment, stable `App_Data`, automatic IIS `physicalPath` rollback, production PowerShell syntax validation and operations-bundle tooling.
-- BATCH-500 added a fail-closed production-safety layer without claiming external acceptance.
-- BATCH-600 added live operator readiness/evidence orchestration while preserving the same external-acceptance boundary.
-- P0.5 Issue #141 is **CLOSED / COMPLETED**. PR #142 squash-merged to `main` as `5ee5431cce26e875d80a4cfb623553f762c8a161` and ships a machine-verifiable external acceptance evidence pack plus fail-closed closure validator.
-- The evidence-pack generator creates exactly 15 required external gates with every gate `false`; it cannot create a completed acceptance. The validator requires exact gate/property sets, UTC timestamps, relative evidence files, matching SHA-256, exact SingleNode candidate/environment metadata, operator acceptance metadata and secret-safe evidence before producing a PASS closure summary.
-- Final synchronized PR #142 evidence tested source head `a6844da6f9e77f9842075ff815681f35aa006908` on exact merge ref `34461998c22c8c1f80158d99de9ecb670622e632`; normal CI `31527104922` Green, Real SQL `31527104916` Green 8/8, Windows candidate `31527104897` Green with 746/746 tests.
-- P0.5 Issue #144 is **CLOSED / COMPLETED**. PR #145 squash-merged to `main` as `8a548c984c62b904a184e54415ea7bf491dc78fb` and adds `Set-ProductionAcceptanceGate.ps1`, eliminating manual per-gate JSON edits during external cutover while retaining explicit operator control.
-- PR #145 exact implementation evidence: source head `4ca5071e20ff29e0b5cb92e941137a651c369743`; tested merge ref `c6a7aed31f9086414aa10b9239da526af493dda5`; normal CI `31534154666` Green; Real SQL `31534154685` Green with 8/8; Windows production-candidate `31534154674` Green end-to-end with Release 0 warnings / 0 errors and **753/753 tests passed**.
-- The Windows gate parsed and executed the recorder, rejected missing acknowledgement, traversal evidence, secret-bearing evidence and duplicate PASS, recorded all exact 15 gates through the recorder, and then verified synthetic **15/15 evidence closure PASS** through `Test-ProductionAcceptanceEvidence.ps1`.
-- PR #146 merged `0dce09eb51ec95fb405480b17ed77a43d4eb5cb4` and reconciled the selected cutover candidate and recorder completion state.
-- Current selected repository-verified cutover candidate: `Monitor-0.1.0-rc.41-win-x64.zip`; product SHA-256 `0017e29ad2d88f5adbb2a7da2bca51fa5fb62f4f88c2c3984795c4eee6f6c1c2`; Actions artifact ID `9118116181`.
-- RC.41 `_operations` includes the evidence-pack template, fail-closed generator, explicit one-gate recorder, closure validator, IIS preflight/deploy/acceptance/smoke tooling and rollback runbooks.
-- The recorder accepts only the exact 15 gates, requires explicit `-AcknowledgePass`, SHA-256-binds a relative in-root evidence file, rejects unsafe evidence/accepted packs/implicit overwrites, changes only the named gate, and never produces a closure summary or final acceptance metadata.
-- **Issue #147 is ACTIVE.** It removes the last hand-edited acceptance step by adding `Complete-ProductionAcceptance.ps1`: explicit final acknowledgement, bounded operator identity, prospective 15/15 validation, concurrent-pack mutation detection, atomic final metadata commit, authoritative revalidation/closure summary and fail-closed rollback. It does not deploy IIS, execute SQL, mutate gates or close #116/#111.
-- **No external IIS gate is implied by repository CI. #116 and #111 remain OPEN until the real trusted-certificate Windows/IIS SingleNode target produces a valid real 15/15 evidence pack, explicit operator finalization and reviewed closure summary.**
+- Safe IIS SingleNode deployment automation merged as `7cb47945b47aab6558f7132dcfa818b9f02d2b20`.
+- BATCH-500 added fail-closed production acceptance/recovery safety; BATCH-600 added live operator readiness/evidence orchestration without changing the external-acceptance boundary.
+- Issue #141 / PR #142 COMPLETE: machine-verifiable exact 15-gate external acceptance pack + fail-closed closure validator, merged `5ee5431cce26e875d80a4cfb623553f762c8a161`.
+- Issue #144 / PR #145 COMPLETE: explicit one-gate recorder `Set-ProductionAcceptanceGate.ps1`, merged `8a548c984c62b904a184e54415ea7bf491dc78fb`.
+- Issue #147 / PR #148 COMPLETE: `Complete-ProductionAcceptance.ps1` removes the last manual `acceptedBy` / `acceptedAtUtc` edit and adds explicit final acknowledgement, prospective 15/15 validation, concurrent-pack mutation detection, atomic final metadata commit, authoritative revalidation/closure summary and fail-closed rollback. PR #148 squash-merged as `e15a9654fbe744e426c95d5965a5faba60868e14`.
+
+### Final PR #148 / RC.43 repository evidence
+
+- source head `d05bea3ea1372a6566eb9c237bb06e84de681014`;
+- exact tested merge ref `0445ac9c8bbeafb075a506a06231dd87c4b1b27b`;
+- normal CI `31537914600`: **Green**;
+- Real SQL `31537914667`: **Green**, SQL Server 2022 + Agent + non-sysadmin least privilege, **8/8**;
+- Windows production-candidate `31537914596`: **Green end-to-end**, Release **0 warnings / 0 errors**, **761/761 tests passed**;
+- PowerShell parser, one-gate recorder runtime and finalizer runtime all Green;
+- synthetic exact 15 gates were recorded through the recorder, then prospective 15/15 validation, authoritative 15/15 validation, final metadata commit and independent validator recheck all passed;
+- negative premature/no-ack/unsafe-path/unsafe-operator/re-finalization/false-gate/tampered-hash/secret-bearing cases were rejected;
+- HTTPS health + Administrator authentication passed before and after process restart;
+- package validation proved `SingleNode=True`, `DevelopmentCredentialPublished=False`, `PersistedStatePublished=False`, `PackageValidated=True`;
+- selected cutover candidate `Monitor-0.1.0-rc.43-win-x64.zip`;
+- product SHA-256 `95d6d545cfa53fb514814fb22c82cfafc2c14cf28c1e07c15177852b677234aa`;
+- Actions artifact ID `9119560465`.
+
+RC.43 supersedes RC.41 unless a later equivalently verified candidate is explicitly selected on #116. The packaged `_operations` directory now contains IIS preflight/deploy/acceptance/smoke tooling, the 15-gate pack generator, one-gate recorder, explicit finalizer, closure validator and rollback runbooks. No manual JSON gate/final-acceptance editing is required.
+
+**No external IIS gate is implied by repository CI. #116 and #111 remain OPEN until the real trusted-certificate Windows/IIS SingleNode target produces a valid real 15/15 evidence pack, explicit approved operator finalization and reviewed closure summary.**
 
 ### P0.5 task status
 
@@ -55,7 +64,7 @@
 | P0-046 deployment health smoke | CI HTTPS VERIFIED; tooling READY; **real IIS endpoint pending external** |
 | P0-047 least-privilege monitored target | P0.4 prerequisite VERIFIED; **deployed IIS identity/target pending external** |
 | P0-048 backup + rollback/recovery | code/unit/tooling VERIFIED; **production rehearsal pending external** |
-| P0-049 versioned artifact/checksum/evidence | **REPOSITORY/CI COMPLETE**; RC.41 + generator + recorder + 15-gate validator VERIFIED; finalizer #147 ACTIVE |
+| P0-049 versioned artifact/checksum/evidence workflow | **REPOSITORY/CI COMPLETE** — RC.43 + generator + recorder + finalizer + validator VERIFIED |
 | P0-050 final production acceptance | **PENDING EXTERNAL** |
 
 ## BATCH-600 — Live Operator Readiness & Evidence Orchestration
@@ -112,11 +121,11 @@ B600 delivered deterministic fail-closed repository orchestration for evidence f
 - Monitoring/navigation GETs do not initiate monitored-SQL collection.
 - No browser connects directly to monitored SQL.
 - No autonomous remediation or AI SQL execution.
-- Credentials/full connection strings/raw provider errors/arbitrary SQL text stay outside UI, audit, exports and diagnostics.
+- Credentials/full connection strings/raw provider errors/arbitrary SQL text stay outside UI, audit, exports, diagnostics and production evidence.
 - Suppression does not rewrite incident evidence.
 - Maintenance affects scheduled collection only; manual refresh remains explicit and audited.
 - Mutations remain POST + antiforgery + named authorization policy.
 - MultiNode remains fail-closed and deferred until after stable SingleNode production acceptance.
 - Concurrent team work must be preserved; external P0.5 acceptance cannot be inferred from CI.
 
-**Overall:** 🟢 verified foundation · 🟢 P0.1–P0.4 COMPLETE · 🟢 P0.5 deployment/evidence foundation VERIFIED · 🟡 #147 finalizer ACTIVE · 🟡 external IIS/HTTPS 15-gate acceptance pending · 🔴 production acceptance not yet granted
+**Overall:** 🟢 verified foundation · 🟢 P0.1–P0.4 COMPLETE · 🟢 P0.5 repository cutover/evidence/finalization workflow COMPLETE · 🟡 external IIS/HTTPS 15-gate acceptance pending · 🔴 production acceptance not yet granted

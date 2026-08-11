@@ -30,7 +30,7 @@ Production-visible values must be backed by collected evidence. If a dimension i
 | 2 | P0.2 | #113 | First snapshot is mapped truthfully into production read models | COMPLETE — PR #121 / final CI `31478470867` |
 | 3 | P0.3 | #114 | Server Details v0.1 is the trusted operator source of truth | COMPLETE — PR #122 / final CI `31479311552` |
 | 4 | P0.4 | #115 | Full journey passes against a real SQL Server | COMPLETE — PR #124 / normal `31481874425` / Real SQL `31481874501` |
-| 5 | P0.5 | #116 | First IIS/HTTPS SingleNode production release is accepted | **ACTIVE — repository tooling verified; external IIS acceptance pending** |
+| 5 | P0.5 | #116 | First IIS/HTTPS SingleNode production release is accepted | **ACTIVE — repository workflow complete; external IIS acceptance pending** |
 
 ---
 
@@ -146,8 +146,8 @@ The complete `Add -> Test -> Register -> Collect -> View -> Refresh -> Restart -
 **Issue:** #116 — OPEN / ACTIVE  
 **Dependency:** P0.4 COMPLETE  
 **Live selected candidate/evidence:** #116  
-**Active repository subtask:** #147 — final operator acceptance finalizer  
-**Release gate:** REPOSITORY DEPLOYMENT/EVIDENCE FOUNDATION VERIFIED / EXTERNAL IIS ACCEPTANCE PENDING.
+**Repository cutover/evidence/finalization workflow:** COMPLETE through #147 / PR #148  
+**Release gate:** REPOSITORY WORKFLOW COMPLETE / EXTERNAL IIS ACCEPTANCE PENDING.
 
 ### Stable repository milestones
 
@@ -157,38 +157,44 @@ The complete `Add -> Test -> Register -> Collect -> View -> Refresh -> Restart -
 - BATCH-500 and BATCH-600: production acceptance/recovery safety plus live readiness/evidence orchestration; complete.
 - PR #142 / #141 COMPLETE: exact 15-gate fail-closed evidence pack and `Test-ProductionAcceptanceEvidence.ps1` closure validator.
 - PR #145 / #144 COMPLETE: `Set-ProductionAcceptanceGate.ps1` records one real gate at a time only after explicit `-AcknowledgePass`; no manual gate hash/timestamp editing.
-- PR #146 merged `0dce09eb51ec95fb405480b17ed77a43d4eb5cb4`: selected candidate/evidence reconciliation.
+- PR #148 / #147 COMPLETE: `Complete-ProductionAcceptance.ps1` removes manual final acceptance metadata editing; merged `e15a9654fbe744e426c95d5965a5faba60868e14`.
 
-At #147 start, the selected repository-verified candidate is RC.41:
+### Selected repository-verified candidate — RC.43
 
-- package `Monitor-0.1.0-rc.41-win-x64.zip`;
-- product SHA-256 `0017e29ad2d88f5adbb2a7da2bca51fa5fb62f4f88c2c3984795c4eee6f6c1c2`;
-- Actions artifact `9118116181`;
-- normal CI `31534154666` Green;
-- Real SQL `31534154685` Green, 8/8;
-- Windows production-candidate `31534154674` Green, Release 0 warnings/errors, 753/753;
-- synthetic recorder/validator 15/15 positive case plus negative acknowledgement/traversal/secret/duplicate/tamper cases Green.
+- package `Monitor-0.1.0-rc.43-win-x64.zip`;
+- product SHA-256 `95d6d545cfa53fb514814fb22c82cfafc2c14cf28c1e07c15177852b677234aa`;
+- Actions artifact `9119560465`;
+- source head `d05bea3ea1372a6566eb9c237bb06e84de681014`;
+- exact tested merge ref `0445ac9c8bbeafb075a506a06231dd87c4b1b27b`;
+- normal CI `31537914600` Green;
+- Real SQL `31537914667` Green, 8/8;
+- Windows production-candidate `31537914596` Green, Release 0 warnings/errors, 761/761;
+- recorder + finalizer runtime Green;
+- synthetic prospective and authoritative exact 15/15 validation plus independent validator recheck Green;
+- negative premature/no-ack/path/operator/re-finalization/false-gate/tampered-hash/secret-bearing cases rejected;
+- HTTPS health/authentication before and after process restart Green;
+- SingleNode clean package validation Green.
 
-#116 remains the source of truth if a later equivalently verified candidate supersedes RC.41.
+#116 remains the live source of truth if a later equivalently verified candidate supersedes RC.43.
 
-### #147 — deterministic final operator acceptance
+### Deterministic evidence/finalization workflow — COMPLETE
 
-After #145, the only remaining hand-edited repository workflow step was setting `acceptedBy` / `acceptedAtUtc` before closure validation. #147 replaces that with `scripts/Complete-ProductionAcceptance.ps1`.
+The packaged operator workflow is now:
 
-Required/implemented behavior on the active branch:
+`New fail-closed 15-gate pack -> perform real operation -> record one explicit PASS with SHA-bound evidence -> repeat 15 gates -> explicit final operator acknowledgement -> prospective validator -> atomic final metadata commit -> authoritative validator -> closure summary -> human review`
 
-- explicit `-AcknowledgeFinalAcceptance`;
-- bounded non-secret `AcceptedBy` identity;
-- no gate mutation and no implicit PASS;
-- closure summary restricted to a relative path under the evidence-pack root;
-- prospective finalized-copy validation against all exact 15 SHA-bound gates before authoritative mutation;
-- SHA-256 recheck of the authoritative pack to detect concurrent mutation;
-- atomic commit of only final acceptance metadata;
-- authoritative second validation and closure-summary creation;
-- rollback to the original unaccepted pack if final validation unexpectedly fails;
-- refusal of existing acceptance metadata, existing closure summary, unsafe paths and re-finalization;
-- no IIS deployment/recycle, SQL execution, GitHub API call or issue closing authority;
-- Windows candidate parser/runtime/negative cases and `_operations` packaging required before merge.
+`Complete-ProductionAcceptance.ps1`:
+
+- requires explicit `-AcknowledgeFinalAcceptance` and a bounded non-secret `AcceptedBy` identity;
+- never changes a gate from FAIL to PASS and never infers evidence;
+- restricts closure summary output to a relative path under the evidence-pack root;
+- validates a prospective finalized copy against all exact 15 SHA-bound gates before touching the authoritative pack;
+- re-hashes the authoritative pack to detect concurrent mutation;
+- atomically commits only `acceptedBy` / `acceptedAtUtc`;
+- performs authoritative second validation and closure-summary creation;
+- restores the original unaccepted pack if final validation unexpectedly fails;
+- refuses existing acceptance metadata, existing summary, unsafe paths and re-finalization;
+- has no IIS deployment/recycle, SQL execution, GitHub API call or issue-closing authority.
 
 | Task | Description | State |
 |---|---|---|
@@ -200,7 +206,7 @@ Required/implemented behavior on the active branch:
 | P0-046 | Run `/health/live`, `/health/ready`, `/health` deployment smoke | CI HTTPS VERIFIED + tooling READY; **actual IIS endpoint pending external** |
 | P0-047 | Validate monitored target remains read-only/least-privilege from deployed application identity | P0.4 prerequisite VERIFIED; **deployed IIS identity/target pending external** |
 | P0-048 | Validate operational backup and rollback/recovery path | code/unit/tooling VERIFIED; **production rollback rehearsal pending external** |
-| P0-049 | Versioned candidate/checksum + deterministic external evidence workflow | RC.41/generator/recorder/validator VERIFIED; **#147 finalizer ACTIVE** |
+| P0-049 | Versioned candidate/checksum + deterministic external evidence/finalization workflow | **COMPLETE — repository/CI; RC.43 verified** |
 | P0-050 | Final production acceptance; close #111 only after real gates are Green | **PENDING EXTERNAL** |
 
 ### P0.5 external acceptance checklist

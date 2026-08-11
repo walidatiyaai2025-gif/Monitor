@@ -9,7 +9,7 @@ This is the canonical execution plan. Update it in the same PR as material imple
 **Real SQL evidence:** `docs/REAL_SQL_ACCEPTANCE.md`  
 **Production acceptance guide:** `docs/PRODUCTION_SINGLENODE_ACCEPTANCE.md`  
 **Active release gate:** Issue #116 / P0.5 First Production SingleNode  
-**Active repository subtask:** Issue #147 / fail-closed final operator acceptance finalizer  
+**Repository cutover/evidence/finalization tooling:** COMPLETE through Issue #147 / PR #148  
 **Live selected candidate/evidence ledger:** Issue #116  
 **Project rule:** until P0.5 is accepted on the real environment, production-slice blockers outrank unrelated feature expansion.
 
@@ -27,7 +27,7 @@ Production-visible values must come from collected evidence. Missing, stale, per
 | 2 | P0.2 | #113 | First real snapshot + truthful read-model mapping | COMPLETE — PR #121 / final CI `31478470867` |
 | 3 | P0.3 | #114 | Server Details v0.1 trusted evidence surface | COMPLETE — PR #122 / final CI `31479311552` |
 | 4 | P0.4 | #115 | Real SQL end-to-end acceptance under success/failure cases | COMPLETE — PR #124; normal `31481874425`; Real SQL `31481874501` |
-| 5 | P0.5 | #116 | First trusted-HTTPS IIS SingleNode production release | **ACTIVE — repository tooling verified; real environment acceptance pending** |
+| 5 | P0.5 | #116 | First trusted-HTTPS IIS SingleNode production release | **ACTIVE — repository tooling complete; real environment acceptance pending** |
 
 ### Resolved production gates
 
@@ -36,9 +36,9 @@ Production-visible values must come from collected evidence. Missing, stale, per
 - **P0.3 COMPLETE:** Server Details is evidence-first, synthetic Health Score is removed, and monitored GET remains cache-only.
 - **P0.4 COMPLETE:** SQL Server 2022 proves Add/Test/Register/Collect/View/Refresh/Restart/View with a non-sysadmin least-privilege login and controlled auth/network/timeout/TLS/server/msdb permission failures. Final normal CI `31481874425` — 518/518; Real SQL `31481874501` — 8/8.
 
-## P0.5 repository preparation
+## P0.5 repository preparation — COMPLETE
 
-The repository now contains the full cutover/evidence toolchain while intentionally leaving production acceptance external:
+The repository contains the complete operator cutover and evidence workflow while intentionally leaving production acceptance external:
 
 - PR #127 — HTTPS-only acceptance harness and production acceptance guide; merged `9bdd96940454f2586c0e81ff0c25a524d7f1281c`.
 - PR #126 — Windows production-candidate pipeline; merged `d512ee156f07db566898a817f3c76dd3f46c1091`.
@@ -46,29 +46,42 @@ The repository now contains the full cutover/evidence toolchain while intentiona
 - BATCH-500 / BATCH-600 — production safety and live operator-readiness orchestration; complete without changing the external-acceptance boundary.
 - PR #142 / Issue #141 — exact 15-gate fail-closed evidence pack and closure validator; complete.
 - PR #145 / Issue #144 — explicit one-gate-at-a-time recorder `Set-ProductionAcceptanceGate.ps1`; complete.
-- PR #146 — reconciled recorder completion and selected RC.41 evidence; merged `0dce09eb51ec95fb405480b17ed77a43d4eb5cb4`.
+- PR #148 / Issue #147 — explicit fail-closed final operator acceptance finalizer `Complete-ProductionAcceptance.ps1`; complete and merged `e15a9654fbe744e426c95d5965a5faba60868e14`.
 
-The selected repository-verified candidate is tracked live on #116. At the start of #147 it is RC.41: `Monitor-0.1.0-rc.41-win-x64.zip`, product SHA-256 `0017e29ad2d88f5adbb2a7da2bca51fa5fb62f4f88c2c3984795c4eee6f6c1c2`, artifact `9118116181`, with normal CI `31534154666`, Real SQL `31534154685` 8/8 and Windows candidate `31534154674` 753/753 Green.
+### Final repository candidate evidence — RC.43
+
+Issue #116 is the live source of truth. Current selected candidate:
+
+- package `Monitor-0.1.0-rc.43-win-x64.zip`;
+- product SHA-256 `95d6d545cfa53fb514814fb22c82cfafc2c14cf28c1e07c15177852b677234aa`;
+- Actions artifact `9119560465`;
+- source head `d05bea3ea1372a6566eb9c237bb06e84de681014`;
+- tested merge ref `0445ac9c8bbeafb075a506a06231dd87c4b1b27b`;
+- normal CI `31537914600` Green;
+- Real SQL `31537914667` Green, 8/8;
+- Windows production-candidate `31537914596` Green, Release 0 warnings/errors, 761/761;
+- recorder + finalizer runtime and exact synthetic 15/15 closure validation Green;
+- HTTPS health/authentication before and after process restart Green;
+- package is secret-free SingleNode with persisted runtime state excluded.
+
+RC.43 supersedes RC.41 unless a later equivalently verified candidate is explicitly selected on #116.
 
 Repository candidate evidence is **not** production acceptance. It does not replace actual IIS, a trusted machine certificate, intended app-pool identity, real recycle durability, deployed least-privilege SQL behavior, operational backup, rollback rehearsal, or human review of the real evidence.
 
-## ACTIVE repository subtask — #147 final acceptance finalizer
+### Finalizer contract — COMPLETE
 
-The last repository-side workflow gap is manual editing of final `acceptedBy` / `acceptedAtUtc` metadata after all 15 gates are recorded. #147 removes that manual mutation without weakening the closure boundary.
+`Complete-ProductionAcceptance.ps1` closes the last manual JSON mutation in the external evidence workflow:
 
-Required implementation:
-
-1. Add `scripts/Complete-ProductionAcceptance.ps1`.
-2. Require explicit `-AcknowledgeFinalAcceptance` and a bounded non-secret operator identity.
-3. Refuse finalization unless all exact 15 gates already validate with SHA-bound evidence.
-4. Validate a prospective accepted copy before touching the authoritative pack.
-5. Re-hash the authoritative pack to detect concurrent operator/process mutation.
-6. Atomically commit only `acceptedBy` / `acceptedAtUtc`.
-7. Revalidate the authoritative finalized pack and write the closure summary.
-8. Restore the original unaccepted pack if authoritative final validation unexpectedly fails.
-9. Reject rooted/traversal summary output, existing summaries and re-finalization.
-10. Parse, execute and package the finalizer in Windows production-candidate CI with positive and negative cases.
-11. Keep #116 and #111 OPEN; the finalizer has no deployment, SQL or GitHub issue-closing authority.
+1. requires explicit `-AcknowledgeFinalAcceptance` and a bounded non-secret operator identity;
+2. never changes a gate from FAIL to PASS;
+3. restricts closure summary output to a relative in-root path;
+4. creates and validates a prospective finalized copy against all exact 15 SHA-bound gates before authoritative mutation;
+5. re-hashes the authoritative pack to detect concurrent mutation;
+6. atomically commits only `acceptedBy` / `acceptedAtUtc`;
+7. revalidates the authoritative finalized pack and writes the closure summary;
+8. restores the original unaccepted pack if final authoritative validation unexpectedly fails;
+9. refuses existing acceptance metadata, existing closure summary, unsafe paths and re-finalization;
+10. has no IIS deployment/recycle, SQL execution, GitHub API call or issue-closing authority.
 
 ### P0.5 execution order
 
@@ -82,21 +95,20 @@ Required implementation:
 | P0-046 | Run health smoke on deployed HTTPS endpoint | CI HTTPS VERIFIED; acceptance tooling READY; **IIS endpoint pending external** |
 | P0-047 | Prove target remains read-only/least-privilege from deployed application identity | P0.4 prerequisite VERIFIED; **external deployment evidence pending** |
 | P0-048 | Create/validate backup and rehearse rollback/recovery | code/unit/tooling VERIFIED; **production rehearsal pending external** |
-| P0-049 | Versioned artifact/checksum + deterministic evidence workflow | RC.41/generator/recorder/validator VERIFIED; **#147 finalizer ACTIVE** |
+| P0-049 | Versioned artifact/checksum + deterministic evidence/finalization workflow | **COMPLETE — repository/CI; RC.43 verified** |
 | P0-050 | Final real-environment 15/15 acceptance and #111 closure | **PENDING EXTERNAL** |
 
-### Immediate next actions
+### Immediate next actions — external cutover only
 
-1. Finish #147 implementation, full Release tests, Real SQL and Windows production-candidate gates; merge only when all are Green.
-2. Keep #116 as the live selected candidate/evidence source; do not promote a later RC without equivalent gates.
-3. On the intended Windows/IIS host, preserve the selected artifact/hash and create/validate the pre-cutover backup.
-4. Run packaged IIS preflight, review PLAN ONLY deploy output, then cut over with explicit `-Apply`.
-5. Prove trusted HTTPS health/authentication and the approved least-privilege monitored SQL path.
-6. Recycle IIS and prove registration, protected credential and operational-state durability.
-7. Rehearse rollback/recovery and repeat health/auth/read checks.
-8. Record each real gate with `Set-ProductionAcceptanceGate.ps1` and SHA-bound non-secret evidence.
-9. After real 15/15, use `Complete-ProductionAcceptance.ps1` for explicit operator finalization and retain the closure summary.
-10. Only after human review of the real closure evidence may #116 close; #111 closes only after #116.
+1. Preserve RC.43 filename/hash/source/tested merge evidence from #116 and create/validate the pre-cutover operational backup.
+2. On the intended Windows/IIS host, run packaged IIS preflight and retain bounded non-secret evidence.
+3. Review `Deploy-ProductionSingleNode.ps1` in PLAN ONLY mode, then perform the approved cutover with explicit `-Apply`.
+4. Prove trusted HTTPS health/authentication and the approved least-privilege monitored SQL path.
+5. Recycle IIS and prove registration, protected credential and operational-state durability.
+6. Rehearse rollback/recovery and repeat health/auth/read checks.
+7. Record each real gate with `Set-ProductionAcceptanceGate.ps1` and SHA-bound non-secret evidence.
+8. After real 15/15, run `Complete-ProductionAcceptance.ps1` with the approved operator identity and explicit final acknowledgement; retain the closure summary.
+9. Human-review the real closure evidence. Only then may #116 close; #111 closes only after #116.
 
 ## Verified foundation
 
@@ -133,7 +145,7 @@ Historical feature breadth remains available, but it does not outrank the remain
 - Suppression does not rewrite incident evidence.
 - Maintenance changes scheduled collection behavior only; manual refresh remains explicit/audited.
 - MultiNode remains fail-closed and deferred until after stable SingleNode production acceptance.
-- Repository CI/synthetic evidence cannot close #116.
+- Repository CI/synthetic evidence/finalizer validation cannot close #116.
 
 ## Definition of done
 
