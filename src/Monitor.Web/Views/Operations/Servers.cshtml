@@ -21,7 +21,7 @@
     var isDemoEstate = Model.All(server => server.Source == ServerDataSource.Demo);
     var demoJobsHealthy = Model.Sum(server => server.JobsHealthy ?? 0);
     var demoJobsTotal = Model.Sum(server => server.JobsTotal ?? 0);
-    var liveAgentRows = Model.Where(server => server.Source is ServerDataSource.LiveFresh or ServerDataSource.LiveStale && server.JobsTotal.HasValue).ToArray();
+    var liveAgentRows = Model.Where(server => (server.Source is ServerDataSource.LiveFresh or ServerDataSource.LiveStale) && server.JobsTotal.HasValue).ToArray();
     var liveAgentTotal = liveAgentRows.Sum(server => server.JobsTotal ?? 0);
     var liveAgentFailed = liveAgentRows.Sum(server => server.JobsFailedLastRun ?? 0);
     var policyStates = ViewData["ServerPolicyStates"] as IReadOnlyDictionary<Guid, ServerOperatorPolicyState>;
@@ -85,13 +85,13 @@ else
         HealthState.Offline => 0,
         _ => 50
     };
-    var cpuState = server.CpuPercent is not int cpu ? "unknown" : server.State == HealthState.Offline ? "offline" : cpu >= 80 ? "warning" : "healthy";
-    var memoryState = server.MemoryPercent is not int memory ? "unknown" : server.State == HealthState.Offline ? "offline" : memory >= 82 ? "warning" : "healthy";
+    var cpuState = !server.CpuPercent.HasValue ? "unknown" : server.State == HealthState.Offline ? "offline" : server.CpuPercent.Value >= 80 ? "warning" : "healthy";
+    var memoryState = !server.MemoryPercent.HasValue ? "unknown" : server.State == HealthState.Offline ? "offline" : server.MemoryPercent.Value >= 82 ? "warning" : "healthy";
     var databaseState = server.DatabaseTotal == 0 ? "unknown" : server.DatabaseOnline == server.DatabaseTotal ? "healthy" : "critical";
     var jobsKnown = server.JobsTotal.HasValue && server.JobsEnabled.HasValue && server.JobsFailedLastRun.HasValue;
     var jobsState = server.Source == ServerDataSource.Demo
         ? server.JobsHealthy == server.JobsTotal ? "healthy" : "warning"
-        : !jobsKnown ? "unknown" : server.JobsFailedLastRun > 0 ? "warning" : "healthy";
+        : !jobsKnown ? "unknown" : server.JobsFailedLastRun.GetValueOrDefault() > 0 ? "warning" : "healthy";
     var registrationId = Guid.TryParse(server.Id, out var parsedId) ? parsedId : Guid.Empty;
     ServerOperatorPolicyState? operatorPolicy = null;
     var hasPolicy = registrationId != Guid.Empty && policyStates is not null && policyStates.TryGetValue(registrationId, out operatorPolicy);
