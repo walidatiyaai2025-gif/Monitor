@@ -16,14 +16,15 @@ Production-visible values must come from collected evidence. Missing, stale, per
 
 | Order | Release gate | Issue | Outcome | State |
 |---|---|---|---|---|
-| 1 | P0.1 | #112 | Real SQL registration: safe, testable and restart durable | READY / NEXT |
-| 2 | P0.2 | #113 | First real snapshot + truthful read-model mapping | BLOCKED BY P0.1 |
+| 1 | P0.1 | #112 | Real SQL registration: safe, testable and restart durable | CI VERIFIED — 31476430643 / 501-501 |
+| 2 | P0.2 | #113 | First real snapshot + truthful read-model mapping | READY / NEXT AFTER #119 MERGE |
 | 3 | P0.3 | #114 | Server Details v0.1 becomes the trusted source of truth | BLOCKED BY P0.2 |
 | 4 | P0.4 | #115 | Real SQL end-to-end acceptance under success/failure cases | BLOCKED BY P0.3 |
 | 5 | P0.5 | #116 | First IIS/HTTPS SingleNode production release | BLOCKED BY P0.4 |
 
-### P0 production blockers already identified
+### P0 production blockers and resolved gates
 
+- P0.1 resolved the initial-registration ordering gap: candidate Test Connection now precedes durable registration commit, and newly-created Monitor-owned candidate credentials are compensated on failed/cancelled test or commit failure.
 - The collector already gathers SQL Agent evidence, but the current `ServerCard` projection does not carry it into Server Details.
 - `ServerCard.CpuPercent` is currently projected as `0` while CPU is not part of the current bounded SQL snapshot contract; production UI must not interpret this placeholder as observed 0% CPU.
 - P0.2 must either add a defined real CPU evidence source or render CPU explicitly as `Not collected`.
