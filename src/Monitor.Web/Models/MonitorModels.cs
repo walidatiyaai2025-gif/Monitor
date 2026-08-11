@@ -23,14 +23,19 @@ public sealed record ServerCard(
     string Version,
     string Edition,
     HealthState State,
-    int CpuPercent,
-    int MemoryPercent,
+    int? CpuPercent,
+    int? MemoryPercent,
     int DatabaseOnline,
     int DatabaseTotal,
-    int JobsHealthy,
-    int JobsTotal,
+    int? JobsHealthy,
+    int? JobsTotal,
     int LastScanSecondsAgo,
-    ServerDataSource Source = ServerDataSource.Demo);
+    ServerDataSource Source = ServerDataSource.Demo,
+    int? JobsEnabled = null,
+    int? JobsFailedLastRun = null,
+    string? InstanceName = null,
+    long? UptimeSeconds = null,
+    DateTimeOffset? CollectedAtUtc = null);
 
 public sealed record MetricCard(string Name, string Value, string Detail, HealthState State);
 public sealed record ActivityItem(string Time, string Message, HealthState State);
@@ -48,10 +53,23 @@ public sealed class DashboardViewModel
     public int WarningCount => Incidents.Count(incident => incident.Severity == "Warning");
 }
 
+public sealed record ServerSnapshotEvidence(
+    string? InstanceName,
+    long UptimeSeconds,
+    DateTimeOffset CollectedAtUtc,
+    MemoryHealthSnapshot? Memory,
+    DatabaseHealthDetailSnapshot? Databases,
+    BackupHealthSnapshot? Backups,
+    SqlAgentHealthSnapshot? Jobs,
+    StorageHealthSnapshot? Storage,
+    BlockingHealthSnapshot? Blocking,
+    PerformanceHealthSnapshot? Performance);
+
 public sealed class ServerDetailsViewModel
 {
     public required ServerCard Server { get; init; }
     public required IReadOnlyList<MetricCard> Metrics { get; init; }
+    public ServerSnapshotEvidence? Evidence { get; init; }
 }
 
 public sealed record HealthModuleServerViewModel(
