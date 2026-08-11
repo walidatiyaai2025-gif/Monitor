@@ -1,180 +1,183 @@
 # BATCH-500 — Production Acceptance & Recovery Safety
 
 Issue: #130  
-Scope: exactly 100 repository hardening tasks `B500-001..100`.
+Scope: exactly 100 repository hardening tasks `B500-001..100`.  
+State: **100/100 CI VERIFIED**.
 
-This batch strengthens the first SingleNode production cutover while preserving the existing P0 rule: **repository CI must not claim that the external Windows/IIS production acceptance has happened**. Issue #116 and umbrella #111 remain open until the real IIS/HTTPS/recycle/least-privilege/backup/rollback evidence is executed.
+BATCH-500 strengthens the first SingleNode production cutover while preserving the P0 boundary: repository CI does **not** prove the external Windows/IIS production acceptance. Issue #116 and umbrella #111 remain open until the real IIS/HTTPS/recycle/least-privilege/backup/rollback evidence is executed.
+
+## Verification evidence
+
+- Normal CI `31488078873`: **Green**.
+- Release build: **0 warnings / 0 errors**.
+- Full suite: **638/638 passed**, 0 failed, 0 skipped.
+- Windows production-candidate `31488078882`: **Green end-to-end**.
+- Windows gate passed Release build, 638-test suite, production PowerShell syntax parsing, `win-x64` publish, secret-free candidate validation, HTTPS health/auth smoke, process restart/auth recovery, clean package validation and artifact upload.
+- Windows artifact: `Monitor-0.1.0-rc.26-win-x64`, Actions artifact ID `9099961916`.
+- 100 mapped xUnit tests are named `B500_001..B500_100`.
+- Read-policy contract endpoint: `GET /production/v1/acceptance-contract`.
 
 ## Guardrails
 
+- External IIS acceptance remains mandatory.
 - No browser-to-SQL access.
 - No autonomous remediation.
 - No AI-generated SQL execution.
-- No plaintext credentials or full connection strings in evidence.
-- No raw provider exceptions or arbitrary SQL text in evidence/export contracts.
+- No plaintext credentials/full connection strings/raw provider exceptions/arbitrary SQL text in evidence contracts.
 - Deterministic, side-effect-free safety helpers.
-- Fail closed on missing or contradictory evidence.
+- Missing or contradictory evidence fails closed.
 - SingleNode remains the first production topology.
-- External IIS acceptance remains mandatory.
 
-## Deployment evidence validation — B500-001..010
+## B500-001..010 — Deployment evidence validation
 
-| Task | Code outcome | Status |
+| Task | Outcome | State |
 |---|---|---|
-| B500-001 | Normalize production environment names | IMPLEMENTED — CI PENDING |
-| B500-002 | Require absolute HTTPS evidence URI | IMPLEMENTED — CI PENDING |
-| B500-003 | Normalize release artifact filename | IMPLEMENTED — CI PENDING |
-| B500-004 | Validate SHA-256 evidence shape | IMPLEMENTED — CI PENDING |
-| B500-005 | Validate Git commit SHA shape | IMPLEMENTED — CI PENDING |
-| B500-006 | Compute non-negative evidence age | IMPLEMENTED — CI PENDING |
-| B500-007 | Enforce bounded evidence freshness | IMPLEMENTED — CI PENDING |
-| B500-008 | Detect missing required evidence fields | IMPLEMENTED — CI PENDING |
-| B500-009 | Sanitize bounded host labels | IMPLEMENTED — CI PENDING |
-| B500-010 | Produce stable deployment-evidence fingerprint | IMPLEMENTED — CI PENDING |
+| B500-001 | Normalize production environment names | CI VERIFIED |
+| B500-002 | Require absolute HTTPS evidence URI | CI VERIFIED |
+| B500-003 | Normalize release artifact filename | CI VERIFIED |
+| B500-004 | Validate SHA-256 evidence shape | CI VERIFIED |
+| B500-005 | Validate Git commit SHA shape | CI VERIFIED |
+| B500-006 | Compute non-negative evidence age | CI VERIFIED |
+| B500-007 | Enforce bounded evidence freshness | CI VERIFIED |
+| B500-008 | Detect missing required evidence fields | CI VERIFIED |
+| B500-009 | Sanitize bounded host labels | CI VERIFIED |
+| B500-010 | Produce stable deployment-evidence fingerprint | CI VERIFIED |
 
-## IIS configuration readiness — B500-011..020
+## B500-011..020 — IIS configuration readiness
 
-| Task | Code outcome | Status |
+| Task | Outcome | State |
 |---|---|---|
-| B500-011 | Normalize application-pool identity | IMPLEMENTED — CI PENDING |
-| B500-012 | Require Integrated pipeline mode | IMPLEMENTED — CI PENDING |
-| B500-013 | Require No Managed Code runtime | IMPLEMENTED — CI PENDING |
-| B500-014 | Require AlwaysRunning start mode | IMPLEMENTED — CI PENDING |
-| B500-015 | Require preload enabled | IMPLEMENTED — CI PENDING |
-| B500-016 | Reject 32-bit worker mode | IMPLEMENTED — CI PENDING |
-| B500-017 | Require disabled idle timeout | IMPLEMENTED — CI PENDING |
-| B500-018 | Validate HTTPS binding shape | IMPLEMENTED — CI PENDING |
-| B500-019 | Require production host header | IMPLEMENTED — CI PENDING |
-| B500-020 | Enumerate IIS readiness blockers | IMPLEMENTED — CI PENDING |
+| B500-011 | Normalize application-pool identity | CI VERIFIED |
+| B500-012 | Require Integrated pipeline mode | CI VERIFIED |
+| B500-013 | Require No Managed Code runtime | CI VERIFIED |
+| B500-014 | Require AlwaysRunning start mode | CI VERIFIED |
+| B500-015 | Require preload enabled | CI VERIFIED |
+| B500-016 | Reject 32-bit worker mode | CI VERIFIED |
+| B500-017 | Require disabled idle timeout | CI VERIFIED |
+| B500-018 | Validate HTTPS binding shape | CI VERIFIED |
+| B500-019 | Require production host header | CI VERIFIED |
+| B500-020 | Enumerate IIS readiness blockers | CI VERIFIED |
 
-## HTTPS certificate readiness — B500-021..030
+## B500-021..030 — HTTPS certificate readiness
 
-| Task | Code outcome | Status |
+| Task | Outcome | State |
 |---|---|---|
-| B500-021 | Normalize certificate hostname | IMPLEMENTED — CI PENDING |
-| B500-022 | Compute remaining certificate days | IMPLEMENTED — CI PENDING |
-| B500-023 | Band certificate expiry risk | IMPLEMENTED — CI PENDING |
-| B500-024 | Require RSA 2048+ key | IMPLEMENTED — CI PENDING |
-| B500-025 | Reject weak signature algorithms | IMPLEMENTED — CI PENDING |
-| B500-026 | Match exact/wildcard SAN | IMPLEMENTED — CI PENDING |
-| B500-027 | Normalize certificate thumbprint | IMPLEMENTED — CI PENDING |
-| B500-028 | Require trusted error-free chain | IMPLEMENTED — CI PENDING |
-| B500-029 | Compute bounded certificate risk score | IMPLEMENTED — CI PENDING |
-| B500-030 | Fail closed on certificate readiness | IMPLEMENTED — CI PENDING |
+| B500-021 | Normalize certificate hostname | CI VERIFIED |
+| B500-022 | Compute remaining certificate days | CI VERIFIED |
+| B500-023 | Band certificate expiry risk | CI VERIFIED |
+| B500-024 | Require RSA 2048+ key | CI VERIFIED |
+| B500-025 | Reject weak signature algorithms | CI VERIFIED |
+| B500-026 | Match exact and one-label wildcard SAN | CI VERIFIED |
+| B500-027 | Normalize certificate thumbprint | CI VERIFIED |
+| B500-028 | Require trusted error-free chain | CI VERIFIED |
+| B500-029 | Compute bounded certificate risk score | CI VERIFIED |
+| B500-030 | Fail closed on certificate readiness | CI VERIFIED |
 
-## Restart/recycle durability — B500-031..040
+## B500-031..040 — Restart/recycle durability
 
-| Task | Code outcome | Status |
+| Task | Outcome | State |
 |---|---|---|
-| B500-031 | Require state path outside release root | IMPLEMENTED — CI PENDING |
-| B500-032 | Require key-ring path outside release root | IMPLEMENTED — CI PENDING |
-| B500-033 | Preserve registration count | IMPLEMENTED — CI PENDING |
-| B500-034 | Preserve snapshot evidence count | IMPLEMENTED — CI PENDING |
-| B500-035 | Keep audit sequence monotonic | IMPLEMENTED — CI PENDING |
-| B500-036 | Keep incident sequence monotonic | IMPLEMENTED — CI PENDING |
-| B500-037 | Require protected credential resolution | IMPLEMENTED — CI PENDING |
-| B500-038 | Require health recovery | IMPLEMENTED — CI PENDING |
-| B500-039 | Enforce restart SLA | IMPLEMENTED — CI PENDING |
-| B500-040 | Enumerate durability blockers | IMPLEMENTED — CI PENDING |
+| B500-031 | Require state path outside release root | CI VERIFIED |
+| B500-032 | Require key-ring path outside release root | CI VERIFIED |
+| B500-033 | Preserve registration count | CI VERIFIED |
+| B500-034 | Preserve snapshot evidence count | CI VERIFIED |
+| B500-035 | Keep audit sequence monotonic | CI VERIFIED |
+| B500-036 | Keep incident sequence monotonic | CI VERIFIED |
+| B500-037 | Require protected credential resolution | CI VERIFIED |
+| B500-038 | Require health recovery | CI VERIFIED |
+| B500-039 | Enforce restart SLA | CI VERIFIED |
+| B500-040 | Enumerate durability blockers | CI VERIFIED |
 
-## Backup and rollback safety — B500-041..050
+## B500-041..050 — Backup and rollback safety
 
-| Task | Code outcome | Status |
+| Task | Outcome | State |
 |---|---|---|
-| B500-041 | Enforce backup freshness | IMPLEMENTED — CI PENDING |
-| B500-042 | Require backup SHA-256 | IMPLEMENTED — CI PENDING |
-| B500-043 | Require backup manifest | IMPLEMENTED — CI PENDING |
-| B500-044 | Preserve previous release | IMPLEMENTED — CI PENDING |
-| B500-045 | Include durable state in backup | IMPLEMENTED — CI PENDING |
-| B500-046 | Include Data Protection key ring | IMPLEMENTED — CI PENDING |
-| B500-047 | Require restore validation | IMPLEMENTED — CI PENDING |
-| B500-048 | Require rollback smoke | IMPLEMENTED — CI PENDING |
-| B500-049 | Enforce rollback SLA | IMPLEMENTED — CI PENDING |
-| B500-050 | Enumerate rollback blockers | IMPLEMENTED — CI PENDING |
+| B500-041 | Enforce backup freshness | CI VERIFIED |
+| B500-042 | Require backup SHA-256 | CI VERIFIED |
+| B500-043 | Require backup manifest | CI VERIFIED |
+| B500-044 | Preserve previous release | CI VERIFIED |
+| B500-045 | Include durable state in backup | CI VERIFIED |
+| B500-046 | Include Data Protection key ring | CI VERIFIED |
+| B500-047 | Require restore validation | CI VERIFIED |
+| B500-048 | Require rollback smoke | CI VERIFIED |
+| B500-049 | Enforce rollback SLA | CI VERIFIED |
+| B500-050 | Enumerate rollback blockers | CI VERIFIED |
 
-## Deployed least-privilege SQL — B500-051..060
+## B500-051..060 — Deployed least-privilege SQL
 
-| Task | Code outcome | Status |
+| Task | Outcome | State |
 |---|---|---|
-| B500-051 | Require monitored login non-sysadmin | IMPLEMENTED — CI PENDING |
-| B500-052 | Require server-state read | IMPLEMENTED — CI PENDING |
-| B500-053 | Require VIEW ANY DATABASE equivalent | IMPLEMENTED — CI PENDING |
-| B500-054 | Require definition metadata access | IMPLEMENTED — CI PENDING |
-| B500-055 | Require SQL Agent metadata read | IMPLEMENTED — CI PENDING |
-| B500-056 | Forbid target DML privilege | IMPLEMENTED — CI PENDING |
-| B500-057 | Forbid target DDL privilege | IMPLEMENTED — CI PENDING |
-| B500-058 | Forbid impersonation privilege | IMPLEMENTED — CI PENDING |
-| B500-059 | Require successful collection | IMPLEMENTED — CI PENDING |
-| B500-060 | Enumerate least-privilege blockers | IMPLEMENTED — CI PENDING |
+| B500-051 | Require monitored login non-sysadmin | CI VERIFIED |
+| B500-052 | Require server-state read | CI VERIFIED |
+| B500-053 | Require VIEW ANY DATABASE equivalent | CI VERIFIED |
+| B500-054 | Require definition metadata access | CI VERIFIED |
+| B500-055 | Require SQL Agent metadata read | CI VERIFIED |
+| B500-056 | Forbid target DML privilege | CI VERIFIED |
+| B500-057 | Forbid target DDL privilege | CI VERIFIED |
+| B500-058 | Forbid impersonation privilege | CI VERIFIED |
+| B500-059 | Require successful collection | CI VERIFIED |
+| B500-060 | Enumerate least-privilege blockers | CI VERIFIED |
 
-## Health and authentication smoke — B500-061..070
+## B500-061..070 — Health/authentication production smoke
 
-| Task | Code outcome | Status |
+| Task | Outcome | State |
 |---|---|---|
-| B500-061 | Normalize bounded health states | IMPLEMENTED — CI PENDING |
-| B500-062 | Validate liveness endpoint | IMPLEMENTED — CI PENDING |
-| B500-063 | Validate readiness endpoint | IMPLEMENTED — CI PENDING |
-| B500-064 | Validate aggregate health endpoint | IMPLEMENTED — CI PENDING |
-| B500-065 | Require authenticated Administrator login | IMPLEMENTED — CI PENDING |
-| B500-066 | Require protected-route success | IMPLEMENTED — CI PENDING |
-| B500-067 | Require antiforgery enforcement | IMPLEMENTED — CI PENDING |
-| B500-068 | Require Secure authentication cookie | IMPLEMENTED — CI PENDING |
-| B500-069 | Require HTTPS-only smoke target | IMPLEMENTED — CI PENDING |
-| B500-070 | Enumerate production-smoke blockers | IMPLEMENTED — CI PENDING |
+| B500-061 | Normalize bounded health states | CI VERIFIED |
+| B500-062 | Validate liveness endpoint | CI VERIFIED |
+| B500-063 | Validate readiness endpoint | CI VERIFIED |
+| B500-064 | Validate aggregate health endpoint | CI VERIFIED |
+| B500-065 | Require authenticated Administrator login | CI VERIFIED |
+| B500-066 | Require protected-route success | CI VERIFIED |
+| B500-067 | Require antiforgery enforcement | CI VERIFIED |
+| B500-068 | Require Secure authentication cookie | CI VERIFIED |
+| B500-069 | Require HTTPS-only smoke target | CI VERIFIED |
+| B500-070 | Enumerate production-smoke blockers | CI VERIFIED |
 
-## Cutover change-window safety — B500-071..080
+## B500-071..080 — Cutover/change-window safety
 
-| Task | Code outcome | Status |
+| Task | Outcome | State |
 |---|---|---|
-| B500-071 | Compute cutover window duration | IMPLEMENTED — CI PENDING |
-| B500-072 | Validate bounded cutover window | IMPLEMENTED — CI PENDING |
-| B500-073 | Normalize change-ticket id | IMPLEMENTED — CI PENDING |
-| B500-074 | Require structured change-ticket id | IMPLEMENTED — CI PENDING |
-| B500-075 | Require approval quorum | IMPLEMENTED — CI PENDING |
-| B500-076 | Require rollback owner | IMPLEMENTED — CI PENDING |
-| B500-077 | Reject change-freeze conflict | IMPLEMENTED — CI PENDING |
-| B500-078 | Require backup gate before cutover | IMPLEMENTED — CI PENDING |
-| B500-079 | Enumerate cutover blockers | IMPLEMENTED — CI PENDING |
-| B500-080 | Fail closed Go/No-Go decision | IMPLEMENTED — CI PENDING |
+| B500-071 | Compute cutover window duration | CI VERIFIED |
+| B500-072 | Validate bounded cutover window | CI VERIFIED |
+| B500-073 | Normalize change-ticket id | CI VERIFIED |
+| B500-074 | Require structured change-ticket id | CI VERIFIED |
+| B500-075 | Require approval quorum | CI VERIFIED |
+| B500-076 | Require rollback owner | CI VERIFIED |
+| B500-077 | Reject change-freeze conflict | CI VERIFIED |
+| B500-078 | Require backup gate before cutover | CI VERIFIED |
+| B500-079 | Enumerate cutover blockers | CI VERIFIED |
+| B500-080 | Fail closed Go/No-Go decision | CI VERIFIED |
 
-## Evidence redaction and export safety — B500-081..090
+## B500-081..090 — Evidence redaction/export safety
 
-| Task | Code outcome | Status |
+| Task | Outcome | State |
 |---|---|---|
-| B500-081 | Detect password assignments | IMPLEMENTED — CI PENDING |
-| B500-082 | Detect connection-string shapes | IMPLEMENTED — CI PENDING |
-| B500-083 | Detect raw provider errors | IMPLEMENTED — CI PENDING |
-| B500-084 | Detect arbitrary SQL text | IMPLEMENTED — CI PENDING |
-| B500-085 | Normalize evidence keys | IMPLEMENTED — CI PENDING |
-| B500-086 | Clamp evidence values/remove newlines | IMPLEMENTED — CI PENDING |
-| B500-087 | Generate opaque evidence ids | IMPLEMENTED — CI PENDING |
-| B500-088 | Sanitize evidence host | IMPLEMENTED — CI PENDING |
-| B500-089 | Export only allowlisted fields | IMPLEMENTED — CI PENDING |
-| B500-090 | Fail closed on unsafe evidence | IMPLEMENTED — CI PENDING |
+| B500-081 | Detect password assignments | CI VERIFIED |
+| B500-082 | Detect connection-string shapes | CI VERIFIED |
+| B500-083 | Detect raw provider errors | CI VERIFIED |
+| B500-084 | Detect arbitrary SQL text | CI VERIFIED |
+| B500-085 | Normalize evidence keys | CI VERIFIED |
+| B500-086 | Collapse/clamp evidence whitespace | CI VERIFIED |
+| B500-087 | Generate opaque evidence ids | CI VERIFIED |
+| B500-088 | Sanitize evidence host | CI VERIFIED |
+| B500-089 | Export only allowlisted fields | CI VERIFIED |
+| B500-090 | Fail closed on unsafe evidence | CI VERIFIED |
 
-## B500 release contract — B500-091..100
+## B500-091..100 — Versioned release contract
 
-| Task | Code outcome | Status |
+| Task | Outcome | State |
 |---|---|---|
-| B500-091 | Format B500 task ids | IMPLEMENTED — CI PENDING |
-| B500-092 | Strictly parse B500 task ids | IMPLEMENTED — CI PENDING |
-| B500-093 | Verify B500-001..100 completeness | IMPLEMENTED — CI PENDING |
-| B500-094 | Version B500 contract schema | IMPLEMENTED — CI PENDING |
-| B500-095 | Publish deterministic feature groups | IMPLEMENTED — CI PENDING |
-| B500-096 | Publish explicit safety guardrails | IMPLEMENTED — CI PENDING |
-| B500-097 | Publish 100-task contract manifest | IMPLEMENTED — CI PENDING |
-| B500-098 | Generate stable contract SHA-256 | IMPLEMENTED — CI PENDING |
-| B500-099 | Fail closed release evaluation and reject false external-acceptance claim | IMPLEMENTED — CI PENDING |
-| B500-100 | Expose Read-policy /production/v1/acceptance-contract endpoint | IMPLEMENTED — CI PENDING |
+| B500-091 | Format B500 task ids | CI VERIFIED |
+| B500-092 | Strictly parse B500 task ids | CI VERIFIED |
+| B500-093 | Verify B500-001..100 completeness | CI VERIFIED |
+| B500-094 | Version B500 contract schema | CI VERIFIED |
+| B500-095 | Publish deterministic feature groups | CI VERIFIED |
+| B500-096 | Publish explicit safety guardrails | CI VERIFIED |
+| B500-097 | Publish 100-task contract manifest | CI VERIFIED |
+| B500-098 | Generate stable contract SHA-256 | CI VERIFIED |
+| B500-099 | Fail closed release evaluation and reject false external-acceptance claim | CI VERIFIED |
+| B500-100 | Expose Read-policy `/production/v1/acceptance-contract` | CI VERIFIED |
 
-## Verification
+## Closure rule
 
-- 100 mapped xUnit tests are implemented as `B500_001..B500_100`.
-- Release build must run with warnings-as-errors.
-- Full repository suite must be Green before merge.
-- `/production/v1/acceptance-contract` is Read-policy protected and publishes only a deterministic safety contract.
-- Completing this batch does **not** satisfy the external P0.5 IIS acceptance gates.
-
-## Delivery rule
-
-`preserve P0.5 external gate -> implement B500-001..100 -> 100 mapped tests -> Release CI -> exact-head PR CI -> squash merge -> close #130 only`
+Repository completion of B500 means `B500-001..100` are implemented and CI verified. It does **not** satisfy P0.5 external acceptance. #116/#111 must remain open until actual Windows/IIS trusted HTTPS, intended app-pool identity, real recycle durability, deployed least-privilege SQL, operational backup and rollback rehearsal are all evidenced.
