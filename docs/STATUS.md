@@ -2,166 +2,135 @@
 
 ## CURRENT P0 — Real SQL Production MVP
 
-**Updated:** 2026-08-11 13:18 +03:00  
-**Branch:** `agent/p0-4-full-journey`  
+**Updated:** 2026-08-11  
+**Branch:** `agent/p0-5-production-candidate`  
 **Umbrella:** #111  
 **Execution ledger:** `docs/PRODUCTION_MVP.md`  
 **Real SQL evidence:** `docs/REAL_SQL_ACCEPTANCE.md`  
-**P0.1:** COMPLETE — PR #119 / final CI `31476747212` / 501/501  
-**P0.2:** COMPLETE — PR #121 / final CI `31478470867` / 505/505  
-**P0.3:** COMPLETE — PR #122 MERGED `245bb0770d7ec6e7a334f7763d3560cef80324fe` / final CI `31479311552` / 507/507  
-**P0.4 foundation:** PR #123 MERGED `83540afe15f5d52ee528ff7de46430682444594d`; first Green real-engine run `31480624953` / 4/4 RealSql  
-**P0.4 full-journey PR:** #124  
-**P0.4 implementation gates:** normal CI `31481298862` — 518/518 Green; Real SQL `31481298848` — 8/8 Green  
-**Next gate after final #124 same-head verification/merge:** #116 / P0.5 First Production SingleNode  
+**Active release gate:** #116 / P0.5 First Production SingleNode  
+**Candidate PR:** #126  
 **Production target:** actual IIS/HTTPS SingleNode release acceptance.
 
-### P0.4 sprint result — REAL SQL VERIFIED / FINAL HEAD GATE PENDING
+### Release chain
 
-- The acceptance harness boots a real Microsoft SQL Server 2022 Developer Linux engine and waits independently for SQL Server and SQL Server Agent readiness.
-- All SQL passwords are generated at workflow runtime, immediately masked and destroyed with the disposable container; no acceptance credential is committed.
-- The primary monitor login is explicitly verified not to be `sysadmin`.
-- The exact `scripts/sql/monitored_sql_least_privilege.sql` is applied before production tester/collector execution.
-- Real SQL discovery corrected the deployment script so `sqlcmd -v MonitorLogin=...` is not overridden by an internal `:setvar`.
-- Real SQL discovery proved `sys.master_files` metadata visibility needed the read-only metadata permission now included in the baseline.
-- Cross-platform closed-port behavior exposed a structured socket-classification gap; the tester now classifies structured SocketException evidence instead of matching provider text or treating every unknown provider error as network failure.
-- SQL Server Agent startup was separated from engine readiness to remove fixture timing races.
-- The full application path now passes against SQL Server 2022: `ConnectionLabController` registration → protected local credential → durable file registration → Test Connection → first collection/cache → `MonitorReadService`/`OperationsController.ServerDetails` → explicit `SnapshotRefreshService` refresh → service/persistence/key-ring reconstruction → Test/Collect/View again after simulated process restart.
-- The full-journey test proves registration identity and the opaque secret reference survive restart, while username/password canaries are absent from both registration metadata and the encrypted secret file.
-- Controlled real failure cases are Green: bad password, strict self-signed TLS rejection, closed-port network unavailable, accepted-but-silent TCP timeout, generic insufficient monitoring permissions and deliberately missing msdb permissions.
-- The complete collector role succeeds while incomplete permission profiles fail closed with bounded safe messages.
-- Implementation normal CI `31481298862`: Release build **0 warnings / 0 errors**, **518/518 passed**, 0 failed, 0 skipped.
-- Implementation Real SQL run `31481298848`: Release build **0 warnings / 0 errors**, **8/8 RealSql passed**.
-- Durable acceptance evidence is recorded in `docs/REAL_SQL_ACCEPTANCE.md`.
-- The workflow now triggers for the canonical P0 acceptance docs as well, so the final documentation-synchronized head must pass both normal CI and the real SQL workflow before merge and #115 closure.
+| Release | State | Evidence |
+|---|---|---|
+| P0.1 / #112 | COMPLETE | PR #119; final CI `31476747212`; 501/501 |
+| P0.2 / #113 | COMPLETE | PR #121; final CI `31478470867`; 505/505 |
+| P0.3 / #114 | COMPLETE | PR #122 merged `245bb0770d7ec6e7a334f7763d3560cef80324fe`; final CI `31479311552`; 507/507 |
+| P0.4 / #115 | COMPLETE | PR #124 merged `f4c08292734c293a6d0b865cc2a005b8c42b02a6`; normal `31481874425` 518/518; Real SQL `31481874501` 8/8 |
+| P0.5 / #116 | ACTIVE | PR #126; Windows candidate CI verified; external IIS/HTTPS acceptance pending |
 
-### P0.3 sprint result — COMPLETE
+### P0.5 candidate result — WINDOWS/HTTPS CI VERIFIED · EXTERNAL IIS PENDING
 
-- PR #122 squash-merged to `main` as `245bb0770d7ec6e7a334f7763d3560cef80324fe`.
-- Issue #114 closed — completed.
-- Final code+docs CI `31479311552`: Release build **0 warnings / 0 errors**, **507/507 passed**, 0 failed, 0 skipped.
-- Server Details is evidence-first: synthetic numeric Health Score removed; availability/freshness/collected-at/age are explicit; instance/uptime, database states, memory, backups, SQL Agent, storage, blocking and runtime evidence are visible or explicitly Not collected.
-- CPU remains outside the v0.1 bounded snapshot contract and is not inferred from proxy data.
-- Normal Server Details GET remains cache-only.
+- Latest code head before this documentation reconciliation: `92bd246dd589a505f3054ed7ef7d7babb7083ed7`.
+- Exact PR merge ref tested by the Windows gate: `69b09b54327f2e10f0ac01fc7612c5e2916a9476`.
+- Normal CI `31484860596`: Green.
+- Windows production-candidate run `31484860580`: **Green end-to-end** on Windows Server 2025.
+- Release build: **0 warnings / 0 errors**.
+- Full suite in candidate gate: **527/527 passed**, 0 failed, 0 skipped.
+- RID-specific `win-x64` restore/publish completed successfully.
+- Clean publish validation proved: SingleNode enabled; shared state disabled; distributed coordination disabled; Development admin credential absent; persisted `App_Data` state absent.
+- Runtime Production configuration used masked ephemeral administrator material only; no runtime credential material is included in the release package.
+- Candidate ran over `https://localhost` with an ephemeral loopback certificate. The CI certificate-validation bypass is explicitly restricted to HTTPS loopback targets and cannot be used for arbitrary production hosts.
+- `/health/live`, `/health/ready`, and `/health` all passed over HTTPS before process restart.
+- A real Administrator login passed using the production PBKDF2 verifier and antiforgery token, then authenticated access to `/servers/connections` was verified.
+- The exact same published candidate was restarted; all three HTTPS health probes and Administrator authentication passed again.
+- The local Data Protection key-ring directory was verified after restart.
+- Runtime Production config and runtime state were deleted before packaging; the cleaned publish input was revalidated.
+- Versioned candidate: `Monitor-0.1.0-rc.15-win-x64.zip`.
+- Candidate SHA-256: `97ba934a6c49d17de43f3d49f3bcb767313f797d1f10f94d44f506b57eb792f7`.
+- GitHub Actions artifact ID: `9098727203`; uploaded artifact size: 4,770,384 bytes.
+- Release manifest records tested merge SHA, source head SHA, `win-x64`, `.NET 8`, Release configuration and SingleNode mode.
 
-### P0.2 sprint result — COMPLETE
+### P0.5 task status
 
-- P0.2 PR #121 squash-merged to `main` as `a294c6530d60f17e7c60e3a1ac070ce562af7b18`.
-- Issue #113 closed — completed.
-- Final code+docs CI `31478470867`: Release build **0 warnings / 0 errors**, **505/505 passed**, 0 failed, 0 skipped.
-- `ServerCard.CpuPercent` and `MemoryPercent` are nullable evidence: absence is represented as absence rather than numeric zero.
-- Real SQL Agent uses actual `TotalJobs`, `EnabledJobs`, and `FailedLastRun` facts; no real synthetic healthy-job count is published.
-- Real cards carry instance name, uptime and collected-at evidence, while Server Details receives the safe cached envelope for memory/database/backups/Agent/storage/blocking/runtime.
-- Dashboard, Servers, Server Details and Memory Health render or aggregate only observed evidence.
-
-### P0.1 sprint result — COMPLETE
-
-- Initial SQL registration tests the candidate before durable registration commit; failed safe connection tests no longer leave a normal enabled target as a side effect.
-- A newly-created Monitor-owned credential is compensated on failed/cancelled initial Test Connection and on durable-registration commit failure.
-- External secret references are not mutated by failed initial registration.
-- SQL passwords remain write-only and are cleared from failed/cancelled controller flows.
-- Integrated Security continues without creating a credential reference.
-- Final code+docs CI `31476747212`: Release build **0 warnings / 0 errors**, **501/501 passed**, 0 failed, 0 skipped.
-- PR #119 squash-merged to `main` as `57ab5cae6b5bdd3a04adb5069008aae80a1f84e0`.
-- Issue #112 closed — completed.
+| Task | State |
+|---|---|
+| P0-041 SingleNode scope freeze | CI VERIFIED |
+| P0-042 secret-free production configuration | CI VERIFIED |
+| P0-043 actual IIS + trusted HTTPS deployment | **PENDING EXTERNAL** |
+| P0-044 Data Protection / protected credentials after restart | CI VERIFIED for process restart; **IIS recycle pending external** |
+| P0-045 durable registration/audit/history/incidents after IIS recycle | **PENDING EXTERNAL** |
+| P0-046 deployment health smoke | CI VERIFIED over HTTPS before/after restart; **real IIS endpoint pending external** |
+| P0-047 least-privilege monitored target | P0.4 prerequisite VERIFIED; **deployed IIS identity/target pending external** |
+| P0-048 backup + rollback/recovery | code/unit VERIFIED; **production rehearsal pending external** |
+| P0-049 versioned artifact/checksum/evidence | CI VERIFIED |
+| P0-050 final production acceptance | **PENDING EXTERNAL** |
 
 ### Management decision
 
-- The immediate delivery objective is now the first actual SingleNode production release, not additional feature breadth.
-- Until P0.5 is accepted, production deployment blockers remain higher priority than unrelated feature expansion.
-- Production-visible SQL evidence rules from P0.2/P0.3 remain unchanged: observed data or explicit absence, never placeholder numeric zero.
-- P0.1, P0.2 and P0.3 are merged and complete.
-- P0.4 has real SQL Server 2022 evidence for the complete application journey and controlled failure matrix. Only final same-head normal/real-SQL verification and merge remain before #115 can close.
-- **P0.5 / #116 becomes ACTIVE / NEXT immediately after #124 merges.** P0.5 owns real IIS/HTTPS SingleNode deployment, process recycle/restart durability, health smoke, read-only monitored-target validation, backup/rollback and versioned candidate artifact acceptance.
+- The immediate objective remains the first actual SingleNode production release; unrelated feature expansion stays secondary.
+- PR #126 may merge after its final documentation-synchronized CI gates are Green, but merging the candidate code **must not** close #116 or #111.
+- #116 stays open until an actual Windows/IIS environment proves trusted HTTPS, application-pool identity behavior, real recycle durability, deployed least-privilege SQL access and rollback/recovery rehearsal.
 - MultiNode activation remains deferred until after the first stable SingleNode production release.
 
-### P0 release chain
+**Overall:** 🟢 verified foundation · 🟢 P0.1 COMPLETE · 🟢 P0.2 COMPLETE · 🟢 P0.3 COMPLETE · 🟢 P0.4 COMPLETE · 🟢 P0.5 candidate CI verified · 🟡 external IIS/HTTPS acceptance pending · 🔴 production acceptance not yet granted
 
-| Order | Release | Issue | State |
-|---|---|---|---|
-| 1 | P0.1 Real SQL Registration | #112 | COMPLETE — PR #119 MERGED / FINAL CI GREEN |
-| 2 | P0.2 First Real Snapshot + truthful mapping | #113 | COMPLETE — PR #121 MERGED / FINAL CI GREEN |
-| 3 | P0.3 Server Details v0.1 source of truth | #114 | COMPLETE — PR #122 MERGED / FINAL CI GREEN |
-| 4 | P0.4 Real SQL end-to-end acceptance | #115 | REAL-SQL VERIFIED — PR #124 FINAL SAME-HEAD GATES PENDING |
-| 5 | P0.5 First Production SingleNode | #116 | READY / NEXT AFTER #124 MERGE |
+---
 
-**Overall:** 🟢 verified foundation · 🟢 P0.1 COMPLETE · 🟢 P0.2 COMPLETE · 🟢 P0.3 COMPLETE · 🟢 P0.4 real-engine verified · 🟡 P0.5 next · 🔴 production deployment acceptance not yet granted
+## P0.4 final result — COMPLETE
+
+- Issue #115 closed completed.
+- PR #124 squash-merged to `main` as `f4c08292734c293a6d0b865cc2a005b8c42b02a6`.
+- Final same-head normal CI `31481874425`: Release build 0 warnings / 0 errors; 518/518 passed.
+- Final same-head Real SQL `31481874501`: Release build 0 warnings / 0 errors; 8/8 RealSql passed.
+- Full SQL Server 2022 application journey is verified: Add/Test/Register/Collect/View/Refresh/Restart/View.
+- Controlled bad-password, TLS, closed-port, timeout, insufficient server-state and missing msdb/Agent-permission cases fail safely.
+- The exact least-privilege deployment script is proven with a non-sysadmin login.
+- Durable evidence is in `docs/REAL_SQL_ACCEPTANCE.md`.
+
+## P0.3 final result — COMPLETE
+
+- PR #122 squash-merged to `main` as `245bb0770d7ec6e7a334f7763d3560cef80324fe`.
+- Issue #114 closed completed.
+- Final CI `31479311552`: Release build 0 warnings / 0 errors; 507/507 passed.
+- Server Details is evidence-first and normal GET remains cache-only.
+
+## P0.2 final result — COMPLETE
+
+- PR #121 squash-merged to `main` as `a294c6530d60f17e7c60e3a1ac070ce562af7b18`.
+- Issue #113 closed completed.
+- Final CI `31478470867`: Release build 0 warnings / 0 errors; 505/505 passed.
+- Production mappings preserve absence as absence and do not publish fake numeric zero evidence.
+
+## P0.1 final result — COMPLETE
+
+- PR #119 squash-merged to `main` as `57ab5cae6b5bdd3a04adb5069008aae80a1f84e0`.
+- Issue #112 closed completed.
+- Final CI `31476747212`: Release build 0 warnings / 0 errors; 501/501 passed.
+- Candidate Test precedes durable registration; failed/cancelled owned-secret candidates are compensated safely.
+
+---
 
 ## BATCH-400 — Production DBA diagnostics continuation
 
-- Issue #108 delivered **100 additional code tasks B400-011..110**, preserving the portal/typography work already merged by PR #107 as B400-001..010.
+- Issue #108 delivered **100 additional code tasks B400-011..110**, preserving the portal/typography work merged by PR #107 as B400-001..010.
 - Added deterministic wait-stat intelligence, query-regression scoring, TempDB pressure, transaction-log health, I/O latency, SQL Agent reliability, HA readiness, maintenance decision safety and fleet signal correlation.
-- Added the Read-policy-protected `/intelligence/v2/contract` endpoint and a fail-closed 100-task continuation release contract.
-- Clean implementation CI on top of PR #107: `31467831498` — Release build **0 warnings / 0 errors**, **498/498 tests passed**.
-- Final PR CI on merge ref: `31468048589` — Release build **0 warnings / 0 errors**, **498/498 tests passed**.
-- PR #109: **squash-merged** to `main` as `9345c4ca8b67e617a9aa9580bbb481819e5babb7`.
-- Issue #108: **closed — completed**.
-- B400-011..110: **100/100 COMPLETE** with 100 mapped acceptance tests.
+- Added the Read-policy-protected `/intelligence/v2/contract` endpoint and a fail-closed continuation release contract.
+- Clean implementation CI `31467831498`: Release build 0 warnings / 0 errors; 498/498 passed.
+- Final PR CI `31468048589`: Release build 0 warnings / 0 errors; 498/498 passed.
+- PR #109 squash-merged as `9345c4ca8b67e617a9aa9580bbb481819e5babb7`.
+- Issue #108 closed completed.
+- B400-011..110: 100/100 COMPLETE with 100 mapped acceptance tests.
 
-## BATCH-400 — Portal completion and Google typography
+## BATCH-400 — Portal completion and typography
 
-- Added dedicated Performance Health, Recommendations, and Reports & Diagnostics pages.
-- Reorganized navigation around Operations, Health, Intelligence, Administration, and contextual Help.
-- Connected previously orphaned Fleet, Help, Readiness, Audit, History, and enterprise export capabilities.
-- Made management links role-aware and removed the dead standalone AI Advisor link.
-- Adopted self-hosted Google Fonts: Inter Variable for the Latin UI and Noto Sans Arabic Variable for Arabic glyphs.
-- Kept the strict CSP by serving font assets locally with `font-src 'self'`.
-- Added bounded desktop/mobile sidebar scrolling while preserving the existing command-center visual identity.
-- Local verification: Release build **0 warnings / 0 errors**, **398/398 tests passed**, desktop and 390px browser acceptance passed with no console warnings/errors.
-- State: **MERGED — PR #107**.
+- Dedicated Performance Health, Recommendations, and Reports & Diagnostics pages.
+- Navigation organized around Operations, Health, Intelligence, Administration and Help.
+- Fleet, Help, Readiness, Audit, History and enterprise export capabilities connected.
+- Role-aware management links; dead standalone AI Advisor link removed.
+- Self-hosted Inter Variable and Noto Sans Arabic Variable fonts under strict CSP.
+- Responsive sidebar polish preserved the command-center visual identity.
+- State: MERGED — PR #107.
 
-## Verified historical baseline
+## Historical batch baseline
 
-**Prior canonical update:** 2026-08-11 10:15 +03:00  
-**Prior target:** BATCH-400 — Production DBA Diagnostics & Decision Safety COMPLETE  
-**Prior issues:** #108 CLOSED · **PR:** #109 MERGED  
-**Foundation:** 🟢 M0–M8 VERIFIED · 🟢 BATCH-100 100/100 COMPLETE · 🟢 BATCH-200 100/100 COMPLETE · 🟢 BATCH-300 100/100 COMPLETE · 🟢 BATCH-400 B400-001..110 COMPLETE
-
-## BATCH-300 final verification
-
-- Implementation CI: `31464569180` — Release build **0 warnings / 0 errors**, **390/390 tests passed**.
-- Reconciled final CI after preserving concurrent `main` work: `31465013971` — Release build **0 warnings / 0 errors**, **395/395 tests passed**.
-- B300-specific acceptance coverage: **100 mapped tests**, one for every B300-001..100 task.
-- PR #102: **squash-merged** to `main` as `385c2ee7a4d592c1e32e6e00a5c533c8790963b6`.
-- Issue #97: **closed — completed**.
-- BATCH-300: **100/100 COMPLETE**.
-
-## Concurrent team additions — preserved outside B300-001..100 ledger
-
-### Daily target lifecycle
-
-- Administrators can pause and resume each registered target from Connection Lab.
-- Pausing persists `IsEnabled=false`, evicts the cached snapshot and prevents an older in-flight collection from republishing evidence.
-- Resuming preserves registration ID, endpoint, credential reference, creation time, history and incidents.
-- Repeated commands are idempotent; committed transitions emit bounded audit metadata.
-
-### Protected credential reconnect
-
-- Administrators can provide a new write-only SQL username/password for the existing target.
-- The encrypted candidate is tested before registration metadata changes.
-- Failed/cancelled candidates are compensated; the previous reference remains active.
-- A successful replacement preserves registration ID, endpoint, timestamps, history and incidents, then removes the old Monitor-owned secret when safe.
-
-## BATCH-300 delivered
-
-- Defensive SQL estate identity/version/edition/uptime primitives with opaque stable identifiers.
-- Bounded capacity growth and threshold forecasting helpers.
-- Recovery-model-aware full/log backup compliance scoring and reasons.
-- Deterministic database state, availability and failover-readiness intelligence.
-- Runtime memory/blocking/scheduler/I/O pressure scoring and hotspot detection.
-- Age/suppression/maintenance-aware fleet risk aggregation.
-- Safe deterministic alert routing, escalation, cooldown and deduplication policy helpers.
-- Operator input safety, secret-shape detection, formula neutralization, fingerprints and diagnostics allowlists.
-- Versioned bounded UTF-8 export contracts with SHA-256 checksums and deterministic ordering.
-- Fail-closed release invariants plus Read-policy-protected `/intelligence/contract` endpoint.
-
-## BATCH-200 final verification
-
-- GitHub Actions final release-candidate run: `31446970475`.
-- Release build: **Green** with `--warnaserror`.
-- Tests: **290/290 passed; 0 failed**.
-- B200-001..100: **CI VERIFIED**.
-- BATCH-200: **100/100 COMPLETE**.
+- M0–M8 VERIFIED.
+- BATCH-100: 100/100 COMPLETE.
+- BATCH-200: 100/100 COMPLETE; final CI `31446970475`, 290/290.
+- BATCH-300: 100/100 COMPLETE; PR #102 squash-merged as `385c2ee7a4d592c1e32e6e00a5c533c8790963b6`; reconciled final CI `31465013971`, 395/395.
+- BATCH-400: B400-001..110 COMPLETE.
 
 ## Stable guardrails
 
