@@ -21,6 +21,7 @@ Production-visible values must be backed by collected evidence. If a dimension i
 7. First production activation is SingleNode. MultiNode remains outside P0.
 8. Every gate requires Release build with warnings-as-errors, applicable tests, affected-screen review, canonical docs synchronization, and PR CI before merge.
 9. CI simulation is not a substitute for external production acceptance. IIS binding, trusted HTTPS, application-pool identity, real recycle behavior and rollback rehearsal require environment evidence.
+10. Dynamic production-candidate filenames, run IDs and SHA-256 values are maintained on Issue #116. This execution ledger records stable task state and merged capabilities rather than chasing each later equivalent RC.
 
 ## Priority chain
 
@@ -30,7 +31,7 @@ Production-visible values must be backed by collected evidence. If a dimension i
 | 2 | P0.2 | #113 | First snapshot is mapped truthfully into production read models | COMPLETE — PR #121 / final CI `31478470867` |
 | 3 | P0.3 | #114 | Server Details v0.1 is the trusted operator source of truth | COMPLETE — PR #122 / final CI `31479311552` |
 | 4 | P0.4 | #115 | Full journey passes against a real SQL Server | COMPLETE — PR #124 merged `f4c08292734c293a6d0b865cc2a005b8c42b02a6`; normal `31481874425`; Real SQL `31481874501` |
-| 5 | P0.5 | #116 | First IIS/HTTPS SingleNode production release is accepted | ACTIVE — repository candidate merged; external IIS acceptance pending |
+| 5 | P0.5 | #116 | First IIS/HTTPS SingleNode production release is accepted | ACTIVE — repository/operator preparation merged; external IIS acceptance pending |
 
 ---
 
@@ -145,63 +146,87 @@ The complete `Add -> Test -> Register -> Collect -> View -> Refresh -> Restart -
 
 **Issue:** #116 — OPEN / ACTIVE  
 **Dependency:** P0.4 COMPLETE.  
-**Acceptance tooling:** PR #127 — squash-merged as `9bdd96940454f2586c0e81ff0c25a524d7f1281c`; CI `31485290730`, 522/522.  
-**Production-candidate PR:** #126 — squash-merged as `d512ee156f07db566898a817f3c76dd3f46c1091`.  
-**Tested source head:** `da69636f2ba3525426c43aaca17d17617244d9d4`.  
-**Tested merge ref including PR #127:** `f65ed48cea537b3ee7524f244a75a62fb442bd55`.  
-**Final normal CI:** `31485712373` — Green.  
-**Final Real SQL:** `31485712392` — Release 0 warnings / 0 errors; 8/8 RealSql passed.  
-**Final Windows production-candidate:** `31485712370` — Green on Windows Server 2025; Release 0 warnings / 0 errors; 531/531 tests passed.  
-**Candidate package:** `Monitor-0.1.0-rc.20-win-x64.zip`  
-**Candidate SHA-256:** `27743b8f3f162a43f8c1bb6b7b9d1977dc5d1c55e8a4664f0c84294b094150bc`  
-**GitHub Actions artifact:** ID `9099041392`, uploaded artifact size 4,770,438 bytes.  
-**Release gate:** REPOSITORY PREPARATION COMPLETE / EXTERNAL IIS ACCEPTANCE PENDING.
+**Live candidate/environment evidence:** Issue #116  
+**Release gate:** REPOSITORY/OPERATOR PREPARATION COMPLETE / EXTERNAL IIS ACCEPTANCE PENDING.
 
-The repository now contains both the deployable candidate and fail-closed production acceptance tooling:
+Stable merged P0.5 repository capabilities:
+
+- **PR #127** merged `9bdd96940454f2586c0e81ff0c25a524d7f1281c`: `Accept-ProductionSingleNode.ps1`, candidate SHA-256/HTTPS health evidence and `docs/PRODUCTION_SINGLENODE_ACCEPTANCE.md`.
+- **PR #126** merged `d512ee156f07db566898a817f3c76dd3f46c1091`: Windows Server production-candidate pipeline proving Release build/test, RID-specific `win-x64` publish, secret-free SingleNode package, HTTPS health/authentication and process-restart behavior, followed by versioned ZIP/SHA/provenance packaging.
+- **PR #128** merged `564f7655a1001da98addd793a000a15d069a243a`: P0 candidate-state reconciliation.
+- **PR #129** merged `7cb47945b47aab6558f7132dcfa818b9f02d2b20`: read-only IIS preflight, PLAN ONLY/default deploy automation, explicit `-Apply`, stable external `App_Data`, automatic immediate physicalPath rollback, production PowerShell parser gate and self-contained `_operations` bundle.
+
+The repository now proves these candidate-independent invariants:
 
 - Release build with warnings-as-errors and the full Windows test suite.
-- RID-specific `win-x64` restore and publish.
-- Secret-free SingleNode package validation; Development credentials and persisted `App_Data` are excluded from the clean package.
-- Production process startup on HTTPS with an ephemeral loopback certificate and masked runtime-only administrator credentials.
-- `/health/live`, `/health/ready`, and `/health` return the expected states over HTTPS before and after process restart.
-- A real Administrator login is exercised with antiforgery protection and authenticated `/servers/connections` access before and after restart.
-- The local Data Protection key-ring directory is verified after restart.
-- Runtime Production config/state is deleted before packaging; final package input is revalidated.
-- ZIP + SHA-256 + tested source/merge provenance are recorded.
-- `scripts/Accept-ProductionSingleNode.ps1` validates the selected artifact checksum and actual HTTPS endpoint and writes machine-readable evidence.
-- `docs/PRODUCTION_SINGLENODE_ACCEPTANCE.md` defines the IIS cutover, recycle, least-privilege, backup and rollback evidence requirements.
+- Production PowerShell scripts parse successfully on the Windows candidate runner before package acceptance.
+- RID-specific `win-x64` framework-dependent publish.
+- Secret-free SingleNode package validation; Development credential material and persisted runtime `App_Data` are excluded.
+- Production process startup on HTTPS with masked ephemeral Administrator material only in CI.
+- `/health/live`, `/health/ready`, `/health` plus real antiforgery-protected Administrator authentication pass before and after candidate process restart.
+- Local Data Protection key-ring persistence is observed across candidate process restart.
+- Versioned ZIP + SHA-256 + tested source/merge provenance + `_operations` bundle are produced.
+- `_operations` contains IIS preflight, deployment, acceptance, health/auth smoke scripts and IIS/production/rollback docs.
+- Exact currently selected artifact filename, SHA-256, Actions artifact ID and corresponding run evidence are deliberately maintained on #116.
+
+### IIS operator automation contract
+
+`Test-IisProductionPrerequisites.ps1` is read-only and fails closed unless the real server has:
+
+- Windows IIS WebAdministration available;
+- .NET 8 ASP.NET Core runtime and ANCM v2;
+- an existing No Managed Code application pool using an approved identity rather than LocalSystem/LocalService/NetworkService;
+- an existing IIS site assigned to that pool;
+- an approved `Cert:\LocalMachine\My` certificate with private key;
+- the exact trusted HTTPS host/port binding using that certificate.
+
+`Deploy-ProductionSingleNode.ps1`:
+
+- is PLAN ONLY unless `-Apply` is explicitly supplied;
+- requires the candidate ZIP, matching SHA-256, approved secret-free SingleNode config and validated pre-cutover operational backup ID;
+- never overwrites an existing versioned release;
+- keeps durable state under stable `C:\ProgramData\Monitor\App_Data`, outside replaceable release directories;
+- junctions each release `App_Data` to stable state;
+- grants only required state Modify / release Read+Execute to the existing app-pool identity;
+- switches IIS `physicalPath` only after staging completes;
+- immediately runs `Accept-ProductionSingleNode.ps1` against the real HTTPS URL;
+- restores the previous IIS physical path if immediate post-cutover acceptance fails;
+- records a non-secret current/previous deployment pointer and evidence path.
 
 | Task | Description | State |
 |---|---|---|
 | P0-041 | Freeze first production scope to SingleNode | COMPLETE — repository/CI |
 | P0-042 | Validate secret-free production configuration and environment values | COMPLETE — repository/CI |
-| P0-043 | Deploy IIS + HTTPS using the production guide | **PENDING EXTERNAL** — actual IIS binding/trusted certificate required |
+| P0-043 | Deploy IIS + HTTPS using the production guide | **PENDING EXTERNAL** — preflight/deploy automation READY |
 | P0-044 | Validate persistent Data Protection/protected credential behavior after application recycle/restart | CI process restart VERIFIED; **IIS recycle pending external** |
 | P0-045 | Validate durable registration/audit/history/incident state after recycle/restart | **PENDING EXTERNAL** |
 | P0-046 | Run `/health/live`, `/health/ready`, `/health` deployment smoke | CI HTTPS VERIFIED + acceptance script READY; **actual IIS endpoint pending external** |
 | P0-047 | Validate monitored target remains read-only/least-privilege from the application identity | P0.4 prerequisite VERIFIED; **deployed IIS identity/target pending external** |
 | P0-048 | Validate operational backup and rollback/recovery path | code/unit/tooling VERIFIED; **production rollback rehearsal pending external** |
-| P0-049 | Produce versioned production candidate artifact/checksum and record acceptance evidence | COMPLETE — RC.20 ZIP/SHA/artifact/provenance recorded |
+| P0-049 | Produce versioned production candidate artifact/checksum and record acceptance evidence | COMPLETE — repository/CI; **live selected artifact evidence on #116** |
 | P0-050 | P0.5 final production acceptance; close #111 only after all gates are Green | **PENDING EXTERNAL** |
 
 ### P0.5 external acceptance checklist
 
-P0.5 remains open until an actual SingleNode Windows/IIS environment proves all of the following using RC.20 or a later final-head-equivalent artifact:
+P0.5 remains open until the actual SingleNode Windows/IIS environment proves all of the following using the selected verified candidate recorded on #116:
 
-1. Install/activate the .NET 8 IIS hosting prerequisites and deploy the selected artifact under the intended application-pool identity.
-2. Bind the production hostname to a trusted HTTPS certificate; HTTP handling follows the approved deployment policy.
-3. Supply production administrator credential material through approved environment/secret configuration, never checked-in JSON.
-4. Run `scripts/Accept-ProductionSingleNode.ps1` against the actual HTTPS endpoint and retain its evidence JSON.
-5. Register/test/collect a least-privilege SQL target from the deployed application identity and confirm no write/DML privilege is required.
-6. Recycle the IIS application pool and prove protected credential resolution, target registration and trustworthy read paths recover.
-7. Confirm audit/history/incident durable state survives the real recycle/restart boundary.
-8. Create and validate an operational backup, perform the approved rollback/recovery rehearsal, and re-run health/auth/read checks.
-9. Record deployed version, source SHA, package SHA-256, host/environment/recycle evidence and rollback result in `docs/PRODUCTION_SINGLENODE_ACCEPTANCE.md` or an approved environment evidence record.
-10. Only then mark the remaining P0.5 external tasks complete, close #116 and finally close umbrella #111.
+1. Preserve the exact selected artifact filename and SHA-256 as cutover evidence.
+2. Configure/verify the intended IIS application-pool identity and trusted machine certificate/HTTPS binding.
+3. Run packaged `_operations/scripts/Test-IisProductionPrerequisites.ps1` and record PASS.
+4. Prepare the approved secret-free `appsettings.Production.json` and validate the pre-cutover operational backup.
+5. Run packaged `_operations/scripts/Deploy-ProductionSingleNode.ps1` without `-Apply`; review and approve the PLAN ONLY output.
+6. Execute the reviewed deployment with explicit `-Apply` and retain the generated acceptance/deployment evidence.
+7. Authenticate against the actual trusted HTTPS endpoint.
+8. Register/test/collect/refresh an approved least-privilege SQL target from the deployed application and confirm no target DML/write privilege is required.
+9. Recycle the IIS application pool and prove protected credential resolution, target registration and trustworthy read paths recover.
+10. Confirm registration/audit/history/incident durable state survives the real recycle/restart boundary.
+11. Execute the approved rollback/recovery rehearsal using the recorded previous physicalPath and `docs/ROLLBACK_RUNBOOK.md`; repeat health/auth/read checks.
+12. Record deployed version, source SHA, package SHA-256, host/environment/recycle evidence and rollback result on #116 and the approved production evidence record.
+13. Only then mark the remaining P0.5 external tasks complete, close #116 and finally close umbrella #111.
 
 ### P0.5 candidate evidence is not production acceptance
 
-The Green Windows workflow and merged RC.20 are release-candidate evidence. They intentionally do not claim that GitHub-hosted Kestrel HTTPS is an IIS deployment, that a self-signed loopback certificate is a production certificate, or that a process restart in CI is identical to the final application-pool recycle. #116 remains open until the external operator acceptance is completed.
+A Green Windows candidate and merged deployment automation are release-candidate evidence. They intentionally do not claim that GitHub-hosted Kestrel HTTPS is an IIS deployment, that a loopback test certificate is a production certificate, or that a process restart in CI is identical to the final application-pool recycle. #116 remains open until the external operator acceptance is completed.
 
 ---
 
