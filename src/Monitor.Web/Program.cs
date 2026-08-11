@@ -157,6 +157,7 @@ builder.Services.AddSingleton<ISqlConnectionProbe, SqlConnectionProbe>();
 builder.Services.AddSingleton<IServerConnectionTester, ServerConnectionTester>();
 builder.Services.AddSingleton<ICredentialLifecycleService, CredentialLifecycleService>();
 builder.Services.AddSingleton<ICredentialReadinessService, CredentialReadinessService>();
+builder.Services.AddSingleton<IServerTargetLifecycleService, ServerTargetLifecycleService>();
 builder.Services.AddSingleton<ISqlSnapshotQuery, GovernedSqlSnapshotQuery>();
 builder.Services.AddSingleton<SqlServerSnapshotCollector>();
 builder.Services.AddSingleton<ISqlServerSnapshotCollector>(provider => new TelemetrySqlServerSnapshotCollector(
