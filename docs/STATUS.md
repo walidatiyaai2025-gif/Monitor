@@ -28,7 +28,8 @@
 - Safe IIS SingleNode deployment automation merged on `main` as `7cb47945b47aab6558f7132dcfa818b9f02d2b20`.
 - Deployment automation includes read-only IIS preflight, plan-first/apply-gated versioned deployment, stable `App_Data`, automatic IIS `physicalPath` rollback, production PowerShell syntax validation and operations-bundle tooling.
 - `7cb479...` evidence: normal CI `31487059992` Green; Windows production-candidate `31487060032` Green with 538/538 tests.
-- BATCH-500 now adds a further fail-closed production-safety layer without claiming external acceptance.
+- BATCH-500 added a fail-closed production-safety layer without claiming external acceptance.
+- BATCH-600 adds live operator readiness/evidence orchestration while preserving the same external-acceptance boundary.
 
 ### P0.5 task status
 
@@ -44,6 +45,43 @@
 | P0-048 backup + rollback/recovery | code/unit/tooling VERIFIED; **production rehearsal pending external** |
 | P0-049 versioned artifact/checksum/evidence | REPOSITORY/CI COMPLETE |
 | P0-050 final production acceptance | **PENDING EXTERNAL** |
+
+## BATCH-600 — Live Operator Readiness & Evidence Orchestration
+
+**Issue:** #134  
+**PR:** #139  
+**Branch:** `agent/b600-live-readiness`  
+**Task range:** B600-001..100  
+**State:** **100/100 IMPLEMENTED + IMPLEMENTATION CI VERIFIED; final synchronized PR gates / squash merge pending**.
+
+B600 delivers deterministic fail-closed repository orchestration for:
+
+- evidence freshness and source normalization;
+- gate dependency graph and prerequisite readiness;
+- operator action queue, ownership and priority;
+- change-window/freeze/approval/backup/rollback-owner safety;
+- candidate version/hash/commit validation and promotion safety;
+- evidence completeness, confidence and contradiction detection;
+- secret-safe operator summaries and export allowlists;
+- fleet readiness aggregation and blast-radius reporting;
+- acceptance snapshot versioning, monotonic sequence and deterministic ETag;
+- versioned 100-task release contract.
+
+### Implementation merge-ref evidence
+
+Implementation head `1c31897a3652fd45bc3ff0c45bac91f991eaf6b9` was tested on exact PR merge ref `f60d01676bade59eef0b1cbbe90eb200c71223a6` against `main` `020f4f1d0576d42af74db88537ca0690ea3b8f47`.
+
+- Normal CI `31500259339`: **Green**.
+- Release build: **0 warnings / 0 errors**.
+- Full suite: **738/738 passed**, 0 failed, 0 skipped.
+- Windows production-candidate `31500260363`: **Green end-to-end** with **738/738 tests passed**.
+- Windows gate passed production PowerShell syntax checks, `win-x64` publish, secret-free SingleNode validation, HTTPS health/authentication before and after restart, clean package validation and artifact upload.
+- Candidate artifact: `Monitor-0.1.0-rc.32-win-x64`, Actions artifact ID `9104795076`.
+- Exactly 100 mapped tests: `B600_001..B600_100`.
+- Read-policy endpoint: `GET /production/v2/readiness-contract`.
+- Detailed ledger: `docs/BATCH_600.md`.
+
+**BATCH-600 does not close P0.5.** Repository CI and Windows runner evidence do not prove the external Windows/IIS trusted-HTTPS deployment. #116 and #111 must remain open until actual environment acceptance is PASS.
 
 ## BATCH-500 — Production Acceptance & Recovery Safety
 
@@ -101,7 +139,8 @@ All final gates tested PR #131 source head `10a072eaceb14f1aa8bc1f2070c65f26c565
 - BATCH-300: B300-001..100 COMPLETE; PR #102 merged as `385c2ee7a4d592c1e32e6e00a5c533c8790963b6`; reconciled CI `31465013971`, 395/395.
 - BATCH-400: B400-001..110 COMPLETE.
 - BATCH-500: B500-001..100 COMPLETE; PR #131 merged as `9d27491a9739ba05b8c3df1da3eb2e5d435d5cf6`; final gates normal `31488431712` 638/638, Real SQL `31488431709` 8/8, Windows `31488431693` 638/638.
-- Total completed batch task IDs across B100+B200+B300+B400+B500: **510**.
+- BATCH-600: B600-001..100 IMPLEMENTED + IMPLEMENTATION CI VERIFIED; final synchronized gates / PR #139 merge pending.
+- Completed merged batch task IDs before B600: **510**. B600 adds 100 more task IDs once PR #139 is fully verified and merged.
 
 ## Stable guardrails
 
@@ -115,4 +154,4 @@ All final gates tested PR #131 source head `10a072eaceb14f1aa8bc1f2070c65f26c565
 - MultiNode remains fail-closed and deferred until after stable SingleNode production acceptance.
 - Concurrent team work must be preserved; external P0.5 acceptance cannot be inferred from CI.
 
-**Overall:** 🟢 verified foundation · 🟢 P0.1–P0.4 COMPLETE · 🟢 P0.5 repository automation ready · 🟢 BATCH-500 100/100 COMPLETE · 🟡 external IIS/HTTPS acceptance pending · 🔴 production acceptance not yet granted
+**Overall:** 🟢 verified foundation · 🟢 P0.1–P0.4 COMPLETE · 🟢 P0.5 repository automation ready · 🟢 BATCH-500 100/100 COMPLETE · 🟢 BATCH-600 100/100 implementation CI VERIFIED · 🟡 B600 final merge pending · 🟡 external IIS/HTTPS acceptance pending · 🔴 production acceptance not yet granted
