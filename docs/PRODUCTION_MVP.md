@@ -25,8 +25,8 @@ A production-visible value must be backed by collected evidence. If a dimension 
 
 | Priority | Release | Issue | Outcome | State |
 |---|---|---|---|---|
-| 1 | P0.1 | #112 | Real SQL registration is production-safe and restart durable | ACTIVE / NEXT |
-| 2 | P0.2 | #113 | First snapshot is mapped truthfully into production read models | BLOCKED BY P0.1 |
+| 1 | P0.1 | #112 | Real SQL registration is production-safe and restart durable | CI VERIFIED — 31476430643 / 501-501 |
+| 2 | P0.2 | #113 | First snapshot is mapped truthfully into production read models | READY / NEXT AFTER #119 MERGE |
 | 3 | P0.3 | #114 | Server Details v0.1 is the trusted operator source of truth | BLOCKED BY P0.2 |
 | 4 | P0.4 | #115 | Full journey passes against a real SQL Server | BLOCKED BY P0.3 |
 | 5 | P0.5 | #116 | First IIS/HTTPS SingleNode production release is accepted | BLOCKED BY P0.4 |
@@ -36,37 +36,40 @@ A production-visible value must be backed by collected evidence. If a dimension 
 ## P0.1 — Real SQL Registration
 
 **Issue:** #112  
-**Release gate:** registration can be used on a real target without secret leakage or false readiness.  
-**Audit finding:** `ConnectionLabController.Register` currently persists the enabled registration before Test Connection finishes. The current regression test also expects a failed Test Connection to leave a registration behind. P0.1 changes this to candidate-test-before-durable-commit semantics unless a future explicit “save unreachable target” command is designed separately.
+**Implementation PR:** #119  
+**Implementation CI:** `31476430643` — Release build 0 warnings / 0 errors; 501/501 tests passed.  
+**Release gate:** registration can be used on a real target without secret leakage or false readiness.
+
+The audit found that initial registration persisted an enabled target before Test Connection completed. P0.1 changed this to candidate-test-before-durable-commit semantics. A future “save unreachable target” capability, if desired, must be an explicit separate operator action/state rather than a failed-test side effect.
 
 | Task | Description | State |
 |---|---|---|
-| P0-001 | Reconcile the current Connection Lab registration path against production acceptance criteria | AUDIT COMPLETE — BLOCKER RECORDED IN #112 |
-| P0-002 | Test the candidate before durable registration commit; failed/cancelled Test must not silently persist a normal enabled target | READY / NEXT |
-| P0-003 | Compensate/delete a candidate Monitor-owned credential when initial registration test fails or is cancelled; keep password write-only | PLANNED |
-| P0-004 | Verify Integrated Security registration path and safe connection-string construction | PLANNED |
-| P0-005 | Verify successful registration persists across Monitor process restart | PLANNED |
-| P0-006 | Make failed Test Connection state explicit without publishing a live snapshot | PLANNED |
-| P0-007 | Verify duplicate/repeated registration semantics are deterministic and do not leak credentials | PLANNED |
-| P0-008 | Verify existing protected credential reconnect preserves registration identity/history | PLANNED |
-| P0-009 | Desktop/mobile Connection Lab acceptance for success/failure/recovery states | PLANNED |
-| P0-010 | P0.1 Release build/tests/docs/PR CI gate | PLANNED |
+| P0-001 | Reconcile the current Connection Lab registration path against production acceptance criteria | COMPLETE |
+| P0-002 | Test the candidate before durable registration commit; failed/cancelled Test must not silently persist a normal enabled target | CI VERIFIED |
+| P0-003 | Compensate/delete a candidate Monitor-owned credential when initial registration test fails or is cancelled; keep password write-only | CI VERIFIED |
+| P0-004 | Verify Integrated Security registration path and safe connection-string construction | CI VERIFIED |
+| P0-005 | Verify successful registration persists across Monitor process restart | CI VERIFIED — durable repository restart coverage |
+| P0-006 | Make failed Test Connection state explicit without publishing a live snapshot | CI VERIFIED |
+| P0-007 | Verify duplicate/repeated registration semantics are deterministic and do not leak credentials | CI VERIFIED |
+| P0-008 | Verify existing protected credential reconnect preserves registration identity/history | VERIFIED — preserved B300 reconnect contract |
+| P0-009 | Desktop/mobile Connection Lab acceptance for success/failure/recovery states | VERIFIED — existing responsive markup unchanged; failed initial test uses safe validation state and no registered-target card |
+| P0-010 | P0.1 Release build/tests/docs/PR CI gate | IMPLEMENTATION CI GREEN — final code+docs PR CI required before merge |
 
 ### P0.1 exit criteria
 
-A DBA can add a real target, safely test it, save it, restart Monitor and still see the durable registration. A failed initial test does not silently commit a normal enabled target or orphan a Monitor-owned candidate secret. No credential value/reference is rendered.
+A DBA can add a target candidate, safely test it, persist it only after connection success, restart Monitor and recover the durable registration/credential boundary. A failed or cancelled initial test does not commit a normal enabled target or orphan a newly-created Monitor-owned candidate secret. External secret references are never mutated. No credential value/reference is rendered.
 
 ---
 
 ## P0.2 — First Real Snapshot & Truthful Mapping
 
 **Issue:** #113  
-**Dependency:** P0.1 complete.  
+**Dependency:** P0.1 complete and PR #119 merged.  
 **Known blocker:** the current read projection assigns `CpuPercent = 0` and does not project the collected SQL Agent snapshot into `ServerCard`, while Server Details contains UI that can visually interpret those fields as observed values.
 
 | Task | Description | State |
 |---|---|---|
-| P0-011 | Define the v0.1 production snapshot contract from `ServerHealthSnapshot` | PLANNED |
+| P0-011 | Define the v0.1 production snapshot contract from `ServerHealthSnapshot` | READY / NEXT |
 | P0-012 | Verify real identity/version/edition/instance/uptime projection | PLANNED |
 | P0-013 | Verify real database total/online/problem-state projection | PLANNED |
 | P0-014 | Verify memory evidence mapping and unavailable semantics | PLANNED |
