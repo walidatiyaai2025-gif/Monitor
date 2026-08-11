@@ -10,6 +10,7 @@ This is the canonical execution plan. Update it in the same PR as material imple
 **Production acceptance guide:** `docs/PRODUCTION_SINGLENODE_ACCEPTANCE.md`  
 **Active release gate:** Issue #116 / P0.5 First Production SingleNode  
 **Repository cutover/evidence/finalization tooling:** COMPLETE through Issue #147 / PR #148  
+**Active repository hardening:** Issue #150 / immutable production acceptance session initializer  
 **Live selected candidate/evidence ledger:** Issue #116  
 **Project rule:** until P0.5 is accepted on the real environment, production-slice blockers outrank unrelated feature expansion.
 
@@ -27,7 +28,7 @@ Production-visible values must come from collected evidence. Missing, stale, per
 | 2 | P0.2 | #113 | First real snapshot + truthful read-model mapping | COMPLETE — PR #121 / final CI `31478470867` |
 | 3 | P0.3 | #114 | Server Details v0.1 trusted evidence surface | COMPLETE — PR #122 / final CI `31479311552` |
 | 4 | P0.4 | #115 | Real SQL end-to-end acceptance under success/failure cases | COMPLETE — PR #124; normal `31481874425`; Real SQL `31481874501` |
-| 5 | P0.5 | #116 | First trusted-HTTPS IIS SingleNode production release | **ACTIVE — repository tooling complete; real environment acceptance pending** |
+| 5 | P0.5 | #116 | First trusted-HTTPS IIS SingleNode production release | **ACTIVE — core repository tooling complete; #150 hardening in progress; real environment acceptance pending** |
 
 ### Resolved production gates
 
@@ -36,7 +37,7 @@ Production-visible values must come from collected evidence. Missing, stale, per
 - **P0.3 COMPLETE:** Server Details is evidence-first, synthetic Health Score is removed, and monitored GET remains cache-only.
 - **P0.4 COMPLETE:** SQL Server 2022 proves Add/Test/Register/Collect/View/Refresh/Restart/View with a non-sysadmin least-privilege login and controlled auth/network/timeout/TLS/server/msdb permission failures. Final normal CI `31481874425` — 518/518; Real SQL `31481874501` — 8/8.
 
-## P0.5 repository preparation — COMPLETE
+## P0.5 repository preparation — CORE COMPLETE / SESSION HARDENING ACTIVE
 
 The repository contains the complete operator cutover and evidence workflow while intentionally leaving production acceptance external:
 
@@ -47,6 +48,7 @@ The repository contains the complete operator cutover and evidence workflow whil
 - PR #142 / Issue #141 — exact 15-gate fail-closed evidence pack and closure validator; complete.
 - PR #145 / Issue #144 — explicit one-gate-at-a-time recorder `Set-ProductionAcceptanceGate.ps1`; complete.
 - PR #148 / Issue #147 — explicit fail-closed final operator acceptance finalizer `Complete-ProductionAcceptance.ps1`; complete and merged `e15a9654fbe744e426c95d5965a5faba60868e14`.
+- Issue #150 / PR #151 — immutable candidate-bound acceptance-session initializer; **IN PROGRESS**. It hardens the pre-cutover setup boundary without changing any already-complete P0 release gate or claiming external acceptance.
 
 ### Final repository candidate evidence — RC.43
 
@@ -74,7 +76,7 @@ Repository candidate evidence is **not** production acceptance. It does not repl
 
 1. requires explicit `-AcknowledgeFinalAcceptance` and a bounded non-secret operator identity;
 2. never changes a gate from FAIL to PASS;
-3. restricts closure summary output to a relative in-root path;
+3. restricts closure summary output to a relative path under the evidence-pack root;
 4. creates and validates a prospective finalized copy against all exact 15 SHA-bound gates before authoritative mutation;
 5. re-hashes the authoritative pack to detect concurrent mutation;
 6. atomically commits only `acceptedBy` / `acceptedAtUtc`;
@@ -82,6 +84,20 @@ Repository candidate evidence is **not** production acceptance. It does not repl
 8. restores the original unaccepted pack if final authoritative validation unexpectedly fails;
 9. refuses existing acceptance metadata, existing closure summary, unsafe paths and re-finalization;
 10. has no IIS deployment/recycle, SQL execution, GitHub API call or issue-closing authority.
+
+### Active hardening #150 — immutable acceptance session
+
+`New-ProductionAcceptanceSession.ps1` must make the last pre-cutover setup deterministic without manufacturing production evidence:
+
+1. require a fresh absolute Windows session root and reject root/traversal/reuse;
+2. verify exact candidate filename/version, matching checksum contract, actual artifact SHA-256 and readable non-empty ZIP before creating the session;
+3. validate non-secret production metadata through the existing evidence-pack contract;
+4. atomically create a candidate-bound workspace and copy the exact artifact/checksum into `candidate/`;
+5. invoke the canonical 15-gate generator and verify all 15 gates remain false with no final acceptance metadata;
+6. write a bounded non-secret `session-manifest.json`, `session-manifest.sha256` and deterministic operator-next-steps file;
+7. create `evidence/proof/` as the bounded authoritative proof root;
+8. never deploy/recycle IIS, execute SQL, record a gate PASS, finalize acceptance, call GitHub or close #116/#111;
+9. parse and execute positive/negative runtime cases in Windows production-candidate CI and package the initializer in `_operations`.
 
 ### P0.5 execution order
 
@@ -95,20 +111,22 @@ Repository candidate evidence is **not** production acceptance. It does not repl
 | P0-046 | Run health smoke on deployed HTTPS endpoint | CI HTTPS VERIFIED; acceptance tooling READY; **IIS endpoint pending external** |
 | P0-047 | Prove target remains read-only/least-privilege from deployed application identity | P0.4 prerequisite VERIFIED; **external deployment evidence pending** |
 | P0-048 | Create/validate backup and rehearse rollback/recovery | code/unit/tooling VERIFIED; **production rehearsal pending external** |
-| P0-049 | Versioned artifact/checksum + deterministic evidence/finalization workflow | **COMPLETE — repository/CI; RC.43 verified** |
+| P0-049 | Versioned artifact/checksum + deterministic evidence/finalization workflow | **COMPLETE — repository/CI; RC.43 verified; #150 additional session hardening ACTIVE** |
 | P0-050 | Final real-environment 15/15 acceptance and #111 closure | **PENDING EXTERNAL** |
 
-### Immediate next actions — external cutover only
+### Immediate next actions
 
-1. Preserve RC.43 filename/hash/source/tested merge evidence from #116 and create/validate the pre-cutover operational backup.
-2. On the intended Windows/IIS host, run packaged IIS preflight and retain bounded non-secret evidence.
-3. Review `Deploy-ProductionSingleNode.ps1` in PLAN ONLY mode, then perform the approved cutover with explicit `-Apply`.
-4. Prove trusted HTTPS health/authentication and the approved least-privilege monitored SQL path.
-5. Recycle IIS and prove registration, protected credential and operational-state durability.
-6. Rehearse rollback/recovery and repeat health/auth/read checks.
-7. Record each real gate with `Set-ProductionAcceptanceGate.ps1` and SHA-bound non-secret evidence.
-8. After real 15/15, run `Complete-ProductionAcceptance.ps1` with the approved operator identity and explicit final acknowledgement; retain the closure summary.
-9. Human-review the real closure evidence. Only then may #116 close; #111 closes only after #116.
+1. Finish #150 / PR #151 with traversal-safe path validation, runtime negative cases, canonical docs and all three PR gates Green.
+2. Keep #116 as the live selected candidate/evidence source; do not promote a later RC without equivalent normal CI + Real SQL + Windows candidate gates.
+3. On the intended Windows/IIS host, preserve the selected artifact/hash and create/validate the pre-cutover operational backup.
+4. Start the real cutover by creating one immutable candidate-bound acceptance session and verify its manifest lock and `PreparedFailClosed` / 0-of-15 state.
+5. Run packaged IIS preflight, review PLAN ONLY deploy output, then cut over with explicit `-Apply`.
+6. Prove trusted HTTPS health/authentication and the approved least-privilege monitored SQL path.
+7. Recycle IIS and prove registration, protected credential and operational-state durability.
+8. Rehearse rollback/recovery and repeat health/auth/read checks.
+9. Record each real gate with `Set-ProductionAcceptanceGate.ps1` and SHA-bound non-secret evidence from the same session.
+10. After real 15/15, run `Complete-ProductionAcceptance.ps1` with the approved operator identity and explicit final acknowledgement; retain the closure summary.
+11. Human-review the real closure evidence. Only then may #116 close; #111 closes only after #116.
 
 ## Verified foundation
 
@@ -145,7 +163,7 @@ Historical feature breadth remains available, but it does not outrank the remain
 - Suppression does not rewrite incident evidence.
 - Maintenance changes scheduled collection behavior only; manual refresh remains explicit/audited.
 - MultiNode remains fail-closed and deferred until after stable SingleNode production acceptance.
-- Repository CI/synthetic evidence/finalizer validation cannot close #116.
+- Repository CI/synthetic evidence/session/finalizer validation cannot close #116.
 
 ## Definition of done
 
