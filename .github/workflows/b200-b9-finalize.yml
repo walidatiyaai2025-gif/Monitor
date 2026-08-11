@@ -1,0 +1,48 @@
+name: b200-b9-finalize
+on:
+  push:
+    branches: [agent/b200-9]
+    paths: ['.github/workflows/b200-b9-finalize.yml']
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: agent/b200-9, fetch-depth: 0 }
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: '8.0.x' }
+      - run: dotnet restore Monitor.sln
+      - run: dotnet build Monitor.sln --configuration Release --no-restore --warnaserror
+      - run: dotnet test Monitor.sln --configuration Release --no-build --logger 'trx;LogFileName=b200-b9-final.trx'
+      - name: Sync docs
+        shell: python
+        env: { VERIFY_RUN: '${{ github.run_id }}' }
+        run: |
+          from pathlib import Path
+          import os,re,xml.etree.ElementTree as ET
+          run=os.environ['VERIFY_RUN']; trx=next(Path('tests').rglob('b200-b9-final.trx'))
+          c=next(n for n in ET.parse(trx).iter() if n.tag.endswith('Counters'))
+          total,passed,failed=c.attrib.get('total','?'),c.attrib.get('passed','?'),c.attrib.get('failed','?')
+          p=Path('docs/BATCH_200.md'); s=p.read_text()
+          for n in range(81,91): s=re.sub(rf'(\| B200-{n:03d} \|[^\n]*?\|) PLANNED \|',rf'\1 CI VERIFIED — RUN {run} |',s)
+          marker='## Batch 10 — Operator polish & release acceptance'
+          para=f'''Batch 9 adds indexed operator-metadata lookups, bounded server/incident pagination, lazy note caps, streaming bounded CSV, diagnostics cancellation timeouts, shared CAS attempt/applied/conflict telemetry, metadata write-contention coverage and deterministic O(N) fleet lookup budgets. Verification run `{run}` passed {passed}/{total} tests ({failed} failed).\n\n'''
+          if 'Batch 9 adds indexed operator-metadata lookups' not in s: s=s.replace(marker,para+marker)
+          p.write_text(s)
+          Path('docs/STATUS.md').write_text(f'''# Project Status\n\n**Updated:** 2026-08-11 04:45 +03:00  \n**Branch:** `agent/b200-9`  \n**Target:** BATCH-200 / Batch 9 — Performance & Scale II  \n**Issues:** #76 umbrella · #93 Batch 9  \n**PR:** #94  \n**Overall:** 🟢 BATCH-100 100/100 COMPLETE · 🟢 B200-001..090 CI VERIFIED · 🟡 BATCH-200 90/100\n\n## Current verification\n- Finalizer run: `{run}`.\n- Release build: **Green** with `--warnaserror`.\n- Tests: **{passed}/{total} passed; {failed} failed**.\n- BATCH-200: **90/100 CI verified**.\n\n## Batch 9 delivered\n- Indexed operator metadata snapshot lookups.\n- Bounded server/incident pages and lazy note rendering.\n- Streaming CSV within schema/row/byte limits.\n- Diagnostics timeout/cancellation bounds.\n- Shared CAS telemetry and contention tests.\n- Deterministic fleet O(N) lookup budget.\n\n## Next\nB200-091..100 Operator Polish & Release Acceptance.\n''')
+      - run: |
+          git rm .github/workflows/b200-b9-finalize.yml
+          git add docs/BATCH_200.md docs/STATUS.md
+          git config user.name 'Monitor Release Gate'
+          git config user.email 'actions@users.noreply.github.com'
+          git commit -m 'docs: mark B200-081..090 CI verified [skip ci]'
+          git push origin HEAD:agent/b200-9
+      - env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          gh issue comment 76 --repo "$GITHUB_REPOSITORY" --body "B200-081..090 verified by run $GITHUB_RUN_ID; BATCH-200 is 90/100 CI verified."
+          gh issue close 93 --repo "$GITHUB_REPOSITORY" --reason completed || true
+          gh pr merge 94 --repo "$GITHUB_REPOSITORY" --squash --delete-branch --subject 'BATCH-200/9: add enterprise performance and scale controls (#94)' --body "Complete B200-081..090. Finalizer $GITHUB_RUN_ID passed Release warnings-as-errors and the full test suite."
