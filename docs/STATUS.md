@@ -1,33 +1,33 @@
 # Project Status
 
-**Updated:** 2026-08-11 09:19 +03:00  
-**Branch:** `agent/b200-reconcile`  
-**Target:** BATCH-200 baseline reconciliation before BATCH-300  
-**Issues:** #99 reconciliation · #101 BATCH-300  
-**Overall:** 🟢 M0–M8 VERIFIED · 🟢 BATCH-100 COMPLETE · 🟡 BATCH-200 reconciliation PR pending · ⚪ BATCH-300 0/100
+**Updated:** 2026-08-11 09:35 +03:00  
+**Branch:** `agent/b300-10-rc`  
+**Target:** BATCH-300 — final verification and merge gates  
+**Issues:** #99 BATCH-200 reconciliation · #101 BATCH-300  
+**Overall:** 🟢 M0–M8 VERIFIED · 🟢 BATCH-100 COMPLETE · 🟢 BATCH-200 code reconciled/tested · 🟡 BATCH-300 100/100 IMPLEMENTED / CI-MERGE PENDING
 
-## Reconciliation verification
+## BATCH-200 reconciliation
 
-- GitHub Actions reconciliation run: `31464529775`.
-- Release build: **Green — 0 warnings / 0 errors** with `--warnaserror`.
-- Tests: **327/327 passed; 0 failed**.
-- Restored code that had remained only on B200-6/B200-8/B200-9 branches: retention governance, enterprise security hardening and enterprise scale primitives.
-- Governance prune receipts now affect collaboration projections; secure download/text/route policies are wired into enterprise endpoints; diagnostics are time-bounded.
-- The reconciliation is a baseline correction and is **not counted** toward BATCH-300.
+- Reconciliation implementation run `31464529775`: Release build **0 warnings / 0 errors**, **327/327 tests passed**.
+- Clean reconciliation PR #104 final CI run `31465075832`: **Green**.
+- This baseline correction is not counted in BATCH-300 task accounting.
 
-## BATCH-300
+## BATCH-300 implementation
 
 - Umbrella issue: #101.
 - Scope: **100 new code tasks** B300-001..100.
-- Delivery rule: production code + mapped acceptance test + Release build/full tests + PR CI + squash merge before a task range is considered closed.
+- B300-001..100: **IMPLEMENTED** in the stacked RC branch.
+- Batch 1 risk-scoring implementation run `31464985485`: **Green**.
+- Remaining batch/full-suite verification is in progress; no task is marked CLOSED until its verified tree reaches stable `main`.
+- New production surfaces include deterministic DBA risk scoring, bounded trend/baseline analysis, incident prioritization, durable notification outbox primitives, change calendar/freeze policy, capacity/compliance models, estate lifecycle inventory, versioned DBA read APIs, runtime SLO observability, and the read-only DBA Intelligence dashboard.
 
 ## Stable guardrails
 
-- Navigation, reporting, diagnostics, fleet, help, readiness and new BATCH-300 read models do not initiate monitored-SQL collection.
+- DBA dashboard and read APIs use registrations, cache `Peek`, Monitor history, incidents and operator metadata only; opening them does not initiate monitored-SQL collection.
 - No browser connects directly to monitored SQL.
-- No autonomous remediation or AI SQL execution.
-- Credentials/full connection strings/raw provider errors/SQL text remain outside UI, audit, exports and diagnostics.
+- No autonomous remediation or executable SQL is introduced.
+- Credentials/full connection strings/raw provider errors/SQL text remain outside UI, API, audit, exports and diagnostics.
 - Suppression does not rewrite incident evidence.
-- Maintenance affects scheduled collection only; manual refresh is explicit and audited.
-- Mutations remain POST + antiforgery + named authorization policy.
+- Maintenance affects scheduled collection only; manual refresh remains explicit and audited.
+- Mutations remain bounded and protected by existing authorization/audit controls.
 - MultiNode remains fail-closed behind shared-state/security/credential readiness.
