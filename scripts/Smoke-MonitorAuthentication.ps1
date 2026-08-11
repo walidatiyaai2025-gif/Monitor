@@ -12,11 +12,14 @@ param(
     [ValidateRange(1, 60)]
     [int]$TimeoutSeconds = 10,
 
-    [switch]$AllowHttpLoopback
+    [switch]$AllowHttpLoopback,
+
+    [switch]$AllowUntrustedLoopbackCertificate
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+$loopbackHosts = @('localhost', '127.0.0.1', '::1')
 
 function Assert-SafeBaseUri {
     param([Uri]$Uri)
@@ -25,11 +28,14 @@ function Assert-SafeBaseUri {
         throw 'BaseUri must be an absolute URI.'
     }
 
+    if ($AllowUntrustedLoopbackCertificate -and ($Uri.Scheme -ne 'https' -or $loopbackHosts -notcontains $Uri.Host)) {
+        throw '-AllowUntrustedLoopbackCertificate is permitted only for HTTPS loopback targets.'
+    }
+
     if ($Uri.Scheme -eq 'https') {
         return
     }
 
-    $loopbackHosts = @('localhost', '127.0.0.1', '::1')
     if ($AllowHttpLoopback -and $Uri.Scheme -eq 'http' -and $loopbackHosts -contains $Uri.Host) {
         return
     }
@@ -37,16 +43,26 @@ function Assert-SafeBaseUri {
     throw 'Authentication smoke requires HTTPS. HTTP is allowed only for explicit loopback checks with -AllowHttpLoopback.'
 }
 
+function Invoke-SafeWebRequest {
+    param([hashtable]$Parameters)
+
+    if ($AllowUntrustedLoopbackCertificate) {
+        $Parameters.SkipCertificateCheck = $true
+    }
+    Invoke-WebRequest @Parameters
+}
+
 Assert-SafeBaseUri -Uri $BaseUri
 
 $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
 $loginUri = [Uri]::new($BaseUri, '/login')
-$loginPage = Invoke-WebRequest `
-    -Uri $loginUri `
-    -Method Get `
-    -WebSession $session `
-    -TimeoutSec $TimeoutSeconds `
-    -UseBasicParsing
+$loginPage = Invoke-SafeWebRequest -Parameters @{
+    Uri = $loginUri
+    Method = 'Get'
+    WebSession = $session
+    TimeoutSec = $TimeoutSeconds
+    UseBasicParsing = $true
+}
 
 if ($loginPage.StatusCode -ne 200) {
     throw 'Authentication smoke could not load the login page.'
@@ -67,14 +83,15 @@ $form = @{
 }
 
 try {
-    Invoke-WebRequest `
-        -Uri $loginUri `
-        -Method Post `
-        -Body $form `
-        -ContentType 'application/x-www-form-urlencoded' `
-        -WebSession $session `
-        -TimeoutSec $TimeoutSeconds `
-        -UseBasicParsing | Out-Null
+    Invoke-SafeWebRequest -Parameters @{
+        Uri = $loginUri
+        Method = 'Post'
+        Body = $form
+        ContentType = 'application/x-www-form-urlencoded'
+        WebSession = $session
+        TimeoutSec = $TimeoutSeconds
+        UseBasicParsing = $true
+    } | Out-Null
 }
 catch {
     throw 'Authentication smoke login request failed.'
@@ -82,14 +99,15 @@ catch {
 
 $protectedUri = [Uri]::new($BaseUri, '/servers/connections')
 try {
-    $protected = Invoke-WebRequest `
-        -Uri $protectedUri `
-        -Method Get `
-        -WebSession $session `
-        -TimeoutSec $TimeoutSeconds `
-        -MaximumRedirection 0 `
-        -SkipHttpErrorCheck `
-        -UseBasicParsing
+    $protected = Invoke-SafeWebRequest -Parameters @{
+        Uri = $protectedUri
+        Method = 'Get'
+        WebSession = $session
+        TimeoutSec = $TimeoutSeconds
+        MaximumRedirection = 0
+        SkipHttpErrorCheck = $true
+        UseBasicParsing = $true
+    }
 }
 catch {
     throw 'Authentication smoke could not verify the protected operator route.'
