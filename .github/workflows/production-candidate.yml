@@ -19,6 +19,7 @@ on:
       - 'scripts/Test-ProductionCandidate.ps1'
       - 'src/Monitor.Web/**'
       - 'tests/Monitor.Web.Tests/ProductionAdminCredentialGuardTests.cs'
+      - 'tests/Monitor.Web.Tests/P05ProductionCandidateTests.cs'
 
 permissions:
   contents: read
@@ -47,6 +48,9 @@ jobs:
       - name: Full test suite
         run: dotnet test Monitor.sln --configuration Release --no-build
 
+      - name: Restore Windows x64 runtime graph
+        run: dotnet restore src/Monitor.Web/Monitor.Web.csproj --runtime win-x64
+
       - name: Publish Windows x64 candidate
         shell: pwsh
         run: |
@@ -54,9 +58,10 @@ jobs:
           New-Item -ItemType Directory -Force -Path artifacts | Out-Null
           dotnet publish src/Monitor.Web/Monitor.Web.csproj `
             --configuration Release `
-            --no-build `
+            --no-restore `
             --runtime win-x64 `
             --self-contained false `
+            /p:TreatWarningsAsErrors=true `
             /p:Version="$env:CANDIDATE_VERSION" `
             --output artifacts/publish
 
@@ -173,7 +178,8 @@ jobs:
             schemaVersion = 1
             product = 'Monitor'
             version = $env:CANDIDATE_VERSION
-            sourceSha = '${{ github.sha }}'
+            testedMergeSha = '${{ github.sha }}'
+            sourceHeadSha = '${{ github.event.pull_request.head.sha || github.sha }}'
             runtime = 'win-x64'
             framework = 'net8.0'
             deploymentMode = 'SingleNode'
