@@ -2,13 +2,14 @@
 
 ## BATCH-400 — Production DBA diagnostics continuation
 
-- Issue #108 tracks **100 additional code tasks B400-011..110**, preserving the portal/typography work already merged by PR #107 as B400-001..010.
+- Issue #108 delivered **100 additional code tasks B400-011..110**, preserving the portal/typography work already merged by PR #107 as B400-001..010.
 - Added deterministic wait-stat intelligence, query-regression scoring, TempDB pressure, transaction-log health, I/O latency, SQL Agent reliability, HA readiness, maintenance decision safety and fleet signal correlation.
 - Added the Read-policy-protected `/intelligence/v2/contract` endpoint and a fail-closed 100-task continuation release contract.
-- Clean implementation CI on top of PR #107: `31467831498`.
-- Release build: **0 warnings / 0 errors** with `--warnaserror`.
-- Full regression suite: **498/498 passed; 0 failed**.
-- B400-011..110: **CI VERIFIED** with 100 mapped acceptance tests; final closure requires PR CI and squash merge.
+- Clean implementation CI on top of PR #107: `31467831498` — Release build **0 warnings / 0 errors**, **498/498 tests passed**.
+- Final PR CI on merge ref: `31468048589` — Release build **0 warnings / 0 errors**, **498/498 tests passed**.
+- PR #109: **squash-merged** to `main` as `9345c4ca8b67e617a9aa9580bbb481819e5babb7`.
+- Issue #108: **closed — completed**.
+- B400-011..110: **100/100 COMPLETE** with 100 mapped acceptance tests.
 
 ## BATCH-400 — Portal completion and Google typography
 
@@ -22,11 +23,11 @@
 - Local verification: Release build **0 warnings / 0 errors**, **398/398 tests passed**, desktop and 390px browser acceptance passed with no console warnings/errors.
 - State: **MERGED — PR #107**.
 
-**Updated:** 2026-08-11 10:10 +03:00  
-**Branch:** `agent/b400-diagnostics-v2`  
-**Target:** BATCH-400 — B400-011..110 final PR gate  
-**Issue:** #108  
-**Overall:** 🟢 M0–M8 VERIFIED · 🟢 BATCH-100 100/100 COMPLETE · 🟢 BATCH-200 100/100 COMPLETE · 🟢 BATCH-300 100/100 COMPLETE · 🟡 BATCH-400 B400-011..110 CI VERIFIED / MERGE PENDING
+**Updated:** 2026-08-11 10:15 +03:00  
+**Branch:** `main`  
+**Target:** BATCH-400 — Production DBA Diagnostics & Decision Safety COMPLETE  
+**Issues:** #108 CLOSED · **PR:** #109 MERGED  
+**Overall:** 🟢 M0–M8 VERIFIED · 🟢 BATCH-100 100/100 COMPLETE · 🟢 BATCH-200 100/100 COMPLETE · 🟢 BATCH-300 100/100 COMPLETE · 🟢 BATCH-400 B400-001..110 COMPLETE
 
 ## BATCH-300 final verification
 
