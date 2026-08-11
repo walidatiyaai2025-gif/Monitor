@@ -12,6 +12,7 @@ on:
       - 'src/Monitor.Web/Services/SqlConnectionTester.cs'
       - 'src/Monitor.Web/Services/SqlServerSnapshotCollector.cs'
       - 'tests/Monitor.Web.Tests/RealSqlAcceptanceTests.cs'
+      - 'tests/Monitor.Web.Tests/SqlConnectionTesterTests.cs'
 
 permissions:
   contents: read
@@ -72,6 +73,25 @@ jobs:
             sleep 2
           done
           echo "SQL Server did not become ready." >&2
+          docker logs "$SQL_CONTAINER" 2>&1 | tail -n 200 >&2
+          exit 1
+
+      - name: Wait for SQL Server Agent readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 30); do
+            STATUS=$(docker exec "$SQL_CONTAINER" /opt/mssql-tools18/bin/sqlcmd \
+              -S localhost -U sa -P "$SQL_SA_PASSWORD" -C -b -h -1 -W \
+              -Q "SET NOCOUNT ON; SELECT CASE WHEN EXISTS (SELECT 1 FROM sys.dm_server_services WHERE servicename LIKE 'SQL Server Agent%' AND status_desc = 'Running') THEN 1 ELSE 0 END;" \
+              2>/dev/null | tr -d '[:space:]' || true)
+            if [ "$STATUS" = "1" ]; then
+              echo "SQL Server Agent is running after $attempt attempt(s)."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "SQL Server Agent did not become ready." >&2
           docker logs "$SQL_CONTAINER" 2>&1 | tail -n 200 >&2
           exit 1
 
