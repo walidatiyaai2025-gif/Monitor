@@ -26,9 +26,9 @@
 - Production-candidate PR #126 merged as `d512ee156f07db566898a817f3c76dd3f46c1091`.
 - Candidate/docs reconciliation PR #128 merged as `564f7655a1001da98addd793a000a15d069a243a`.
 - Safe IIS SingleNode deployment automation merged on `main` as `7cb47945b47aab6558f7132dcfa818b9f02d2b20`.
-- Deployment automation adds read-only IIS preflight, plan-first/apply-gated versioned deployment, stable `App_Data`, automatic IIS `physicalPath` rollback, production PowerShell parse validation and operations-bundle tooling.
-- `7cb479...` merge evidence: normal CI `31487059992` Green; Windows production-candidate `31487060032` Green with 538/538 tests.
-- Final RC.20 candidate before deployment-automation continuation: `Monitor-0.1.0-rc.20-win-x64.zip`, SHA-256 `27743b8f3f162a43f8c1bb6b7b9d1977dc5d1c55e8a4664f0c84294b094150bc`, artifact ID `9099041392`.
+- Deployment automation includes read-only IIS preflight, plan-first/apply-gated versioned deployment, stable `App_Data`, automatic IIS `physicalPath` rollback, production PowerShell syntax validation and operations-bundle tooling.
+- `7cb479...` evidence: normal CI `31487059992` Green; Windows production-candidate `31487060032` Green with 538/538 tests.
+- BATCH-500 now adds a further fail-closed production-safety layer without claiming external acceptance.
 
 ### P0.5 task status
 
@@ -47,13 +47,13 @@
 
 ## BATCH-500 — Production Acceptance & Recovery Safety
 
-**Issue:** #130  
-**PR:** #131  
-**Branch:** `agent/b500-production-safety`  
+**Issue:** #130 — CLOSED / COMPLETED  
+**PR:** #131 — squash-merged  
+**Merge commit:** `9d27491a9739ba05b8c3df1da3eb2e5d435d5cf6`  
 **Task range:** B500-001..100  
-**State:** **100/100 IMPLEMENTED + CI VERIFIED; final docs-synchronized PR gate / squash merge pending.**
+**State:** **100/100 COMPLETE**.
 
-B500 adds deterministic fail-closed repository safety contracts for:
+B500 delivered deterministic fail-closed repository safety contracts for:
 
 - deployment evidence validation;
 - IIS configuration readiness;
@@ -66,19 +66,24 @@ B500 adds deterministic fail-closed repository safety contracts for:
 - evidence redaction/export safety;
 - versioned 100-task release contract.
 
-Verification on the implementation head merged virtually with current `main`:
+### Final exact-head merge evidence
 
-- normal CI `31488078873`: **Green**;
-- Release build: **0 warnings / 0 errors**;
-- full suite: **638/638 passed**;
-- Windows production-candidate `31488078882`: **Green end-to-end**;
-- Windows gate passed Release build, 638 tests, production PowerShell syntax checks, `win-x64` publish, secret-free validation, HTTPS health/auth, restart/auth recovery, package validation and artifact upload;
-- generated Windows artifact: `Monitor-0.1.0-rc.26-win-x64`, artifact ID `9099961916`;
-- exactly 100 mapped B500 tests: `B500_001..B500_100`;
-- Read-policy contract endpoint: `GET /production/v1/acceptance-contract`;
-- detailed ledger: `docs/BATCH_500.md`.
+All final gates tested PR #131 source head `10a072eaceb14f1aa8bc1f2070c65f26c5654ffd` on exact merge ref `8d2d580e7e43a47bd57f173d783111b885f28416` against then-current `main` `7cb47945b47aab6558f7132dcfa818b9f02d2b20`.
 
-**B500 does not close P0.5.** Its release gate explicitly rejects a repository/CI claim that external IIS acceptance already occurred. #116 and #111 remain open until the real environment evidence is PASS.
+- Normal CI `31488431712`: **Green**.
+- Release build: **0 warnings / 0 errors**.
+- Full suite: **638/638 passed**, 0 failed, 0 skipped.
+- Real SQL `31488431709`: **Green**, SQL Server 2022, SQL Agent operational readiness, non-sysadmin least-privilege login, **8/8 RealSql passed**.
+- Windows production-candidate `31488431693`: **Green end-to-end** on Windows Server 2025 with **638/638 tests passed**.
+- Windows gate passed production PowerShell syntax checks, `win-x64` publish, secret-free validation, HTTPS health/authentication before and after restart, package validation and artifact upload.
+- Final tested candidate: `Monitor-0.1.0-rc.28-win-x64.zip`.
+- Product ZIP SHA-256: `70d74dafe585959e32cc98b0daef82809abe857b25d37d07fd320c4faf740b70`.
+- GitHub Actions artifact ID: `9100092563`.
+- Exactly 100 mapped B500 tests: `B500_001..B500_100`.
+- Read-policy contract endpoint: `GET /production/v1/acceptance-contract`.
+- Detailed task ledger: `docs/BATCH_500.md`.
+
+**BATCH-500 does not close P0.5.** Its release contract explicitly rejects a repository/CI claim that external IIS acceptance already occurred. #116 was kept/reopened and #111 remains open until the real environment evidence is PASS.
 
 ## BATCH-400 — Production DBA diagnostics + portal completion
 
@@ -95,7 +100,8 @@ Verification on the implementation head merged virtually with current `main`:
 - BATCH-200: B200-001..100 COMPLETE; final CI `31446970475`, 290/290.
 - BATCH-300: B300-001..100 COMPLETE; PR #102 merged as `385c2ee7a4d592c1e32e6e00a5c533c8790963b6`; reconciled CI `31465013971`, 395/395.
 - BATCH-400: B400-001..110 COMPLETE.
-- BATCH-500: B500-001..100 IMPLEMENTED + CI VERIFIED; PR #131 merge pending.
+- BATCH-500: B500-001..100 COMPLETE; PR #131 merged as `9d27491a9739ba05b8c3df1da3eb2e5d435d5cf6`; final gates normal `31488431712` 638/638, Real SQL `31488431709` 8/8, Windows `31488431693` 638/638.
+- Total completed batch task IDs across B100+B200+B300+B400+B500: **510**.
 
 ## Stable guardrails
 
@@ -109,4 +115,4 @@ Verification on the implementation head merged virtually with current `main`:
 - MultiNode remains fail-closed and deferred until after stable SingleNode production acceptance.
 - Concurrent team work must be preserved; external P0.5 acceptance cannot be inferred from CI.
 
-**Overall:** 🟢 verified foundation · 🟢 P0.1–P0.4 COMPLETE · 🟢 P0.5 repository automation ready · 🟢 BATCH-500 100/100 CI VERIFIED · 🟡 B500 final merge pending · 🟡 external IIS/HTTPS acceptance pending · 🔴 production acceptance not yet granted
+**Overall:** 🟢 verified foundation · 🟢 P0.1–P0.4 COMPLETE · 🟢 P0.5 repository automation ready · 🟢 BATCH-500 100/100 COMPLETE · 🟡 external IIS/HTTPS acceptance pending · 🔴 production acceptance not yet granted
