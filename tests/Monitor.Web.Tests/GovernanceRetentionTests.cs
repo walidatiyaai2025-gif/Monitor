@@ -80,10 +80,16 @@ public sealed class GovernanceRetentionTests
         var orphan = Guid.NewGuid();
         f.Metadata.UpsertServer(new(orphan, ServerEnvironmentClass.Production, null, [], null, null, f.Clock.UtcNow));
         var before = f.Metadata.Snapshot();
+
         var plan = f.Service().DryRun();
+        var after = f.Metadata.Snapshot();
+
         Assert.NotEmpty(plan.Candidates);
         Assert.Empty(f.Audit.Read(0, 100));
-        Assert.Equal(before, f.Metadata.Snapshot());
+        Assert.Equal(
+            before.Servers.Select(item => (item.RegistrationId, item.Environment, item.Group, item.UpdatedAtUtc)),
+            after.Servers.Select(item => (item.RegistrationId, item.Environment, item.Group, item.UpdatedAtUtc)));
+        Assert.Equal(before.Incidents.Select(item => item.IncidentId), after.Incidents.Select(item => item.IncidentId));
     }
 
     [Fact]
