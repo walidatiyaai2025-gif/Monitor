@@ -31,15 +31,14 @@
 - BATCH-600 added live operator readiness/evidence orchestration while preserving the same external-acceptance boundary.
 - P0.5 Issue #141 is **CLOSED / COMPLETED**. PR #142 squash-merged to `main` as `5ee5431cce26e875d80a4cfb623553f762c8a161` and ships a machine-verifiable external acceptance evidence pack plus fail-closed closure validator.
 - The evidence-pack generator creates exactly 15 required external gates with every gate `false`; it cannot create a completed acceptance. The validator requires exact gate/property sets, UTC timestamps, relative evidence files, matching SHA-256, exact SingleNode candidate/environment metadata, operator acceptance metadata and secret-safe evidence before producing a PASS closure summary.
-- Final synchronized PR #142 evidence tested source head `a6844da6f9e77f9842075ff815681f35aa006908` on exact merge ref `34461998c22c8c1f80158d99de9ecb670622e632` against then-current `main` `fb5109e19fe6c1475dbeaf7af1a9406156e1511c`.
-- Normal CI `31527104922`: **Green**; Release build/test gate Green.
-- Real SQL `31527104916`: **Green**, SQL Server 2022 + SQL Agent operational readiness, non-sysadmin least-privilege login, **8/8 RealSql passed**, Release **0 warnings / 0 errors**.
-- Windows production-candidate `31527104897`: **Green end-to-end**, Release **0 warnings / 0 errors**, **746/746 tests passed**, production PowerShell parser Green, synthetic **15/15 evidence closure PASS**, false-gate/tampered-hash/secret-bearing negative packs rejected, HTTPS health/authentication passed before and after restart, package validation and upload Green.
-- Current selected repository-verified cutover candidate: `Monitor-0.1.0-rc.39-win-x64.zip`; product SHA-256 `5e354bc0cf8b5935b078f1cacc5b7f06f2c5226fe58228a92f050376f382c1cb`; Actions artifact ID `9115424834`.
-- RC.39 `_operations` includes `production-acceptance-evidence.example.json`, `New-ProductionAcceptanceEvidencePack.ps1`, and `Test-ProductionAcceptanceEvidence.ps1` in addition to IIS preflight/deploy/acceptance/smoke and rollback tooling.
-- P0.5 Issue #144 is **IN PROGRESS** on `agent/p0-5-gate-recorder`: add `Set-ProductionAcceptanceGate.ps1` so an operator can record one of the exact 15 gates without hand-editing JSON. It requires explicit `-AcknowledgePass`, SHA-256-binds a relative in-root evidence file, rejects unsafe evidence/closed packs/implicit overwrites, changes only the named gate, and never produces a closure summary or final acceptance metadata.
-- PR/CI for #144 remains required before this recorder becomes part of the selected cutover candidate. No external IIS gate is implied by this repository work.
-- **#116 and #111 remain OPEN until the real trusted-certificate Windows/IIS SingleNode target produces a valid 15/15 external evidence pack and closure summary.**
+- Final synchronized PR #142 evidence tested source head `a6844da6f9e77f9842075ff815681f35aa006908` on exact merge ref `34461998c22c8c1f80158d99de9ecb670622e632`; normal CI `31527104922` Green, Real SQL `31527104916` Green 8/8, Windows candidate `31527104897` Green with 746/746 tests.
+- P0.5 Issue #144 is **CLOSED / COMPLETED**. PR #145 squash-merged to `main` as `8a548c984c62b904a184e54415ea7bf491dc78fb` and adds `Set-ProductionAcceptanceGate.ps1`, eliminating manual per-gate JSON edits during external cutover while retaining explicit operator control.
+- PR #145 exact implementation evidence: source head `4ca5071e20ff29e0b5cb92e941137a651c369743`; tested merge ref `c6a7aed31f9086414aa10b9239da526af493dda5`; normal CI `31534154666` Green; Real SQL `31534154685` Green with 8/8; Windows production-candidate `31534154674` Green end-to-end with Release 0 warnings / 0 errors and **753/753 tests passed**.
+- The Windows gate parsed and executed the recorder, rejected missing acknowledgement, traversal evidence, secret-bearing evidence and duplicate PASS, recorded all exact 15 gates through the recorder, and then verified synthetic **15/15 evidence closure PASS** through `Test-ProductionAcceptanceEvidence.ps1`.
+- Current selected repository-verified cutover candidate: `Monitor-0.1.0-rc.41-win-x64.zip`; product SHA-256 `0017e29ad2d88f5adbb2a7da2bca51fa5fb62f4f88c2c3984795c4eee6f6c1c2`; Actions artifact ID `9118116181`.
+- RC.41 `_operations` includes the evidence-pack template, fail-closed generator, explicit one-gate recorder, closure validator, IIS preflight/deploy/acceptance/smoke tooling and rollback runbooks.
+- The recorder accepts only the exact 15 gates, requires explicit `-AcknowledgePass`, SHA-256-binds a relative in-root evidence file, rejects unsafe evidence/accepted packs/implicit overwrites, changes only the named gate, and never produces a closure summary or final acceptance metadata.
+- **Repository-side P0.5 deployment/evidence tooling is complete. No external IIS gate is implied by CI. #116 and #111 remain OPEN until the real trusted-certificate Windows/IIS SingleNode target produces a valid 15/15 external evidence pack and closure summary.**
 
 ### P0.5 task status
 
@@ -53,7 +52,7 @@
 | P0-046 deployment health smoke | CI HTTPS VERIFIED; tooling READY; **real IIS endpoint pending external** |
 | P0-047 least-privilege monitored target | P0.4 prerequisite VERIFIED; **deployed IIS identity/target pending external** |
 | P0-048 backup + rollback/recovery | code/unit/tooling VERIFIED; **production rehearsal pending external** |
-| P0-049 versioned artifact/checksum/evidence | **REPOSITORY/CI COMPLETE**; RC.39 + 15-gate closure tooling VERIFIED; explicit recorder #144 IN PROGRESS |
+| P0-049 versioned artifact/checksum/evidence | **REPOSITORY/CI COMPLETE**; RC.41 + generator + recorder + 15-gate closure tooling VERIFIED |
 | P0-050 final production acceptance | **PENDING EXTERNAL** |
 
 ## BATCH-600 — Live Operator Readiness & Evidence Orchestration
@@ -117,4 +116,4 @@ B600 delivered deterministic fail-closed repository orchestration for evidence f
 - MultiNode remains fail-closed and deferred until after stable SingleNode production acceptance.
 - Concurrent team work must be preserved; external P0.5 acceptance cannot be inferred from CI.
 
-**Overall:** 🟢 verified foundation · 🟢 P0.1–P0.4 COMPLETE · 🟢 P0.5 repository automation/evidence pack VERIFIED · 🟢 BATCH-500 100/100 COMPLETE · 🟢 BATCH-600 100/100 COMPLETE · 🟢 #141 COMPLETE · 🟡 #144 gate recorder IN PROGRESS · 🟡 external IIS/HTTPS 15-gate acceptance pending · 🔴 production acceptance not yet granted
+**Overall:** 🟢 verified foundation · 🟢 P0.1–P0.4 COMPLETE · 🟢 P0.5 repository deployment/evidence tooling COMPLETE · 🟢 BATCH-500 100/100 COMPLETE · 🟢 BATCH-600 100/100 COMPLETE · 🟢 #141 COMPLETE · 🟢 #144 COMPLETE · 🟡 external IIS/HTTPS 15-gate acceptance pending · 🔴 production acceptance not yet granted
