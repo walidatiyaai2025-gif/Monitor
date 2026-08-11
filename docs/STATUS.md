@@ -2,37 +2,40 @@
 
 ## CURRENT P0 — Real SQL Production MVP
 
-**Updated:** 2026-08-11 12:10 +03:00  
-**Branch:** `agent/p0-1-registration-production-safe`  
+**Updated:** 2026-08-11 12:16 +03:00  
+**Branch:** `main`  
 **Umbrella:** #111  
 **Execution ledger:** `docs/PRODUCTION_MVP.md`  
 **Priority PR:** #117 MERGED — `3674b370ca485c8fd86639f82f2a22e32bd2dacc`  
 **Priority-plan CI:** `31474556468` — Green  
-**P0.1 implementation PR:** #119  
+**P0.1 implementation PR:** #119 MERGED — `57ab5cae6b5bdd3a04adb5069008aae80a1f84e0`  
 **P0.1 implementation CI:** `31476430643` — Release build 0 warnings / 0 errors; **501/501 tests passed**  
-**Active next gate after #119 merge:** #113 / P0.2 First Real Snapshot + Truthful Mapping  
-**Production target:** first trustworthy IIS/HTTPS SingleNode release after #112 -> #113 -> #114 -> #115 -> #116.
+**P0.1 final code+docs CI:** `31476747212` — Release build 0 warnings / 0 errors; **501/501 tests passed**  
+**Active next gate:** #113 / P0.2 First Real Snapshot + Truthful Mapping  
+**Production target:** first trustworthy IIS/HTTPS SingleNode release after #113 -> #114 -> #115 -> #116.
 
-### P0.1 sprint result
+### P0.1 sprint result — COMPLETE
 
-- Initial SQL registration now tests the candidate before durable registration commit; failed authentication/network/TLS-style safe test results no longer leave a normal enabled target as a side effect.
+- Initial SQL registration now tests the candidate before durable registration commit; failed safe connection tests no longer leave a normal enabled target as a side effect.
 - A newly-created Monitor-owned credential is compensated on failed/cancelled initial Test Connection and on durable-registration commit failure.
 - External secret references are not mutated by failed initial registration.
 - SQL passwords remain write-only and are cleared from failed/cancelled controller flows.
 - Integrated Security continues without creating a credential reference.
 - Successful Test Connection commits the registration before first snapshot publication; a later snapshot-permission failure retains the successfully connected durable target and reports monitoring-data unavailability explicitly.
 - Existing durable registration tests prove restart reload; protected secret-store tests prove encrypted credential resolution across store/key-ring restart without plaintext on disk.
-- New real-server-journey tests prove the repository is still empty while the candidate Test Connection executes, plus failure/cancellation cleanup and Integrated Security behavior.
+- New real-server-journey tests prove the repository is still empty while the candidate Test Connection executes, plus failure/cancellation cleanup, external-reference preservation and Integrated Security behavior.
 - Implementation CI `31476430643`: Release build **0 warnings / 0 errors**, **501/501 passed**, 0 failed, 0 skipped.
-- Final code+docs PR CI remains required before #119 is merged and #112 is closed.
+- Final code+docs CI `31476747212`: Release build **0 warnings / 0 errors**, **501/501 passed**, 0 failed, 0 skipped.
+- PR #119 squash-merged to `main` as `57ab5cae6b5bdd3a04adb5069008aae80a1f84e0`.
+- Issue #112 closed — completed.
 
 ### Management decision
 
 - The repository has a strong verified platform foundation, but the immediate delivery objective remains the end-to-end real SQL production journey rather than additional feature breadth.
 - Until P0.5 is accepted, production-slice blockers are higher priority than unrelated B300/B400 expansion.
 - A production-visible value must be backed by collected evidence. Missing/uncollected data is rendered explicitly; placeholder numeric zero is not acceptable as observed production data.
-- P0.1 registration ordering/credential-compensation blocker is resolved by PR #119 and CI `31476430643`.
-- Known P0.2 reconciliation remains: current `ServerCard` projection sets CPU to `0` although CPU is not collected by the current bounded snapshot contract, and collected SQL Agent evidence is not projected into the card used by Server Details. Issue #113 owns this fix.
+- P0.1 registration ordering/credential-compensation blocker is resolved and merged.
+- **P0.2 / #113 is now ACTIVE / NEXT.** Current `ServerCard` projection sets CPU to `0` although CPU is not collected by the bounded snapshot contract, and collected SQL Agent evidence is not projected into the card used by Server Details. These are the next production-trust blockers.
 - Real-server acceptance is mandatory in #115; deterministic/fake-based CI alone does not close the production gate.
 - First production deployment is deliberately SingleNode; MultiNode activation is deferred until after the first stable production release.
 
@@ -40,13 +43,13 @@
 
 | Order | Release | Issue | State |
 |---|---|---|---|
-| 1 | P0.1 Real SQL Registration | #112 | CI VERIFIED — PR #119 FINAL CI / MERGE PENDING |
-| 2 | P0.2 First Real Snapshot + truthful mapping | #113 | READY / NEXT AFTER #119 MERGE |
+| 1 | P0.1 Real SQL Registration | #112 | COMPLETE — PR #119 MERGED / FINAL CI GREEN |
+| 2 | P0.2 First Real Snapshot + truthful mapping | #113 | ACTIVE / NEXT |
 | 3 | P0.3 Server Details v0.1 source of truth | #114 | BLOCKED BY #113 |
 | 4 | P0.4 Real SQL end-to-end acceptance | #115 | BLOCKED BY #114 |
 | 5 | P0.5 First Production SingleNode | #116 | BLOCKED BY #115 |
 
-**Overall:** 🟢 verified foundation · 🟢 P0.1 implementation CI verified · 🟡 P0.2 next · 🔴 production acceptance not yet granted
+**Overall:** 🟢 verified foundation · 🟢 P0.1 COMPLETE · 🟡 P0.2 ACTIVE · 🔴 production acceptance not yet granted
 
 ## BATCH-400 — Production DBA diagnostics continuation
 
