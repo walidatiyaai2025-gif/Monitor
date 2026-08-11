@@ -80,7 +80,12 @@ public static class Batch600DependencyGraph
 
 public static class Batch600OperatorQueue
 {
-    public static string NormalizeAction(string? value) => new string((value ?? string.Empty).Trim().ToLowerInvariant().Where(ch => char.IsLetterOrDigit(ch) || ch is '-' or '_').Take(80).ToArray());
+    public static string NormalizeAction(string? value)
+    {
+        var normalized = (value ?? string.Empty).Trim().ToLowerInvariant();
+        var result = string.Join("-", normalized.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        return new string(result.Where(ch => char.IsLetterOrDigit(ch) || ch is '-' or '_').Take(80).ToArray());
+    }
     public static string NormalizeOwner(string? value) => new string((value ?? string.Empty).Trim().Where(ch => !char.IsControl(ch)).Take(96).ToArray());
     public static int PriorityScore(string? severity, bool blocksRelease, bool overdue)
     {
