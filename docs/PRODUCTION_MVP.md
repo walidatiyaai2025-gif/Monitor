@@ -27,9 +27,9 @@ A production-visible value must be backed by collected evidence. If a dimension 
 |---|---|---|---|---|
 | 1 | P0.1 | #112 | Real SQL registration is production-safe and restart durable | COMPLETE — PR #119 / FINAL CI 31476747212 |
 | 2 | P0.2 | #113 | First snapshot is mapped truthfully into production read models | COMPLETE — PR #121 / FINAL CI 31478470867 |
-| 3 | P0.3 | #114 | Server Details v0.1 is the trusted operator source of truth | CI VERIFIED — PR #122 / IMPLEMENTATION CI 31479005170 |
-| 4 | P0.4 | #115 | Full journey passes against a real SQL Server | READY / NEXT AFTER #122 MERGE |
-| 5 | P0.5 | #116 | First IIS/HTTPS SingleNode production release is accepted | BLOCKED BY P0.4 |
+| 3 | P0.3 | #114 | Server Details v0.1 is the trusted operator source of truth | COMPLETE — PR #122 / FINAL CI 31479311552 |
+| 4 | P0.4 | #115 | Full journey passes against a real SQL Server | REAL-SQL VERIFIED — PR #123 + #124 / FINAL HEAD GATE PENDING |
+| 5 | P0.5 | #116 | First IIS/HTTPS SingleNode production release is accepted | READY / NEXT AFTER #124 MERGE |
 
 ---
 
@@ -37,7 +37,6 @@ A production-visible value must be backed by collected evidence. If a dimension 
 
 **Issue:** #112 — CLOSED / COMPLETED  
 **Implementation PR:** #119 — squash-merged to `main` as `57ab5cae6b5bdd3a04adb5069008aae80a1f84e0`  
-**Implementation CI:** `31476430643` — Release build 0 warnings / 0 errors; 501/501 tests passed.  
 **Final code+docs CI:** `31476747212` — Release build 0 warnings / 0 errors; 501/501 tests passed.  
 **Release gate:** COMPLETE.
 
@@ -64,7 +63,6 @@ A DBA can add a target candidate, safely test it, persist it only after connecti
 
 **Issue:** #113 — CLOSED / COMPLETED  
 **Implementation PR:** #121 — squash-merged to `main` as `a294c6530d60f17e7c60e3a1ac070ce562af7b18`  
-**Implementation CI:** `31478132641` — Release build 0 warnings / 0 errors; 505/505 tests passed.  
 **Final code+docs CI:** `31478470867` — Release build 0 warnings / 0 errors; 505/505 tests passed.  
 **Release gate:** COMPLETE.
 
@@ -91,25 +89,25 @@ Every production-visible health dimension is either supported by actual cached s
 
 ## P0.3 — Server Details v0.1 Source of Truth
 
-**Issue:** #114  
-**Implementation PR:** #122  
-**Implementation CI:** `31479005170` — Release build 0 warnings / 0 errors; 507/507 tests passed.  
-**Release gate:** CI VERIFIED — final code+docs PR CI required before merge.
+**Issue:** #114 — CLOSED / COMPLETED  
+**Implementation PR:** #122 — squash-merged to `main` as `245bb0770d7ec6e7a334f7763d3560cef80324fe`  
+**Final code+docs CI:** `31479311552` — Release build 0 warnings / 0 errors; 507/507 tests passed.  
+**Release gate:** COMPLETE.
 
 P0.3 turns Server Details into the first production DBA evidence surface. It removes the synthetic numeric Health Score and organizes only observed cached facts by collection/freshness, identity, database states, memory, backups, SQL Agent, storage, blocking and runtime pressure. CPU remains explicitly outside the v0.1 snapshot contract.
 
 | Task | Description | State |
 |---|---|---|
-| P0-021 | Make connection/collection/freshness status first-class on Server Details | CI VERIFIED — evidence banner, freshness, collected-at, snapshot age, recovery path |
+| P0-021 | Make connection/collection/freshness status first-class on Server Details | CI VERIFIED |
 | P0-022 | Show instance/version/edition/uptime from cached real evidence | CI VERIFIED |
-| P0-023 | Show database availability and problem-state evidence | CI VERIFIED — online totals + restoring/recovering/recovery pending/suspect/emergency/offline-or-other |
-| P0-024 | Show memory evidence with explicit unavailable state | CI VERIFIED — SQL/OS facts or Not collected |
+| P0-023 | Show database availability and problem-state evidence | CI VERIFIED |
+| P0-024 | Show memory evidence with explicit unavailable state | CI VERIFIED |
 | P0-025 | Show backup evidence and last-full-backup context | CI VERIFIED |
-| P0-026 | Show SQL Agent total/enabled/failed evidence with unambiguous labels | CI VERIFIED — no synthetic healthy count |
+| P0-026 | Show SQL Agent total/enabled/failed evidence with unambiguous labels | CI VERIFIED |
 | P0-027 | Show storage, blocking and runtime-pressure evidence | CI VERIFIED |
 | P0-028 | Make collected timestamp/snapshot age/stale state visible and non-misleading | CI VERIFIED |
-| P0-029 | Remove health-score/severity dependencies on invented or absent metrics; perform desktop/mobile visual acceptance | CI VERIFIED — synthetic Health Score removed; source acceptance prevents return |
-| P0-030 | P0.3 zero-SQL-GET + Release build/tests/docs/PR CI gate | IMPLEMENTATION CI GREEN — final code+docs CI pending |
+| P0-029 | Remove health-score/severity dependencies on invented or absent metrics; perform desktop/mobile visual acceptance | CI VERIFIED |
+| P0-030 | P0.3 zero-SQL-GET + Release build/tests/docs/PR CI gate | COMPLETE — FINAL CI 31479311552 / PR #122 MERGED |
 
 ### P0.3 exit criteria
 
@@ -120,36 +118,44 @@ Server Details is sufficient for a first DBA production check without hidden rou
 ## P0.4 — Real SQL End-to-End Acceptance
 
 **Issue:** #115  
-**Dependency:** P0.3 complete and PR #122 merged.  
-**Important:** deterministic/fake-based CI remains required, but it is not sufficient for this release gate.
+**Foundation PR:** #123 — squash-merged to `main` as `83540afe15f5d52ee528ff7de46430682444594d`  
+**Full-journey PR:** #124  
+**Foundation real-engine run:** `31480624953` — SQL Server 2022, 4/4 RealSql cases passed.  
+**Full-journey implementation runs:** normal CI `31481298862` — Release 0 warnings / 0 errors; 518/518 passed. Real SQL `31481298848` — Release 0 warnings / 0 errors; 8/8 RealSql passed.  
+**Durable evidence:** `docs/REAL_SQL_ACCEPTANCE.md`  
+**Release gate:** REAL-SQL VERIFIED — final same-head code+docs normal/real-SQL rerun required before merge and issue close.
+
+P0.4 runs the production SQL tester/collector and the full application vertical slice against an actual Microsoft SQL Server 2022 engine. The workflow creates a disposable non-sysadmin monitor login, applies the exact least-privilege script, seeds deterministic backup/Agent evidence, generates and masks all credentials at runtime, and destroys the target after the run.
+
+The real engine exposed and drove fixes to production behavior: the deployment script no longer overrides its supplied login variable, `sys.master_files` metadata visibility is explicitly granted without sysadmin/DML rights, cross-platform socket failures use structured exception evidence, and the workflow waits separately for SQL Server Agent readiness.
 
 | Task | Description | State |
 |---|---|---|
-| P0-031 | Prepare a production-like SQL Server acceptance target and least-privilege monitor login | READY / NEXT AFTER #122 MERGE |
-| P0-032 | Execute Add -> Test -> Register -> Collect -> View against the real target | PLANNED |
-| P0-033 | Execute manual Refresh and verify one bounded collection/publication | PLANNED |
-| P0-034 | Restart Monitor and prove registration/credential resolution/read path recovery | PLANNED |
-| P0-035 | Verify bad-password authentication failure classification and safe operator message | PLANNED |
-| P0-036 | Verify network-unavailable and timeout classifications | PLANNED |
-| P0-037 | Verify TLS/certificate rejection classification | PLANNED |
-| P0-038 | Verify missing server-state/msdb/SQL Agent permission behavior and least-privilege script completeness | PLANNED |
-| P0-039 | Record redaction canaries and real-server acceptance evidence/runbook result | PLANNED |
-| P0-040 | P0.4 full Release build/test + real-server acceptance gate | PLANNED |
+| P0-031 | Prepare a production-like SQL Server acceptance target and least-privilege monitor login | REAL-SQL VERIFIED — SQL Server 2022 Developer container; primary monitor login confirmed non-sysadmin |
+| P0-032 | Execute Add -> Test -> Register -> Collect -> View against the real target | REAL-SQL VERIFIED — actual ConnectionLab/controller/persistence/tester/collector/cache/read/ServerDetails path |
+| P0-033 | Execute manual Refresh and verify one bounded collection/publication | REAL-SQL VERIFIED — actual SnapshotRefreshService returns Fresh |
+| P0-034 | Restart Monitor and prove registration/credential resolution/read path recovery | REAL-SQL VERIFIED — durable registration, encrypted secret store and persisted Data Protection key ring rebuilt and revalidated |
+| P0-035 | Verify bad-password authentication failure classification and safe operator message | REAL-SQL VERIFIED |
+| P0-036 | Verify network-unavailable and timeout classifications | REAL-SQL VERIFIED — closed port + accepted-but-silent TCP endpoint |
+| P0-037 | Verify TLS/certificate rejection classification | REAL-SQL VERIFIED — self-signed SQL TLS with trust disabled |
+| P0-038 | Verify missing server-state/msdb/SQL Agent permission behavior and least-privilege script completeness | REAL-SQL VERIFIED — generic insufficient server permissions and deliberately missing msdb permissions both fail closed; complete role succeeds |
+| P0-039 | Record redaction canaries and real-server acceptance evidence/runbook result | COMPLETE — `docs/REAL_SQL_ACCEPTANCE.md`; registration/secret disk canaries verified; runtime secrets masked |
+| P0-040 | P0.4 full Release build/test + real-server acceptance gate | IMPLEMENTATION GATES GREEN — normal 518/518 + RealSql 8/8; final same-head rerun pending |
 
 ### P0.4 exit criteria
 
-The full user journey is proven against a real SQL Server under success and controlled failure conditions. The exact least-privilege SQL permissions needed by the collector are known and documented.
+The full Add → Test → Register → Collect → View → Refresh → Restart → View journey is proven against SQL Server 2022 under success and controlled authentication/network/timeout/TLS/server-permission/msdb-permission failures. The exact least-privilege SQL contract used by the collector is applied to a non-sysadmin login and proven on the real engine. No secret values are committed or persisted in plaintext. Final closure requires both normal CI and `real-sql-acceptance` Green on the final documentation-synchronized PR head.
 
 ---
 
 ## P0.5 — First Production SingleNode Release
 
 **Issue:** #116  
-**Dependency:** P0.4 complete.
+**Dependency:** P0.4 complete and PR #124 merged.
 
 | Task | Description | State |
 |---|---|---|
-| P0-041 | Freeze first production scope to SingleNode | PLANNED |
+| P0-041 | Freeze first production scope to SingleNode | READY / NEXT AFTER #124 MERGE |
 | P0-042 | Validate secret-free production configuration and environment values | PLANNED |
 | P0-043 | Deploy IIS + HTTPS using the existing production guide | PLANNED |
 | P0-044 | Validate persistent Data Protection/protected credential behavior after application recycle/restart | PLANNED |
