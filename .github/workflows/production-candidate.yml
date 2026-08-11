@@ -11,6 +11,7 @@ on:
       - 'docs/DEPLOY_IIS.md'
       - 'docs/UPGRADE_CHECKLIST.md'
       - 'docs/ROLLBACK_RUNBOOK.md'
+      - 'docs/PRODUCTION_SINGLENODE_ACCEPTANCE.md'
       - 'docs/PRODUCTION_MVP.md'
       - 'docs/IMPLEMENTATION_PLAN.md'
       - 'docs/STATUS.md'
@@ -18,9 +19,13 @@ on:
       - 'scripts/Smoke-Monitor.ps1'
       - 'scripts/Smoke-MonitorAuthentication.ps1'
       - 'scripts/Test-ProductionCandidate.ps1'
+      - 'scripts/Accept-ProductionSingleNode.ps1'
+      - 'scripts/Test-IisProductionPrerequisites.ps1'
+      - 'scripts/Deploy-ProductionSingleNode.ps1'
       - 'src/Monitor.Web/**'
       - 'tests/Monitor.Web.Tests/ProductionAdminCredentialGuardTests.cs'
       - 'tests/Monitor.Web.Tests/P05ProductionCandidateTests.cs'
+      - 'tests/Monitor.Web.Tests/P05IisDeploymentAutomationTests.cs'
 
 permissions:
   contents: read
@@ -48,6 +53,31 @@ jobs:
 
       - name: Full test suite
         run: dotnet test Monitor.sln --configuration Release --no-build
+
+      - name: Parse production PowerShell tooling
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $paths = @(
+            'scripts/Smoke-Monitor.ps1',
+            'scripts/Smoke-MonitorAuthentication.ps1',
+            'scripts/Test-ProductionCandidate.ps1',
+            'scripts/Accept-ProductionSingleNode.ps1',
+            'scripts/Test-IisProductionPrerequisites.ps1',
+            'scripts/Deploy-ProductionSingleNode.ps1'
+          )
+          foreach ($path in $paths) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path $path).Path,
+              [ref]$tokens,
+              [ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) {
+              $messages = $errors | ForEach-Object { "${path}:$($_.Extent.StartLineNumber): $($_.Message)" }
+              throw ($messages -join [Environment]::NewLine)
+            }
+          }
 
       - name: Restore Windows x64 runtime graph
         run: dotnet restore src/Monitor.Web/Monitor.Web.csproj --runtime win-x64
@@ -219,10 +249,14 @@ jobs:
           Copy-Item scripts/Smoke-Monitor.ps1 "$ops/scripts/" -Force
           Copy-Item scripts/Smoke-MonitorAuthentication.ps1 "$ops/scripts/" -Force
           Copy-Item scripts/Test-ProductionCandidate.ps1 "$ops/scripts/" -Force
+          Copy-Item scripts/Accept-ProductionSingleNode.ps1 "$ops/scripts/" -Force
+          Copy-Item scripts/Test-IisProductionPrerequisites.ps1 "$ops/scripts/" -Force
+          Copy-Item scripts/Deploy-ProductionSingleNode.ps1 "$ops/scripts/" -Force
           Copy-Item docs/DEPLOY_IIS.md "$ops/docs/" -Force
           Copy-Item docs/UPGRADE_CHECKLIST.md "$ops/docs/" -Force
           Copy-Item docs/ROLLBACK_RUNBOOK.md "$ops/docs/" -Force
           Copy-Item docs/REAL_SQL_ACCEPTANCE.md "$ops/docs/" -Force
+          Copy-Item docs/PRODUCTION_SINGLENODE_ACCEPTANCE.md "$ops/docs/" -Force
 
           $manifest = [ordered]@{
             schemaVersion = 1
