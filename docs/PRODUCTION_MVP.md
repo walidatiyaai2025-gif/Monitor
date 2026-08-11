@@ -25,10 +25,10 @@ A production-visible value must be backed by collected evidence. If a dimension 
 
 | Priority | Release | Issue | Outcome | State |
 |---|---|---|---|---|
-| 1 | P0.1 | #112 | Real SQL registration is production-safe and restart durable | COMPLETE — PR #119 MERGED / FINAL CI 31476747212 |
-| 2 | P0.2 | #113 | First snapshot is mapped truthfully into production read models | CI VERIFIED — PR #121 / IMPLEMENTATION CI 31478132641 |
-| 3 | P0.3 | #114 | Server Details v0.1 is the trusted operator source of truth | READY / NEXT AFTER #121 MERGE |
-| 4 | P0.4 | #115 | Full journey passes against a real SQL Server | BLOCKED BY P0.3 |
+| 1 | P0.1 | #112 | Real SQL registration is production-safe and restart durable | COMPLETE — PR #119 / FINAL CI 31476747212 |
+| 2 | P0.2 | #113 | First snapshot is mapped truthfully into production read models | COMPLETE — PR #121 / FINAL CI 31478470867 |
+| 3 | P0.3 | #114 | Server Details v0.1 is the trusted operator source of truth | CI VERIFIED — PR #122 / IMPLEMENTATION CI 31479005170 |
+| 4 | P0.4 | #115 | Full journey passes against a real SQL Server | READY / NEXT AFTER #122 MERGE |
 | 5 | P0.5 | #116 | First IIS/HTTPS SingleNode production release is accepted | BLOCKED BY P0.4 |
 
 ---
@@ -41,19 +41,17 @@ A production-visible value must be backed by collected evidence. If a dimension 
 **Final code+docs CI:** `31476747212` — Release build 0 warnings / 0 errors; 501/501 tests passed.  
 **Release gate:** COMPLETE.
 
-The audit found that initial registration persisted an enabled target before Test Connection completed. P0.1 changed this to candidate-test-before-durable-commit semantics. A future “save unreachable target” capability, if desired, must be an explicit separate operator action/state rather than a failed-test side effect.
-
 | Task | Description | State |
 |---|---|---|
 | P0-001 | Reconcile the current Connection Lab registration path against production acceptance criteria | COMPLETE |
 | P0-002 | Test the candidate before durable registration commit; failed/cancelled Test must not silently persist a normal enabled target | CI VERIFIED |
 | P0-003 | Compensate/delete a candidate Monitor-owned credential when initial registration test fails or is cancelled; keep password write-only | CI VERIFIED |
 | P0-004 | Verify Integrated Security registration path and safe connection-string construction | CI VERIFIED |
-| P0-005 | Verify successful registration persists across Monitor process restart | CI VERIFIED — durable repository restart coverage |
+| P0-005 | Verify successful registration persists across Monitor process restart | CI VERIFIED |
 | P0-006 | Make failed Test Connection state explicit without publishing a live snapshot | CI VERIFIED |
 | P0-007 | Verify duplicate/repeated registration semantics are deterministic and do not leak credentials | CI VERIFIED |
-| P0-008 | Verify existing protected credential reconnect preserves registration identity/history | VERIFIED — preserved B300 reconnect contract |
-| P0-009 | Desktop/mobile Connection Lab acceptance for success/failure/recovery states | VERIFIED — existing responsive markup unchanged; failed initial test uses safe validation state and no registered-target card |
+| P0-008 | Verify existing protected credential reconnect preserves registration identity/history | VERIFIED |
+| P0-009 | Desktop/mobile Connection Lab acceptance for success/failure/recovery states | VERIFIED |
 | P0-010 | P0.1 Release build/tests/docs/PR CI gate | COMPLETE — FINAL CI 31476747212 / PR #119 MERGED |
 
 ### P0.1 exit criteria
@@ -64,65 +62,70 @@ A DBA can add a target candidate, safely test it, persist it only after connecti
 
 ## P0.2 — First Real Snapshot & Truthful Mapping
 
-**Issue:** #113  
-**Implementation PR:** #121  
+**Issue:** #113 — CLOSED / COMPLETED  
+**Implementation PR:** #121 — squash-merged to `main` as `a294c6530d60f17e7c60e3a1ac070ce562af7b18`  
 **Implementation CI:** `31478132641` — Release build 0 warnings / 0 errors; 505/505 tests passed.  
-**Release gate:** CI VERIFIED — final code+docs PR CI required before merge.
+**Final code+docs CI:** `31478470867` — Release build 0 warnings / 0 errors; 505/505 tests passed.  
+**Release gate:** COMPLETE.
 
-P0.2 removed the production-trust gap where uncollected CPU and absent SQL Agent evidence could be interpreted as numeric zero. The production read model now preserves absence as absence, projects the SQL Agent facts the collector actually owns, and carries the wider safe snapshot evidence needed by P0.3.
+P0.2 removed the production-trust gap where uncollected CPU and absent SQL Agent evidence could be interpreted as numeric zero. The production read model preserves absence as absence, projects the SQL Agent facts the collector actually owns, and carries the safe snapshot evidence required by Server Details.
 
 | Task | Description | State |
 |---|---|---|
-| P0-011 | Define the v0.1 production snapshot contract from `ServerHealthSnapshot` | CI VERIFIED — nullable evidence contract + safe Server Details evidence envelope |
-| P0-012 | Verify real identity/version/edition/instance/uptime projection | CI VERIFIED — instance/uptime/collected-at mapped from cached snapshot |
-| P0-013 | Verify real database total/online/problem-state projection | CI VERIFIED — top-level counts plus database detail evidence preserved |
-| P0-014 | Verify memory evidence mapping and unavailable semantics | CI VERIFIED — missing memory stays `null` / `Not collected`; Memory Health excludes missing evidence from aggregates |
-| P0-015 | Reconcile SQL Agent mapping: total/enabled/failed evidence without inventing a “healthy” count | CI VERIFIED — real cards carry total/enabled/failed-last-run; `JobsHealthy` remains absent for real SQL |
-| P0-016 | Reconcile CPU: collect from a defined real source or render explicitly `Not collected`; never default to observed 0% | CI VERIFIED — CPU remains outside v0.1 collector contract and is represented as absent, never observed 0% |
-| P0-017 | Verify backup/storage/blocking/runtime-pressure mapping from the same snapshot | CI VERIFIED — safe Server Details evidence carries backup/storage/blocking/performance modules |
-| P0-018 | Add explicit stale/unavailable/permission-limited evidence semantics | CI VERIFIED — stale source is preserved; absent/unavailable evidence is explicit and never converted to numeric zero |
-| P0-019 | Add truthful-projection regression tests, including no fake numeric zero cases | CI VERIFIED — full suite 505/505 |
-| P0-020 | P0.2 Release build/tests/docs/PR CI gate | IMPLEMENTATION CI GREEN — final code+docs CI pending |
+| P0-011 | Define the v0.1 production snapshot contract from `ServerHealthSnapshot` | CI VERIFIED |
+| P0-012 | Verify real identity/version/edition/instance/uptime projection | CI VERIFIED |
+| P0-013 | Verify real database total/online/problem-state projection | CI VERIFIED |
+| P0-014 | Verify memory evidence mapping and unavailable semantics | CI VERIFIED |
+| P0-015 | Reconcile SQL Agent mapping: total/enabled/failed evidence without inventing a “healthy” count | CI VERIFIED |
+| P0-016 | Reconcile CPU: collect from a defined real source or render explicitly `Not collected`; never default to observed 0% | CI VERIFIED — explicit Not collected |
+| P0-017 | Verify backup/storage/blocking/runtime-pressure mapping from the same snapshot | CI VERIFIED |
+| P0-018 | Add explicit stale/unavailable/permission-limited evidence semantics | CI VERIFIED |
+| P0-019 | Add truthful-projection regression tests, including no fake numeric zero cases | CI VERIFIED |
+| P0-020 | P0.2 Release build/tests/docs/PR CI gate | COMPLETE — FINAL CI 31478470867 / PR #121 MERGED |
 
 ### P0.2 exit criteria
 
-Every production-visible health dimension is either supported by actual cached snapshot evidence or explicitly marked unavailable/not collected. Uncollected CPU is not represented as 0%. Missing Memory/Agent evidence is not included in aggregates as zero. SQL Agent uses actual total/enabled/failed-last-run facts, and Server Details receives the safe snapshot modules required for the next UI gate.
+Every production-visible health dimension is either supported by actual cached snapshot evidence or explicitly marked unavailable/not collected. Uncollected CPU is not represented as 0%. Missing Memory/Agent evidence is not included in aggregates as zero. SQL Agent uses actual total/enabled/failed-last-run facts.
 
 ---
 
 ## P0.3 — Server Details v0.1 Source of Truth
 
 **Issue:** #114  
-**Dependency:** P0.2 complete and PR #121 merged.
+**Implementation PR:** #122  
+**Implementation CI:** `31479005170` — Release build 0 warnings / 0 errors; 507/507 tests passed.  
+**Release gate:** CI VERIFIED — final code+docs PR CI required before merge.
+
+P0.3 turns Server Details into the first production DBA evidence surface. It removes the synthetic numeric Health Score and organizes only observed cached facts by collection/freshness, identity, database states, memory, backups, SQL Agent, storage, blocking and runtime pressure. CPU remains explicitly outside the v0.1 snapshot contract.
 
 | Task | Description | State |
 |---|---|---|
-| P0-021 | Make connection/collection/freshness status first-class on Server Details | READY / NEXT AFTER #121 MERGE |
-| P0-022 | Show instance/version/edition/uptime from cached real evidence | PLANNED |
-| P0-023 | Show database availability and problem-state evidence | PLANNED |
-| P0-024 | Show memory evidence with explicit unavailable state | PLANNED |
-| P0-025 | Show backup evidence and last-full-backup context | PLANNED |
-| P0-026 | Show SQL Agent total/enabled/failed evidence with unambiguous labels | PLANNED |
-| P0-027 | Show storage, blocking and runtime-pressure evidence | PLANNED |
-| P0-028 | Make collected timestamp/snapshot age/stale state visible and non-misleading | PLANNED |
-| P0-029 | Remove health-score/severity dependencies on invented or absent metrics; perform desktop/mobile visual acceptance | PLANNED |
-| P0-030 | P0.3 zero-SQL-GET + Release build/tests/docs/PR CI gate | PLANNED |
+| P0-021 | Make connection/collection/freshness status first-class on Server Details | CI VERIFIED — evidence banner, freshness, collected-at, snapshot age, recovery path |
+| P0-022 | Show instance/version/edition/uptime from cached real evidence | CI VERIFIED |
+| P0-023 | Show database availability and problem-state evidence | CI VERIFIED — online totals + restoring/recovering/recovery pending/suspect/emergency/offline-or-other |
+| P0-024 | Show memory evidence with explicit unavailable state | CI VERIFIED — SQL/OS facts or Not collected |
+| P0-025 | Show backup evidence and last-full-backup context | CI VERIFIED |
+| P0-026 | Show SQL Agent total/enabled/failed evidence with unambiguous labels | CI VERIFIED — no synthetic healthy count |
+| P0-027 | Show storage, blocking and runtime-pressure evidence | CI VERIFIED |
+| P0-028 | Make collected timestamp/snapshot age/stale state visible and non-misleading | CI VERIFIED |
+| P0-029 | Remove health-score/severity dependencies on invented or absent metrics; perform desktop/mobile visual acceptance | CI VERIFIED — synthetic Health Score removed; source acceptance prevents return |
+| P0-030 | P0.3 zero-SQL-GET + Release build/tests/docs/PR CI gate | IMPLEMENTATION CI GREEN — final code+docs CI pending |
 
 ### P0.3 exit criteria
 
-Server Details is sufficient for a first DBA production check without requiring hidden routes. The page contains no value that claims to be live/observed when the collector did not produce it.
+Server Details is sufficient for a first DBA production check without hidden routes. The page shows collected evidence or an explicit absence state, does not publish a synthetic numeric Health Score, and normal GET navigation remains cache-only.
 
 ---
 
 ## P0.4 — Real SQL End-to-End Acceptance
 
 **Issue:** #115  
-**Dependency:** P0.3 complete.  
+**Dependency:** P0.3 complete and PR #122 merged.  
 **Important:** deterministic/fake-based CI remains required, but it is not sufficient for this release gate.
 
 | Task | Description | State |
 |---|---|---|
-| P0-031 | Prepare a production-like SQL Server acceptance target and least-privilege monitor login | PLANNED |
+| P0-031 | Prepare a production-like SQL Server acceptance target and least-privilege monitor login | READY / NEXT AFTER #122 MERGE |
 | P0-032 | Execute Add -> Test -> Register -> Collect -> View against the real target | PLANNED |
 | P0-033 | Execute manual Refresh and verify one bounded collection/publication | PLANNED |
 | P0-034 | Restart Monitor and prove registration/credential resolution/read path recovery | PLANNED |
@@ -165,7 +168,7 @@ A versioned SingleNode release can be deployed on IIS/HTTPS, survive process res
 
 ## Deferred until after P0
 
-The existing BATCH-300/BATCH-400 intelligence remains valuable, but additional diagnostics must not be promoted as production-visible truth until each one has a defined live evidence source, snapshot/cache projection, read-model/UI mapping and real-target acceptance. MultiNode production activation is also deferred until after the first SingleNode release is stable.
+The existing BATCH-300/BATCH-400 intelligence remains valuable, but additional diagnostics must not be promoted as production-visible truth until each one has a defined live evidence source, snapshot/cache projection, read-model/UI mapping and real-target acceptance. MultiNode production activation is deferred until after the first SingleNode release is stable.
 
 ## Definition of Done for Issue #111
 
