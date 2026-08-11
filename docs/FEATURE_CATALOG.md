@@ -3,10 +3,10 @@
 | Feature | Milestone | Status | Notes |
 |---|---|---|---|
 | Real SQL production registration gate | P0.1 | CI verified | Issue #112 / PR #119; candidate Test precedes durable commit; failed/cancelled owned-secret compensation; final CI 31476747212, 501/501 |
-| Truthful first-snapshot projection | P0.2 | CI verified | Issue #113 / PR #121; nullable CPU/Memory evidence, actual Agent total/enabled/failed-last-run facts, safe Server Details evidence envelope; CI 31478132641, 505/505 |
-| Server Details production source of truth | P0.3 | READY / NEXT | Issue #114; surface safe cached evidence completely after #121 merge |
-| Real SQL end-to-end acceptance | P0.4 | BLOCKED | Issue #115; mandatory real-target Add/Test/Collect/View/Refresh/Restart acceptance |
-| First Production SingleNode release | P0.5 | BLOCKED | Issue #116; IIS/HTTPS, durable state/credentials, smoke + rollback gate |
+| Truthful first-snapshot projection | P0.2 | CI verified | Issue #113 / PR #121; nullable CPU/Memory evidence, actual Agent total/enabled/failed-last-run facts, safe Server Details evidence envelope; final CI 31478470867, 505/505 |
+| Server Details production source of truth | P0.3 | CI verified | Issue #114 / PR #122; evidence-first page, synthetic Health Score removed, cache-only GET; final CI 31479311552, 507/507 |
+| Real SQL end-to-end acceptance | P0.4 | Real-SQL verified | Issue #115 / PR #123 + #124; SQL Server 2022 full Add/Test/Register/Collect/View/Refresh/Restart journey plus auth/network/timeout/TLS/server-permission/msdb failures; implementation gates 31481298862 518/518 + 31481298848 8/8 RealSql; final head gate pending |
+| First Production SingleNode release | P0.5 | READY / NEXT | Issue #116; IIS/HTTPS, durable state/credentials, health smoke, read-only target, backup/rollback and versioned candidate gate after #124 merge |
 | Development Admin authentication | M0 | Verified | Cookie auth; PBKDF2 hash only |
 | SQL Command Center / DBA estate UI | M0 | Verified | Central live visual language; controlled client motion |
 | Server registration + Test Connection | M1 | CI verified | Bounded backend-only connection workflow |
@@ -64,7 +64,7 @@
 | Deterministic shared-state fault harness | B100 | CI verified | Atomic failure/recovery, provider outage, restart-safe migration and lease takeover; B100-071..074; CI 31439886994 |
 | Cross-node concurrency and soak acceptance | B100 | CI verified | Incident/audit/history/registration races, distributed refresh single-flight and 120-cycle three-node soak; B100-075..080; CI 31439886994 |
 | Production deployment configuration & hosting | B100 | CI verified | Secret-free production template, IIS, Windows Service lifetime and reverse-proxy guidance; B100-081..084; CI 31440573683 |
-| Least-privilege SQL deployment roles | B100 | CI verified | Dedicated state DB runtime role and monitored SQL read/view role; B100-085/086; CI 31440573683 |
+| Least-privilege SQL deployment roles | B100 | CI verified | Dedicated state DB runtime role and monitored SQL read/view role; B100-085/086; CI 31440573683 plus SQL Server 2022 real-engine validation in P0.4 |
 | Versioned release & recovery tooling | B100 | CI verified | Upgrade checklist, build/test-before-publish workflow, SHA-256 package, HTTPS smoke test and rollback runbook; B100-087..090; CI 31440573683 |
 | Enterprise server governance metadata | B100 | CI verified | Environment, group/tags, bounded UTC maintenance and alert-suppression windows; B100-091..094; CI 31442930470 |
 | Enterprise incident operator metadata | B100 | CI verified | Assignee, bounded notes and current-recommendation acknowledgment; B100-095..097; CI 31442930470 |
