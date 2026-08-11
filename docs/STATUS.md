@@ -27,13 +27,17 @@
 - Candidate/docs reconciliation PR #128 merged as `564f7655a1001da98addd793a000a15d069a243a`.
 - Safe IIS SingleNode deployment automation merged on `main` as `7cb47945b47aab6558f7132dcfa818b9f02d2b20`.
 - Deployment automation includes read-only IIS preflight, plan-first/apply-gated versioned deployment, stable `App_Data`, automatic IIS `physicalPath` rollback, production PowerShell syntax validation and operations-bundle tooling.
-- `7cb479...` evidence: normal CI `31487059992` Green; Windows production-candidate `31487060032` Green with 538/538 tests.
 - BATCH-500 added a fail-closed production-safety layer without claiming external acceptance.
 - BATCH-600 added live operator readiness/evidence orchestration while preserving the same external-acceptance boundary.
-- P0.5 Issue #141 / PR #142 adds a machine-verifiable external acceptance evidence pack and fail-closed closure validator. The generator starts all 15 external gates false and cannot mark a gate PASS; the validator requires exact gate/property sets, timestamps, relative evidence files, matching SHA-256, SingleNode candidate/environment metadata and secret-safe evidence before producing a closure summary.
-- PR #142 implementation head `3223fd233b653544a826bbd44de82ebaf21d0248` passed normal CI `31526704109` with Release **0 warnings / 0 errors** and **746/746 tests**; Windows production-candidate `31526704214` passed end-to-end with **746/746 tests**, PowerShell parsing, executable positive 15/15 closure validation, rejection of false-gate/tampered-hash/secret-bearing negative packs, HTTPS health/authentication before and after restart, clean packaging and artifact upload.
-- PR #142 implementation candidate: `Monitor-0.1.0-rc.38-win-x64.zip`; product SHA-256 `41d11b7c567bdb82a3c56ecdf3425459bf99bf3b7d65af9c9a7ae91efed30481`; Actions artifact ID `9115261850`; tested merge ref `ecc359ab2736e6b02d25f1c9a8ff3857e0cc941f`.
-- #141 is repository hardening only. Final synchronized CI/Real SQL/Windows gates and squash merge remain required before #141 may close. #116 and #111 remain OPEN regardless of repository validation until the real IIS environment produces 15/15 valid external evidence.
+- P0.5 Issue #141 is **CLOSED / COMPLETED**. PR #142 squash-merged to `main` as `5ee5431cce26e875d80a4cfb623553f762c8a161` and ships a machine-verifiable external acceptance evidence pack plus fail-closed closure validator.
+- The evidence-pack generator creates exactly 15 required external gates with every gate `false`; it cannot create a completed acceptance. The validator requires exact gate/property sets, UTC timestamps, relative evidence files, matching SHA-256, exact SingleNode candidate/environment metadata, operator acceptance metadata and secret-safe evidence before producing a PASS closure summary.
+- Final synchronized PR #142 evidence tested source head `a6844da6f9e77f9842075ff815681f35aa006908` on exact merge ref `34461998c22c8c1f80158d99de9ecb670622e632` against then-current `main` `fb5109e19fe6c1475dbeaf7af1a9406156e1511c`.
+- Normal CI `31527104922`: **Green**; Release build/test gate Green.
+- Real SQL `31527104916`: **Green**, SQL Server 2022 + SQL Agent operational readiness, non-sysadmin least-privilege login, **8/8 RealSql passed**, Release **0 warnings / 0 errors**.
+- Windows production-candidate `31527104897`: **Green end-to-end**, Release **0 warnings / 0 errors**, **746/746 tests passed**, production PowerShell parser Green, synthetic **15/15 evidence closure PASS**, false-gate/tampered-hash/secret-bearing negative packs rejected, HTTPS health/authentication passed before and after restart, package validation and upload Green.
+- Current selected repository-verified cutover candidate: `Monitor-0.1.0-rc.39-win-x64.zip`; product SHA-256 `5e354bc0cf8b5935b078f1cacc5b7f06f2c5226fe58228a92f050376f382c1cb`; Actions artifact ID `9115424834`.
+- RC.39 `_operations` includes `production-acceptance-evidence.example.json`, `New-ProductionAcceptanceEvidencePack.ps1`, and `Test-ProductionAcceptanceEvidence.ps1` in addition to IIS preflight/deploy/acceptance/smoke and rollback tooling.
+- **Repository evidence tooling is complete; no external gate is implied by CI. #116 and #111 remain OPEN until the real trusted-certificate Windows/IIS SingleNode target produces a valid 15/15 external evidence pack and closure summary.**
 
 ### P0.5 task status
 
@@ -47,7 +51,7 @@
 | P0-046 deployment health smoke | CI HTTPS VERIFIED; tooling READY; **real IIS endpoint pending external** |
 | P0-047 least-privilege monitored target | P0.4 prerequisite VERIFIED; **deployed IIS identity/target pending external** |
 | P0-048 backup + rollback/recovery | code/unit/tooling VERIFIED; **production rehearsal pending external** |
-| P0-049 versioned artifact/checksum/evidence | REPOSITORY/CI COMPLETE; external evidence-pack closure tooling IMPLEMENTATION VERIFIED |
+| P0-049 versioned artifact/checksum/evidence | **REPOSITORY/CI COMPLETE**; RC.39 + 15-gate closure tooling VERIFIED |
 | P0-050 final production acceptance | **PENDING EXTERNAL** |
 
 ## BATCH-600 — Live Operator Readiness & Evidence Orchestration
@@ -58,83 +62,33 @@
 **Task range:** B600-001..100  
 **State:** **100/100 COMPLETE**.
 
-B600 delivered deterministic fail-closed repository orchestration for:
-
-- evidence freshness and source normalization;
-- gate dependency graph and prerequisite readiness;
-- operator action queue, ownership and priority;
-- change-window/freeze/approval/backup/rollback-owner safety;
-- candidate version/hash/commit validation and promotion safety;
-- evidence completeness, confidence and contradiction detection;
-- secret-safe operator summaries and export allowlists;
-- fleet readiness aggregation and blast-radius reporting;
-- acceptance snapshot versioning, monotonic sequence and deterministic ETag;
-- versioned 100-task release contract.
+B600 delivered deterministic fail-closed repository orchestration for evidence freshness, gate dependency graph, operator action queue, change-window safety, candidate promotion, evidence completeness, secret-safe summaries, fleet readiness, acceptance snapshot versioning/ETag and a versioned release contract.
 
 ### Final exact-head merge evidence
 
-All final gates tested PR #139 source head `173f9dba6254f92c2e4725ad3f00810e5027a133` on exact merge ref `6cf3bb13fffb5593b12d78c766694f4a0bcc45ab` against then-current `main` `020f4f1d0576d42af74db88537ca0690ea3b8f47`.
-
-- Normal CI `31500683477`: **Green**.
-- Release build: **0 warnings / 0 errors**.
-- Full suite: **738/738 passed**, 0 failed, 0 skipped.
-- Real SQL `31500683511`: **Green**, SQL Server 2022, SQL Agent operational readiness, non-sysadmin least-privilege login, **8/8 RealSql passed**.
-- Windows production-candidate `31500683448`: **Green end-to-end** on Windows Server 2025 with **738/738 tests passed**.
-- Windows gate passed production PowerShell syntax checks, `win-x64` publish, secret-free SingleNode validation, HTTPS health/authentication before and after restart, clean package validation and artifact upload.
-- Final tested candidate: `Monitor-0.1.0-rc.34-win-x64.zip`.
-- Product ZIP SHA-256: `13a5f0997a1ece31264cb6b9df4e7b2a96af0b7b95243dcacfce70d7cc69a089`.
-- GitHub Actions artifact ID: `9104965992`.
-- Exactly 100 mapped B600 tests: `B600_001..B600_100`.
-- Read-policy contract endpoint: `GET /production/v2/readiness-contract`.
-- Detailed task ledger: `docs/BATCH_600.md`.
-
-**BATCH-600 does not close P0.5.** Repository CI and Windows runner evidence do not prove the external Windows/IIS trusted-HTTPS deployment. #116 and #111 remain open until actual environment acceptance is PASS.
+- Source head `173f9dba6254f92c2e4725ad3f00810e5027a133`; exact merge ref `6cf3bb13fffb5593b12d78c766694f4a0bcc45ab`.
+- Normal CI `31500683477`: **Green**, Release **0 warnings / 0 errors**, **738/738**.
+- Real SQL `31500683511`: **Green**, **8/8**.
+- Windows production-candidate `31500683448`: **Green**, **738/738**.
+- Candidate `Monitor-0.1.0-rc.34-win-x64.zip`; product SHA-256 `13a5f0997a1ece31264cb6b9df4e7b2a96af0b7b95243dcacfce70d7cc69a089`; artifact ID `9104965992`.
+- Exactly 100 mapped tests `B600_001..B600_100`; Read-policy endpoint `GET /production/v2/readiness-contract`.
 
 ## BATCH-500 — Production Acceptance & Recovery Safety
 
 **Issue:** #130 — CLOSED / COMPLETED  
-**PR:** #131 — squash-merged  
-**Merge commit:** `9d27491a9739ba05b8c3df1da3eb2e5d435d5cf6`  
+**PR:** #131 — squash-merged as `9d27491a9739ba05b8c3df1da3eb2e5d435d5cf6`  
 **Task range:** B500-001..100  
 **State:** **100/100 COMPLETE**.
 
-B500 delivered deterministic fail-closed repository safety contracts for:
-
-- deployment evidence validation;
-- IIS configuration readiness;
-- HTTPS certificate readiness including exact/one-label wildcard SAN policy;
-- restart/recycle durability;
-- backup and rollback safety;
-- deployed least-privilege SQL policy;
-- HTTPS health/authentication smoke;
-- cutover/change-window Go/No-Go safety;
-- evidence redaction/export safety;
-- versioned 100-task release contract.
-
-### Final exact-head merge evidence
-
-All final gates tested PR #131 source head `10a072eaceb14f1aa8bc1f2070c65f26c5654ffd` on exact merge ref `8d2d580e7e43a47bd57f173d783111b885f28416` against then-current `main` `7cb47945b47aab6558f7132dcfa818b9f02d2b20`.
-
-- Normal CI `31488431712`: **Green**.
-- Release build: **0 warnings / 0 errors**.
-- Full suite: **638/638 passed**, 0 failed, 0 skipped.
-- Real SQL `31488431709`: **Green**, SQL Server 2022, SQL Agent operational readiness, non-sysadmin least-privilege login, **8/8 RealSql passed**.
-- Windows production-candidate `31488431693`: **Green end-to-end** on Windows Server 2025 with **638/638 tests passed**.
-- Windows gate passed production PowerShell syntax checks, `win-x64` publish, secret-free validation, HTTPS health/authentication before and after restart, package validation and artifact upload.
-- Final tested candidate: `Monitor-0.1.0-rc.28-win-x64.zip`.
-- Product ZIP SHA-256: `70d74dafe585959e32cc98b0daef82809abe857b25d37d07fd320c4faf740b70`.
-- GitHub Actions artifact ID: `9100092563`.
-- Exactly 100 mapped B500 tests: `B500_001..B500_100`.
-- Read-policy contract endpoint: `GET /production/v1/acceptance-contract`.
-- Detailed task ledger: `docs/BATCH_500.md`.
-
-**BATCH-500 does not close P0.5.** Its release contract explicitly rejects a repository/CI claim that external IIS acceptance already occurred. #116 was kept/reopened and #111 remains open until the real environment evidence is PASS.
+- Final normal CI `31488431712`: 638/638.
+- Real SQL `31488431709`: 8/8.
+- Windows production-candidate `31488431693`: 638/638.
+- Candidate `Monitor-0.1.0-rc.28-win-x64.zip`; product SHA-256 `70d74dafe585959e32cc98b0daef82809abe857b25d37d07fd320c4faf740b70`; artifact ID `9100092563`.
 
 ## BATCH-400 — Production DBA diagnostics + portal completion
 
 - B400-001..010: Portal completion and typography via PR #107.
 - B400-011..110: 100 production DBA diagnostic tasks via issue #108 / PR #109.
-- Diagnostics include wait-stat intelligence, query regression, TempDB, transaction log, I/O, SQL Agent reliability, HA readiness, maintenance decision safety, fleet correlation and a Read-policy release contract.
 - Final diagnostics PR CI `31468048589`: 498/498.
 - B400-001..110: COMPLETE.
 
@@ -145,8 +99,8 @@ All final gates tested PR #131 source head `10a072eaceb14f1aa8bc1f2070c65f26c565
 - BATCH-200: B200-001..100 COMPLETE; final CI `31446970475`, 290/290.
 - BATCH-300: B300-001..100 COMPLETE; PR #102 merged as `385c2ee7a4d592c1e32e6e00a5c533c8790963b6`; reconciled CI `31465013971`, 395/395.
 - BATCH-400: B400-001..110 COMPLETE.
-- BATCH-500: B500-001..100 COMPLETE; PR #131 merged as `9d27491a9739ba05b8c3df1da3eb2e5d435d5cf6`; final gates normal `31488431712` 638/638, Real SQL `31488431709` 8/8, Windows `31488431693` 638/638.
-- BATCH-600: B600-001..100 COMPLETE; PR #139 squash-merged as `08513eeae75d70b8a499124f6ed19628c8a27f19`; final gates normal `31500683477` 738/738, Real SQL `31500683511` 8/8, Windows `31500683448` 738/738.
+- BATCH-500: B500-001..100 COMPLETE.
+- BATCH-600: B600-001..100 COMPLETE.
 - Total completed batch task IDs across B100+B200+B300+B400+B500+B600: **610**.
 
 ## Stable guardrails
@@ -161,4 +115,4 @@ All final gates tested PR #131 source head `10a072eaceb14f1aa8bc1f2070c65f26c565
 - MultiNode remains fail-closed and deferred until after stable SingleNode production acceptance.
 - Concurrent team work must be preserved; external P0.5 acceptance cannot be inferred from CI.
 
-**Overall:** 🟢 verified foundation · 🟢 P0.1–P0.4 COMPLETE · 🟢 P0.5 repository automation ready · 🟢 BATCH-500 100/100 COMPLETE · 🟢 BATCH-600 100/100 COMPLETE · 🟢 #141 evidence-pack tooling implementation VERIFIED · 🟡 #141 final synchronized gates / PR merge pending · 🟡 external IIS/HTTPS acceptance pending · 🔴 production acceptance not yet granted
+**Overall:** 🟢 verified foundation · 🟢 P0.1–P0.4 COMPLETE · 🟢 P0.5 repository automation/evidence tooling COMPLETE · 🟢 BATCH-500 100/100 COMPLETE · 🟢 BATCH-600 100/100 COMPLETE · 🟢 #141 COMPLETE · 🟡 external IIS/HTTPS 15-gate acceptance pending · 🔴 production acceptance not yet granted
