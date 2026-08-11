@@ -13,6 +13,11 @@ on:
       - 'src/Monitor.Web/Services/SqlServerSnapshotCollector.cs'
       - 'tests/Monitor.Web.Tests/RealSqlAcceptanceTests.cs'
       - 'tests/Monitor.Web.Tests/SqlConnectionTesterTests.cs'
+      - 'docs/REAL_SQL_ACCEPTANCE.md'
+      - 'docs/PRODUCTION_MVP.md'
+      - 'docs/IMPLEMENTATION_PLAN.md'
+      - 'docs/STATUS.md'
+      - 'docs/FEATURE_CATALOG.md'
 
 permissions:
   contents: read
