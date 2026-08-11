@@ -1,37 +1,24 @@
 # Project Status
 
-**Updated:** 2026-08-11 03:45 +03:00  
-**Branch:** `agent/b200-5`  
-**Target:** BATCH-200 / Batch 5 — Fleet intelligence  
-**Issues:** #76 umbrella · #85 Batch 5  
-**PR:** #86  
-**Overall:** 🟢 M0–M8 VERIFIED · 🟢 BATCH-100 100/100 COMPLETE · 🟢 B200-001..050 CI VERIFIED · 🟡 BATCH-200 50/100
+**Updated:** 2026-08-11 04:15 +03:00  
+**Branch:** `agent/b200-7`  
+**Target:** BATCH-200 / Batch 7 — HA & disaster recovery for operator state  
+**Issues:** #76 umbrella · #89 Batch 7  
+**PR:** #90  
+**Overall:** 🟢 BATCH-100 100/100 COMPLETE · 🟢 B200-001..070 CI VERIFIED · 🟡 BATCH-200 70/100
 
 ## Current verification
-
-- GitHub Actions finalizer run: `31446020409`.
+- Finalizer run: `31446424746`.
 - Release build: **Green** with `--warnaserror`.
 - Tests: **281/281 passed; 0 failed**.
-- B200-041..050: CI VERIFIED.
-- BATCH-200 progress: **50/100 CI verified**.
+- BATCH-200: **70/100 CI verified**.
 
-## Batch 5 delivered
-
-- Cache-only fleet summaries by environment, server group and tag.
-- Fresh/stale/unavailable cached snapshot counts.
-- Active maintenance and suppression counts.
-- Open incident hot-spots by deterministic rule, including critical and suppressed counts.
-- Cached backup-gap, memory-pressure, blocking and runnable-task risk summaries.
-- `/enterprise/fleet` read-only operator surface.
-- Acceptance coverage proves snapshot access is `Peek` only and never initiates collection.
-
-## Stable guardrails
-
-- Fleet GETs remain Monitor-owned/cache-only.
-- No monitored-SQL collection from fleet intelligence.
-- Suppression changes actionability only; incident evidence is unchanged.
-- No autonomous remediation or AI SQL execution.
+## Batch 7 delivered
+- Raw shared operator-state backup with checksum/source version.
+- Dry-run restore validation and CAS restore with verification/rollback.
+- Opaque diagnostics under shared-state degradation.
+- Concurrent reporting and cross-node operator-state convergence tests.
+- Cross-node maintenance scheduler policy validation.
 
 ## Next
-
-B200-051..060 Retention & Governance.
+B200-071..080 Enterprise Security Hardening II.
