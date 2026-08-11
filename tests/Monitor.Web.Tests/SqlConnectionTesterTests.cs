@@ -1,3 +1,4 @@
+using System.Net.Sockets;
 using Monitor.Web.Models;
 using Monitor.Web.Services;
 using Xunit;
@@ -68,6 +69,34 @@ public sealed class SqlConnectionTesterTests
 
         Assert.Equal(expected, result.Status);
         Assert.DoesNotContain("password", result.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void UnknownSqlNumber_WithNestedSocketFailure_IsNetwork()
+    {
+        var socket = new SocketException((int)SocketError.ConnectionRefused);
+
+        var result = SqlErrorClassifier.Classify(0, socket);
+
+        Assert.Equal(SqlProbeFailureKind.Network, result);
+    }
+
+    [Fact]
+    public void UnknownSqlNumber_WithNestedSocketTimeout_IsTimeout()
+    {
+        var socket = new SocketException((int)SocketError.TimedOut);
+
+        var result = SqlErrorClassifier.Classify(0, socket);
+
+        Assert.Equal(SqlProbeFailureKind.Timeout, result);
+    }
+
+    [Fact]
+    public void UnknownSqlNumber_WithoutStructuredNetworkEvidence_RemainsOther()
+    {
+        var result = SqlErrorClassifier.Classify(0, new InvalidOperationException("provider detail must not drive classification"));
+
+        Assert.Equal(SqlProbeFailureKind.Other, result);
     }
 
     [Fact]
