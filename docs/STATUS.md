@@ -1,39 +1,37 @@
 # Project Status
 
-**Updated:** 2026-08-11 03:30 +03:00  
-**Branch:** `agent/b200-4`  
-**Target:** BATCH-200 / Batch 4 — Reporting & diagnostics expansion  
-**Issues:** #76 umbrella · #83 Batch 4  
-**Overall:** 🟢 M0–M8 VERIFIED · 🟢 BATCH-100 100/100 COMPLETE · 🟢 B200-001..040 CI VERIFIED · 🟡 BATCH-200 40/100
+**Updated:** 2026-08-11 03:45 +03:00  
+**Branch:** `agent/b200-5`  
+**Target:** BATCH-200 / Batch 5 — Fleet intelligence  
+**Issues:** #76 umbrella · #85 Batch 5  
+**PR:** #86  
+**Overall:** 🟢 M0–M8 VERIFIED · 🟢 BATCH-100 100/100 COMPLETE · 🟢 B200-001..050 CI VERIFIED · 🟡 BATCH-200 50/100
 
 ## Current verification
 
-- GitHub Actions implementation run: `31445480775`.
-- Release build: **Green — 0 warnings / 0 errors** with `--warnaserror`.
-- Tests: **268/268 passed; 0 failed**.
-- B200-031..040: CI VERIFIED.
-- BATCH-200 progress: **40/100 CI verified**.
+- GitHub Actions finalizer run: `31446020409`.
+- Release build: **Green** with `--warnaserror`.
+- Tests: **281/281 passed; 0 failed**.
+- B200-041..050: CI VERIFIED.
+- BATCH-200 progress: **50/100 CI verified**.
 
-## Batch 4 delivered
+## Batch 5 delivered
 
-- Added `monitor-export-v2` as a deterministic versioned CSV schema contract.
-- Added filtered server export using registrations/operator metadata and snapshot-cache `Peek` only; monitored SQL endpoints and secret references are omitted.
-- Added formula-safe incident export without incident evidence.
-- Added bounded 1h/6h/24h history export and Administrator-only audit export.
-- Added explicit 1000-row, 1 MiB and 500-character cell limits.
-- Added UTF-8 BOM + LF compatibility; CI caught and fixed the .NET preamble emission assumption.
-- Added formula-injection coverage for `=`, `+`, `-`, `@`, tab and carriage-return prefixes.
-- Added Administrator diagnostics build/revision manifest without environment-variable values.
-- Added GET-only report endpoint acceptance coverage and a cache fake proving no `GetAsync`/`RefreshAsync` collection is used by server reporting.
+- Cache-only fleet summaries by environment, server group and tag.
+- Fresh/stale/unavailable cached snapshot counts.
+- Active maintenance and suppression counts.
+- Open incident hot-spots by deterministic rule, including critical and suppressed counts.
+- Cached backup-gap, memory-pressure, blocking and runnable-task risk summaries.
+- `/enterprise/fleet` read-only operator surface.
+- Acceptance coverage proves snapshot access is `Peek` only and never initiates collection.
 
 ## Stable guardrails
 
-- Reporting and diagnostics GETs remain Monitor-owned/cache-only.
-- Server exports do not expose host/port or secret references.
-- Incident export does not expose incident evidence.
-- Audit export remains Administrator-only.
+- Fleet GETs remain Monitor-owned/cache-only.
+- No monitored-SQL collection from fleet intelligence.
+- Suppression changes actionability only; incident evidence is unchanged.
 - No autonomous remediation or AI SQL execution.
 
 ## Next
 
-Batch 4 requires final code+docs PR CI and squash merge to `main`, then B200-041..050 Fleet Intelligence begins.
+B200-051..060 Retention & Governance.
