@@ -25,8 +25,8 @@ A production-visible value must be backed by collected evidence. If a dimension 
 
 | Priority | Release | Issue | Outcome | State |
 |---|---|---|---|---|
-| 1 | P0.1 | #112 | Real SQL registration is production-safe and restart durable | CI VERIFIED — 31476430643 / 501-501 |
-| 2 | P0.2 | #113 | First snapshot is mapped truthfully into production read models | READY / NEXT AFTER #119 MERGE |
+| 1 | P0.1 | #112 | Real SQL registration is production-safe and restart durable | COMPLETE — PR #119 MERGED / FINAL CI 31476747212 |
+| 2 | P0.2 | #113 | First snapshot is mapped truthfully into production read models | ACTIVE / NEXT |
 | 3 | P0.3 | #114 | Server Details v0.1 is the trusted operator source of truth | BLOCKED BY P0.2 |
 | 4 | P0.4 | #115 | Full journey passes against a real SQL Server | BLOCKED BY P0.3 |
 | 5 | P0.5 | #116 | First IIS/HTTPS SingleNode production release is accepted | BLOCKED BY P0.4 |
@@ -35,10 +35,11 @@ A production-visible value must be backed by collected evidence. If a dimension 
 
 ## P0.1 — Real SQL Registration
 
-**Issue:** #112  
-**Implementation PR:** #119  
+**Issue:** #112 — CLOSED / COMPLETED  
+**Implementation PR:** #119 — squash-merged to `main` as `57ab5cae6b5bdd3a04adb5069008aae80a1f84e0`  
 **Implementation CI:** `31476430643` — Release build 0 warnings / 0 errors; 501/501 tests passed.  
-**Release gate:** registration can be used on a real target without secret leakage or false readiness.
+**Final code+docs CI:** `31476747212` — Release build 0 warnings / 0 errors; 501/501 tests passed.  
+**Release gate:** COMPLETE.
 
 The audit found that initial registration persisted an enabled target before Test Connection completed. P0.1 changed this to candidate-test-before-durable-commit semantics. A future “save unreachable target” capability, if desired, must be an explicit separate operator action/state rather than a failed-test side effect.
 
@@ -53,7 +54,7 @@ The audit found that initial registration persisted an enabled target before Tes
 | P0-007 | Verify duplicate/repeated registration semantics are deterministic and do not leak credentials | CI VERIFIED |
 | P0-008 | Verify existing protected credential reconnect preserves registration identity/history | VERIFIED — preserved B300 reconnect contract |
 | P0-009 | Desktop/mobile Connection Lab acceptance for success/failure/recovery states | VERIFIED — existing responsive markup unchanged; failed initial test uses safe validation state and no registered-target card |
-| P0-010 | P0.1 Release build/tests/docs/PR CI gate | IMPLEMENTATION CI GREEN — final code+docs PR CI required before merge |
+| P0-010 | P0.1 Release build/tests/docs/PR CI gate | COMPLETE — FINAL CI 31476747212 / PR #119 MERGED |
 
 ### P0.1 exit criteria
 
@@ -63,8 +64,8 @@ A DBA can add a target candidate, safely test it, persist it only after connecti
 
 ## P0.2 — First Real Snapshot & Truthful Mapping
 
-**Issue:** #113  
-**Dependency:** P0.1 complete and PR #119 merged.  
+**Issue:** #113 — ACTIVE / NEXT  
+**Dependency:** P0.1 complete.  
 **Known blocker:** the current read projection assigns `CpuPercent = 0` and does not project the collected SQL Agent snapshot into `ServerCard`, while Server Details contains UI that can visually interpret those fields as observed values.
 
 | Task | Description | State |
