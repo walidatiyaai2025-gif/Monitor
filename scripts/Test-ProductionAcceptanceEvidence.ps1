@@ -54,12 +54,31 @@ function Assert-SafeString {
 
 function Assert-NoSecretMaterial {
     param([object]$Node, [string]$Path = '$')
+
     if ($null -eq $Node) { return }
+
     if ($Node -is [string]) {
         Assert-SafeString -Value ([string]$Node) -Path $Path
         return
     }
-    if ($Node -is [System.Collections.IEnumerable] -and $Node -isnot [string] -and $Node.PSObject.Properties.Count -eq 0) {
+
+    # ConvertFrom-Json represents JSON booleans/numbers as CLR value types.
+    # They are terminal JSON values; traversing their adapted PSObject properties can recurse into
+    # framework metadata rather than the JSON document itself.
+    if ($Node -is [ValueType]) { return }
+
+    if ($Node -is [System.Collections.IDictionary]) {
+        foreach ($key in $Node.Keys) {
+            $keyText = [string]$key
+            if ($keyText -match '(?i)(password|pwd|secret|connection.?string|hashbase64|saltbase64|api.?key|token|private.?key)') {
+                throw "$Path contains prohibited secret-like key '$keyText'."
+            }
+            Assert-NoSecretMaterial -Node $Node[$key] -Path "$Path.$keyText"
+        }
+        return
+    }
+
+    if ($Node -is [System.Collections.IEnumerable] -and $Node -isnot [System.Management.Automation.PSCustomObject]) {
         $index = 0
         foreach ($item in $Node) {
             Assert-NoSecretMaterial -Node $item -Path "$Path[$index]"
@@ -67,6 +86,7 @@ function Assert-NoSecretMaterial {
         }
         return
     }
+
     foreach ($property in $Node.PSObject.Properties) {
         if ($property.Name -match '(?i)(password|pwd|secret|connection.?string|hashbase64|saltbase64|api.?key|token|private.?key)') {
             throw "$Path contains prohibited secret-like key '$($property.Name)'."
