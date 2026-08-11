@@ -42,7 +42,8 @@ public enum SnapshotCollectionFailure
     AuthenticationFailed,
     NetworkUnavailable,
     CertificateRejected,
-    Failed
+    Failed,
+    PermissionDenied
 }
 
 public sealed class SnapshotCollectionException(
