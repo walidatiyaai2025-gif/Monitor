@@ -10,7 +10,8 @@ public enum ConnectionTestStatus
     AuthenticationFailed,
     NetworkUnavailable,
     CertificateRejected,
-    Failed
+    Failed,
+    PermissionDenied
 }
 
 public sealed record ConnectionTestResult(
