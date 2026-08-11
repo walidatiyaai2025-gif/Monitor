@@ -8,10 +8,14 @@ on:
       - '.github/workflows/real-sql-acceptance.yml'
       - 'scripts/sql/monitored_sql_least_privilege.sql'
       - 'src/Monitor.Web/Models/**'
+      - 'src/Monitor.Web/Services/LatestSnapshotStore.cs'
+      - 'src/Monitor.Web/Services/ServerHealthSnapshotCache.cs'
       - 'src/Monitor.Web/Services/SqlConnectionStringFactory.cs'
       - 'src/Monitor.Web/Services/SqlConnectionTester.cs'
       - 'src/Monitor.Web/Services/SqlServerSnapshotCollector.cs'
+      - 'tests/Monitor.Web.Tests/P04CollectorFailureTests.cs'
       - 'tests/Monitor.Web.Tests/RealSqlAcceptanceTests.cs'
+      - 'tests/Monitor.Web.Tests/RealSqlJourneyAcceptanceTests.cs'
       - 'tests/Monitor.Web.Tests/SqlConnectionTesterTests.cs'
 
 permissions:
