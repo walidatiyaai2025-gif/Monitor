@@ -6,11 +6,15 @@ param(
     [ValidateRange(1, 60)]
     [int]$TimeoutSeconds = 10,
 
-    [switch]$AllowHttpLoopback
+    [switch]$AllowHttpLoopback,
+
+    [switch]$AllowUntrustedLoopbackCertificate
 )
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+
+$loopbackHosts = @('localhost', '127.0.0.1', '::1')
 
 function Assert-SafeBaseUri {
     param([Uri]$Uri)
@@ -19,11 +23,14 @@ function Assert-SafeBaseUri {
         throw 'BaseUri must be an absolute URI.'
     }
 
+    if ($AllowUntrustedLoopbackCertificate -and ($Uri.Scheme -ne 'https' -or $loopbackHosts -notcontains $Uri.Host)) {
+        throw '-AllowUntrustedLoopbackCertificate is permitted only for HTTPS loopback targets.'
+    }
+
     if ($Uri.Scheme -eq 'https') {
         return
     }
 
-    $loopbackHosts = @('localhost', '127.0.0.1', '::1')
     if ($AllowHttpLoopback -and $Uri.Scheme -eq 'http' -and $loopbackHosts -contains $Uri.Host) {
         return
     }
@@ -38,8 +45,18 @@ function Invoke-MonitorProbe {
     )
 
     $target = [Uri]::new($BaseUri, $Path)
+    $parameters = @{
+        Uri = $target
+        Method = 'Get'
+        TimeoutSec = $TimeoutSeconds
+        Headers = @{ 'Accept' = 'application/json' }
+    }
+    if ($AllowUntrustedLoopbackCertificate) {
+        $parameters.SkipCertificateCheck = $true
+    }
+
     try {
-        $result = Invoke-RestMethod -Uri $target -Method Get -TimeoutSec $TimeoutSeconds -Headers @{ 'Accept' = 'application/json' }
+        $result = Invoke-RestMethod @parameters
     }
     catch {
         throw "Monitor probe failed for $Path. HTTP/readiness verification did not succeed."
