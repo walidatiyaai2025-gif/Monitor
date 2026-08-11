@@ -1,0 +1,214 @@
+name: production-candidate
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/production-candidate.yml'
+      - '.github/workflows/release.yml'
+      - 'deploy/**'
+      - 'docs/DEPLOY_IIS.md'
+      - 'docs/UPGRADE_CHECKLIST.md'
+      - 'docs/ROLLBACK_RUNBOOK.md'
+      - 'docs/PRODUCTION_MVP.md'
+      - 'docs/IMPLEMENTATION_PLAN.md'
+      - 'docs/STATUS.md'
+      - 'docs/FEATURE_CATALOG.md'
+      - 'scripts/Smoke-Monitor.ps1'
+      - 'scripts/Test-ProductionCandidate.ps1'
+      - 'src/Monitor.Web/**'
+      - 'tests/Monitor.Web.Tests/ProductionAdminCredentialGuardTests.cs'
+
+permissions:
+  contents: read
+
+jobs:
+  windows-singlenode-candidate:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    env:
+      CANDIDATE_VERSION: 0.1.0-rc.${{ github.run_number }}
+      CANDIDATE_PORT: '5089'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        run: dotnet restore Monitor.sln
+
+      - name: Release build
+        run: dotnet build Monitor.sln --configuration Release --no-restore --warnaserror
+
+      - name: Full test suite
+        run: dotnet test Monitor.sln --configuration Release --no-build
+
+      - name: Publish Windows x64 candidate
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force -Path artifacts | Out-Null
+          dotnet publish src/Monitor.Web/Monitor.Web.csproj `
+            --configuration Release `
+            --no-build `
+            --runtime win-x64 `
+            --self-contained false `
+            /p:Version="$env:CANDIDATE_VERSION" `
+            --output artifacts/publish
+
+      - name: Validate secret-free SingleNode publish baseline
+        shell: pwsh
+        run: ./scripts/Test-ProductionCandidate.ps1 -PublishPath ./artifacts/publish
+
+      - name: Prepare ephemeral Production runtime configuration
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Copy-Item deploy/appsettings.Production.example.json artifacts/publish/appsettings.Production.json -Force
+
+          $salt = New-Object byte[] 16
+          $hash = New-Object byte[] 32
+          [System.Security.Cryptography.RandomNumberGenerator]::Fill($salt)
+          [System.Security.Cryptography.RandomNumberGenerator]::Fill($hash)
+          $saltBase64 = [Convert]::ToBase64String($salt)
+          $hashBase64 = [Convert]::ToBase64String($hash)
+          Write-Output "::add-mask::$saltBase64"
+          Write-Output "::add-mask::$hashBase64"
+
+          "ASPNETCORE_ENVIRONMENT=Production" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "ASPNETCORE_URLS=http://127.0.0.1:$env:CANDIDATE_PORT" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "DevelopmentAdmin__Username=ProductionCandidateAdmin" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "DevelopmentAdmin__Iterations=150000" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "DevelopmentAdmin__SaltBase64=$saltBase64" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "DevelopmentAdmin__HashBase64=$hashBase64" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Start candidate and run first health smoke
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $publish = (Resolve-Path artifacts/publish).Path
+          $stdout = Join-Path $env:RUNNER_TEMP 'monitor-candidate-first.stdout.log'
+          $stderr = Join-Path $env:RUNNER_TEMP 'monitor-candidate-first.stderr.log'
+          $process = Start-Process dotnet -ArgumentList 'Monitor.Web.dll' -WorkingDirectory $publish -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+          $process.Id | Out-File -FilePath (Join-Path $env:RUNNER_TEMP 'monitor-candidate.pid') -Encoding ascii
+
+          try {
+            $live = "http://127.0.0.1:$env:CANDIDATE_PORT/health/live"
+            $ready = $false
+            for ($attempt = 1; $attempt -le 60; $attempt++) {
+              try {
+                $response = Invoke-WebRequest -Uri $live -UseBasicParsing -TimeoutSec 2
+                if ($response.StatusCode -eq 200) { $ready = $true; break }
+              } catch { Start-Sleep -Seconds 1 }
+            }
+            if (-not $ready) { throw 'Published Production candidate did not reach /health/live.' }
+            ./scripts/Smoke-Monitor.ps1 -BaseUri "http://127.0.0.1:$env:CANDIDATE_PORT" -AllowHttpLoopback
+          } catch {
+            Write-Host '--- candidate stdout ---'
+            if (Test-Path $stdout) { Get-Content $stdout -Tail 200 }
+            Write-Host '--- candidate stderr ---'
+            if (Test-Path $stderr) { Get-Content $stderr -Tail 200 }
+            throw
+          } finally {
+            if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force }
+            $process.WaitForExit()
+          }
+
+      - name: Restart same published candidate and repeat smoke
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $publish = (Resolve-Path artifacts/publish).Path
+          $stdout = Join-Path $env:RUNNER_TEMP 'monitor-candidate-restart.stdout.log'
+          $stderr = Join-Path $env:RUNNER_TEMP 'monitor-candidate-restart.stderr.log'
+          $process = Start-Process dotnet -ArgumentList 'Monitor.Web.dll' -WorkingDirectory $publish -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+          try {
+            $live = "http://127.0.0.1:$env:CANDIDATE_PORT/health/live"
+            $ready = $false
+            for ($attempt = 1; $attempt -le 60; $attempt++) {
+              try {
+                $response = Invoke-WebRequest -Uri $live -UseBasicParsing -TimeoutSec 2
+                if ($response.StatusCode -eq 200) { $ready = $true; break }
+              } catch { Start-Sleep -Seconds 1 }
+            }
+            if (-not $ready) { throw 'Restarted Production candidate did not reach /health/live.' }
+            ./scripts/Smoke-Monitor.ps1 -BaseUri "http://127.0.0.1:$env:CANDIDATE_PORT" -AllowHttpLoopback
+            if (-not (Test-Path artifacts/publish/App_Data/keyring -PathType Container)) {
+              throw 'Persistent local Data Protection key ring was not created in the candidate state directory.'
+            }
+          } catch {
+            Write-Host '--- restarted candidate stdout ---'
+            if (Test-Path $stdout) { Get-Content $stdout -Tail 200 }
+            Write-Host '--- restarted candidate stderr ---'
+            if (Test-Path $stderr) { Get-Content $stderr -Tail 200 }
+            throw
+          } finally {
+            if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force }
+            $process.WaitForExit()
+          }
+
+      - name: Stage operations bundle and remove runtime state
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Remove-Item artifacts/publish/appsettings.Production.json -Force
+          Remove-Item artifacts/publish/App_Data -Recurse -Force -ErrorAction SilentlyContinue
+
+          $ops = 'artifacts/publish/_operations'
+          New-Item -ItemType Directory -Force -Path "$ops/deploy", "$ops/scripts", "$ops/docs" | Out-Null
+          Copy-Item deploy/appsettings.Production.example.json "$ops/deploy/" -Force
+          Copy-Item scripts/Smoke-Monitor.ps1 "$ops/scripts/" -Force
+          Copy-Item scripts/Test-ProductionCandidate.ps1 "$ops/scripts/" -Force
+          Copy-Item docs/DEPLOY_IIS.md "$ops/docs/" -Force
+          Copy-Item docs/UPGRADE_CHECKLIST.md "$ops/docs/" -Force
+          Copy-Item docs/ROLLBACK_RUNBOOK.md "$ops/docs/" -Force
+          Copy-Item docs/REAL_SQL_ACCEPTANCE.md "$ops/docs/" -Force
+
+          $manifest = [ordered]@{
+            schemaVersion = 1
+            product = 'Monitor'
+            version = $env:CANDIDATE_VERSION
+            sourceSha = '${{ github.sha }}'
+            runtime = 'win-x64'
+            framework = 'net8.0'
+            deploymentMode = 'SingleNode'
+            configuration = 'Release'
+            builtAtUtc = [DateTimeOffset]::UtcNow.ToString('O')
+            realSqlAcceptance = @{
+              normalCi = '31481874425'
+              realSql = '31481874501'
+              realSqlCases = 8
+            }
+          }
+          $manifest | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath "$ops/release-manifest.json" -Encoding utf8
+
+      - name: Revalidate clean package input
+        shell: pwsh
+        run: ./scripts/Test-ProductionCandidate.ps1 -PublishPath ./artifacts/publish
+
+      - name: Create ZIP and SHA-256
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $zip = "artifacts/Monitor-$env:CANDIDATE_VERSION-win-x64.zip"
+          $checksum = "$zip.sha256"
+          Compress-Archive -Path 'artifacts/publish/*' -DestinationPath $zip -CompressionLevel Optimal -Force
+          $hash = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $(Split-Path $zip -Leaf)" | Set-Content -LiteralPath $checksum -Encoding ascii
+          ./scripts/Test-ProductionCandidate.ps1 -PublishPath ./artifacts/publish -PackagePath $zip -ChecksumPath $checksum
+          Write-Host "Candidate: $zip"
+          Write-Host "SHA-256: $hash"
+
+      - name: Upload production candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: Monitor-${{ env.CANDIDATE_VERSION }}-win-x64
+          path: |
+            artifacts/Monitor-${{ env.CANDIDATE_VERSION }}-win-x64.zip
+            artifacts/Monitor-${{ env.CANDIDATE_VERSION }}-win-x64.zip.sha256
+          if-no-files-found: error
+          retention-days: 30
