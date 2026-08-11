@@ -61,7 +61,7 @@ Record these values before changing IIS:
 
 ## External acceptance evidence pack
 
-Issue #141 adds a machine-verifiable closure record. The pack does not perform IIS deployment, does not recycle IIS, does not execute SQL and does not flip any gate to PASS. It only records operator-proven external evidence and verifies that the evidence is complete, bounded, hash-matched and secret-safe.
+Issue #141 adds a machine-verifiable closure record. The pack does not perform IIS deployment, does not recycle IIS and does not execute SQL. The fail-closed generator never marks a production gate PASS. Issue #144 adds an explicit one-gate-at-a-time recorder so the operator does not have to hand-edit gate timestamps, evidence references or SHA-256 values.
 
 ### 1. Create the fail-closed pack
 
@@ -87,14 +87,32 @@ Use the packaged `_operations` scripts and the exact candidate metadata from #11
 
 The generator creates exactly 15 required gates and sets every `passed` field to `false`. It cannot create a completed production acceptance.
 
-### 2. Attach evidence to each gate
+### 2. Record each external gate explicitly
 
-For each external gate, save one bounded text/JSON evidence file beneath the pack's evidence root. Do not use screenshots or binary blobs as the authoritative machine-verifiable evidence. Update only that gate's four fields after the operator has actually performed the step:
+For each real environment gate, save one bounded text/JSON evidence file beneath the pack's evidence root. Do not use screenshots or binary blobs as the authoritative machine-verifiable evidence. After the operator has actually performed and reviewed a gate, record that **one gate at a time** with explicit `-AcknowledgePass`:
 
-- `passed`: `true` only after the real environment check succeeds.
-- `verifiedAtUtc`: ISO-8601 UTC timestamp.
-- `evidenceRef`: relative local path beneath the evidence root; no absolute path or `..` traversal.
-- `evidenceSha256`: SHA-256 of that exact evidence file.
+```powershell
+.\_operations\scripts\Set-ProductionAcceptanceGate.ps1 `
+  -EvidencePath '.\evidence\p0-5-evidence-pack.json' `
+  -GateName 'iisPreflightPassed' `
+  -EvidenceFile 'proof\iis-preflight.txt' `
+  -AcknowledgePass
+```
+
+The recorder:
+
+- accepts only the exact 15 production gate names;
+- refuses to infer PASS merely because an evidence file exists;
+- requires `-AcknowledgePass` for every PASS assertion;
+- requires a relative evidence file beneath the pack root and rejects absolute/traversal/query/fragment paths;
+- scans the existing pack and the new evidence for secret-like keys/values, connection strings, SQL client/provider errors and arbitrary SQL text;
+- computes the evidence SHA-256 and UTC verification timestamp itself;
+- atomically changes only the named gate;
+- refuses to overwrite an existing PASS unless `-ReplaceExistingPass` is explicitly supplied;
+- refuses to modify a pack that already contains final `acceptedBy` / `acceptedAtUtc` metadata;
+- never writes a closure summary and never sets final operator acceptance metadata.
+
+`-AcknowledgePass` is an operator assertion, not an automated semantic verdict. The evidence must first come from the actual trusted-certificate IIS environment and must truthfully prove the named gate.
 
 The 15 required gates are:
 
@@ -114,7 +132,7 @@ The 15 required gates are:
 14. `postRollbackHealthPassed`
 15. `finalReadEvidencePassed`
 
-After all gates are truly complete, set `acceptedBy` to the operator identity and `acceptedAtUtc` to an ISO-8601 timestamp not earlier than the latest gate timestamp.
+After all gates are truly complete, set `acceptedBy` to the operator identity and `acceptedAtUtc` to an ISO-8601 timestamp not earlier than the latest gate timestamp. Do not use the recorder to fabricate or backfill an unperformed gate.
 
 ### 3. Run the fail-closed closure validator
 
@@ -126,7 +144,7 @@ After all gates are truly complete, set `acceptedBy` to the operator identity an
 
 The validator fails if any required gate is missing or false, if an unknown gate/property is injected, if candidate metadata is malformed, if the deployment mode is not exactly SingleNode, if a gate evidence file is missing or escapes the evidence root, if any evidence SHA-256 differs, or if pack/evidence content contains password/connection-string/provider-error/arbitrary SQL text material. It generates a PASS closure summary only after all 15/15 gates validate.
 
-A validator PASS is necessary but still represents evidence supplied from the real environment; repository CI only proves the validator's behavior. The actual production operations must still be performed on the intended Windows/IIS host.
+A validator PASS is necessary but still represents evidence supplied from the real environment; repository CI only proves the recorder/validator behavior. The actual production operations must still be performed on the intended Windows/IIS host.
 
 ## Mandatory restart/recycle acceptance
 
