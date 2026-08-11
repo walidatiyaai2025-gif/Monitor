@@ -176,8 +176,10 @@ internal sealed class SqlServerSnapshotCollector(
             throw exception.Kind switch
             {
                 SqlProbeFailureKind.Authentication => Failure(SnapshotCollectionFailure.AuthenticationFailed, "Authentication failed."),
+                SqlProbeFailureKind.Timeout => Failure(SnapshotCollectionFailure.TimedOut, "Snapshot collection timed out."),
                 SqlProbeFailureKind.Network => Failure(SnapshotCollectionFailure.NetworkUnavailable, "The SQL Server could not be reached."),
                 SqlProbeFailureKind.Certificate => Failure(SnapshotCollectionFailure.CertificateRejected, "SQL Server certificate validation failed."),
+                SqlProbeFailureKind.Permission => Failure(SnapshotCollectionFailure.PermissionDenied, "The SQL Server login does not have the required monitoring permissions."),
                 _ => Failure(SnapshotCollectionFailure.Failed, "Snapshot collection failed.")
             };
         }
@@ -300,7 +302,7 @@ internal sealed class SqlSnapshotQuery : ISqlSnapshotQuery
         }
         catch (SqlException exception)
         {
-            throw new SqlProbeException(SqlErrorClassifier.Classify(exception.Number));
+            throw new SqlProbeException(SqlErrorClassifier.Classify(exception));
         }
     }
 }
