@@ -18,7 +18,7 @@
 | P0.2 / #113 | COMPLETE | PR #121; final CI `31478470867`; 505/505 |
 | P0.3 / #114 | COMPLETE | PR #122 merged `245bb0770d7ec6e7a334f7763d3560cef80324fe`; final CI `31479311552`; 507/507 |
 | P0.4 / #115 | COMPLETE | PR #124 merged `f4c08292734c293a6d0b865cc2a005b8c42b02a6`; normal `31481874425` 518/518; Real SQL `31481874501` 8/8 |
-| P0.5 / #116 | ACTIVE | repository preparation + deployment automation ready; external IIS/HTTPS acceptance pending |
+| P0.5 / #116 | ACTIVE | repository preparation + deployment/evidence automation ready; external IIS/HTTPS acceptance pending |
 
 ## P0.5 repository preparation
 
@@ -29,7 +29,11 @@
 - Deployment automation includes read-only IIS preflight, plan-first/apply-gated versioned deployment, stable `App_Data`, automatic IIS `physicalPath` rollback, production PowerShell syntax validation and operations-bundle tooling.
 - `7cb479...` evidence: normal CI `31487059992` Green; Windows production-candidate `31487060032` Green with 538/538 tests.
 - BATCH-500 added a fail-closed production-safety layer without claiming external acceptance.
-- BATCH-600 adds live operator readiness/evidence orchestration while preserving the same external-acceptance boundary.
+- BATCH-600 added live operator readiness/evidence orchestration while preserving the same external-acceptance boundary.
+- P0.5 Issue #141 / PR #142 adds a machine-verifiable external acceptance evidence pack and fail-closed closure validator. The generator starts all 15 external gates false and cannot mark a gate PASS; the validator requires exact gate/property sets, timestamps, relative evidence files, matching SHA-256, SingleNode candidate/environment metadata and secret-safe evidence before producing a closure summary.
+- PR #142 implementation head `3223fd233b653544a826bbd44de82ebaf21d0248` passed normal CI `31526704109` with Release **0 warnings / 0 errors** and **746/746 tests**; Windows production-candidate `31526704214` passed end-to-end with **746/746 tests**, PowerShell parsing, executable positive 15/15 closure validation, rejection of false-gate/tampered-hash/secret-bearing negative packs, HTTPS health/authentication before and after restart, clean packaging and artifact upload.
+- PR #142 implementation candidate: `Monitor-0.1.0-rc.38-win-x64.zip`; product SHA-256 `41d11b7c567bdb82a3c56ecdf3425459bf99bf3b7d65af9c9a7ae91efed30481`; Actions artifact ID `9115261850`; tested merge ref `ecc359ab2736e6b02d25f1c9a8ff3857e0cc941f`.
+- #141 is repository hardening only. Final synchronized CI/Real SQL/Windows gates and squash merge remain required before #141 may close. #116 and #111 remain OPEN regardless of repository validation until the real IIS environment produces 15/15 valid external evidence.
 
 ### P0.5 task status
 
@@ -43,7 +47,7 @@
 | P0-046 deployment health smoke | CI HTTPS VERIFIED; tooling READY; **real IIS endpoint pending external** |
 | P0-047 least-privilege monitored target | P0.4 prerequisite VERIFIED; **deployed IIS identity/target pending external** |
 | P0-048 backup + rollback/recovery | code/unit/tooling VERIFIED; **production rehearsal pending external** |
-| P0-049 versioned artifact/checksum/evidence | REPOSITORY/CI COMPLETE |
+| P0-049 versioned artifact/checksum/evidence | REPOSITORY/CI COMPLETE; external evidence-pack closure tooling IMPLEMENTATION VERIFIED |
 | P0-050 final production acceptance | **PENDING EXTERNAL** |
 
 ## BATCH-600 — Live Operator Readiness & Evidence Orchestration
@@ -157,4 +161,4 @@ All final gates tested PR #131 source head `10a072eaceb14f1aa8bc1f2070c65f26c565
 - MultiNode remains fail-closed and deferred until after stable SingleNode production acceptance.
 - Concurrent team work must be preserved; external P0.5 acceptance cannot be inferred from CI.
 
-**Overall:** 🟢 verified foundation · 🟢 P0.1–P0.4 COMPLETE · 🟢 P0.5 repository automation ready · 🟢 BATCH-500 100/100 COMPLETE · 🟢 BATCH-600 100/100 COMPLETE · 🟡 external IIS/HTTPS acceptance pending · 🔴 production acceptance not yet granted
+**Overall:** 🟢 verified foundation · 🟢 P0.1–P0.4 COMPLETE · 🟢 P0.5 repository automation ready · 🟢 BATCH-500 100/100 COMPLETE · 🟢 BATCH-600 100/100 COMPLETE · 🟢 #141 evidence-pack tooling implementation VERIFIED · 🟡 #141 final synchronized gates / PR merge pending · 🟡 external IIS/HTTPS acceptance pending · 🔴 production acceptance not yet granted
