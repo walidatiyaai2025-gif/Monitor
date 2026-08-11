@@ -1,4 +1,6 @@
+using System.ComponentModel;
 using System.Diagnostics;
+using System.Net.Sockets;
 using Microsoft.Data.SqlClient;
 using Monitor.Web.Models;
 
@@ -28,6 +30,39 @@ internal static class SqlErrorClassifier
         -1 or 2 or 53 or 11001 => SqlProbeFailureKind.Network,
         _ => SqlProbeFailureKind.Other
     };
+
+    public static SqlProbeFailureKind Classify(SqlException exception)
+    {
+        ArgumentNullException.ThrowIfNull(exception);
+        return Classify(exception.Number, exception.InnerException);
+    }
+
+    internal static SqlProbeFailureKind Classify(int number, Exception? innerException)
+    {
+        var direct = Classify(number);
+        if (direct != SqlProbeFailureKind.Other)
+        {
+            return direct;
+        }
+
+        for (var current = innerException; current is not null; current = current.InnerException)
+        {
+            if (current is SocketException socketException)
+            {
+                return socketException.SocketErrorCode == SocketError.TimedOut
+                    ? SqlProbeFailureKind.Timeout
+                    : SqlProbeFailureKind.Network;
+            }
+
+            if (current is Win32Exception win32Exception &&
+                win32Exception.NativeErrorCode is 258 or 110 or 10060)
+            {
+                return SqlProbeFailureKind.Timeout;
+            }
+        }
+
+        return SqlProbeFailureKind.Other;
+    }
 }
 
 internal sealed record SqlProbeResult(string? ServerVersion);
@@ -144,7 +179,7 @@ internal sealed class SqlConnectionProbe : ISqlConnectionProbe
         }
         catch (SqlException exception)
         {
-            throw new SqlProbeException(SqlErrorClassifier.Classify(exception.Number));
+            throw new SqlProbeException(SqlErrorClassifier.Classify(exception));
         }
     }
 }

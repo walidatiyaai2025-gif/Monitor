@@ -1,21 +1,27 @@
 /*
   Monitor target SQL Server - read-only least-privilege baseline.
 
-  Usage with sqlcmd:
+  Required usage with sqlcmd:
     sqlcmd -S <server> -E -v MonitorLogin="DOMAIN\svc-monitor" -i monitored_sql_least_privilege.sql
 
-  The login MUST already exist. This script creates no password/login and grants
-  no DML/DDL/sysadmin rights. Review against your SQL Server version/security
-  policy before production deployment.
-*/
+  `MonitorLogin` MUST be supplied with `-v`; the script deliberately has no
+  internal default because an in-file :setvar would override the deployment
+  value. The login MUST already exist. This script creates no password/login and
+  grants no DML/DDL/sysadmin rights. Review against your SQL Server version and
+  security policy before production deployment.
 
-:setvar MonitorLogin "REPLACE_WITH_EXISTING_LOGIN"
+  Metadata note:
+  The collector reads sys.master_files. SQL Server metadata visibility rules can
+  otherwise hide rows even when SELECT on the catalog view is granted. The
+  server role therefore receives VIEW ANY DEFINITION, which permits metadata
+  visibility but does not grant data access or mutation rights.
+*/
 
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
 
 DECLARE @MonitorLogin sysname = N'$(MonitorLogin)';
-IF @MonitorLogin = N'REPLACE_WITH_EXISTING_LOGIN' OR SUSER_ID(@MonitorLogin) IS NULL
+IF NULLIF(LTRIM(RTRIM(@MonitorLogin)), N'') IS NULL OR SUSER_ID(@MonitorLogin) IS NULL
 BEGIN
     THROW 51020, 'Supply an existing Monitor service login through -v MonitorLogin=...', 1;
 END;
@@ -41,6 +47,7 @@ BEGIN
 END;
 
 GRANT VIEW ANY DATABASE TO MonitorObserverServerRole;
+GRANT VIEW ANY DEFINITION TO MonitorObserverServerRole;
 
 DECLARE @sql nvarchar(max) = N'ALTER SERVER ROLE MonitorObserverServerRole ADD MEMBER ' + QUOTENAME(@MonitorLogin) + N';';
 EXEC sys.sp_executesql @sql;
