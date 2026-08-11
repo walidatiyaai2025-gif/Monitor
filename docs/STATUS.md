@@ -15,6 +15,14 @@
 - Repeated commands are idempotent; committed transitions emit bounded audit metadata.
 - Local Release gate: 0 warnings / 0 errors; 293/293 tests passed.
 
+## BATCH-300 / 2 — Protected credential reconnect — LOCAL VERIFIED
+
+- Administrators can provide a new write-only SQL username/password for the existing target.
+- The encrypted candidate is tested before registration metadata changes.
+- Failed/cancelled candidates are compensated; the previous reference remains active.
+- A successful replacement preserves registration ID, endpoint, timestamps, history and incidents, then removes the old Monitor-owned secret when safe.
+- Local Release gate: 0 warnings / 0 errors; 295/295 tests passed.
+
 ## Final verification
 
 - GitHub Actions final release-candidate run: `31446970475`.
