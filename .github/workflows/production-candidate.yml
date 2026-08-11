@@ -108,10 +108,7 @@ jobs:
             -HashAlgorithm SHA256 `
             -KeyExportPolicy Exportable
           $pfxPath = Join-Path $env:RUNNER_TEMP 'monitor-candidate-https.pfx'
-          $cerPath = Join-Path $env:RUNNER_TEMP 'monitor-candidate-https.cer'
           Export-PfxCertificate -Cert $certificate -FilePath $pfxPath -Password $secureCertificatePassword | Out-Null
-          Export-Certificate -Cert $certificate -FilePath $cerPath | Out-Null
-          Import-Certificate -FilePath $cerPath -CertStoreLocation 'Cert:\CurrentUser\Root' | Out-Null
 
           $saltBase64 = [Convert]::ToBase64String($salt)
           $hashBase64 = [Convert]::ToBase64String($hash)
@@ -148,16 +145,17 @@ jobs:
             $ready = $false
             for ($attempt = 1; $attempt -le 60; $attempt++) {
               try {
-                $response = Invoke-WebRequest -Uri $live -UseBasicParsing -TimeoutSec 2
+                $response = Invoke-WebRequest -Uri $live -UseBasicParsing -TimeoutSec 2 -SkipCertificateCheck
                 if ($response.StatusCode -eq 200) { $ready = $true; break }
               } catch { Start-Sleep -Seconds 1 }
             }
             if (-not $ready) { throw 'Published Production candidate did not reach HTTPS /health/live.' }
-            ./scripts/Smoke-Monitor.ps1 -BaseUri $baseUri
+            ./scripts/Smoke-Monitor.ps1 -BaseUri $baseUri -AllowUntrustedLoopbackCertificate
             ./scripts/Smoke-MonitorAuthentication.ps1 `
               -BaseUri $baseUri `
               -Username 'ProductionCandidateAdmin' `
-              -Password $env:MONITOR_CANDIDATE_ADMIN_PASSWORD
+              -Password $env:MONITOR_CANDIDATE_ADMIN_PASSWORD `
+              -AllowUntrustedLoopbackCertificate
           } catch {
             Write-Host '--- candidate stdout ---'
             if (Test-Path $stdout) { Get-Content $stdout -Tail 200 }
@@ -183,16 +181,17 @@ jobs:
             $ready = $false
             for ($attempt = 1; $attempt -le 60; $attempt++) {
               try {
-                $response = Invoke-WebRequest -Uri $live -UseBasicParsing -TimeoutSec 2
+                $response = Invoke-WebRequest -Uri $live -UseBasicParsing -TimeoutSec 2 -SkipCertificateCheck
                 if ($response.StatusCode -eq 200) { $ready = $true; break }
               } catch { Start-Sleep -Seconds 1 }
             }
             if (-not $ready) { throw 'Restarted Production candidate did not reach HTTPS /health/live.' }
-            ./scripts/Smoke-Monitor.ps1 -BaseUri $baseUri
+            ./scripts/Smoke-Monitor.ps1 -BaseUri $baseUri -AllowUntrustedLoopbackCertificate
             ./scripts/Smoke-MonitorAuthentication.ps1 `
               -BaseUri $baseUri `
               -Username 'ProductionCandidateAdmin' `
-              -Password $env:MONITOR_CANDIDATE_ADMIN_PASSWORD
+              -Password $env:MONITOR_CANDIDATE_ADMIN_PASSWORD `
+              -AllowUntrustedLoopbackCertificate
             if (-not (Test-Path artifacts/publish/App_Data/keyring -PathType Container)) {
               throw 'Persistent local Data Protection key ring was not created in the candidate state directory.'
             }
@@ -278,4 +277,3 @@ jobs:
           $thumbprint = $env:MONITOR_CANDIDATE_CERT_THUMBPRINT
           if ([string]::IsNullOrWhiteSpace($thumbprint)) { exit 0 }
           Remove-Item -LiteralPath "Cert:\CurrentUser\My\$thumbprint" -Force -ErrorAction SilentlyContinue
-          Remove-Item -LiteralPath "Cert:\CurrentUser\Root\$thumbprint" -Force -ErrorAction SilentlyContinue
