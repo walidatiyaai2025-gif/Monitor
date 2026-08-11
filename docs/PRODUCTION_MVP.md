@@ -25,7 +25,7 @@ A production-visible value must be backed by collected evidence. If a dimension 
 
 | Priority | Release | Issue | Outcome | State |
 |---|---|---|---|---|
-| 1 | P0.1 | #112 | Real SQL registration is production-safe and restart durable | READY / NEXT |
+| 1 | P0.1 | #112 | Real SQL registration is production-safe and restart durable | ACTIVE / NEXT |
 | 2 | P0.2 | #113 | First snapshot is mapped truthfully into production read models | BLOCKED BY P0.1 |
 | 3 | P0.3 | #114 | Server Details v0.1 is the trusted operator source of truth | BLOCKED BY P0.2 |
 | 4 | P0.4 | #115 | Full journey passes against a real SQL Server | BLOCKED BY P0.3 |
@@ -36,13 +36,14 @@ A production-visible value must be backed by collected evidence. If a dimension 
 ## P0.1 — Real SQL Registration
 
 **Issue:** #112  
-**Release gate:** registration can be used on a real target without secret leakage or false readiness.
+**Release gate:** registration can be used on a real target without secret leakage or false readiness.  
+**Audit finding:** `ConnectionLabController.Register` currently persists the enabled registration before Test Connection finishes. The current regression test also expects a failed Test Connection to leave a registration behind. P0.1 changes this to candidate-test-before-durable-commit semantics unless a future explicit “save unreachable target” command is designed separately.
 
 | Task | Description | State |
 |---|---|---|
-| P0-001 | Reconcile the current Connection Lab registration path against production acceptance criteria | READY / NEXT |
-| P0-002 | Require bounded Test Connection before a registration is considered connection-ready | PLANNED |
-| P0-003 | Verify SQL Login password remains write-only through failed/successful POST flows | PLANNED |
+| P0-001 | Reconcile the current Connection Lab registration path against production acceptance criteria | AUDIT COMPLETE — BLOCKER RECORDED IN #112 |
+| P0-002 | Test the candidate before durable registration commit; failed/cancelled Test must not silently persist a normal enabled target | READY / NEXT |
+| P0-003 | Compensate/delete a candidate Monitor-owned credential when initial registration test fails or is cancelled; keep password write-only | PLANNED |
 | P0-004 | Verify Integrated Security registration path and safe connection-string construction | PLANNED |
 | P0-005 | Verify successful registration persists across Monitor process restart | PLANNED |
 | P0-006 | Make failed Test Connection state explicit without publishing a live snapshot | PLANNED |
@@ -53,7 +54,7 @@ A production-visible value must be backed by collected evidence. If a dimension 
 
 ### P0.1 exit criteria
 
-A DBA can add a real target, safely test it, save it, restart Monitor and still see the durable registration. A failed test never becomes live evidence and no credential value/reference is rendered.
+A DBA can add a real target, safely test it, save it, restart Monitor and still see the durable registration. A failed initial test does not silently commit a normal enabled target or orphan a Monitor-owned candidate secret. No credential value/reference is rendered.
 
 ---
 
