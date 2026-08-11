@@ -16,6 +16,7 @@ on:
       - 'docs/STATUS.md'
       - 'docs/FEATURE_CATALOG.md'
       - 'scripts/Smoke-Monitor.ps1'
+      - 'scripts/Smoke-MonitorAuthentication.ps1'
       - 'scripts/Test-ProductionCandidate.ps1'
       - 'src/Monitor.Web/**'
       - 'tests/Monitor.Web.Tests/ProductionAdminCredentialGuardTests.cs'
@@ -76,11 +77,26 @@ jobs:
           Copy-Item deploy/appsettings.Production.example.json artifacts/publish/appsettings.Production.json -Force
 
           $salt = New-Object byte[] 16
-          $hash = New-Object byte[] 32
+          $passwordBytes = New-Object byte[] 24
           [System.Security.Cryptography.RandomNumberGenerator]::Fill($salt)
-          [System.Security.Cryptography.RandomNumberGenerator]::Fill($hash)
+          [System.Security.Cryptography.RandomNumberGenerator]::Fill($passwordBytes)
+          $adminPassword = 'Pc!' + [Convert]::ToHexString($passwordBytes)
+          $iterations = 150000
+          $kdf = [System.Security.Cryptography.Rfc2898DeriveBytes]::new(
+            $adminPassword,
+            $salt,
+            $iterations,
+            [System.Security.Cryptography.HashAlgorithmName]::SHA256)
+          try {
+            $hash = $kdf.GetBytes(32)
+          }
+          finally {
+            $kdf.Dispose()
+          }
+
           $saltBase64 = [Convert]::ToBase64String($salt)
           $hashBase64 = [Convert]::ToBase64String($hash)
+          Write-Output "::add-mask::$adminPassword"
           Write-Output "::add-mask::$saltBase64"
           Write-Output "::add-mask::$hashBase64"
 
@@ -88,11 +104,12 @@ jobs:
           "ASPNETCORE_URLS=http://127.0.0.1:$env:CANDIDATE_PORT" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "AllowedHosts=127.0.0.1;localhost" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "DevelopmentAdmin__Username=ProductionCandidateAdmin" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          "DevelopmentAdmin__Iterations=150000" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "DevelopmentAdmin__Iterations=$iterations" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "DevelopmentAdmin__SaltBase64=$saltBase64" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "DevelopmentAdmin__HashBase64=$hashBase64" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "MONITOR_CANDIDATE_ADMIN_PASSWORD=$adminPassword" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
-      - name: Start candidate and run first health smoke
+      - name: Start candidate and run first production smoke
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -103,7 +120,8 @@ jobs:
           $process.Id | Out-File -FilePath (Join-Path $env:RUNNER_TEMP 'monitor-candidate.pid') -Encoding ascii
 
           try {
-            $live = "http://127.0.0.1:$env:CANDIDATE_PORT/health/live"
+            $baseUri = "http://127.0.0.1:$env:CANDIDATE_PORT"
+            $live = "$baseUri/health/live"
             $ready = $false
             for ($attempt = 1; $attempt -le 60; $attempt++) {
               try {
@@ -112,7 +130,12 @@ jobs:
               } catch { Start-Sleep -Seconds 1 }
             }
             if (-not $ready) { throw 'Published Production candidate did not reach /health/live.' }
-            ./scripts/Smoke-Monitor.ps1 -BaseUri "http://127.0.0.1:$env:CANDIDATE_PORT" -AllowHttpLoopback
+            ./scripts/Smoke-Monitor.ps1 -BaseUri $baseUri -AllowHttpLoopback
+            ./scripts/Smoke-MonitorAuthentication.ps1 `
+              -BaseUri $baseUri `
+              -Username 'ProductionCandidateAdmin' `
+              -Password $env:MONITOR_CANDIDATE_ADMIN_PASSWORD `
+              -AllowHttpLoopback
           } catch {
             Write-Host '--- candidate stdout ---'
             if (Test-Path $stdout) { Get-Content $stdout -Tail 200 }
@@ -133,7 +156,8 @@ jobs:
           $stderr = Join-Path $env:RUNNER_TEMP 'monitor-candidate-restart.stderr.log'
           $process = Start-Process dotnet -ArgumentList 'Monitor.Web.dll' -WorkingDirectory $publish -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
           try {
-            $live = "http://127.0.0.1:$env:CANDIDATE_PORT/health/live"
+            $baseUri = "http://127.0.0.1:$env:CANDIDATE_PORT"
+            $live = "$baseUri/health/live"
             $ready = $false
             for ($attempt = 1; $attempt -le 60; $attempt++) {
               try {
@@ -142,7 +166,12 @@ jobs:
               } catch { Start-Sleep -Seconds 1 }
             }
             if (-not $ready) { throw 'Restarted Production candidate did not reach /health/live.' }
-            ./scripts/Smoke-Monitor.ps1 -BaseUri "http://127.0.0.1:$env:CANDIDATE_PORT" -AllowHttpLoopback
+            ./scripts/Smoke-Monitor.ps1 -BaseUri $baseUri -AllowHttpLoopback
+            ./scripts/Smoke-MonitorAuthentication.ps1 `
+              -BaseUri $baseUri `
+              -Username 'ProductionCandidateAdmin' `
+              -Password $env:MONITOR_CANDIDATE_ADMIN_PASSWORD `
+              -AllowHttpLoopback
             if (-not (Test-Path artifacts/publish/App_Data/keyring -PathType Container)) {
               throw 'Persistent local Data Protection key ring was not created in the candidate state directory.'
             }
@@ -168,6 +197,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path "$ops/deploy", "$ops/scripts", "$ops/docs" | Out-Null
           Copy-Item deploy/appsettings.Production.example.json "$ops/deploy/" -Force
           Copy-Item scripts/Smoke-Monitor.ps1 "$ops/scripts/" -Force
+          Copy-Item scripts/Smoke-MonitorAuthentication.ps1 "$ops/scripts/" -Force
           Copy-Item scripts/Test-ProductionCandidate.ps1 "$ops/scripts/" -Force
           Copy-Item docs/DEPLOY_IIS.md "$ops/docs/" -Force
           Copy-Item docs/UPGRADE_CHECKLIST.md "$ops/docs/" -Force
