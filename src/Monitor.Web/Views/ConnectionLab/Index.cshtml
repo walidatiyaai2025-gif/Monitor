@@ -114,6 +114,20 @@ else
                 </form>
                 @if (registration.AuthenticationMode == SqlAuthenticationMode.SqlLogin)
                 {
+                    @if (Model.AllowsLocalCredentialEntry)
+                    {
+                        <details class="lab-form">
+                            <summary>Reconnect protected credential</summary>
+                            <form asp-controller="ConnectionLab" asp-action="ReplaceLocalCredential" asp-route-id="@registration.Id" method="post" autocomplete="off">
+                                <fieldset><legend>New credential for @registration.DisplayName</legend>
+                                    <div class="lab-field full"><label for="sql-user-@registration.Id">SQL username</label><input id="sql-user-@registration.Id" name="SqlUsername" maxlength="128" autocomplete="username" /></div>
+                                    <div class="lab-field full"><label for="sql-password-@registration.Id">SQL password</label><input id="sql-password-@registration.Id" name="SqlPassword" type="password" maxlength="1024" autocomplete="new-password" /></div>
+                                    <small>The candidate is tested before this target changes. Passwords are write-only; metadata and history stay attached to this target.</small>
+                                    <div class="lab-actions full"><button class="secondary-button" type="submit">Test & reconnect</button></div>
+                                </fieldset>
+                            </form>
+                        </details>
+                    }
                     <form asp-controller="ConnectionLab" asp-action="ReplaceCredentialReference" asp-route-id="@registration.Id" method="post" class="lab-form" autocomplete="off">
                         <div class="lab-field full"><label>Replace with tested external reference</label><input name="ExternalSecretReference" maxlength="128" placeholder="env:FINANCE_PROD_V2" /><small>The candidate is resolved and Test Connection must succeed before this registration is changed. The current reference is never rendered.</small></div>
                         <div class="lab-actions full"><button class="secondary-button" type="submit">Test & replace reference</button></div>

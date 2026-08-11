@@ -76,6 +76,16 @@ Current progress: **100/100 tasks CI verified**. Batch 10 verification run `3144
 | B300-008 | Connection Lab pause/resume operator UX | LOCAL VERIFIED |
 | B300-009 | Antiforgery-protected POST/PRG workflow | LOCAL VERIFIED |
 | B300-010 | Release build and 293-test regression gate | LOCAL VERIFIED |
+| B300-011 | Write-only local credential replacement input | LOCAL VERIFIED |
+| B300-012 | Server-generated replacement secret reference | LOCAL VERIFIED |
+| B300-013 | Candidate Test Connection before registration mutation | LOCAL VERIFIED |
+| B300-014 | Failed candidate compensation cleanup | LOCAL VERIFIED |
+| B300-015 | Same registration identity and metadata after replacement | LOCAL VERIFIED |
+| B300-016 | Old owned-secret cleanup after commit | LOCAL VERIFIED |
+| B300-017 | External/shared old-secret preservation | LOCAL VERIFIED |
+| B300-018 | Reconnect form with unique accessible labels | LOCAL VERIFIED |
+| B300-019 | Password non-repopulation and safe PRG feedback | LOCAL VERIFIED |
+| B300-020 | Release build and 295-test regression gate | LOCAL VERIFIED |
 
 ## Delivery loop
 

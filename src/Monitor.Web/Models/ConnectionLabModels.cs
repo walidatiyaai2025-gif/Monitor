@@ -52,6 +52,18 @@ public sealed class CredentialReferenceReplacementInput
     public string ExternalSecretReference { get; set; } = string.Empty;
 }
 
+public sealed class LocalCredentialReplacementInput
+{
+    [Required]
+    [StringLength(128)]
+    public string SqlUsername { get; set; } = string.Empty;
+
+    [Required]
+    [DataType(DataType.Password)]
+    [StringLength(1024)]
+    public string SqlPassword { get; set; } = string.Empty;
+}
+
 public sealed record ConnectionLabRegistrationSummary(
     Guid Id,
     string DisplayName,

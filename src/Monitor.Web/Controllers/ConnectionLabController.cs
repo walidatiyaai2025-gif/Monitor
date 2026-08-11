@@ -168,6 +168,28 @@ public sealed class ConnectionLabController(
         return RedirectToAction(nameof(Index));
     }
 
+    [HttpPost("/servers/connections/{id:guid}/credentials/local")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ReplaceLocalCredential(
+        Guid id,
+        LocalCredentialReplacementInput input,
+        CancellationToken cancellationToken)
+    {
+        if (credentialLifecycle is null || !AllowsLocalCredentialEntry) return NotFound();
+        var actor = User.Identity?.Name?.Trim();
+        if (string.IsNullOrWhiteSpace(actor)) return Forbid();
+        if (!ModelState.IsValid)
+        {
+            TempData["ConnectionLabMessage"] = "Provide a valid SQL username and password.";
+            return Redirect($"/servers/connections#target-{id:D}");
+        }
+        var result = await credentialLifecycle.ReplaceWithLocalCredentialAsync(
+            id, input.SqlUsername, input.SqlPassword, actor, cancellationToken);
+        input.SqlPassword = string.Empty;
+        TempData["ConnectionLabMessage"] = result.Message;
+        return Redirect($"/servers/connections#target-{id:D}");
+    }
+
     [HttpPost("/servers/connections/credentials/cleanup")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CleanupOwnedCredentials(CancellationToken cancellationToken)
