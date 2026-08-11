@@ -1,0 +1,73 @@
+name: b200-b5-finalize
+
+on:
+  push:
+    branches: [agent/b200-5]
+    paths: ['.github/workflows/b200-b5-finalize.yml']
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/b200-5
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Restore
+        run: dotnet restore Monitor.sln
+      - name: Release build
+        run: dotnet build Monitor.sln --configuration Release --no-restore --warnaserror
+      - name: Full tests
+        run: dotnet test Monitor.sln --configuration Release --no-build --logger 'trx;LogFileName=b200-b5-final.trx'
+      - name: Synchronize BATCH-200 canonical docs
+        shell: python
+        env:
+          VERIFY_RUN: ${{ github.run_id }}
+        run: |
+          from pathlib import Path
+          import os, re, xml.etree.ElementTree as ET
+          run = os.environ['VERIFY_RUN']
+          trx = next(Path('tests').rglob('b200-b5-final.trx'))
+          counters = next(node for node in ET.parse(trx).iter() if node.tag.endswith('Counters'))
+          total = counters.attrib.get('total', '?')
+          passed = counters.attrib.get('passed', '?')
+          failed = counters.attrib.get('failed', '?')
+
+          ledger = Path('docs/BATCH_200.md')
+          s = ledger.read_text()
+          for n in range(41, 51):
+              s = re.sub(rf'(\| B200-{n:03d} \|[^\n]*?\|) (PLANNED|IMPLEMENTED — CI PENDING) \|', rf'\1 CI VERIFIED — RUN {run} |', s)
+          marker = '## Batch 6 — Retention & governance'
+          paragraph = f'''Batch 5 provides cache-only fleet intelligence by environment, group and tag; freshness/unavailable, maintenance and suppression counts; deterministic incident rule hot-spots; and backup/memory/blocking/runnable risk summaries. The B200-050 acceptance gate uses a cache fake that rejects `GetAsync`/`RefreshAsync`, proving fleet reads use `Peek` only. Verification run `{run}` passed Release warnings-as-errors and {passed}/{total} tests ({failed} failed).\n\n'''
+          if 'Batch 5 provides cache-only fleet intelligence' not in s:
+              s = s.replace(marker, paragraph + marker)
+          ledger.write_text(s)
+
+          Path('docs/STATUS.md').write_text(f'''# Project Status\n\n**Updated:** 2026-08-11 03:45 +03:00  \n**Branch:** `agent/b200-5`  \n**Target:** BATCH-200 / Batch 5 — Fleet intelligence  \n**Issues:** #76 umbrella · #85 Batch 5  \n**PR:** #86  \n**Overall:** 🟢 M0–M8 VERIFIED · 🟢 BATCH-100 100/100 COMPLETE · 🟢 B200-001..050 CI VERIFIED · 🟡 BATCH-200 50/100\n\n## Current verification\n\n- GitHub Actions finalizer run: `{run}`.\n- Release build: **Green** with `--warnaserror`.\n- Tests: **{passed}/{total} passed; {failed} failed**.\n- B200-041..050: CI VERIFIED.\n- BATCH-200 progress: **50/100 CI verified**.\n\n## Batch 5 delivered\n\n- Cache-only fleet summaries by environment, server group and tag.\n- Fresh/stale/unavailable cached snapshot counts.\n- Active maintenance and suppression counts.\n- Open incident hot-spots by deterministic rule, including critical and suppressed counts.\n- Cached backup-gap, memory-pressure, blocking and runnable-task risk summaries.\n- `/enterprise/fleet` read-only operator surface.\n- Acceptance coverage proves snapshot access is `Peek` only and never initiates collection.\n\n## Stable guardrails\n\n- Fleet GETs remain Monitor-owned/cache-only.\n- No monitored-SQL collection from fleet intelligence.\n- Suppression changes actionability only; incident evidence is unchanged.\n- No autonomous remediation or AI SQL execution.\n\n## Next\n\nB200-051..060 Retention & Governance.\n''')
+      - name: Commit verified docs and remove one-shot workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/b200-b5-finalize.yml
+          git add docs/BATCH_200.md docs/STATUS.md
+          git config user.name 'Monitor Release Gate'
+          git config user.email 'actions@users.noreply.github.com'
+          git commit -m 'docs: mark B200-041..050 CI verified [skip ci]'
+          git push origin HEAD:agent/b200-5
+      - name: Close batch and merge PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh issue comment 76 --repo "$GITHUB_REPOSITORY" --body "B200-041..050 verified by run $GITHUB_RUN_ID; BATCH-200 is 50/100 CI verified."
+          gh issue close 85 --repo "$GITHUB_REPOSITORY" --reason completed || true
+          gh pr merge 86 --repo "$GITHUB_REPOSITORY" --squash --delete-branch --subject 'BATCH-200/5: add cache-only fleet intelligence (#86)' --body "Complete B200-041..050. Finalizer $GITHUB_RUN_ID passed Release warnings-as-errors and the full test suite."
