@@ -157,7 +157,7 @@ public sealed class EnterpriseReportingService(
     public byte[] History(Guid registrationId, TimeSpan window)
     {
         if (registrationId == Guid.Empty) throw new ArgumentException("Registration ID is required.", nameof(registrationId));
-        if (window is <= TimeSpan.Zero || window > TimeSpan.FromHours(24)) throw new ArgumentOutOfRangeException(nameof(window));
+        if (window <= TimeSpan.Zero || window > TimeSpan.FromHours(24)) throw new ArgumentOutOfRangeException(nameof(window));
         var rows = history.Read(registrationId, window, 0, EnterpriseReportContract.MaxRows)
             .OrderBy(item => item.CollectedAtUtc)
             .Select(item => (IReadOnlyList<string?>)
