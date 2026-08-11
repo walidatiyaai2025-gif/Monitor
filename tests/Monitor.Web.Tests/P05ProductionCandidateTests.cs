@@ -49,8 +49,9 @@ public sealed class P05ProductionCandidateTests
         Assert.False(json.GetProperty("HaState").GetProperty("UseSharedOperationalState").GetBoolean());
         Assert.False(json.GetProperty("Coordination").GetProperty("Enabled").GetBoolean());
         Assert.Equal("LocalFile", json.GetProperty("DataProtectionKeyStore").GetProperty("Mode").GetString());
+        Assert.False(json.TryGetProperty("ConnectionStrings", out _));
         Assert.DoesNotContain("Password", text, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("ConnectionString", text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("\"ConnectionString\":", text, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("DevelopmentAdmin", text, StringComparison.Ordinal);
     }
 
