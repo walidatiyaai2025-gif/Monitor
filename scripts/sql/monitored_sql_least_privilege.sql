@@ -9,6 +9,12 @@
   value. The login MUST already exist. This script creates no password/login and
   grants no DML/DDL/sysadmin rights. Review against your SQL Server version and
   security policy before production deployment.
+
+  Metadata note:
+  The collector reads sys.master_files. SQL Server metadata visibility rules can
+  otherwise hide rows even when SELECT on the catalog view is granted. The
+  server role therefore receives VIEW ANY DEFINITION, which permits metadata
+  visibility but does not grant data access or mutation rights.
 */
 
 SET NOCOUNT ON;
@@ -41,6 +47,7 @@ BEGIN
 END;
 
 GRANT VIEW ANY DATABASE TO MonitorObserverServerRole;
+GRANT VIEW ANY DEFINITION TO MonitorObserverServerRole;
 
 DECLARE @sql nvarchar(max) = N'ALTER SERVER ROLE MonitorObserverServerRole ADD MEMBER ' + QUOTENAME(@MonitorLogin) + N';';
 EXEC sys.sp_executesql @sql;
