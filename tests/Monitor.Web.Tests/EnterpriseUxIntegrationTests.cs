@@ -132,7 +132,7 @@ public sealed class EnterpriseUxIntegrationTests
         var controller = CreateEnterpriseController(new InMemoryOperatorMetadataStore(TimeProvider.System), new InMemoryServerRegistrationRepository(), incidents, audit);
         AttachHttpContext(controller, "operator");
 
-        var result = controller.AddIncidentNote(incident.Id, "Password=SuperSecret;Data Source=sql01");
+        var result = controller.AddIncidentNote(incident.Id, "Password=SuperSecret;Data Source=sql01", "test-request-0001");
 
         Assert.IsType<RedirectToActionResult>(result);
         Assert.NotNull(controller.TempData["OperatorError"]);

@@ -16,45 +16,25 @@
         </div>
         <div class="hero-actions">
             <a class="button secondary" href="/reports/servers.csv">Export safe CSV</a>
-            @if (canManage)
-            {
-                <a class="button secondary" href="/diagnostics/package">Download diagnostics</a>
-            }
+            @if (canManage) { <a class="button secondary" href="/diagnostics/package">Download diagnostics</a> }
         </div>
     </div>
 
-    @if (TempData["OperatorStatus"] is string status)
-    {
-        <div class="status-banner" role="status" aria-live="polite">@status</div>
-    }
-    @if (TempData["OperatorError"] is string error)
-    {
-        <div class="status-banner state-warning" role="alert" aria-live="assertive"><strong>Update rejected.</strong> @error</div>
-    }
+    @if (TempData["OperatorStatus"] is string status) { <div class="status-banner" role="status" aria-live="polite">@status</div> }
+    @if (TempData["OperatorError"] is string error) { <div class="status-banner state-warning" role="alert" aria-live="assertive"><strong>Update rejected.</strong> @error</div> }
 
     <section class="panel panel-pad" aria-labelledby="enterprise-filter-heading">
         <div class="panel-heading"><div><p class="eyebrow">FILTERS</p><h2 id="enterprise-filter-heading">Estate & incident focus</h2></div><a class="button secondary" href="/enterprise">Clear filters</a></div>
         <form method="get" action="/enterprise" class="stack-form" aria-label="Enterprise operations filters">
             <div class="definition-grid">
                 <label>Environment
-                    <select name="environment">
-                        <option value="">All environments</option>
-                        @foreach (var environment in Enum.GetValues<ServerEnvironmentClass>())
-                        {
-                            if (Model.Filter.Environment == environment) { <option value="@environment" selected>@environment</option> }
-                            else { <option value="@environment">@environment</option> }
-                        }
-                    </select>
+                    <select name="environment"><option value="">All environments</option>@foreach (var environment in Enum.GetValues<ServerEnvironmentClass>()) { if (Model.Filter.Environment == environment) { <option value="@environment" selected>@environment</option> } else { <option value="@environment">@environment</option> } }</select>
                 </label>
                 <label>Group <input name="group" maxlength="60" value="@Model.Filter.Group" placeholder="Exact group" /></label>
                 <label>Tag <input name="tag" maxlength="32" value="@Model.Filter.Tag" placeholder="Exact tag" /></label>
                 <label>Assignee <input name="assignee" maxlength="80" value="@Model.Filter.Assignee" placeholder="Exact assignee" /></label>
                 <label>Suppression
-                    <select name="suppressed">
-                        <option value="">All incidents</option>
-                        @if (Model.Filter.Suppressed == true) { <option value="true" selected>Suppressed only</option> } else { <option value="true">Suppressed only</option> }
-                        @if (Model.Filter.Suppressed == false) { <option value="false" selected>Actionable only</option> } else { <option value="false">Actionable only</option> }
-                    </select>
+                    <select name="suppressed"><option value="">All incidents</option>@if (Model.Filter.Suppressed == true) { <option value="true" selected>Suppressed only</option> } else { <option value="true">Suppressed only</option> }@if (Model.Filter.Suppressed == false) { <option value="false" selected>Actionable only</option> } else { <option value="false">Actionable only</option> }</select>
                 </label>
             </div>
             <button class="button primary" type="submit">Apply filters</button>
@@ -62,111 +42,71 @@
     </section>
 
     <section class="panel" aria-labelledby="server-ops-heading">
-        <div class="panel-heading">
-            <div>
-                <p class="eyebrow">ESTATE GOVERNANCE</p>
-                <h2 id="server-ops-heading">Server metadata</h2>
-            </div>
-            <span class="metric-value">@Model.Servers.Count</span>
-        </div>
-
-        @if (Model.Servers.Count == 0)
-        {
-            <p class="empty-state">No registered servers match the current filters.</p>
-        }
+        <div class="panel-heading"><div><p class="eyebrow">ESTATE GOVERNANCE</p><h2 id="server-ops-heading">Server metadata</h2></div><span class="metric-value">@Model.Servers.Count</span></div>
+        @if (Model.Servers.Count == 0) { <p class="empty-state">No registered servers match the current filters.</p> }
         else
         {
-            <div class="table-scroll">
-                <table class="data-table">
-                    <thead><tr><th>Server</th><th>Environment</th><th>Group / tags</th><th>Maintenance</th><th>Alert suppression</th>@if (canManage) { <th>Update</th> }</tr></thead>
-                    <tbody>
-                    @foreach (var row in Model.Servers)
+            <div class="table-scroll"><table class="data-table"><thead><tr><th>Server</th><th>Environment</th><th>Group / tags</th><th>Maintenance</th><th>Alert suppression</th>@if (canManage) { <th>Update</th> }</tr></thead><tbody>
+            @foreach (var row in Model.Servers)
+            {
+                var maintenance = row.Metadata.MaintenanceWindow;
+                var suppression = row.Metadata.AlertSuppressionWindow;
+                <tr>
+                    <td><strong>@row.Registration.DisplayName</strong><div class="meta-line">@row.Registration.Id.ToString("D")</div></td>
+                    <td><span class="status-chip">@row.Metadata.Environment</span></td>
+                    <td><div>@(row.Metadata.Group ?? "—")</div><div class="meta-line">@(row.Metadata.Tags.Length == 0 ? "No tags" : string.Join(", ", row.Metadata.Tags))</div></td>
+                    <td><span class="status-chip">@(row.MaintenanceActive ? "ACTIVE" : "Inactive")</span>@if (maintenance is not null) { <div>@maintenance.StartsAtUtc.ToString("u") → @maintenance.EndsAtUtc.ToString("u")</div><div class="meta-line">@maintenance.Reason</div> }</td>
+                    <td><span class="status-chip">@(row.AlertSuppressed ? "SUPPRESSED" : "Actionable")</span>@if (suppression is not null) { <div>@suppression.StartsAtUtc.ToString("u") → @suppression.EndsAtUtc.ToString("u")</div><div class="meta-line">@suppression.Reason</div> }</td>
+                    @if (canManage)
                     {
-                        var maintenance = row.Metadata.MaintenanceWindow;
-                        var suppression = row.Metadata.AlertSuppressionWindow;
-                        <tr>
-                            <td><strong>@row.Registration.DisplayName</strong><div class="meta-line">@row.Registration.Id.ToString("D")</div></td>
-                            <td><span class="status-chip">@row.Metadata.Environment</span></td>
-                            <td><div>@(row.Metadata.Group ?? "—")</div><div class="meta-line">@(row.Metadata.Tags.Length == 0 ? "No tags" : string.Join(", ", row.Metadata.Tags))</div></td>
-                            <td>
-                                <span class="status-chip">@(row.MaintenanceActive ? "ACTIVE" : "Inactive")</span>
-                                @if (maintenance is not null) { <div>@maintenance.StartsAtUtc.ToString("u") → @maintenance.EndsAtUtc.ToString("u")</div><div class="meta-line">@maintenance.Reason</div> }
-                            </td>
-                            <td>
-                                <span class="status-chip">@(row.AlertSuppressed ? "SUPPRESSED" : "Actionable")</span>
-                                @if (suppression is not null) { <div>@suppression.StartsAtUtc.ToString("u") → @suppression.EndsAtUtc.ToString("u")</div><div class="meta-line">@suppression.Reason</div> }
-                            </td>
-                            @if (canManage)
-                            {
-                                <td>
-                                    <details>
-                                        <summary class="button secondary">Edit</summary>
-                                        <form class="stack-form" method="post" action="/servers/@row.Registration.Id/operator-profile">
-                                            @Html.AntiForgeryToken()
-                                            <label>Environment
-                                                <select name="environment">
-                                                    @foreach (var environment in Enum.GetValues<ServerEnvironmentClass>())
-                                                    {
-                                                        if (environment == row.Metadata.Environment) { <option value="@environment" selected>@environment</option> }
-                                                        else { <option value="@environment">@environment</option> }
-                                                    }
-                                                </select>
-                                            </label>
-                                            <label>Group <input name="group" maxlength="60" value="@row.Metadata.Group" /></label>
-                                            <label>Tags <input name="tags" maxlength="329" value="@string.Join(',', row.Metadata.Tags)" placeholder="prod,finance,tier-1" /></label>
-                                            <label>Maintenance start UTC <input name="maintenanceStartUtc" type="datetime-local" value="@(maintenance?.StartsAtUtc.UtcDateTime.ToString("yyyy-MM-ddTHH:mm"))" /></label>
-                                            <label>Maintenance end UTC <input name="maintenanceEndUtc" type="datetime-local" value="@(maintenance?.EndsAtUtc.UtcDateTime.ToString("yyyy-MM-ddTHH:mm"))" /></label>
-                                            <label>Maintenance reason <input name="maintenanceReason" maxlength="200" value="@maintenance?.Reason" /></label>
-                                            <label>Suppression start UTC <input name="suppressionStartUtc" type="datetime-local" value="@(suppression?.StartsAtUtc.UtcDateTime.ToString("yyyy-MM-ddTHH:mm"))" /></label>
-                                            <label>Suppression end UTC <input name="suppressionEndUtc" type="datetime-local" value="@(suppression?.EndsAtUtc.UtcDateTime.ToString("yyyy-MM-ddTHH:mm"))" /></label>
-                                            <label>Suppression reason <input name="suppressionReason" maxlength="200" value="@suppression?.Reason" /></label>
-                                            <button class="button primary" type="submit">Save metadata</button>
-                                        </form>
-                                    </details>
-                                </td>
-                            }
-                        </tr>
+                        <td><details><summary class="button secondary">Edit</summary><form class="stack-form" method="post" action="/servers/@row.Registration.Id/operator-profile">@Html.AntiForgeryToken()
+                            <label>Environment<select name="environment">@foreach (var environment in Enum.GetValues<ServerEnvironmentClass>()) { if (environment == row.Metadata.Environment) { <option value="@environment" selected>@environment</option> } else { <option value="@environment">@environment</option> } }</select></label>
+                            <label>Group <input name="group" maxlength="60" value="@row.Metadata.Group" /></label>
+                            <label>Tags <input name="tags" maxlength="329" value="@string.Join(',', row.Metadata.Tags)" placeholder="prod,finance,tier-1" /></label>
+                            <label>Maintenance start UTC <input name="maintenanceStartUtc" type="datetime-local" value="@(maintenance?.StartsAtUtc.UtcDateTime.ToString("yyyy-MM-ddTHH:mm"))" /></label>
+                            <label>Maintenance end UTC <input name="maintenanceEndUtc" type="datetime-local" value="@(maintenance?.EndsAtUtc.UtcDateTime.ToString("yyyy-MM-ddTHH:mm"))" /></label>
+                            <label>Maintenance reason <input name="maintenanceReason" maxlength="200" value="@maintenance?.Reason" /></label>
+                            <label>Suppression start UTC <input name="suppressionStartUtc" type="datetime-local" value="@(suppression?.StartsAtUtc.UtcDateTime.ToString("yyyy-MM-ddTHH:mm"))" /></label>
+                            <label>Suppression end UTC <input name="suppressionEndUtc" type="datetime-local" value="@(suppression?.EndsAtUtc.UtcDateTime.ToString("yyyy-MM-ddTHH:mm"))" /></label>
+                            <label>Suppression reason <input name="suppressionReason" maxlength="200" value="@suppression?.Reason" /></label>
+                            <button class="button primary" type="submit">Save metadata</button>
+                        </form></details></td>
                     }
-                    </tbody>
-                </table>
-            </div>
+                </tr>
+            }
+            </tbody></table></div>
         }
     </section>
 
     <section class="panel" aria-labelledby="incident-ops-heading">
         <div class="panel-heading"><div><p class="eyebrow">INCIDENT GOVERNANCE</p><h2 id="incident-ops-heading">Ownership, notes & recommendations</h2></div><span class="metric-value">@Model.Incidents.Count</span></div>
-        @if (Model.Incidents.Count == 0)
-        {
-            <p class="empty-state">No incidents match the current filters.</p>
-        }
+        @if (Model.Incidents.Count == 0) { <p class="empty-state">No incidents match the current filters.</p> }
         else
         {
             <div class="card-grid">
-                @foreach (var row in Model.Incidents)
-                {
-                    <article class="panel compact-panel">
-                        <div class="panel-heading"><div><span class="status-chip">@row.Incident.Status</span> <span class="status-chip">@(row.AlertSuppressed ? "Suppressed" : "Actionable")</span><h3>@row.Incident.Title</h3><p class="meta-line">@row.Incident.RuleId · @row.Incident.LastSeenUtc.ToString("u")</p></div></div>
-                        <dl class="definition-grid"><div><dt>Assignee</dt><dd>@(row.Metadata.Assignee ?? "Unassigned")</dd></div><div><dt>Notes</dt><dd>@row.Metadata.Notes.Length / @EnterpriseOperatorValidation.MaxNotesPerIncident</dd></div></dl>
-                        @if (canOperate)
-                        {
-                            <form class="inline-form" method="post" action="/alerts/@Uri.EscapeDataString(row.Incident.Id)/owner">@Html.AntiForgeryToken()<label class="sr-only" for="owner-@row.Incident.Id.GetHashCode()">Incident owner</label><input id="owner-@row.Incident.Id.GetHashCode()" name="assignee" maxlength="80" value="@row.Metadata.Assignee" placeholder="Owner / team" /><button class="button secondary" type="submit">Assign</button></form>
-                            <form class="stack-form" method="post" action="/alerts/@Uri.EscapeDataString(row.Incident.Id)/notes">@Html.AntiForgeryToken()<label>Operator note<textarea name="note" maxlength="500" rows="3" required></textarea></label><button class="button secondary" type="submit">Add note</button></form>
-                        }
-                        @if (row.Metadata.Notes.Length > 0)
-                        {
-                            <ul class="activity-list">@foreach (var note in row.Metadata.Notes.OrderByDescending(item => item.OccurredAtUtc).Take(5)) { <li><strong>@note.Actor</strong> · @note.OccurredAtUtc.ToString("u")<br />@note.Text</li> }</ul>
-                        }
-                        @if (row.Recommendation is not null && row.RecommendationKey is not null)
-                        {
-                            <div class="recommendation-card"><div class="panel-heading"><div><p class="eyebrow">RECOMMENDATION</p><h4>@row.Recommendation.RuleId</h4></div><span class="status-chip">@(row.RecommendationAcknowledged ? "Acknowledged" : "Review")</span></div><p>@row.Recommendation.Explanation</p>
-                                @if (canOperate)
-                                {
-                                    <form method="post" action="/alerts/@Uri.EscapeDataString(row.Incident.Id)/recommendation/@row.RecommendationKey/acknowledge">@Html.AntiForgeryToken()<input type="hidden" name="acknowledged" value="@(row.RecommendationAcknowledged ? "false" : "true")" /><button class="button secondary" type="submit">@(row.RecommendationAcknowledged ? "Reopen review" : "Acknowledge recommendation")</button></form>
-                                }
-                            </div>
-                        }
-                    </article>
-                }
+            @foreach (var row in Model.Incidents)
+            {
+                var noteRequestKey = Guid.NewGuid().ToString("N");
+                <article class="panel compact-panel">
+                    <div class="panel-heading"><div><span class="status-chip">@row.Incident.Status</span> <span class="status-chip">@row.SlaBucket SLA</span> <span class="status-chip">@(row.AlertSuppressed ? "Suppressed" : "Actionable")</span><h3>@row.Incident.Title</h3><p class="meta-line">@row.Incident.RuleId · @row.Incident.LastSeenUtc.ToString("u")</p></div></div>
+                    <dl class="definition-grid"><div><dt>Assignee</dt><dd>@(row.Metadata.Assignee ?? "Unassigned")</dd></div><div><dt>Notes</dt><dd>@row.Metadata.Notes.Length / @EnterpriseOperatorValidation.MaxNotesPerIncident</dd></div><div><dt>SLA bucket</dt><dd>@row.SlaBucket</dd></div></dl>
+                    @if (canOperate)
+                    {
+                        <form class="inline-form" method="post" action="/alerts/@Uri.EscapeDataString(row.Incident.Id)/owner">@Html.AntiForgeryToken()<label class="sr-only" for="owner-@row.Incident.Id.GetHashCode()">Incident owner</label><input id="owner-@row.Incident.Id.GetHashCode()" name="assignee" maxlength="80" value="@row.Metadata.Assignee" placeholder="Owner / team" /><button class="button secondary" type="submit">Assign</button></form>
+                        <form class="stack-form" method="post" action="/alerts/@Uri.EscapeDataString(row.Incident.Id)/notes">@Html.AntiForgeryToken()<input type="hidden" name="requestKey" value="@noteRequestKey" /><label>Operator note<textarea name="note" maxlength="500" rows="3" required></textarea></label><button class="button secondary" type="submit">Add note</button></form>
+                    }
+                    @if (row.Metadata.Notes.Length > 0)
+                    {
+                        <ul class="activity-list">@foreach (var note in row.Metadata.Notes.OrderByDescending(item => item.OccurredAtUtc).Take(5)) { <li><strong>@note.Actor</strong> · @note.OccurredAtUtc.ToString("u")<br />@note.Text</li> }</ul>
+                    }
+                    @if (row.Recommendation is not null && row.RecommendationKey is not null)
+                    {
+                        <div class="recommendation-card"><div class="panel-heading"><div><p class="eyebrow">RECOMMENDATION</p><h4>@row.Recommendation.RuleId</h4></div><span class="status-chip">@(row.RecommendationAcknowledged ? "Acknowledged" : "Review")</span></div><p>@row.Recommendation.Explanation</p>
+                        @if (canOperate) { <form method="post" action="/alerts/@Uri.EscapeDataString(row.Incident.Id)/recommendation/@row.RecommendationKey/acknowledge">@Html.AntiForgeryToken()<input type="hidden" name="acknowledged" value="@(row.RecommendationAcknowledged ? "false" : "true")" /><button class="button secondary" type="submit">@(row.RecommendationAcknowledged ? "Reopen review" : "Acknowledge recommendation")</button></form> }
+                        </div>
+                    }
+                </article>
+            }
             </div>
         }
     </section>
