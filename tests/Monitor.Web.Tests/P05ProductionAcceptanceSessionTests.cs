@@ -11,6 +11,7 @@ public sealed class P05ProductionAcceptanceSessionTests
     {
         var text = Read("scripts/New-ProductionAcceptanceSession.ps1");
         Assert.Contains("$Name must be an absolute Windows path", text, StringComparison.Ordinal);
+        Assert.Contains("must not contain path traversal segments", text, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("SessionRoot must be fresh and must not already exist", text, StringComparison.Ordinal);
         Assert.Contains("SessionRoot must not be a drive or UNC share root", text, StringComparison.Ordinal);
         Assert.Contains("SessionRoot parent directory must already exist", text, StringComparison.Ordinal);
@@ -82,6 +83,7 @@ public sealed class P05ProductionAcceptanceSessionTests
         Assert.Contains("tampered checksum unexpectedly passed", runtime, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("non-zip artifact unexpectedly passed", runtime, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("secret-like session metadata unexpectedly passed", runtime, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("traversal-bearing absolute session root unexpectedly passed", runtime, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
