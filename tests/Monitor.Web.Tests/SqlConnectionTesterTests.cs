@@ -54,8 +54,10 @@ public sealed class SqlConnectionTesterTests
 
     [Theory]
     [InlineData((int)SqlProbeFailureKind.Authentication, ConnectionTestStatus.AuthenticationFailed)]
+    [InlineData((int)SqlProbeFailureKind.Timeout, ConnectionTestStatus.TimedOut)]
     [InlineData((int)SqlProbeFailureKind.Network, ConnectionTestStatus.NetworkUnavailable)]
     [InlineData((int)SqlProbeFailureKind.Certificate, ConnectionTestStatus.CertificateRejected)]
+    [InlineData((int)SqlProbeFailureKind.Permission, ConnectionTestStatus.PermissionDenied)]
     [InlineData((int)SqlProbeFailureKind.Other, ConnectionTestStatus.Failed)]
     public async Task ProbeFailures_AreMappedToSafeResults(
         int failure,
@@ -69,6 +71,16 @@ public sealed class SqlConnectionTesterTests
 
         Assert.Equal(expected, result.Status);
         Assert.DoesNotContain("password", result.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData(229)]
+    [InlineData(297)]
+    [InlineData(300)]
+    [InlineData(916)]
+    public void PermissionSqlNumbers_AreClassifiedWithoutParsingProviderText(int number)
+    {
+        Assert.Equal(SqlProbeFailureKind.Permission, SqlErrorClassifier.Classify(number));
     }
 
     [Fact]
