@@ -64,8 +64,8 @@ public sealed class DemoMonitorService : IDemoMonitorService
             Server = server,
             Metrics =
             [
-                new("CPU", $"{server.CpuPercent}%", "Latest collected snapshot", server.CpuPercent > 80 ? HealthState.Warning : HealthState.Healthy),
-                new("Memory", $"{server.MemoryPercent}%", "Latest collected snapshot", server.MemoryPercent > 82 ? HealthState.Warning : HealthState.Healthy),
+                new("CPU", $"{server.CpuPercent}%", "Latest collected snapshot", server.CpuPercent is > 80 ? HealthState.Warning : HealthState.Healthy),
+                new("Memory", $"{server.MemoryPercent}%", "Latest collected snapshot", server.MemoryPercent is > 82 ? HealthState.Warning : HealthState.Healthy),
                 new("Databases", $"{server.DatabaseOnline} / {server.DatabaseTotal}", "Online databases", server.DatabaseOnline == server.DatabaseTotal ? HealthState.Healthy : HealthState.Critical),
                 new("SQL Agent", $"{server.JobsHealthy} / {server.JobsTotal}", "Healthy jobs", server.JobsHealthy == server.JobsTotal ? HealthState.Healthy : HealthState.Warning)
             ]
