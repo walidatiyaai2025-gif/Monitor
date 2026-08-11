@@ -68,16 +68,18 @@ Batch 3 adds bounded incident collaboration over the existing durable operator m
 
 | Task | Description | Status |
 |---|---|---|
-| B200-031 | Filtered server CSV export | PLANNED |
-| B200-032 | Formula-safe incident CSV export | PLANNED |
-| B200-033 | Bounded history CSV export | PLANNED |
-| B200-034 | Administrator audit CSV export | PLANNED |
-| B200-035 | Versioned deterministic export schemas | PLANNED |
-| B200-036 | Explicit export row/size caps | PLANNED |
-| B200-037 | UTF-8/BOM compatibility tests | PLANNED |
-| B200-038 | Spreadsheet-formula injection matrix | PLANNED |
-| B200-039 | Diagnostics manifest build/revision metadata | PLANNED |
-| B200-040 | Export/diagnostics acceptance suite | PLANNED |
+| B200-031 | Filtered server CSV export | CI VERIFIED — RUN 31445480775 |
+| B200-032 | Formula-safe incident CSV export | CI VERIFIED — RUN 31445480775 |
+| B200-033 | Bounded history CSV export | CI VERIFIED — RUN 31445480775 |
+| B200-034 | Administrator audit CSV export | CI VERIFIED — RUN 31445480775 |
+| B200-035 | Versioned deterministic export schemas | CI VERIFIED — RUN 31445480775 |
+| B200-036 | Explicit export row/size caps | CI VERIFIED — RUN 31445480775 |
+| B200-037 | UTF-8/BOM compatibility tests | CI VERIFIED — RUN 31445480775 |
+| B200-038 | Spreadsheet-formula injection matrix | CI VERIFIED — RUN 31445480775 |
+| B200-039 | Diagnostics manifest build/revision metadata | CI VERIFIED — RUN 31445480775 |
+| B200-040 | Export/diagnostics acceptance suite | CI VERIFIED — RUN 31445480775 |
+
+Batch 4 introduces the versioned `monitor-export-v2` contract with explicit row/byte/cell caps, UTF-8 BOM emission, deterministic LF line endings and spreadsheet-formula neutralization. Server, incident, history and audit exports remain Monitor-owned/cache-only; the server report proves `Peek`-only snapshot access and excludes monitored SQL endpoints/secret references. Administrator diagnostics exposes a bounded build/revision manifest without environment values. The BOM regression test caught and corrected the .NET encoding preamble assumption before merge.
 
 ## Batch 5 — Fleet intelligence
 
