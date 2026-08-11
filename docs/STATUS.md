@@ -48,13 +48,13 @@
 
 ## BATCH-600 — Live Operator Readiness & Evidence Orchestration
 
-**Issue:** #134  
-**PR:** #139  
-**Branch:** `agent/b600-live-readiness`  
+**Issue:** #134 — CLOSED / COMPLETED  
+**PR:** #139 — squash-merged  
+**Merge commit:** `08513eeae75d70b8a499124f6ed19628c8a27f19`  
 **Task range:** B600-001..100  
-**State:** **100/100 IMPLEMENTED + IMPLEMENTATION CI VERIFIED; final synchronized PR gates / squash merge pending**.
+**State:** **100/100 COMPLETE**.
 
-B600 delivers deterministic fail-closed repository orchestration for:
+B600 delivered deterministic fail-closed repository orchestration for:
 
 - evidence freshness and source normalization;
 - gate dependency graph and prerequisite readiness;
@@ -67,21 +67,24 @@ B600 delivers deterministic fail-closed repository orchestration for:
 - acceptance snapshot versioning, monotonic sequence and deterministic ETag;
 - versioned 100-task release contract.
 
-### Implementation merge-ref evidence
+### Final exact-head merge evidence
 
-Implementation head `1c31897a3652fd45bc3ff0c45bac91f991eaf6b9` was tested on exact PR merge ref `f60d01676bade59eef0b1cbbe90eb200c71223a6` against `main` `020f4f1d0576d42af74db88537ca0690ea3b8f47`.
+All final gates tested PR #139 source head `173f9dba6254f92c2e4725ad3f00810e5027a133` on exact merge ref `6cf3bb13fffb5593b12d78c766694f4a0bcc45ab` against then-current `main` `020f4f1d0576d42af74db88537ca0690ea3b8f47`.
 
-- Normal CI `31500259339`: **Green**.
+- Normal CI `31500683477`: **Green**.
 - Release build: **0 warnings / 0 errors**.
 - Full suite: **738/738 passed**, 0 failed, 0 skipped.
-- Windows production-candidate `31500260363`: **Green end-to-end** with **738/738 tests passed**.
+- Real SQL `31500683511`: **Green**, SQL Server 2022, SQL Agent operational readiness, non-sysadmin least-privilege login, **8/8 RealSql passed**.
+- Windows production-candidate `31500683448`: **Green end-to-end** on Windows Server 2025 with **738/738 tests passed**.
 - Windows gate passed production PowerShell syntax checks, `win-x64` publish, secret-free SingleNode validation, HTTPS health/authentication before and after restart, clean package validation and artifact upload.
-- Candidate artifact: `Monitor-0.1.0-rc.32-win-x64`, Actions artifact ID `9104795076`.
-- Exactly 100 mapped tests: `B600_001..B600_100`.
-- Read-policy endpoint: `GET /production/v2/readiness-contract`.
-- Detailed ledger: `docs/BATCH_600.md`.
+- Final tested candidate: `Monitor-0.1.0-rc.34-win-x64.zip`.
+- Product ZIP SHA-256: `13a5f0997a1ece31264cb6b9df4e7b2a96af0b7b95243dcacfce70d7cc69a089`.
+- GitHub Actions artifact ID: `9104965992`.
+- Exactly 100 mapped B600 tests: `B600_001..B600_100`.
+- Read-policy contract endpoint: `GET /production/v2/readiness-contract`.
+- Detailed task ledger: `docs/BATCH_600.md`.
 
-**BATCH-600 does not close P0.5.** Repository CI and Windows runner evidence do not prove the external Windows/IIS trusted-HTTPS deployment. #116 and #111 must remain open until actual environment acceptance is PASS.
+**BATCH-600 does not close P0.5.** Repository CI and Windows runner evidence do not prove the external Windows/IIS trusted-HTTPS deployment. #116 and #111 remain open until actual environment acceptance is PASS.
 
 ## BATCH-500 — Production Acceptance & Recovery Safety
 
@@ -139,8 +142,8 @@ All final gates tested PR #131 source head `10a072eaceb14f1aa8bc1f2070c65f26c565
 - BATCH-300: B300-001..100 COMPLETE; PR #102 merged as `385c2ee7a4d592c1e32e6e00a5c533c8790963b6`; reconciled CI `31465013971`, 395/395.
 - BATCH-400: B400-001..110 COMPLETE.
 - BATCH-500: B500-001..100 COMPLETE; PR #131 merged as `9d27491a9739ba05b8c3df1da3eb2e5d435d5cf6`; final gates normal `31488431712` 638/638, Real SQL `31488431709` 8/8, Windows `31488431693` 638/638.
-- BATCH-600: B600-001..100 IMPLEMENTED + IMPLEMENTATION CI VERIFIED; final synchronized gates / PR #139 merge pending.
-- Completed merged batch task IDs before B600: **510**. B600 adds 100 more task IDs once PR #139 is fully verified and merged.
+- BATCH-600: B600-001..100 COMPLETE; PR #139 squash-merged as `08513eeae75d70b8a499124f6ed19628c8a27f19`; final gates normal `31500683477` 738/738, Real SQL `31500683511` 8/8, Windows `31500683448` 738/738.
+- Total completed batch task IDs across B100+B200+B300+B400+B500+B600: **610**.
 
 ## Stable guardrails
 
@@ -154,4 +157,4 @@ All final gates tested PR #131 source head `10a072eaceb14f1aa8bc1f2070c65f26c565
 - MultiNode remains fail-closed and deferred until after stable SingleNode production acceptance.
 - Concurrent team work must be preserved; external P0.5 acceptance cannot be inferred from CI.
 
-**Overall:** 🟢 verified foundation · 🟢 P0.1–P0.4 COMPLETE · 🟢 P0.5 repository automation ready · 🟢 BATCH-500 100/100 COMPLETE · 🟢 BATCH-600 100/100 implementation CI VERIFIED · 🟡 B600 final merge pending · 🟡 external IIS/HTTPS acceptance pending · 🔴 production acceptance not yet granted
+**Overall:** 🟢 verified foundation · 🟢 P0.1–P0.4 COMPLETE · 🟢 P0.5 repository automation ready · 🟢 BATCH-500 100/100 COMPLETE · 🟢 BATCH-600 100/100 COMPLETE · 🟡 external IIS/HTTPS acceptance pending · 🔴 production acceptance not yet granted
