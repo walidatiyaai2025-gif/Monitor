@@ -25,6 +25,7 @@ internal interface IExternalConnectionSecretProvider
 public interface IRuntimeCredentialWriter
 {
     ValueTask<ConnectionSecretReference> StoreAsync(string username, string password, CancellationToken cancellationToken = default);
+    ValueTask DeleteAsync(ConnectionSecretReference reference, CancellationToken cancellationToken = default) => ValueTask.CompletedTask;
 }
 
 internal sealed class EnvironmentConnectionSecretProvider : IExternalConnectionSecretProvider
