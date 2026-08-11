@@ -72,14 +72,16 @@ public sealed class P05ProductionAcceptanceSessionTests
     [Fact]
     public void WindowsCandidate_ParsesExecutesAndBundlesSessionInitializerWithNegativeCases()
     {
-        var text = Read(".github/workflows/production-candidate.yml");
-        Assert.Contains("scripts/New-ProductionAcceptanceSession.ps1", text, StringComparison.Ordinal);
-        Assert.Contains("Exercise immutable production acceptance session initializer", text, StringComparison.Ordinal);
-        Assert.Contains("reused session root unexpectedly passed", text, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("tampered checksum unexpectedly passed", text, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("non-zip artifact unexpectedly passed", text, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("secret-like session metadata unexpectedly passed", text, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("Copy-Item scripts/New-ProductionAcceptanceSession.ps1", text, StringComparison.Ordinal);
+        var workflow = Read(".github/workflows/production-candidate.yml");
+        var runtime = Read("scripts/Test-ProductionAcceptanceSession.ps1");
+        Assert.Contains("scripts/New-ProductionAcceptanceSession.ps1", workflow, StringComparison.Ordinal);
+        Assert.Contains("scripts/Test-ProductionAcceptanceSession.ps1", workflow, StringComparison.Ordinal);
+        Assert.Contains("Exercise immutable production acceptance session initializer", workflow, StringComparison.Ordinal);
+        Assert.Contains("Copy-Item scripts/New-ProductionAcceptanceSession.ps1", workflow, StringComparison.Ordinal);
+        Assert.Contains("reused session root unexpectedly passed", runtime, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("tampered checksum unexpectedly passed", runtime, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("non-zip artifact unexpectedly passed", runtime, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("secret-like session metadata unexpectedly passed", runtime, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
