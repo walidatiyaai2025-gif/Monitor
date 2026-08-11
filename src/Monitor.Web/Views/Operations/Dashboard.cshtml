@@ -87,10 +87,12 @@
             <div class="server-node-field">
             @foreach (var server in Model.Servers)
             {
+                var cpuLabel = server.CpuPercent is int cpu ? $"{cpu}%" : "Not collected";
+                var ageLabel = server.Source == ServerDataSource.RegisteredUnavailable ? "Not collected" : $"{server.LastScanSecondsAgo} sec";
                 <a class="estate-node state-@server.State.ToString().ToLowerInvariant()" asp-action="ServerDetails" asp-route-id="@server.Id" title="Open @server.Name">
                     <span class="node-beacon" aria-hidden="true"></span>
-                    <span class="node-copy"><strong>@server.Name</strong><small>@server.DatabaseOnline/@server.DatabaseTotal DB · CPU @server.CpuPercent%</small></span>
-                    <span class="node-age" data-snapshot-age="@server.LastScanSecondsAgo">@server.LastScanSecondsAgo sec</span>
+                    <span class="node-copy"><strong>@server.Name</strong><small>@server.DatabaseOnline/@server.DatabaseTotal DB · CPU @cpuLabel</small></span>
+                    <span class="node-age" data-snapshot-age="@server.LastScanSecondsAgo">@ageLabel</span>
                 </a>
             }
             </div>
@@ -145,10 +147,10 @@
             <a class="server-row command-server-row" asp-action="ServerDetails" asp-route-id="@server.Id">
                 <span class="health-orb state-@server.State.ToString().ToLowerInvariant()" aria-hidden="true"></span>
                 <div class="server-main"><strong>@server.Name</strong><small>@server.Version · @server.Edition</small></div>
-                <div><small>CPU</small><strong>@server.CpuPercent%</strong></div>
-                <div><small>MEM</small><strong>@server.MemoryPercent%</strong></div>
-                <div><small>DB</small><strong>@server.DatabaseOnline/@server.DatabaseTotal</strong></div>
-                <div class="server-age"><small>Snapshot age</small><strong data-snapshot-age="@server.LastScanSecondsAgo">@server.LastScanSecondsAgo sec</strong></div>
+                <div><small>CPU</small><strong>@(server.CpuPercent is int cpu ? $"{cpu}%" : "Not collected")</strong></div>
+                <div><small>MEM</small><strong>@(server.MemoryPercent is int memory ? $"{memory}%" : "Not collected")</strong></div>
+                <div><small>DB</small><strong>@(server.Source == ServerDataSource.RegisteredUnavailable ? "Not collected" : $"{server.DatabaseOnline}/{server.DatabaseTotal}")</strong></div>
+                <div class="server-age"><small>Snapshot age</small><strong data-snapshot-age="@server.LastScanSecondsAgo">@(server.Source == ServerDataSource.RegisteredUnavailable ? "Not collected" : $"{server.LastScanSecondsAgo} sec")</strong></div>
                 <span class="row-arrow" aria-hidden="true">→</span>
             </a>
         }

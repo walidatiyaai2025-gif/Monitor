@@ -2,9 +2,9 @@
 
 | Feature | Milestone | Status | Notes |
 |---|---|---|---|
-| Real SQL production registration gate | P0.1 | CI verified | Issue #112 / PR #119; candidate Test precedes durable commit; failed/cancelled owned-secret compensation; CI 31476430643, 501/501 |
-| Truthful first-snapshot projection | P0.2 | READY / NEXT | Issue #113; remove fake numeric defaults, reconcile CPU and SQL Agent mapping |
-| Server Details production source of truth | P0.3 | BLOCKED | Issue #114; real-or-explicitly-unavailable cached evidence only |
+| Real SQL production registration gate | P0.1 | CI verified | Issue #112 / PR #119; candidate Test precedes durable commit; failed/cancelled owned-secret compensation; final CI 31476747212, 501/501 |
+| Truthful first-snapshot projection | P0.2 | CI verified | Issue #113 / PR #121; nullable CPU/Memory evidence, actual Agent total/enabled/failed-last-run facts, safe Server Details evidence envelope; CI 31478132641, 505/505 |
+| Server Details production source of truth | P0.3 | READY / NEXT | Issue #114; surface safe cached evidence completely after #121 merge |
 | Real SQL end-to-end acceptance | P0.4 | BLOCKED | Issue #115; mandatory real-target Add/Test/Collect/View/Refresh/Restart acceptance |
 | First Production SingleNode release | P0.5 | BLOCKED | Issue #116; IIS/HTTPS, durable state/credentials, smoke + rollback gate |
 | Development Admin authentication | M0 | Verified | Cookie auth; PBKDF2 hash only |

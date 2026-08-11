@@ -18,8 +18,12 @@
     var reachableCount = Model.Count - offlineCount;
     var databaseOnline = Model.Sum(server => server.DatabaseOnline);
     var databaseTotal = Model.Sum(server => server.DatabaseTotal);
-    var jobsHealthy = Model.Sum(server => server.JobsHealthy);
-    var jobsTotal = Model.Sum(server => server.JobsTotal);
+    var isDemoEstate = Model.All(server => server.Source == ServerDataSource.Demo);
+    var demoJobsHealthy = Model.Sum(server => server.JobsHealthy ?? 0);
+    var demoJobsTotal = Model.Sum(server => server.JobsTotal ?? 0);
+    var liveAgentRows = Model.Where(server => (server.Source is ServerDataSource.LiveFresh or ServerDataSource.LiveStale) && server.JobsTotal.HasValue).ToArray();
+    var liveAgentTotal = liveAgentRows.Sum(server => server.JobsTotal ?? 0);
+    var liveAgentFailed = liveAgentRows.Sum(server => server.JobsFailedLastRun ?? 0);
     var policyStates = ViewData["ServerPolicyStates"] as IReadOnlyDictionary<Guid, ServerOperatorPolicyState>;
     var maintenanceCount = ViewData["MaintenanceActiveCount"] as int? ?? 0;
     var policyUnavailableCount = ViewData["OperatorPolicyUnavailableCount"] as int? ?? 0;
@@ -27,7 +31,7 @@
 
 @if (Model.Any(server => server.Source != ServerDataSource.Demo))
 {
-    <div class="data-banner"><strong>MIXED DATA</strong><span>Cached SQL snapshots are shown only for this bounded estate page. Search, policy badges and freshness movement do not trigger collection.</span></div>
+    <div class="data-banner"><strong>REAL SQL ESTATE</strong><span>Cached SQL snapshots are shown only for this bounded estate page. Missing evidence is labeled explicitly; search, policy badges and freshness movement do not trigger collection.</span></div>
 }
 else
 {
@@ -39,7 +43,14 @@ else
     <article class="estate-summary-card state-warning"><small>Needs attention</small><strong>@(warningCount + criticalCount)</strong><span>@warningCount warning · @criticalCount critical</span></article>
     <article class="estate-summary-card state-warning"><small>Maintenance</small><strong>@maintenanceCount</strong><span>Scheduled collection paused</span></article>
     <article class="estate-summary-card state-healthy"><small>Databases online</small><strong>@databaseOnline / @databaseTotal</strong><span>Current cached page</span></article>
-    <article class="estate-summary-card state-warning"><small>Agent jobs healthy</small><strong>@jobsHealthy / @jobsTotal</strong><span>Current cached page</span></article>
+    @if (isDemoEstate)
+    {
+        <article class="estate-summary-card state-warning"><small>Agent jobs healthy</small><strong>@demoJobsHealthy / @demoJobsTotal</strong><span>Development preview</span></article>
+    }
+    else
+    {
+        <article class="estate-summary-card state-warning"><small>Agent failed last run</small><strong>@(liveAgentRows.Length == 0 ? "Not collected" : $"{liveAgentFailed} / {liveAgentTotal}")</strong><span>Observed SQL Agent evidence only</span></article>
+    }
     <article class="estate-summary-card state-offline"><small>Policy unavailable</small><strong>@policyUnavailableCount</strong><span>Scheduled collection fails closed</span></article>
 </section>
 
@@ -74,19 +85,28 @@ else
         HealthState.Offline => 0,
         _ => 50
     };
-    var cpuState = server.State == HealthState.Offline ? "offline" : server.CpuPercent >= 80 ? "warning" : "healthy";
-    var memoryState = server.State == HealthState.Offline ? "offline" : server.MemoryPercent >= 82 ? "warning" : "healthy";
-    var databaseState = server.DatabaseOnline == server.DatabaseTotal ? "healthy" : "critical";
-    var jobsState = server.JobsHealthy == server.JobsTotal ? "healthy" : "warning";
+    var cpuState = !server.CpuPercent.HasValue ? "unknown" : server.State == HealthState.Offline ? "offline" : server.CpuPercent.Value >= 80 ? "warning" : "healthy";
+    var memoryState = !server.MemoryPercent.HasValue ? "unknown" : server.State == HealthState.Offline ? "offline" : server.MemoryPercent.Value >= 82 ? "warning" : "healthy";
+    var databaseState = server.DatabaseTotal == 0 ? "unknown" : server.DatabaseOnline == server.DatabaseTotal ? "healthy" : "critical";
+    var jobsKnown = server.JobsTotal.HasValue && server.JobsEnabled.HasValue && server.JobsFailedLastRun.HasValue;
+    var jobsState = server.Source == ServerDataSource.Demo
+        ? server.JobsHealthy == server.JobsTotal ? "healthy" : "warning"
+        : !jobsKnown ? "unknown" : server.JobsFailedLastRun.GetValueOrDefault() > 0 ? "warning" : "healthy";
     var registrationId = Guid.TryParse(server.Id, out var parsedId) ? parsedId : Guid.Empty;
     ServerOperatorPolicyState? operatorPolicy = null;
     var hasPolicy = registrationId != Guid.Empty && policyStates is not null && policyStates.TryGetValue(registrationId, out operatorPolicy);
+    var ageLabel = server.Source == ServerDataSource.RegisteredUnavailable ? "Not collected" : $"{server.LastScanSecondsAgo} sec ago";
+    var agentLabel = server.Source == ServerDataSource.Demo
+        ? $"{server.JobsHealthy} / {server.JobsTotal} healthy"
+        : jobsKnown
+            ? $"{server.JobsEnabled} / {server.JobsTotal} enabled · {server.JobsFailedLastRun} failed last run"
+            : "Not collected";
 
     <a class="server-card server-card-v2 glass-panel state-@stateName" data-server-card data-state="@stateName" data-name="@server.Name.ToLowerInvariant()" asp-action="ServerDetails" asp-route-id="@server.Id">
         <div class="server-card-v2-inner">
             <div class="server-card-head">
                 <div><span class="health-orb state-@stateName"></span><span class="status-word">@server.State · @(server.Source switch { ServerDataSource.Demo => "DEMO", ServerDataSource.LiveFresh => "LIVE CACHED", ServerDataSource.LiveStale => "STALE CACHED", ServerDataSource.RegisteredUnavailable => "REGISTERED · NOT COLLECTED", _ => "UNKNOWN" })</span></div>
-                <span class="snapshot-freshness"><span class="freshness-dot state-@stateName"></span><span class="snapshot-note" data-snapshot-age data-initial-age="@server.LastScanSecondsAgo">@server.LastScanSecondsAgo sec ago</span></span>
+                <span class="snapshot-freshness"><span class="freshness-dot state-@stateName"></span><span class="snapshot-note" data-snapshot-age data-initial-age="@server.LastScanSecondsAgo">@ageLabel</span></span>
             </div>
 
             @if (hasPolicy && operatorPolicy is not null)
@@ -103,12 +123,12 @@ else
                 <div class="health-score state-@stateName"><small>Health score</small><strong>@healthScore</strong></div>
             </div>
             <div class="pressure-grid">
-                <div class="pressure-item state-@cpuState"><small>CPU</small><span class="pressure-track"><span style="width:@($"{server.CpuPercent}%")"></span></span><strong>@(server.State == HealthState.Offline ? "N/A" : $"{server.CpuPercent}%")</strong></div>
-                <div class="pressure-item state-@memoryState"><small>Memory</small><span class="pressure-track"><span style="width:@($"{server.MemoryPercent}%")"></span></span><strong>@(server.State == HealthState.Offline ? "N/A" : $"{server.MemoryPercent}%")</strong></div>
+                <div class="pressure-item state-@cpuState"><small>CPU</small><span class="pressure-track">@if (server.CpuPercent is int observedCpu) { <span style="width:@($"{observedCpu}%")"></span> }</span><strong>@(server.CpuPercent is int observedCpuValue ? $"{observedCpuValue}%" : "Not collected")</strong></div>
+                <div class="pressure-item state-@memoryState"><small>Memory</small><span class="pressure-track">@if (server.MemoryPercent is int observedMemory) { <span style="width:@($"{observedMemory}%")"></span> }</span><strong>@(server.MemoryPercent is int observedMemoryValue ? $"{observedMemoryValue}%" : "Not collected")</strong></div>
             </div>
             <div class="server-compliance">
-                <div class="compliance-cell state-@databaseState"><small>Database availability</small><strong>@server.DatabaseOnline / @server.DatabaseTotal online</strong></div>
-                <div class="compliance-cell state-@jobsState"><small>SQL Agent</small><strong>@server.JobsHealthy / @server.JobsTotal healthy</strong></div>
+                <div class="compliance-cell state-@databaseState"><small>Database availability</small><strong>@(server.DatabaseTotal == 0 ? "Not collected" : $"{server.DatabaseOnline} / {server.DatabaseTotal} online")</strong></div>
+                <div class="compliance-cell state-@jobsState"><small>SQL Agent</small><strong>@agentLabel</strong></div>
             </div>
             <div class="card-link"><span>Open operational overview</span><span>→</span></div>
         </div>

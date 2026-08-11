@@ -91,34 +91,65 @@ public sealed class MonitorReadService(
         };
     }
 
-    public async Task<ServerDetailsViewModel?> GetServerAsync(string id, CancellationToken cancellationToken = default)
+    public Task<ServerDetailsViewModel?> GetServerAsync(string id, CancellationToken cancellationToken = default)
     {
-        if (!Guid.TryParse(id, out var registrationId)) return demo.GetServer(id);
+        if (!Guid.TryParse(id, out var registrationId)) return Task.FromResult(demo.GetServer(id));
 
         var registration = registrations.GetById(registrationId);
-        if (registration is null || !registration.IsEnabled) return null;
+        if (registration is null || !registration.IsEnabled) return Task.FromResult<ServerDetailsViewModel?>(null);
 
-        var card = await TryGetLiveCardAsync(registration, cancellationToken) ?? ToUnavailableCard(registration);
-        var live = card.Source is ServerDataSource.LiveFresh or ServerDataSource.LiveStale;
-        return new ServerDetailsViewModel
+        var result = TryPeek(registration, cancellationToken);
+        var card = result is null ? ToUnavailableCard(registration) : ToLiveCard(registration, result);
+        if (result is null)
         {
-            Server = card,
-            Metrics = live
-                ?
-                [
-                    new("CPU", "Not collected", "Outside the current bounded snapshot", HealthState.Unknown),
-                    new("Memory", $"{card.MemoryPercent}%", "SQL process memory utilization", card.MemoryPercent >= 85 ? HealthState.Warning : HealthState.Healthy),
-                    new("Databases", $"{card.DatabaseOnline} / {card.DatabaseTotal}", "Online databases", card.State),
-                    new("SQL Agent", "Not collected", "Outside the current bounded snapshot", HealthState.Unknown)
-                ]
-                :
+            return Task.FromResult<ServerDetailsViewModel?>(new ServerDetailsViewModel
+            {
+                Server = card,
+                Metrics =
                 [
                     new("Snapshot", "Unavailable", "No usable cached snapshot is available yet", HealthState.Warning),
                     new("Connection", "Registered", "Retest safely from Connection Lab", HealthState.Unknown),
                     new("Credentials", "Protected", "Current secret reference is never rendered", HealthState.Unknown),
                     new("Collection", "Pending", "Refresh after connectivity and permissions are validated", HealthState.Unknown)
                 ]
-        };
+            });
+        }
+
+        var snapshot = result.Snapshot;
+        var memory = snapshot.Memory?.SqlProcessMemoryUtilizationPercent;
+        var jobs = snapshot.Jobs;
+        var jobState = jobs is null
+            ? HealthState.Unknown
+            : jobs.FailedLastRun > 0
+                ? HealthState.Warning
+                : HealthState.Healthy;
+
+        return Task.FromResult<ServerDetailsViewModel?>(new ServerDetailsViewModel
+        {
+            Server = card,
+            Metrics =
+            [
+                new("CPU", "Not collected", "Outside the current bounded snapshot contract", HealthState.Unknown),
+                memory.HasValue
+                    ? new("Memory", $"{memory.Value}%", "SQL process memory utilization", memory.Value >= 85 ? HealthState.Warning : HealthState.Healthy)
+                    : new("Memory", "Not collected", "Memory evidence is unavailable in this snapshot", HealthState.Unknown),
+                new("Databases", $"{card.DatabaseOnline} / {card.DatabaseTotal}", "Online databases", card.State),
+                jobs is null
+                    ? new("SQL Agent", "Not collected", "SQL Agent evidence is unavailable in this snapshot", HealthState.Unknown)
+                    : new("SQL Agent", $"{jobs.EnabledJobs} enabled / {jobs.TotalJobs}", $"{jobs.FailedLastRun} failed on last run", jobState)
+            ],
+            Evidence = new ServerSnapshotEvidence(
+                snapshot.InstanceName,
+                snapshot.UptimeSeconds,
+                snapshot.CollectedAtUtc,
+                snapshot.Memory,
+                snapshot.Databases,
+                snapshot.Backups,
+                snapshot.Jobs,
+                snapshot.Storage,
+                snapshot.Blocking,
+                snapshot.Performance)
+        });
     }
 
     public Task<IReadOnlyList<HealthModuleServerViewModel>> GetHealthModulesAsync(CancellationToken cancellationToken = default)
@@ -167,33 +198,55 @@ public sealed class MonitorReadService(
 
     private Task<ServerCard?> TryGetLiveCardAsync(ServerRegistration registration, CancellationToken cancellationToken)
     {
+        var result = TryPeek(registration, cancellationToken);
+        return Task.FromResult(result is null ? null : ToLiveCard(registration, result));
+    }
+
+    private SnapshotCacheResult? TryPeek(ServerRegistration registration, CancellationToken cancellationToken)
+    {
         cancellationToken.ThrowIfCancellationRequested();
         try
         {
-            var result = cache.Peek(registration.Id);
-            if (result is null) return Task.FromResult<ServerCard?>(null);
-            var snapshot = result.Snapshot;
-            var state = result.Freshness == SnapshotFreshness.Stale
-                ? HealthState.Warning
-                : snapshot.DatabaseTotal == 0
-                    ? HealthState.Unknown
-                    : snapshot.DatabaseOnline == snapshot.DatabaseTotal
-                        ? HealthState.Healthy
-                        : snapshot.DatabaseOnline == 0
-                            ? HealthState.Critical
-                            : HealthState.Warning;
-
-            return Task.FromResult<ServerCard?>(new ServerCard(
-                registration.Id.ToString("D"), snapshot.ServerName, snapshot.ProductVersion, snapshot.Edition, state,
-                0, snapshot.Memory?.SqlProcessMemoryUtilizationPercent ?? 0,
-                snapshot.DatabaseOnline, snapshot.DatabaseTotal, 0, 0,
-                (int)Math.Clamp(result.Age.TotalSeconds, 0, int.MaxValue),
-                result.Freshness == SnapshotFreshness.Fresh ? ServerDataSource.LiveFresh : ServerDataSource.LiveStale));
+            return cache.Peek(registration.Id);
         }
         catch (SnapshotCollectionException)
         {
-            return Task.FromResult<ServerCard?>(null);
+            return null;
         }
+    }
+
+    private static ServerCard ToLiveCard(ServerRegistration registration, SnapshotCacheResult result)
+    {
+        var snapshot = result.Snapshot;
+        var state = result.Freshness == SnapshotFreshness.Stale
+            ? HealthState.Warning
+            : snapshot.DatabaseTotal == 0
+                ? HealthState.Unknown
+                : snapshot.DatabaseOnline == snapshot.DatabaseTotal
+                    ? HealthState.Healthy
+                    : snapshot.DatabaseOnline == 0
+                        ? HealthState.Critical
+                        : HealthState.Warning;
+
+        return new ServerCard(
+            registration.Id.ToString("D"),
+            snapshot.ServerName,
+            snapshot.ProductVersion,
+            snapshot.Edition,
+            state,
+            CpuPercent: null,
+            snapshot.Memory?.SqlProcessMemoryUtilizationPercent,
+            snapshot.DatabaseOnline,
+            snapshot.DatabaseTotal,
+            JobsHealthy: null,
+            snapshot.Jobs?.TotalJobs,
+            (int)Math.Clamp(result.Age.TotalSeconds, 0, int.MaxValue),
+            result.Freshness == SnapshotFreshness.Fresh ? ServerDataSource.LiveFresh : ServerDataSource.LiveStale,
+            snapshot.Jobs?.EnabledJobs,
+            snapshot.Jobs?.FailedLastRun,
+            snapshot.InstanceName,
+            snapshot.UptimeSeconds,
+            snapshot.CollectedAtUtc);
     }
 
     private static ServerCard ToUnavailableCard(ServerRegistration registration) => new(
@@ -202,12 +255,12 @@ public sealed class MonitorReadService(
         "Not collected",
         "Registered target",
         HealthState.Unknown,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
+        CpuPercent: null,
+        MemoryPercent: null,
+        DatabaseOnline: 0,
+        DatabaseTotal: 0,
+        JobsHealthy: null,
+        JobsTotal: null,
+        LastScanSecondsAgo: 0,
         ServerDataSource.RegisteredUnavailable);
 }

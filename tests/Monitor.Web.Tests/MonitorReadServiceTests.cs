@@ -24,9 +24,116 @@ public sealed class MonitorReadServiceTests
         Assert.Equal(registration.Id.ToString("D"), cards[0].Id);
         Assert.Equal("REAL-SQL01", cards[0].Name);
         Assert.Equal(ServerDataSource.LiveFresh, cards[0].Source);
+        Assert.Null(cards[0].CpuPercent);
         Assert.Equal(92, cards[0].MemoryPercent);
         Assert.Equal(8, cards[0].LastScanSecondsAgo);
         Assert.Equal(1, cache.CallCount);
+    }
+
+    [Fact]
+    public async Task LiveProjection_MapsCollectedIdentityAndAgentEvidenceWithoutInventingCpuOrHealthyJobs()
+    {
+        var repository = new InMemoryServerRegistrationRepository();
+        var registration = Registration();
+        repository.Upsert(registration);
+        var collectedAt = DateTimeOffset.UtcNow.AddSeconds(-12);
+        var snapshot = Snapshot(registration.Id) with
+        {
+            CollectedAtUtc = collectedAt,
+            Jobs = new SqlAgentHealthSnapshot(12, 10, 2)
+        };
+        var service = new MonitorReadService(
+            new DemoMonitorService(),
+            repository,
+            new FakeCache(new SnapshotCacheResult(snapshot, SnapshotFreshness.Fresh, TimeSpan.FromSeconds(12))));
+
+        var card = Assert.Single(await service.GetServersAsync());
+
+        Assert.Null(card.CpuPercent);
+        Assert.Null(card.JobsHealthy);
+        Assert.Equal(12, card.JobsTotal);
+        Assert.Equal(10, card.JobsEnabled);
+        Assert.Equal(2, card.JobsFailedLastRun);
+        Assert.Equal("MSSQLSERVER", card.InstanceName);
+        Assert.Equal(3600, card.UptimeSeconds);
+        Assert.Equal(collectedAt, card.CollectedAtUtc);
+    }
+
+    [Fact]
+    public async Task LiveProjection_DoesNotInventMemoryOrAgentZerosWhenModulesAreAbsent()
+    {
+        var repository = new InMemoryServerRegistrationRepository();
+        var registration = Registration();
+        repository.Upsert(registration);
+        var snapshot = Snapshot(registration.Id) with { Memory = null, Jobs = null };
+        var service = new MonitorReadService(
+            new DemoMonitorService(),
+            repository,
+            new FakeCache(new SnapshotCacheResult(snapshot, SnapshotFreshness.Fresh, TimeSpan.Zero)));
+
+        var card = Assert.Single(await service.GetServersAsync());
+
+        Assert.Null(card.CpuPercent);
+        Assert.Null(card.MemoryPercent);
+        Assert.Null(card.JobsHealthy);
+        Assert.Null(card.JobsTotal);
+        Assert.Null(card.JobsEnabled);
+        Assert.Null(card.JobsFailedLastRun);
+    }
+
+    [Fact]
+    public async Task ServerDetails_CarriesAllSafeSnapshotEvidenceAndTruthfulMetrics()
+    {
+        var repository = new InMemoryServerRegistrationRepository();
+        var registration = Registration();
+        repository.Upsert(registration);
+        var snapshot = Snapshot(registration.Id) with
+        {
+            Databases = new(1, 0, 0, 1, 0, 0),
+            Backups = new(7, 3, DateTimeOffset.UtcNow.AddHours(-1)),
+            Jobs = new(12, 10, 2),
+            Storage = new(3000, 2000, 1000),
+            Blocking = new(4, 900),
+            Performance = new(5, 2, 1)
+        };
+        var cache = new FakeCache(new(snapshot, SnapshotFreshness.Fresh, TimeSpan.FromSeconds(5)));
+        var service = new MonitorReadService(new DemoMonitorService(), repository, cache);
+
+        var details = await service.GetServerAsync(registration.Id.ToString("D"));
+
+        Assert.NotNull(details);
+        Assert.Equal("Not collected", Assert.Single(details!.Metrics, item => item.Name == "CPU").Value);
+        var agent = Assert.Single(details.Metrics, item => item.Name == "SQL Agent");
+        Assert.Equal("10 enabled / 12", agent.Value);
+        Assert.Equal("2 failed on last run", agent.Detail);
+        Assert.NotNull(details.Evidence);
+        Assert.Equal("MSSQLSERVER", details.Evidence!.InstanceName);
+        Assert.Equal(3600, details.Evidence.UptimeSeconds);
+        Assert.Equal(3, details.Evidence.Backups!.MissingFullBackupLast24Hours);
+        Assert.Equal(2, details.Evidence.Jobs!.FailedLastRun);
+        Assert.Equal(3000, details.Evidence.Storage!.TotalAllocatedBytes);
+        Assert.Equal(4, details.Evidence.Blocking!.BlockedRequests);
+        Assert.Equal(2, details.Evidence.Performance!.RunnableTasks);
+        Assert.Equal(1, cache.CallCount);
+    }
+
+    [Fact]
+    public async Task UnavailableProjection_UsesNullForUnobservedResourceFields()
+    {
+        var repository = new InMemoryServerRegistrationRepository();
+        var registration = Registration();
+        repository.Upsert(registration);
+        var service = new MonitorReadService(new DemoMonitorService(), repository, new FakeCache());
+
+        var card = Assert.Single(await service.GetServersAsync());
+
+        Assert.Equal(ServerDataSource.RegisteredUnavailable, card.Source);
+        Assert.Null(card.CpuPercent);
+        Assert.Null(card.MemoryPercent);
+        Assert.Null(card.JobsHealthy);
+        Assert.Null(card.JobsTotal);
+        Assert.Null(card.JobsEnabled);
+        Assert.Null(card.JobsFailedLastRun);
     }
 
     [Fact]
@@ -138,7 +245,7 @@ public sealed class MonitorReadServiceTests
         DateTimeOffset.UtcNow);
 
     private static ServerHealthSnapshot Snapshot(Guid id) => new(
-        id, "REAL-SQL01", "17.0.1", "Enterprise", null,
+        id, "REAL-SQL01", "17.0.1", "Enterprise", "MSSQLSERVER",
         3600, 10, 10, DateTimeOffset.UtcNow,
         new MemoryHealthSnapshot(32_000_000, 8_000_000, 12_000_000, 92, true, false, "Low"));
 
