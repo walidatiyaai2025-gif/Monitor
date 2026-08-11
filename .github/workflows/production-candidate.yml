@@ -23,12 +23,14 @@ on:
       - 'scripts/Test-IisProductionPrerequisites.ps1'
       - 'scripts/Deploy-ProductionSingleNode.ps1'
       - 'scripts/New-ProductionAcceptanceEvidencePack.ps1'
+      - 'scripts/Set-ProductionAcceptanceGate.ps1'
       - 'scripts/Test-ProductionAcceptanceEvidence.ps1'
       - 'src/Monitor.Web/**'
       - 'tests/Monitor.Web.Tests/ProductionAdminCredentialGuardTests.cs'
       - 'tests/Monitor.Web.Tests/P05ProductionCandidateTests.cs'
       - 'tests/Monitor.Web.Tests/P05IisDeploymentAutomationTests.cs'
       - 'tests/Monitor.Web.Tests/P05ProductionAcceptanceEvidencePackTests.cs'
+      - 'tests/Monitor.Web.Tests/P05ProductionAcceptanceGateRecorderTests.cs'
 
 permissions:
   contents: read
@@ -69,6 +71,7 @@ jobs:
             'scripts/Test-IisProductionPrerequisites.ps1',
             'scripts/Deploy-ProductionSingleNode.ps1',
             'scripts/New-ProductionAcceptanceEvidencePack.ps1',
+            'scripts/Set-ProductionAcceptanceGate.ps1',
             'scripts/Test-ProductionAcceptanceEvidence.ps1'
           )
           foreach ($path in $paths) {
@@ -83,6 +86,77 @@ jobs:
               throw ($messages -join [Environment]::NewLine)
             }
           }
+
+      - name: Exercise explicit acceptance gate recorder
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = Join-Path $env:RUNNER_TEMP 'monitor-p0-5-gate-recorder'
+          Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path $root, (Join-Path $root 'evidence') | Out-Null
+
+          $packPath = Join-Path $root 'p0-5-evidence-pack.json'
+          ./scripts/New-ProductionAcceptanceEvidencePack.ps1 `
+            -CandidateVersion '0.0.0-ci' `
+            -ArtifactFileName 'Monitor-0.0.0-ci-win-x64.zip' `
+            -ArtifactSha256 (('c' * 64) -join '') `
+            -SourceCommit (('a' * 40) -join '') `
+            -TestedMergeCommit (('b' * 40) -join '') `
+            -HostName 'monitor.example.internal' `
+            -SiteName 'Monitor' `
+            -AppPoolName 'Monitor' `
+            -AppPoolIdentity 'IIS AppPool\Monitor' `
+            -CertificateThumbprint (('d' * 40) -join '') `
+            -OperationalBackupId 'ci-backup-001' `
+            -PreviousPhysicalPath 'C:\Program Files\Monitor\releases\previous' `
+            -StateRoot 'C:\ProgramData\Monitor\App_Data' `
+            -OutputPath $packPath
+
+          $goodRelative = 'evidence/artifactChecksumVerified.txt'
+          $goodTarget = Join-Path $root $goodRelative
+          'gate=artifactChecksumVerified;result=PASS;source=windows-ci' | Set-Content -LiteralPath $goodTarget -Encoding utf8NoBOM
+          ./scripts/Set-ProductionAcceptanceGate.ps1 `
+            -EvidencePath $packPath `
+            -GateName artifactChecksumVerified `
+            -EvidenceFile $goodRelative `
+            -AcknowledgePass | Out-Null
+
+          $recorded = Get-Content -LiteralPath $packPath -Raw | ConvertFrom-Json -Depth 20
+          if (-not $recorded.gates.artifactChecksumVerified.passed) { throw 'Recorder did not mark the explicit gate PASS.' }
+          if ($recorded.gates.artifactChecksumVerified.evidenceSha256 -ne (Get-FileHash -LiteralPath $goodTarget -Algorithm SHA256).Hash.ToLowerInvariant()) {
+            throw 'Recorder did not bind the evidence SHA-256.'
+          }
+          if ($recorded.gates.iisPreflightPassed.passed) { throw 'Recorder mutated an unrelated production gate.' }
+          if (-not [string]::IsNullOrWhiteSpace([string]$recorded.acceptedBy) -or $null -ne $recorded.acceptedAtUtc) {
+            throw 'Recorder mutated final operator acceptance metadata.'
+          }
+
+          function Assert-RecorderRejected {
+            param([scriptblock]$Action, [string]$FailureMessage)
+            $rejected = $false
+            try { & $Action } catch { $rejected = $true }
+            if (-not $rejected) { throw $FailureMessage }
+          }
+
+          $secondRelative = 'evidence/iisPreflightPassed.txt'
+          'gate=iisPreflightPassed;result=PASS;source=windows-ci' | Set-Content -LiteralPath (Join-Path $root $secondRelative) -Encoding utf8NoBOM
+          Assert-RecorderRejected `
+            -Action { ./scripts/Set-ProductionAcceptanceGate.ps1 -EvidencePath $packPath -GateName iisPreflightPassed -EvidenceFile $secondRelative | Out-Null } `
+            -FailureMessage 'Recorder without acknowledgement unexpectedly passed.'
+
+          Assert-RecorderRejected `
+            -Action { ./scripts/Set-ProductionAcceptanceGate.ps1 -EvidencePath $packPath -GateName iisPreflightPassed -EvidenceFile '../outside.txt' -AcknowledgePass | Out-Null } `
+            -FailureMessage 'Traversal evidence unexpectedly passed.'
+
+          $secretRelative = 'evidence/secret.txt'
+          'password=must-never-be-retained' | Set-Content -LiteralPath (Join-Path $root $secretRelative) -Encoding utf8NoBOM
+          Assert-RecorderRejected `
+            -Action { ./scripts/Set-ProductionAcceptanceGate.ps1 -EvidencePath $packPath -GateName iisPreflightPassed -EvidenceFile $secretRelative -AcknowledgePass | Out-Null } `
+            -FailureMessage 'Secret evidence unexpectedly passed.'
+
+          Assert-RecorderRejected `
+            -Action { ./scripts/Set-ProductionAcceptanceGate.ps1 -EvidencePath $packPath -GateName artifactChecksumVerified -EvidenceFile $goodRelative -AcknowledgePass | Out-Null } `
+            -FailureMessage 'Duplicate PASS unexpectedly passed.'
 
       - name: Exercise acceptance evidence closure validator
         shell: pwsh
@@ -116,17 +190,17 @@ jobs:
             -OutputPath $packPath
 
           $pack = Get-Content -LiteralPath $packPath -Raw | ConvertFrom-Json -Depth 20
-          $gateIndex = 0
           foreach ($property in $pack.gates.PSObject.Properties) {
-            $gateIndex++
             $relative = "evidence/$($property.Name).txt"
             $target = Join-Path $root $relative
             "gate=$($property.Name);result=PASS;source=windows-ci" | Set-Content -LiteralPath $target -Encoding utf8NoBOM
-            $property.Value.passed = $true
-            $property.Value.verifiedAtUtc = [DateTimeOffset]::UtcNow.AddSeconds(-30 + $gateIndex).ToString('O')
-            $property.Value.evidenceRef = $relative
-            $property.Value.evidenceSha256 = (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash.ToLowerInvariant()
+            ./scripts/Set-ProductionAcceptanceGate.ps1 `
+              -EvidencePath $packPath `
+              -GateName $property.Name `
+              -EvidenceFile $relative `
+              -AcknowledgePass | Out-Null
           }
+          $pack = Get-Content -LiteralPath $packPath -Raw | ConvertFrom-Json -Depth 20
           $pack.acceptedBy = 'ci-operator'
           $pack.acceptedAtUtc = [DateTimeOffset]::UtcNow.ToString('O')
           $pack | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $packPath -Encoding utf8NoBOM
@@ -339,6 +413,7 @@ jobs:
           Copy-Item scripts/Test-IisProductionPrerequisites.ps1 "$ops/scripts/" -Force
           Copy-Item scripts/Deploy-ProductionSingleNode.ps1 "$ops/scripts/" -Force
           Copy-Item scripts/New-ProductionAcceptanceEvidencePack.ps1 "$ops/scripts/" -Force
+          Copy-Item scripts/Set-ProductionAcceptanceGate.ps1 "$ops/scripts/" -Force
           Copy-Item scripts/Test-ProductionAcceptanceEvidence.ps1 "$ops/scripts/" -Force
           Copy-Item docs/DEPLOY_IIS.md "$ops/docs/" -Force
           Copy-Item docs/UPGRADE_CHECKLIST.md "$ops/docs/" -Force
