@@ -154,7 +154,7 @@ public sealed class Batch200ReleaseCandidateTests
         for (var number = 1; number <= 90; number++)
             Assert.Contains($"| B200-{number:000} |", ledger, StringComparison.Ordinal);
         Assert.Contains("CI VERIFIED", ledger, StringComparison.Ordinal);
-        Assert.Contains("Monitoring, navigation, reporting and diagnostics GETs never initiate collection", ledger, StringComparison.Ordinal);
+        Assert.Contains("do not initiate monitored-SQL collection", ledger, StringComparison.Ordinal);
     }
 
     private sealed class FixedTimeProvider(DateTimeOffset utcNow) : TimeProvider
