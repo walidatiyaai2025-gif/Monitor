@@ -2,13 +2,14 @@
 
 ## CURRENT P0 — Real SQL Production MVP
 
-**Updated:** 2026-08-12  
+**Updated:** 2026-08-13  
 **Umbrella:** #111  
 **Execution ledger:** `docs/PRODUCTION_MVP.md`  
 **Real SQL evidence:** `docs/REAL_SQL_ACCEPTANCE.md`  
 **Production acceptance guide:** `docs/PRODUCTION_SINGLENODE_ACCEPTANCE.md`  
 **Active external release gate:** #116 / P0.5 First Production SingleNode  
 **Repository cutover/evidence/finalization/session workflow:** COMPLETE through #150 / PR #151  
+**Release-integrity hardening:** #154 / PR #155 IN PROGRESS — tagged/manual releases are being routed through the verified Windows production-candidate workflow; RC.53 remains selected until exact-head replacement gates are Green.  
 **Production target:** actual Windows/IIS trusted-HTTPS SingleNode acceptance.
 
 ### P0 release chain
@@ -19,9 +20,9 @@
 | P0.2 / #113 | COMPLETE | PR #121; final CI `31478470867`; 505/505 |
 | P0.3 / #114 | COMPLETE | PR #122 merged `245bb0770d7ec6e7a334f7763d3560cef80324fe`; final CI `31479311552`; 507/507 |
 | P0.4 / #115 | COMPLETE | PR #124 merged `f4c08292734c293a6d0b865cc2a005b8c42b02a6`; normal `31481874425` 518/518; Real SQL `31481874501` 8/8 |
-| P0.5 / #116 | ACTIVE | repository deployment/evidence/session/finalization tooling complete; external IIS/HTTPS acceptance pending |
+| P0.5 / #116 | ACTIVE | core repository deployment/evidence/session/finalization tooling complete; #154 release-package parity hardening in progress; external IIS/HTTPS acceptance pending |
 
-## P0.5 repository preparation — COMPLETE · EXTERNAL IIS PENDING
+## P0.5 repository preparation — CORE COMPLETE · RELEASE PARITY HARDENING ACTIVE · EXTERNAL IIS PENDING
 
 - Acceptance tooling PR #127 merged as `9bdd96940454f2586c0e81ff0c25a524d7f1281c`.
 - Production-candidate PR #126 merged as `d512ee156f07db566898a817f3c76dd3f46c1091`.
@@ -32,8 +33,9 @@
 - Issue #144 / PR #145 COMPLETE: explicit one-gate recorder `Set-ProductionAcceptanceGate.ps1`, merged `8a548c984c62b904a184e54415ea7bf491dc78fb`.
 - Issue #147 / PR #148 COMPLETE: `Complete-ProductionAcceptance.ps1` removes manual final `acceptedBy` / `acceptedAtUtc` edits and adds explicit final acknowledgement, prospective 15/15 validation, concurrent-pack mutation detection, atomic final metadata commit, authoritative revalidation/closure summary and fail-closed rollback. PR #148 squash-merged as `e15a9654fbe744e426c95d5965a5faba60868e14`.
 - Issue #150 is **CLOSED / COMPLETED**. PR #151 squash-merged as `9a76abe61422502c4889b04ce8b6a59f18ac04f4` and adds `New-ProductionAcceptanceSession.ps1`: one fresh immutable candidate-bound workspace with verified candidate/checksum bytes, a SHA-locked non-secret manifest, the canonical fail-closed 15-gate pack at 0/15 and deterministic operator next steps. It performs no IIS/SQL/GitHub/gate-PASS/final-acceptance side effect.
+- Issue #154 / PR #155 is **IN PROGRESS** after direct RC.53 artifact audit found release-package drift: `release.yml` independently published/zipped instead of reusing the verified Windows production-candidate path, while RC manifests labeled fixed P0.4 prerequisite runs ambiguously. PR #155 makes the candidate workflow reusable, routes tagged/manual releases through it, and changes manifest schema to distinguish historical P0.4 prerequisite evidence from candidate-specific evidence tracked on #116. No external gate is implied.
 
-### Final PR #151 / RC.53 repository evidence
+### Final selected PR #151 / RC.53 repository evidence
 
 - source head `b2b004e1a811dfe0eb4197be893aac5116c58cc2`;
 - exact tested merge ref `68cd8f25819f82a9cb7205ed81523f4beb55d5e5`;
@@ -49,7 +51,7 @@
 - product SHA-256 `466e056a85b1389b817fcbd9c622aeacd448c77596e2d5b3a6e450a7f0afca00`;
 - Actions artifact ID `9120696113`.
 
-RC.53 supersedes RC.43 unless a later equivalently verified candidate is explicitly selected on #116. RC.53 `_operations` contains IIS preflight/deploy/acceptance/smoke tooling, immutable session initialization, the 15-gate pack generator, one-gate recorder, explicit finalizer, closure validator and rollback runbooks.
+Direct artifact audit on 2026-08-13 independently re-hashed the RC.53 product ZIP to the same SHA-256, confirmed the companion checksum line, and confirmed all 19 expected `_operations` entries are present. RC.53 remains selected until #154/PR #155 produces an equivalently verified replacement candidate and that candidate is explicitly promoted on #116.
 
 **No external IIS gate is implied by repository CI. #116 and #111 remain OPEN until the real trusted-certificate Windows/IIS SingleNode target produces a valid real 15/15 evidence pack, explicit approved operator finalization and reviewed closure summary.**
 
@@ -65,7 +67,7 @@ RC.53 supersedes RC.43 unless a later equivalently verified candidate is explici
 | P0-046 deployment health smoke | CI HTTPS VERIFIED; tooling READY; **real IIS endpoint pending external** |
 | P0-047 least-privilege monitored target | P0.4 prerequisite VERIFIED; **deployed IIS identity/target pending external** |
 | P0-048 backup + rollback/recovery | code/unit/tooling VERIFIED; **production rehearsal pending external** |
-| P0-049 versioned artifact/checksum/evidence workflow | **REPOSITORY/CI COMPLETE** — RC.53 + immutable session + generator + recorder + finalizer + validator VERIFIED |
+| P0-049 versioned artifact/checksum/evidence workflow | **CORE REPOSITORY/CI COMPLETE** — RC.53 + immutable session + generator + recorder + finalizer + validator VERIFIED; #154 tagged-release parity hardening IN PROGRESS |
 | P0-050 final production acceptance | **PENDING EXTERNAL** |
 
 ## BATCH-600 — Live Operator Readiness & Evidence Orchestration
@@ -76,7 +78,7 @@ RC.53 supersedes RC.43 unless a later equivalently verified candidate is explici
 **Task range:** B600-001..100  
 **State:** **100/100 COMPLETE**.
 
-B600 delivered deterministic fail-closed repository orchestration for evidence freshness, gate dependency graph, operator action queue, change-window safety, candidate promotion, evidence completeness, secret-safe summaries, fleet readiness, acceptance snapshot versioning/ETag and a versioned release contract.
+B600 delivered deterministic fail-closed repository orchestration for evidence freshness, gate dependency graph, operator action queue, change-window safety, candidate promotion, evidence completeness, secret-safe summaries, fleet readiness aggregation, acceptance snapshot versioning/ETag and a versioned release contract.
 
 ### Final exact-head merge evidence
 
@@ -129,4 +131,4 @@ B600 delivered deterministic fail-closed repository orchestration for evidence f
 - MultiNode remains fail-closed and deferred until after stable SingleNode production acceptance.
 - Concurrent team work must be preserved; external P0.5 acceptance cannot be inferred from CI.
 
-**Overall:** 🟢 verified foundation · 🟢 P0.1–P0.4 COMPLETE · 🟢 P0.5 repository cutover/evidence/session/finalization workflow COMPLETE · 🟡 external IIS/HTTPS 15-gate acceptance pending · 🔴 production acceptance not yet granted
+**Overall:** 🟢 verified foundation · 🟢 P0.1–P0.4 COMPLETE · 🟢 P0.5 core repository cutover/evidence/session/finalization workflow COMPLETE · 🟡 #154 tagged-release parity hardening IN PROGRESS · 🟡 external IIS/HTTPS 15-gate acceptance pending · 🔴 production acceptance not yet granted
