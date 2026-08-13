@@ -72,6 +72,14 @@ RC.61 supersedes RC.53 unless a later equivalently verified candidate is explici
 | P0-049 versioned artifact/checksum/evidence/release workflow | **REPOSITORY/CI COMPLETE** — RC.61 + reusable release pipeline + immutable session + generator + recorder + finalizer + validator VERIFIED |
 | P0-050 final production acceptance | **PENDING EXTERNAL** |
 
+## BATCH-200 baseline reconciliation — ACTIVE IN PR #156
+
+A current-main audit found a real historical mismatch: the historical BATCH-200 completion marker existed while B200-051..060 and B200-071..090 implementation files were absent from `main` and `docs/BATCH_200.md` still marked those task ranges as PLANNED.
+
+PR #156 is a selective current-main reconciliation, not a merge of stale PR #104. It restores retention governance, enterprise security hardening and bounded scale primitives plus mapped B200-051..090 regression tests and an audit-pagination regression. The branch explicitly preserves `IServerTargetLifecycleService`, later BATCH-300/P0 behavior and merged RC.61 release-parity work. Earlier implementation CI `31667610170` was Green; exact-head final CI is required before merge.
+
+This baseline correction is historical reconciliation rather than new task accounting. It does not change #116, does not claim production acceptance and does not automatically replace RC.61.
+
 ## BATCH-600 — Live Operator Readiness & Evidence Orchestration
 
 **Issue:** #134 — CLOSED / COMPLETED  
@@ -114,12 +122,12 @@ B600 delivered deterministic fail-closed repository orchestration for evidence f
 
 - M0–M8 VERIFIED.
 - BATCH-100: B100-001..100 COMPLETE.
-- BATCH-200: B200-001..100 COMPLETE; final CI `31446970475`, 290/290.
+- BATCH-200: B200-001..100 historical accounting COMPLETE; **current-main reconciliation PR #156 active for the previously absent B200-051..060 and B200-071..090 implementation**.
 - BATCH-300: B300-001..100 COMPLETE; PR #102 merged as `385c2ee7a4d592c1e32e6e00a5c533c8790963b6`; reconciled CI `31465013971`, 395/395.
 - BATCH-400: B400-001..110 COMPLETE.
 - BATCH-500: B500-001..100 COMPLETE.
 - BATCH-600: B600-001..100 COMPLETE.
-- Total completed batch task IDs across B100+B200+B300+B400+B500+B600: **610**.
+- Total completed batch task IDs across B100+B200+B300+B400+B500+B600: **610**. PR #156 is baseline reconciliation, not new task accounting.
 
 ## Stable guardrails
 
@@ -133,4 +141,4 @@ B600 delivered deterministic fail-closed repository orchestration for evidence f
 - MultiNode remains fail-closed and deferred until after stable SingleNode production acceptance.
 - Concurrent team work must be preserved; external P0.5 acceptance cannot be inferred from CI.
 
-**Overall:** 🟢 verified foundation · 🟢 P0.1–P0.4 COMPLETE · 🟢 P0.5 repository cutover/evidence/session/finalization/release workflow COMPLETE · 🟡 external IIS/HTTPS 15-gate acceptance pending · 🔴 production acceptance not yet granted
+**Overall:** 🟢 verified foundation · 🟢 P0.1–P0.4 COMPLETE · 🟢 P0.5 repository cutover/evidence/session/finalization/release workflow COMPLETE · 🟡 external IIS/HTTPS 15-gate acceptance pending · 🟡 BATCH-200 current-main reconciliation PR #156 active · 🔴 production acceptance not yet granted

@@ -1,19 +1,18 @@
 # BATCH-200 — Enterprise Operations Expansion
 
-Issue #76 is the canonical umbrella for this second 100-task program. Delivery uses ten bounded PR batches of ten tasks. Every batch requires Release build with `--warnaserror`, the complete test suite, canonical documentation synchronization and squash merge to stable `main` before the next batch is considered verified.
+BATCH-200 is the second 100-task delivery program. Issue #76 is the original umbrella; issue #99 records the final baseline reconciliation. A task is verified only by Release build with `--warnaserror` plus the complete test suite.
 
-## Global guardrails
+## Guardrails
 
 - Monitoring, navigation, reporting and diagnostics GETs never initiate collection against monitored SQL targets.
 - No browser/widget connects directly to monitored SQL.
-- No autonomous remediation or AI SQL execution.
-- Plaintext credentials, full connection strings, raw provider errors and SQL text never enter UI, audit, telemetry, exports, diagnostics or operator metadata.
-- Alert suppression does not delete or rewrite incident evidence.
-- Maintenance affects explicit backend scheduling policy only; user navigation remains cache/control-plane-only.
-- MultiNode stays fail-closed when required shared/security/readiness dependencies are unavailable.
-- Every mutation is POST + antiforgery + a named authorization policy.
+- No autonomous remediation or executable AI/SQL actions.
+- Credentials, full connection strings, raw provider errors and SQL text stay out of UI/audit/exports/diagnostics.
+- Suppression never rewrites incident evidence; maintenance affects scheduled collection only.
+- Mutations require POST + antiforgery + named authorization.
+- MultiNode remains fail-closed behind shared-state/security/credential readiness.
 
-## Batch 1 — Enterprise UX integration
+## B200-001..010 — Enterprise UX integration
 
 | Task | Description | Status |
 |---|---|---|
@@ -28,9 +27,7 @@ Issue #76 is the canonical umbrella for this second 100-task program. Delivery u
 | B200-009 | Audit coverage for all enterprise metadata mutations | CI VERIFIED — RUN 31443481889 |
 | B200-010 | Enterprise UX/accessibility acceptance suite | CI VERIFIED — RUN 31443481889 |
 
-Batch 1 integrates the BATCH-100 enterprise governance state into the normal operator journey. Server and incident details project operator metadata without invoking collection, `/enterprise` has bounded metadata-only filters, rejected mutations use PRG with bounded messages and rejection audit metadata, and all enterprise mutations remain POST + antiforgery + named authorization policy.
-
-## Batch 2 — Maintenance & suppression policy semantics
+## B200-011..020 — Maintenance & suppression policy semantics
 
 | Task | Description | Status |
 |---|---|---|
@@ -45,9 +42,7 @@ Batch 1 integrates the BATCH-100 enterprise governance state into the normal ope
 | B200-019 | Corrupt policy metadata fails closed | CI VERIFIED — RUN 31444314976 |
 | B200-020 | Maintenance/suppression acceptance suite | CI VERIFIED — RUN 31444314976 |
 
-Batch 2 turns operator windows into explicit backend policy semantics. Scheduled collection skips active maintenance and fails closed when operator policy cannot be read; manual refresh remains an explicit operator override and is audited before/after execution. Alert suppression changes actionability projections only and leaves incident status/evidence untouched. Policy windows are start-inclusive/end-exclusive and shared-state readers converge across nodes.
-
-## Batch 3 — Incident collaboration workflow
+## B200-021..030 — Incident collaboration
 
 | Task | Description | Status |
 |---|---|---|
@@ -62,9 +57,7 @@ Batch 2 turns operator windows into explicit backend policy semantics. Scheduled
 | B200-029 | Bounded resolution note | CI VERIFIED — RUN 31444920282 |
 | B200-030 | Collaboration workflow acceptance suite | CI VERIFIED — RUN 31444920282 |
 
-Batch 3 adds bounded incident collaboration over the existing durable operator metadata and audit stores. Assignee filtering and deterministic SLA buckets are service-level projections; owner changes create previous-to-next audit history; notes support bounded paging and durable audit receipts for replay protection; note identity remains immutable; Warning-to-Critical escalation has an explicit audit marker; reopen/resolution reasons are validated operator notes separate from incident evidence; and the primary incident UI exposes reason-aware protected transition paths.
-
-## Batch 4 — Reporting & diagnostics expansion
+## B200-031..040 — Reporting & diagnostics
 
 | Task | Description | Status |
 |---|---|---|
@@ -79,9 +72,7 @@ Batch 3 adds bounded incident collaboration over the existing durable operator m
 | B200-039 | Diagnostics manifest build/revision metadata | CI VERIFIED — RUN 31445480775 |
 | B200-040 | Export/diagnostics acceptance suite | CI VERIFIED — RUN 31445480775 |
 
-Batch 4 introduces the versioned `monitor-export-v2` contract with explicit row/byte/cell caps, UTF-8 BOM emission, deterministic LF line endings and spreadsheet-formula neutralization. Server, incident, history and audit exports remain Monitor-owned/cache-only; the server report proves `Peek`-only snapshot access and excludes monitored SQL endpoints/secret references. Administrator diagnostics exposes a bounded build/revision manifest without environment values. The BOM regression test caught and corrected the .NET encoding preamble assumption before merge.
-
-## Batch 5 — Fleet intelligence
+## B200-041..050 — Fleet intelligence
 
 | Task | Description | Status |
 |---|---|---|
@@ -96,24 +87,24 @@ Batch 4 introduces the versioned `monitor-export-v2` contract with explicit row/
 | B200-049 | Memory/blocking/performance risk summary | CI VERIFIED — RUN 31446020409 |
 | B200-050 | Fleet intelligence zero-monitored-SQL acceptance suite | CI VERIFIED — RUN 31446020409 |
 
-Batch 5 provides cache-only fleet intelligence by environment, group and tag; freshness/unavailable, maintenance and suppression counts; deterministic incident rule hot-spots; and backup/memory/blocking/runnable risk summaries. The B200-050 acceptance gate uses a cache fake that rejects `GetAsync`/`RefreshAsync`, proving fleet reads use `Peek` only. Verification run `31446020409` passed Release warnings-as-errors and 281/281 tests (0 failed).
+## B200-051..060 — Retention & governance
 
-## Batch 6 — Retention & governance
+These tasks existed only on stale historical branches after the original finalizer. Issue #99 / PR #156 reconciles them cleanly onto the current P0/BATCH-300-era main without replacing later target-lifecycle work.
 
 | Task | Description | Status |
 |---|---|---|
-| B200-051 | Orphaned server operator-metadata detection | PLANNED |
-| B200-052 | Resolved/orphaned incident metadata pruning policy | PLANNED |
-| B200-053 | Operator-note retention policy | PLANNED |
-| B200-054 | Configurable bounded audit retention | PLANNED |
-| B200-055 | Backup-retention configuration validation | PLANNED |
-| B200-056 | History-retention configuration validation | PLANNED |
-| B200-057 | Cleanup dry-run report | PLANNED |
-| B200-058 | Administrator cleanup POST + antiforgery | PLANNED |
-| B200-059 | Cleanup audit trail | PLANNED |
-| B200-060 | Retention/governance acceptance suite | PLANNED |
+| B200-051 | Orphaned server operator-metadata detection | CURRENT-MAIN CI VERIFIED — RUN 31667610170 |
+| B200-052 | Resolved/orphaned incident metadata pruning policy | CURRENT-MAIN CI VERIFIED — RUN 31667610170 |
+| B200-053 | Operator-note retention policy | CURRENT-MAIN CI VERIFIED — RUN 31667610170 |
+| B200-054 | Configurable bounded audit retention | CURRENT-MAIN CI VERIFIED — RUN 31667610170 |
+| B200-055 | Backup-retention configuration validation | CURRENT-MAIN CI VERIFIED — RUN 31667610170 |
+| B200-056 | History-retention configuration validation | CURRENT-MAIN CI VERIFIED — RUN 31667610170 |
+| B200-057 | Cleanup dry-run report | CURRENT-MAIN CI VERIFIED — RUN 31667610170 |
+| B200-058 | Administrator cleanup POST + antiforgery | CURRENT-MAIN CI VERIFIED — RUN 31667610170 |
+| B200-059 | Cleanup audit trail | CURRENT-MAIN CI VERIFIED — RUN 31667610170 |
+| B200-060 | Retention/governance acceptance suite | CURRENT-MAIN CI VERIFIED — RUN 31667610170 |
 
-## Batch 7 — HA & disaster recovery for operator state
+## B200-061..070 — HA & operator-state disaster recovery
 
 | Task | Description | Status |
 |---|---|---|
@@ -128,39 +119,41 @@ Batch 5 provides cache-only fleet intelligence by environment, group and tag; fr
 | B200-069 | Cross-node maintenance/scheduler policy verification | CI VERIFIED — RUN 31446424746 |
 | B200-070 | HA/operator-state acceptance suite | CI VERIFIED — RUN 31446424746 |
 
-Batch 7 adds shared operator-state disaster recovery around the raw `monitor:operator-metadata:v1` shared document: checksummed/versioned export, dry-run validation, CAS restore, read-back verification and rollback. HA tests cover shared-state failure diagnostics, reporting during concurrent metadata writes, cross-node recommendation acknowledgments, note convergence and maintenance/scheduler consistency. Verification run `31446424746` passed 281/281 tests (0 failed).
+## B200-071..080 — Enterprise security hardening II
 
-## Batch 8 — Enterprise security hardening II
-
-| Task | Description | Status |
-|---|---|---|
-| B200-071 | Secure download/content-disposition policy | PLANNED |
-| B200-072 | Safe export filename generation | PLANNED |
-| B200-073 | Fixed/allowlisted diagnostics ZIP entry names | PLANNED |
-| B200-074 | Operator-note HTML/XSS rendering regression suite | PLANNED |
-| B200-075 | Formula-safe group/assignee/tag exports | PLANNED |
-| B200-076 | Request-size limits for enterprise text inputs | PLANNED |
-| B200-077 | Strict incident/registration route-ID normalization | PLANNED |
-| B200-078 | Enterprise endpoint authorization matrix | PLANNED |
-| B200-079 | Enterprise audit/diagnostic secret-canary suite | PLANNED |
-| B200-080 | Security acceptance suite | PLANNED |
-
-## Batch 9 — Performance & scale II
+Issue #99 / PR #156 restores the missing security policy onto current report, mutation and diagnostics endpoints while preserving current P0 authorization and lifecycle boundaries.
 
 | Task | Description | Status |
 |---|---|---|
-| B200-081 | Operator-metadata lookup/indexing budget | PLANNED |
-| B200-082 | Enterprise server pagination | PLANNED |
-| B200-083 | Enterprise incident pagination | PLANNED |
-| B200-084 | Bounded/lazy note rendering | PLANNED |
-| B200-085 | Streaming/bounded CSV generation | PLANNED |
-| B200-086 | Diagnostics timeout/cancellation bounds | PLANNED |
-| B200-087 | Shared CAS retry telemetry | PLANNED |
-| B200-088 | Metadata write-contention test | PLANNED |
-| B200-089 | Fleet-summary O(N) deterministic budget test | PLANNED |
-| B200-090 | Performance/scale acceptance suite | PLANNED |
+| B200-071 | Secure download/content-disposition policy | CURRENT-MAIN CI VERIFIED — RUN 31667610170 |
+| B200-072 | Safe export filename generation | CURRENT-MAIN CI VERIFIED — RUN 31667610170 |
+| B200-073 | Fixed/allowlisted diagnostics ZIP entry names | CURRENT-MAIN CI VERIFIED — RUN 31667610170 |
+| B200-074 | Operator-note HTML/XSS rendering regression suite | CURRENT-MAIN CI VERIFIED — RUN 31667610170 |
+| B200-075 | Formula-safe group/assignee/tag exports | CURRENT-MAIN CI VERIFIED — RUN 31667610170 |
+| B200-076 | Request-size limits for enterprise text inputs | CURRENT-MAIN CI VERIFIED — RUN 31667610170 |
+| B200-077 | Strict incident/registration route-ID normalization | CURRENT-MAIN CI VERIFIED — RUN 31667610170 |
+| B200-078 | Enterprise endpoint authorization matrix | CURRENT-MAIN CI VERIFIED — RUN 31667610170 |
+| B200-079 | Enterprise audit/diagnostic secret-canary suite | CURRENT-MAIN CI VERIFIED — RUN 31667610170 |
+| B200-080 | Security acceptance suite | CURRENT-MAIN CI VERIFIED — RUN 31667610170 |
 
-## Batch 10 — Operator polish & release acceptance
+## B200-081..090 — Performance & scale II
+
+Issue #99 / PR #156 restores bounded paging, streaming CSV, diagnostics timeout and shared CAS telemetry primitives on current main without changing monitored-SQL collection behavior.
+
+| Task | Description | Status |
+|---|---|---|
+| B200-081 | Operator-metadata lookup/indexing budget | CURRENT-MAIN CI VERIFIED — RUN 31667610170 |
+| B200-082 | Enterprise server pagination | CURRENT-MAIN CI VERIFIED — RUN 31667610170 |
+| B200-083 | Enterprise incident pagination | CURRENT-MAIN CI VERIFIED — RUN 31667610170 |
+| B200-084 | Bounded/lazy note rendering | CURRENT-MAIN CI VERIFIED — RUN 31667610170 |
+| B200-085 | Streaming/bounded CSV generation | CURRENT-MAIN CI VERIFIED — RUN 31667610170 |
+| B200-086 | Diagnostics timeout/cancellation bounds | CURRENT-MAIN CI VERIFIED — RUN 31667610170 |
+| B200-087 | Shared CAS retry telemetry | CURRENT-MAIN CI VERIFIED — RUN 31667610170 |
+| B200-088 | Metadata write-contention test | CURRENT-MAIN CI VERIFIED — RUN 31667610170 |
+| B200-089 | Fleet-summary O(N) deterministic budget test | CURRENT-MAIN CI VERIFIED — RUN 31667610170 |
+| B200-090 | Performance/scale acceptance suite | CURRENT-MAIN CI VERIFIED — RUN 31667610170 |
+
+## B200-091..100 — Operator polish & release acceptance
 
 | Task | Description | Status |
 |---|---|---|
@@ -175,10 +168,6 @@ Batch 7 adds shared operator-state disaster recovery around the raw `monitor:ope
 | B200-099 | BATCH-200 release-candidate acceptance suite | CI VERIFIED — RUN 31446970475 |
 | B200-100 | Canonical docs/ADR/status/release gate | CI VERIFIED — RUN 31446970475 |
 
-## Delivery rule
+## Current-main reconciliation evidence
 
-`Audit current behavior -> design bounded change -> implement -> Release build/tests -> canonical docs/status -> final PR CI -> squash merge -> next batch`.
-
-## BATCH-200 completion
-
-B200-001..100 are CI VERIFIED. Final release-candidate gate `31446970475` passed Release build with warnings-as-errors and **290/290 tests** with **0 failed**. BATCH-200 is additive over BATCH-100 and preserves the zero-monitored-SQL GET, credential-boundary, suppression-evidence, explicit-mutation and fail-closed MultiNode guardrails.
+PR #156 is a selective port from current `main`, not a merge of stale PR #104. Implementation run `31667610170` passed restore, Release build and the complete test suite. The reconciliation restores B200-051..060 and B200-071..090 plus mapped regression coverage, while explicitly preserving later `IServerTargetLifecycleService`, BATCH-300 and P0 behavior. Final code+docs PR CI is required before merge.
