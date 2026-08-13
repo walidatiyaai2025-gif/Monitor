@@ -72,6 +72,7 @@ public sealed class EnterpriseOperationsController : Controller
         string? assignee = null,
         bool? suppressed = null)
     {
+        EnterpriseSecurityPolicy.ValidateEnterpriseTextBudget(group, tag, assignee);
         var filter = new EnterpriseOperationsFilter(
             NormalizeFilter(environment is null ? null : environment.ToString(), 32) is null ? null : environment,
             NormalizeFilter(group, EnterpriseOperatorValidation.MaxGroupLength),
@@ -136,6 +137,7 @@ public sealed class EnterpriseOperationsController : Controller
 
         try
         {
+            EnterpriseSecurityPolicy.ValidateEnterpriseTextBudget(group, tags, maintenanceReason, suppressionReason);
             var metadata = new ServerOperatorMetadata(
                 id,
                 environment,
@@ -160,6 +162,15 @@ public sealed class EnterpriseOperationsController : Controller
     [Authorize(Policy = MonitorPolicies.Operate)]
     public IActionResult AssignIncident(string id, string? assignee)
     {
+        try
+        {
+            id = EnterpriseSecurityPolicy.NormalizeIncidentRouteId(id);
+            EnterpriseSecurityPolicy.ValidateEnterpriseTextBudget(assignee);
+        }
+        catch (ArgumentException exception)
+        {
+            return Reject("incident.owner", id, exception);
+        }
         if (_incidents.GetById(id) is null) return NotFound();
         try
         {
@@ -178,6 +189,15 @@ public sealed class EnterpriseOperationsController : Controller
     [Authorize(Policy = MonitorPolicies.Operate)]
     public IActionResult AddIncidentNote(string id, string note, string requestKey)
     {
+        try
+        {
+            id = EnterpriseSecurityPolicy.NormalizeIncidentRouteId(id);
+            EnterpriseSecurityPolicy.ValidateEnterpriseTextBudget(note, requestKey);
+        }
+        catch (ArgumentException exception)
+        {
+            return Reject("incident.note", id, exception);
+        }
         if (_incidents.GetById(id) is null) return NotFound();
         try
         {
@@ -196,6 +216,15 @@ public sealed class EnterpriseOperationsController : Controller
     [Authorize(Policy = MonitorPolicies.Operate)]
     public IActionResult AcknowledgeRecommendation(string id, string recommendationKey, bool acknowledged = true)
     {
+        try
+        {
+            id = EnterpriseSecurityPolicy.NormalizeIncidentRouteId(id);
+            EnterpriseSecurityPolicy.ValidateEnterpriseTextBudget(recommendationKey);
+        }
+        catch (ArgumentException exception)
+        {
+            return Reject("recommendation.acknowledgment", id, exception);
+        }
         var incident = _incidents.GetById(id);
         if (incident is null) return NotFound();
 
@@ -232,16 +261,18 @@ public sealed class EnterpriseOperationsController : Controller
     public IActionResult ServerCsv()
     {
         var bytes = _csv.BuildServerReport();
-        return File(bytes, "text/csv; charset=utf-8", $"monitor-servers-{_timeProvider.GetUtcNow():yyyyMMdd-HHmmss}.csv");
+        EnterpriseSecurityPolicy.ApplySecureDownloadHeaders(Response);
+        return File(bytes, "text/csv; charset=utf-8", EnterpriseSecurityPolicy.SafeDownloadFileName(EnterpriseDownloadSubject.Servers, _timeProvider.GetUtcNow(), "csv"));
     }
 
     [HttpGet("/diagnostics/package")]
     [Authorize(Policy = MonitorPolicies.Manage)]
     public async Task<IActionResult> Diagnostics(CancellationToken cancellationToken)
     {
-        var bytes = await _diagnostics.BuildAsync(cancellationToken);
+        var bytes = await new BoundedDiagnosticsRunner(_diagnostics).BuildAsync(cancellationToken);
         _audit.Append(Actor(), "diagnostics.package", "application", "generated");
-        return File(bytes, "application/zip", $"monitor-diagnostics-{_timeProvider.GetUtcNow():yyyyMMdd-HHmmss}.zip");
+        EnterpriseSecurityPolicy.ApplySecureDownloadHeaders(Response);
+        return File(bytes, "application/zip", EnterpriseSecurityPolicy.SafeDownloadFileName(EnterpriseDownloadSubject.Diagnostics, _timeProvider.GetUtcNow(), "zip"));
     }
 
     private IActionResult Reject(string action, string target, ArgumentException exception)
