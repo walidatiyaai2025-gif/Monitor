@@ -1,0 +1,118 @@
+name: promote-existing-candidate
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_version: { required: true, type: string }
+      source_run_id: { required: true, type: string }
+      source_artifact_id: { required: true, type: string }
+      expected_product_sha256: { required: true, type: string }
+      source_commit: { required: true, type: string }
+      tested_merge_commit: { required: true, type: string }
+      release_tag: { required: true, type: string }
+      acknowledge_promotion:
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: promote-existing-${{ inputs.release_tag }}
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    if: ${{ inputs.acknowledge_promotion }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ inputs.candidate_version }}
+      RUN_ID: ${{ inputs.source_run_id }}
+      ARTIFACT_ID: ${{ inputs.source_artifact_id }}
+      PRODUCT_SHA: ${{ inputs.expected_product_sha256 }}
+      SOURCE_SHA: ${{ inputs.source_commit }}
+      TESTED_SHA: ${{ inputs.tested_merge_commit }}
+      RELEASE_TAG: ${{ inputs.release_tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate source run and artifact metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]
+          [[ "${RELEASE_TAG}" == "v${VERSION}" ]]
+          [[ "${RUN_ID}" =~ ^[1-9][0-9]*$ && "${ARTIFACT_ID}" =~ ^[1-9][0-9]*$ ]]
+          [[ "${PRODUCT_SHA}" =~ ^[a-f0-9]{64}$ ]]
+          [[ "${SOURCE_SHA}" =~ ^[a-f0-9]{40}$ && "${TESTED_SHA}" =~ ^[a-f0-9]{40}$ ]]
+
+          run_json="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}")"
+          [[ "$(jq -r '.conclusion' <<<"${run_json}")" == success ]]
+          [[ "$(jq -r '.path' <<<"${run_json}")" == '.github/workflows/production-candidate.yml' ]]
+          [[ "$(jq -r '.head_sha' <<<"${run_json}")" == "${SOURCE_SHA}" ]]
+
+          name="Monitor-${VERSION}-win-x64"
+          artifacts="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/artifacts?per_page=100")"
+          [[ "$(jq --arg n "${name}" '[.artifacts[] | select(.name == $n)] | length' <<<"${artifacts}")" == 1 ]]
+          item="$(jq --arg n "${name}" '.artifacts[] | select(.name == $n)' <<<"${artifacts}")"
+          [[ "$(jq -r '.id' <<<"${item}")" == "${ARTIFACT_ID}" ]]
+          [[ "$(jq -r '.expired' <<<"${item}")" == false ]]
+
+      - name: Download exact artifact from selected run
+        uses: actions/download-artifact@v4
+        with:
+          name: Monitor-${{ inputs.candidate_version }}-win-x64
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.source_run_id }}
+          path: artifacts
+
+      - name: Validate exact selected candidate bytes
+        shell: pwsh
+        run: |
+          ./scripts/Test-ExistingCandidatePromotion.ps1 `
+            -ArtifactPath "artifacts/Monitor-${env:VERSION}-win-x64.zip" `
+            -ChecksumPath "artifacts/Monitor-${env:VERSION}-win-x64.zip.sha256" `
+            -CandidateVersion $env:VERSION `
+            -ExpectedProductSha256 $env:PRODUCT_SHA `
+            -SourceCommit $env:SOURCE_SHA `
+            -TestedMergeCommit $env:TESTED_SHA | Out-Null
+
+      - name: Publish or verify immutable durable release
+        shell: bash
+        run: |
+          set -euo pipefail
+          zip="Monitor-${VERSION}-win-x64.zip"
+          sum="${zip}.sha256"
+
+          verify_release() {
+            local dir="$1"
+            rm -rf "${dir}" && mkdir -p "${dir}"
+            mapfile -t names < <(gh release view "${RELEASE_TAG}" --json assets --jq '.assets[].name' | sort)
+            [[ "${#names[@]}" -eq 2 && "${names[0]}" == "${zip}" && "${names[1]}" == "${sum}" ]]
+            gh release download "${RELEASE_TAG}" --pattern "${zip}" --pattern "${sum}" --dir "${dir}"
+            [[ "$(sha256sum "${dir}/${zip}" | awk '{print $1}')" == "${PRODUCT_SHA}" ]]
+            line="$(tr -d '\r\n' < "${dir}/${sum}")"
+            [[ "${line}" == "${PRODUCT_SHA}  ${zip}" ]]
+          }
+
+          if tag_commit="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${RELEASE_TAG}" --jq '.sha' 2>/dev/null)"; then
+            [[ "${tag_commit}" == "${TESTED_SHA}" ]]
+            if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
+              verify_release "${RUNNER_TEMP}/existing-release"
+              echo 'Exact durable release already exists; no mutation performed.'
+              exit 0
+            fi
+            gh release create "${RELEASE_TAG}" "artifacts/${zip}" "artifacts/${sum}" --verify-tag --prerelease --latest=false --title "Monitor ${VERSION}" --notes "Promoted from existing verified candidate run ${RUN_ID}; no rebuild or repackaging. External IIS acceptance remains governed by #116."
+          else
+            gh release create "${RELEASE_TAG}" "artifacts/${zip}" "artifacts/${sum}" --target "${TESTED_SHA}" --prerelease --latest=false --title "Monitor ${VERSION}" --notes "Promoted from existing verified candidate run ${RUN_ID}; no rebuild or repackaging. External IIS acceptance remains governed by #116."
+          fi
+
+          [[ "$(gh api "repos/${GITHUB_REPOSITORY}/commits/${RELEASE_TAG}" --jq '.sha')" == "${TESTED_SHA}" ]]
+          verify_release "${RUNNER_TEMP}/verified-release"
