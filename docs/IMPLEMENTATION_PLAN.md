@@ -160,13 +160,13 @@ The release artifact no longer has a weaker construction path than the selected 
 ## Historical hardening batches
 
 - `docs/BATCH_100.md` — B100-001..100 COMPLETE.
-- `docs/BATCH_200.md` — B200-001..100 historical accounting COMPLETE; **Issue #99 / PR #156 is the active current-main baseline reconciliation for previously absent B200-051..060 and B200-071..090 implementation**. Earlier implementation CI `31667610170` was Green; exact-head final CI is required before merge.
+- `docs/BATCH_200.md` — B200-001..100 COMPLETE; current-main reconciliation **COMPLETE** through Issue #99 / PR #156, squash-merged `221e44a9f13ed02e994311addff94b0e7996e444`. Final exact-head normal CI `31669072593`, Real SQL `31669072572`, and Windows production-candidate `31669072625` are Green.
 - BATCH-300 — B300-001..100 COMPLETE; final reconciled CI `31465013971`.
 - `docs/BATCH_400.md` — B400-001..110 COMPLETE.
 - BATCH-500 — B500-001..100 COMPLETE.
 - BATCH-600 — B600-001..100 COMPLETE.
 
-PR #156 is a baseline correction rather than feature expansion or new task accounting. It selectively restores retention governance, enterprise security hardening and bounded scale primitives on current RC.61-era `main`, while preserving `IServerTargetLifecycleService`, BATCH-300 and all P0 production/release boundaries. It does not change the P0 release order, #116 acceptance state or selected RC.61 artifact.
+The BATCH-200 reconciliation selectively restored retention governance, enterprise security hardening and bounded scale primitives plus mapped B200-051..090 regression coverage and an additional audit-pagination regression on RC.61-era current main. Legacy issues #87/#91/#93 are closed completed, while stale PRs #88/#92/#94/#104 are closed unmerged as superseded. This was baseline correction rather than feature expansion or new task accounting; it preserves `IServerTargetLifecycleService`, BATCH-300 and all P0 production/release boundaries and does not change #116 or selected RC.61.
 
 Historical feature breadth remains available, but it does not outrank the remaining P0.5 production acceptance gate.
 
