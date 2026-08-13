@@ -99,9 +99,31 @@ public sealed class P05ProductionCandidateTests
         Assert.Contains("candidate_version: ${{ needs.resolve-version.outputs.version }}", release, StringComparison.Ordinal);
         Assert.Contains("^v[0-9]+\\.[0-9]+\\.[0-9]+", release, StringComparison.Ordinal);
         Assert.DoesNotContain("dotnet publish", release, StringComparison.Ordinal);
+        Assert.DoesNotContain("Compress-Archive", release, StringComparison.Ordinal);
         Assert.DoesNotContain("zip -qr", release, StringComparison.Ordinal);
-        Assert.DoesNotContain("sha256sum", release, StringComparison.Ordinal);
         Assert.DoesNotContain("upload-artifact@v4", release, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TaggedRelease_PublishesOnlyExactVerifiedAssetsAndNeverClobbersExistingRelease()
+    {
+        var root = FindRepoRoot();
+        var release = File.ReadAllText(Path.Combine(root, ".github", "workflows", "release.yml"));
+
+        Assert.Contains("publish-tagged-release:", release, StringComparison.Ordinal);
+        Assert.Contains("github.event_name == 'push' && github.ref_type == 'tag'", release, StringComparison.Ordinal);
+        Assert.Contains("contents: write", release, StringComparison.Ordinal);
+        Assert.Contains("actions/download-artifact@v4", release, StringComparison.Ordinal);
+        Assert.Contains("Download verified production package from this run", release, StringComparison.Ordinal);
+        Assert.Contains("Verify downloaded product checksum", release, StringComparison.Ordinal);
+        Assert.Contains("sha256sum", release, StringComparison.Ordinal);
+        Assert.Contains("gh release view", release, StringComparison.Ordinal);
+        Assert.Contains("gh release download", release, StringComparison.Ordinal);
+        Assert.Contains("gh release create", release, StringComparison.Ordinal);
+        Assert.Contains("--verify-tag", release, StringComparison.Ordinal);
+        Assert.Contains("Existing release assets differ from the verified candidate; refusing mutation.", release, StringComparison.Ordinal);
+        Assert.DoesNotContain("--clobber", release, StringComparison.Ordinal);
+        Assert.DoesNotContain("gh release upload", release, StringComparison.Ordinal);
     }
 
     private static string FindRepoRoot()
