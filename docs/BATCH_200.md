@@ -89,7 +89,7 @@ BATCH-200 is the second 100-task delivery program. Issue #76 is the original umb
 
 ## B200-051..060 — Retention & governance
 
-These tasks existed only on stale historical branches after the original finalizer. Issue #99 / PR #156 reconciles them cleanly onto the current P0/BATCH-300-era main without replacing later target-lifecycle work.
+These tasks existed only on stale historical branches after the original finalizer. Issue #99 / PR #156 reconciled them cleanly onto current P0/BATCH-300-era main without replacing later target-lifecycle work.
 
 | Task | Description | Status |
 |---|---|---|
@@ -121,7 +121,7 @@ These tasks existed only on stale historical branches after the original finaliz
 
 ## B200-071..080 — Enterprise security hardening II
 
-Issue #99 / PR #156 restores the missing security policy onto current report, mutation and diagnostics endpoints while preserving current P0 authorization and lifecycle boundaries.
+Issue #99 / PR #156 restored the missing security policy onto current report, mutation and diagnostics endpoints while preserving current P0 authorization and lifecycle boundaries.
 
 | Task | Description | Status |
 |---|---|---|
@@ -138,7 +138,7 @@ Issue #99 / PR #156 restores the missing security policy onto current report, mu
 
 ## B200-081..090 — Performance & scale II
 
-Issue #99 / PR #156 restores bounded paging, streaming CSV, diagnostics timeout and shared CAS telemetry primitives on current main without changing monitored-SQL collection behavior.
+Issue #99 / PR #156 restored bounded paging, streaming CSV, diagnostics timeout and shared CAS telemetry primitives on current main without changing monitored-SQL collection behavior.
 
 | Task | Description | Status |
 |---|---|---|
@@ -168,6 +168,15 @@ Issue #99 / PR #156 restores bounded paging, streaming CSV, diagnostics timeout 
 | B200-099 | BATCH-200 release-candidate acceptance suite | CI VERIFIED — RUN 31446970475 |
 | B200-100 | Canonical docs/ADR/status/release gate | CI VERIFIED — RUN 31446970475 |
 
-## Current-main reconciliation evidence
+## Current-main reconciliation evidence — COMPLETE
 
-PR #156 is a selective port from current `main`, not a merge of stale PR #104. Implementation run `31667610170` passed restore, Release build and the complete test suite. The reconciliation restores B200-051..060 and B200-071..090 plus mapped regression coverage, while explicitly preserving later `IServerTargetLifecycleService`, BATCH-300 and P0 behavior. Final code+docs PR CI is required before merge.
+Issue #99 is CLOSED / COMPLETED. PR #156 was selectively rebased through RC.61-era main and squash-merged as `221e44a9f13ed02e994311addff94b0e7996e444`; stale PR #104 was intentionally not merged.
+
+Final exact-head `98d8cc54b2483fb7bad641680fd1f90e3802a9c4` gates:
+- normal CI `31669072593`: Green;
+- Real SQL Server 2022 `31669072572`: Green, including SQL Agent + non-sysadmin least-privilege acceptance;
+- Windows production-candidate `31669072625`: Green end-to-end, including candidate-version validation, Release build, full suite, PowerShell parser, immutable session, recorder, finalizer, win-x64 publish, secret-free package validation, HTTPS/auth smoke before and after restart, clean package revalidation, ZIP/SHA-256 and artifact upload.
+
+The reconciliation restored B200-051..060 and B200-071..090 plus mapped regression coverage and an additional audit-pagination regression while preserving later `IServerTargetLifecycleService`, BATCH-300 and P0 behavior. Legacy issues #87/#91/#93 are closed completed and stale PRs #88/#92/#94/#104 are closed unmerged as superseded.
+
+This reconciliation is historical baseline correction, not new task accounting, and does not change the external P0.5 acceptance boundary or selected RC.61 on #116.
