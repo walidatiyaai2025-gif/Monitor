@@ -99,9 +99,10 @@ public sealed partial class DeploymentArtifactsTests
         Assert.Contains("--warnaserror", candidate, StringComparison.Ordinal);
         Assert.Contains("actions/upload-artifact@v4", candidate, StringComparison.Ordinal);
         Assert.Contains("Get-FileHash", candidate, StringComparison.Ordinal);
-        Assert.Contains("contents: read", release, StringComparison.Ordinal);
+        Assert.Contains("permissions:\n  contents: read", release, StringComparison.Ordinal);
         Assert.Contains("contents: read", candidate, StringComparison.Ordinal);
-        Assert.DoesNotContain("contents: write", release, StringComparison.Ordinal);
+        Assert.Contains("publish-tagged-release:", release, StringComparison.Ordinal);
+        Assert.Contains("permissions:\n      contents: write", release, StringComparison.Ordinal);
         Assert.DoesNotContain("contents: write", candidate, StringComparison.Ordinal);
     }
 
