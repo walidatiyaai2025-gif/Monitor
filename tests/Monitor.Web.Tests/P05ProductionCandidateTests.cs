@@ -63,6 +63,9 @@ public sealed class P05ProductionCandidateTests
         var authSmokePath = Path.Combine(root, "scripts", "Smoke-MonitorAuthentication.ps1");
         var authSmoke = File.ReadAllText(authSmokePath);
 
+        Assert.Contains("workflow_call:", workflow, StringComparison.Ordinal);
+        Assert.Contains("candidate_version:", workflow, StringComparison.Ordinal);
+        Assert.Contains("Validate candidate version", workflow, StringComparison.Ordinal);
         Assert.Contains("windows-latest", workflow, StringComparison.Ordinal);
         Assert.Contains("--warnaserror", workflow, StringComparison.Ordinal);
         Assert.Contains("dotnet test Monitor.sln", workflow, StringComparison.Ordinal);
@@ -75,9 +78,30 @@ public sealed class P05ProductionCandidateTests
         Assert.Contains("Get-FileHash", workflow, StringComparison.Ordinal);
         Assert.Contains("SHA-256", workflow, StringComparison.Ordinal);
         Assert.Contains("upload-artifact@v4", workflow, StringComparison.Ordinal);
+        Assert.Contains("schemaVersion = 2", workflow, StringComparison.Ordinal);
+        Assert.Contains("prerequisiteEvidence", workflow, StringComparison.Ordinal);
+        Assert.Contains("p04 = @{", workflow, StringComparison.Ordinal);
+        Assert.Contains("candidateVerification", workflow, StringComparison.Ordinal);
+        Assert.Contains("sourceOfTruth = '#116'", workflow, StringComparison.Ordinal);
+        Assert.DoesNotContain("realSqlAcceptance", workflow, StringComparison.Ordinal);
         Assert.Contains("__RequestVerificationToken", authSmoke, StringComparison.Ordinal);
         Assert.Contains("/servers/connections", authSmoke, StringComparison.Ordinal);
         Assert.DoesNotContain("Write-Host $Password", authSmoke, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void TaggedRelease_DelegatesToVerifiedProductionCandidateWorkflow()
+    {
+        var root = FindRepoRoot();
+        var release = File.ReadAllText(Path.Combine(root, ".github", "workflows", "release.yml"));
+
+        Assert.Contains("uses: ./.github/workflows/production-candidate.yml", release, StringComparison.Ordinal);
+        Assert.Contains("candidate_version: ${{ needs.resolve-version.outputs.version }}", release, StringComparison.Ordinal);
+        Assert.Contains("^v[0-9]+\\.[0-9]+\\.[0-9]+", release, StringComparison.Ordinal);
+        Assert.DoesNotContain("dotnet publish", release, StringComparison.Ordinal);
+        Assert.DoesNotContain("zip -qr", release, StringComparison.Ordinal);
+        Assert.DoesNotContain("sha256sum", release, StringComparison.Ordinal);
+        Assert.DoesNotContain("upload-artifact@v4", release, StringComparison.Ordinal);
     }
 
     private static string FindRepoRoot()
