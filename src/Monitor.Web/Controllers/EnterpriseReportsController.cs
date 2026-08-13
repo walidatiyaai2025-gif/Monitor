@@ -27,23 +27,26 @@ public sealed class EnterpriseReportsController : Controller
     [HttpGet("/reports/servers-v2.csv")]
     public IActionResult Servers(ServerEnvironmentClass? environment = null, string? group = null, string? tag = null)
     {
+        EnterpriseSecurityPolicy.ValidateEnterpriseTextBudget(group, tag);
         var bytes = _reports.Servers(new(environment, group, tag));
-        return File(bytes, "text/csv; charset=utf-8", FileName("servers"));
+        return Download(bytes, "text/csv; charset=utf-8", EnterpriseDownloadSubject.Servers, "csv");
     }
 
     [HttpGet("/reports/incidents.csv")]
     public IActionResult Incidents(string? assignee = null, bool? suppressed = null)
     {
+        EnterpriseSecurityPolicy.ValidateEnterpriseTextBudget(assignee);
         var bytes = _reports.Incidents(new(assignee, suppressed));
-        return File(bytes, "text/csv; charset=utf-8", FileName("incidents"));
+        return Download(bytes, "text/csv; charset=utf-8", EnterpriseDownloadSubject.Incidents, "csv");
     }
 
     [HttpGet("/reports/history/{registrationId:guid}.csv")]
     public IActionResult History(Guid registrationId, string window = "6h")
     {
+        EnterpriseSecurityPolicy.ValidateEnterpriseTextBudget(window);
         if (!TryWindow(window, out var duration)) return BadRequest(new { message = "History export window must be 1h, 6h or 24h." });
         var bytes = _reports.History(registrationId, duration);
-        return File(bytes, "text/csv; charset=utf-8", FileName("history"));
+        return Download(bytes, "text/csv; charset=utf-8", EnterpriseDownloadSubject.History, "csv");
     }
 
     [HttpGet("/reports/audit.csv")]
@@ -51,14 +54,19 @@ public sealed class EnterpriseReportsController : Controller
     public IActionResult Audit()
     {
         var bytes = _reports.Audit();
-        return File(bytes, "text/csv; charset=utf-8", FileName("audit"));
+        return Download(bytes, "text/csv; charset=utf-8", EnterpriseDownloadSubject.Audit, "csv");
     }
 
     [HttpGet("/diagnostics/manifest.json")]
     [Authorize(Policy = MonitorPolicies.Manage)]
-    public IActionResult Manifest() => File(_reports.Manifest(), "application/json; charset=utf-8", FileName("manifest", "json"));
+    public IActionResult Manifest() => Download(_reports.Manifest(), "application/json; charset=utf-8", EnterpriseDownloadSubject.Manifest, "json");
 
-    private string FileName(string subject, string extension = "csv") => $"monitor-{subject}-{_timeProvider.GetUtcNow():yyyyMMdd-HHmmss}.{extension}";
+    private FileContentResult Download(byte[] bytes, string contentType, EnterpriseDownloadSubject subject, string extension)
+    {
+        EnterpriseSecurityPolicy.ApplySecureDownloadHeaders(Response);
+        var fileName = EnterpriseSecurityPolicy.SafeDownloadFileName(subject, _timeProvider.GetUtcNow(), extension);
+        return File(bytes, contentType, fileName);
+    }
 
     private static bool TryWindow(string value, out TimeSpan duration)
     {
