@@ -42,7 +42,7 @@ public sealed class P05ExistingCandidatePromotionTests
         Assert.Contains("gh release create", workflow, StringComparison.Ordinal);
         Assert.Contains("--verify-tag", workflow, StringComparison.Ordinal);
         Assert.Contains("--target \"${TESTED_SHA}\"", workflow, StringComparison.Ordinal);
-        Assert.Contains("Existing durable release already exists; no mutation performed.", workflow, StringComparison.Ordinal);
+        Assert.Contains("Exact durable release already exists; no mutation performed.", workflow, StringComparison.Ordinal);
         Assert.Contains("External IIS acceptance remains governed by #116", workflow, StringComparison.Ordinal);
     }
 
