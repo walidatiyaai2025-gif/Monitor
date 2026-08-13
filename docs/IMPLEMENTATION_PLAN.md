@@ -9,7 +9,7 @@ This is the canonical execution plan. Update it in the same PR as material imple
 **Real SQL evidence:** `docs/REAL_SQL_ACCEPTANCE.md`  
 **Production acceptance guide:** `docs/PRODUCTION_SINGLENODE_ACCEPTANCE.md`  
 **Active release gate:** Issue #116 / P0.5 First Production SingleNode  
-**Repository cutover/evidence/session/finalization/release tooling:** COMPLETE through Issue #154 / PR #155  
+**Repository cutover/evidence/session/finalization/release tooling:** CORE COMPLETE through Issue #154 / PR #155; durable tagged GitHub Release assets are under verification in Issue #159 / PR #160.  
 **Live selected candidate/evidence ledger:** Issue #116 — RC.61  
 **Project rule:** until P0.5 is accepted on the real environment, production-slice blockers outrank unrelated feature expansion.
 
@@ -27,7 +27,7 @@ Production-visible values must come from collected evidence. Missing, stale, per
 | 2 | P0.2 | #113 | First real snapshot + truthful read-model mapping | COMPLETE — PR #121 / final CI `31478470867` |
 | 3 | P0.3 | #114 | Server Details v0.1 trusted evidence surface | COMPLETE — PR #122 / final CI `31479311552` |
 | 4 | P0.4 | #115 | Real SQL end-to-end acceptance under success/failure cases | COMPLETE — PR #124; normal `31481874425`; Real SQL `31481874501` |
-| 5 | P0.5 | #116 | First trusted-HTTPS IIS SingleNode production release | **ACTIVE — repository workflow complete; real environment acceptance pending** |
+| 5 | P0.5 | #116 | First trusted-HTTPS IIS SingleNode production release | **ACTIVE — core repository workflow complete; #159 durable tag publication hardening under verification; real environment acceptance pending** |
 
 ### Resolved production gates
 
@@ -36,7 +36,7 @@ Production-visible values must come from collected evidence. Missing, stale, per
 - **P0.3 COMPLETE:** Server Details is evidence-first, synthetic Health Score is removed, and monitored GET remains cache-only.
 - **P0.4 COMPLETE:** SQL Server 2022 proves Add/Test/Register/Collect/View/Refresh/Restart/View with a non-sysadmin least-privilege login and controlled auth/network/timeout/TLS/server/msdb permission failures. Final normal CI `31481874425` — 518/518; Real SQL `31481874501` — 8/8.
 
-## P0.5 repository preparation — COMPLETE / EXTERNAL ACCEPTANCE ACTIVE
+## P0.5 repository preparation — CORE COMPLETE / DURABLE TAG PUBLICATION UNDER VERIFICATION / EXTERNAL ACCEPTANCE ACTIVE
 
 The repository contains the complete operator cutover, evidence and release workflow while intentionally leaving production acceptance external:
 
@@ -49,6 +49,7 @@ The repository contains the complete operator cutover, evidence and release work
 - PR #148 / Issue #147 — explicit fail-closed final operator acceptance finalizer `Complete-ProductionAcceptance.ps1`; complete and merged `e15a9654fbe744e426c95d5965a5faba60868e14`.
 - PR #151 / Issue #150 — immutable candidate-bound acceptance-session initializer `New-ProductionAcceptanceSession.ps1`; complete and merged `9a76abe61422502c4889b04ce8b6a59f18ac04f4`.
 - PR #155 / Issue #154 — tagged/manual release-package parity; **COMPLETE**, squash-merged `8d8ae2c5f35e8a1d774c5a9480f582e432e5dc03`. `production-candidate.yml` is reusable through `workflow_call`; `release.yml` delegates to that exact Windows workflow; explicit candidate versions are syntax-bounded; manifest schema 2 records fixed P0.4 run IDs under `prerequisiteEvidence.p04` and leaves candidate-specific CI authoritative on #116.
+- PR #160 / Issue #159 — **UNDER VERIFICATION**: close the remaining retention gap for real version tags by publishing only the already-verified same-run ZIP + `.sha256` as durable GitHub Release assets. Package construction stays in `production-candidate.yml`; tag publication rechecks the companion SHA-256, has job-scoped `contents: write`, never runs for manual dispatch, never rebuilds/repackages, never clobbers an existing release, and accepts a rerun only when existing release assets exactly match the verified product/checksum.
 
 ### Selected repository candidate evidence — RC.61
 
@@ -70,7 +71,7 @@ Issue #116 is the live source of truth. Current selected candidate:
 
 Independent artifact inspection on 2026-08-13 recomputed the product SHA-256, matched the companion checksum, confirmed 95 package files and all 19 expected `_operations` entries, and verified manifest schema 2 with `prerequisiteEvidence.p04`, `candidateVerification.sourceOfTruth=#116`, `embeddedWorkflowRunIds=false`, and no legacy `realSqlAcceptance` field.
 
-RC.61 supersedes RC.53 unless a later equivalently verified candidate is explicitly selected on #116.
+RC.61 supersedes RC.53 unless a later equivalently verified candidate is explicitly selected on #116. PR #160 does not automatically promote its CI candidate; its scope is durable publication semantics for future real tags.
 
 Repository candidate evidence is **not** production acceptance. It does not replace actual IIS, a trusted machine certificate, intended app-pool identity, real recycle durability, deployed least-privilege SQL behavior, operational backup, rollback rehearsal, or human review of the real evidence.
 
@@ -116,6 +117,20 @@ The release artifact no longer has a weaker construction path than the selected 
 6. regression tests fail if independent release packaging or the ambiguous `realSqlAcceptance` manifest field returns;
 7. this is repository release-integrity evidence only and cannot satisfy a real IIS gate.
 
+### Durable tagged release asset contract — #159 / PR #160 UNDER VERIFICATION
+
+A real version tag must remain recoverable after GitHub Actions artifact retention expires without introducing a second build path:
+
+1. only a pushed version tag may enter the durable publication job; `workflow_dispatch` and PR candidate runs remain Actions-artifact-only;
+2. publication depends on the successful reusable Windows production-candidate job and downloads that exact same-run artifact by deterministic name;
+3. the downloaded ZIP must match its strict companion SHA-256 record before any GitHub Release mutation;
+4. `contents: write` is scoped only to the tag-publication job; default workflow and candidate permissions remain `contents: read`;
+5. a new release is created only for the exact existing pushed tag with `--verify-tag`, and only the verified ZIP plus `.sha256` are attached;
+6. non-plain semantic versions are marked prerelease;
+7. reruns do not upload or clobber assets: if a release exists, both assets are downloaded and must exactly match the expected product hash/checksum/filename; missing or mismatched assets fail closed;
+8. regression tests prohibit independent `dotnet publish`, packaging, `upload-artifact` in `release.yml`, `gh release upload`, and `--clobber`;
+9. completing #159 proves release durability only; it does not satisfy any external IIS gate or change the selected cutover candidate automatically.
+
 ### P0.5 execution order
 
 | Task | Required result | State |
@@ -128,20 +143,22 @@ The release artifact no longer has a weaker construction path than the selected 
 | P0-046 | Run health smoke on deployed HTTPS endpoint | CI HTTPS VERIFIED; acceptance tooling READY; **IIS endpoint pending external** |
 | P0-047 | Prove target remains read-only/least-privilege from deployed application identity | P0.4 prerequisite VERIFIED; **external deployment evidence pending** |
 | P0-048 | Create/validate backup and rehearse rollback/recovery | code/unit/tooling VERIFIED; **production rehearsal pending external** |
-| P0-049 | Versioned artifact/checksum + deterministic session/evidence/finalization/release workflow | **COMPLETE — repository/CI; RC.61 verified** |
+| P0-049 | Versioned artifact/checksum + deterministic session/evidence/finalization/release workflow | **CORE COMPLETE — repository/CI; RC.61 verified; #159 durable tag publication under verification** |
 | P0-050 | Final real-environment 15/15 acceptance and #111 closure | **PENDING EXTERNAL** |
 
 ### Immediate next actions
 
-1. On the intended Windows/IIS host, preserve RC.61 and product SHA-256 from #116 and create/validate the pre-cutover operational backup.
-2. Start the real cutover by creating one fresh immutable candidate-bound acceptance session; verify `session-manifest.sha256`, `PreparedFailClosed` and 0/15 before any production mutation.
-3. Run packaged IIS preflight, review PLAN ONLY deploy output, then cut over with explicit `-Apply`.
-4. Prove trusted HTTPS health/authentication and the approved least-privilege monitored SQL path.
-5. Recycle IIS and prove registration, protected credential and operational-state durability.
-6. Rehearse rollback/recovery and repeat health/auth/read checks.
-7. Record each real gate with `Set-ProductionAcceptanceGate.ps1` and SHA-bound non-secret evidence from the same session.
-8. After real 15/15, run `Complete-ProductionAcceptance.ps1` with the approved operator identity and explicit final acknowledgement; retain the closure summary.
-9. Human-review the real closure evidence. Only then may #116 close; #111 closes only after #116.
+1. Finish #159 / PR #160 on one exact head with normal CI, Real SQL Server 2022 and Windows production-candidate all Green; do not create a real tag solely as a test and do not promote its CI candidate automatically.
+2. After #159 is merged and reconciled, preserve RC.61 and product SHA-256 from #116 unless #116 explicitly selects another equivalently verified candidate.
+3. On the intended Windows/IIS host, create/validate the pre-cutover operational backup.
+4. Start the real cutover by creating one fresh immutable candidate-bound acceptance session; verify `session-manifest.sha256`, `PreparedFailClosed` and 0/15 before any production mutation.
+5. Run packaged IIS preflight, review PLAN ONLY deploy output, then cut over with explicit `-Apply`.
+6. Prove trusted HTTPS health/authentication and the approved least-privilege monitored SQL path.
+7. Recycle IIS and prove registration, protected credential and operational-state durability.
+8. Rehearse rollback/recovery and repeat health/auth/read checks.
+9. Record each real gate with `Set-ProductionAcceptanceGate.ps1` and SHA-bound non-secret evidence from the same session.
+10. After real 15/15, run `Complete-ProductionAcceptance.ps1` with the approved operator identity and explicit final acknowledgement; retain the closure summary.
+11. Human-review the real closure evidence. Only then may #116 close; #111 closes only after #116.
 
 ## Verified foundation
 
