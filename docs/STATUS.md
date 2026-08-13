@@ -72,13 +72,20 @@ RC.61 supersedes RC.53 unless a later equivalently verified candidate is explici
 | P0-049 versioned artifact/checksum/evidence/release workflow | **REPOSITORY/CI COMPLETE** — RC.61 + reusable release pipeline + immutable session + generator + recorder + finalizer + validator VERIFIED |
 | P0-050 final production acceptance | **PENDING EXTERNAL** |
 
-## BATCH-200 baseline reconciliation — ACTIVE IN PR #156
+## BATCH-200 baseline reconciliation — COMPLETE
 
 A current-main audit found a real historical mismatch: the historical BATCH-200 completion marker existed while B200-051..060 and B200-071..090 implementation files were absent from `main` and `docs/BATCH_200.md` still marked those task ranges as PLANNED.
 
-PR #156 is a selective current-main reconciliation, not a merge of stale PR #104. It restores retention governance, enterprise security hardening and bounded scale primitives plus mapped B200-051..090 regression tests and an audit-pagination regression. The branch explicitly preserves `IServerTargetLifecycleService`, later BATCH-300/P0 behavior and merged RC.61 release-parity work. Earlier implementation CI `31667610170` was Green; exact-head final CI is required before merge.
+Issue #99 is **CLOSED / COMPLETED**. PR #156 selectively restored retention governance, enterprise security hardening and bounded scale primitives plus mapped B200-051..090 regression tests and an audit-pagination regression, while preserving `IServerTargetLifecycleService`, later BATCH-300/P0 behavior and merged RC.61 release-parity work. PR #156 squash-merged as `221e44a9f13ed02e994311addff94b0e7996e444`.
 
-This baseline correction is historical reconciliation rather than new task accounting. It does not change #116, does not claim production acceptance and does not automatically replace RC.61.
+Final exact-head `98d8cc54b2483fb7bad641680fd1f90e3802a9c4` verification:
+- normal CI `31669072593`: **Green**;
+- Real SQL `31669072572`: **Green** against SQL Server 2022 + Agent + non-sysadmin least privilege;
+- Windows production-candidate `31669072625`: **Green end-to-end**, including Release build/full suite, PowerShell parser, immutable session, recorder, finalizer, win-x64 publish, secret-free validation, HTTPS/auth smoke before and after restart, clean package revalidation, ZIP/SHA-256 and artifact upload.
+
+Legacy issues #87/#91/#93 are closed completed. Historical PRs #88/#92/#94/#104 are closed unmerged as superseded so branch-era lifecycle deltas cannot be accidentally merged over current main.
+
+This baseline correction is historical reconciliation rather than new task accounting. It does not change #116, does not claim production acceptance and does not replace RC.61.
 
 ## BATCH-600 — Live Operator Readiness & Evidence Orchestration
 
@@ -122,7 +129,7 @@ B600 delivered deterministic fail-closed repository orchestration for evidence f
 
 - M0–M8 VERIFIED.
 - BATCH-100: B100-001..100 COMPLETE.
-- BATCH-200: B200-001..100 historical accounting COMPLETE; **current-main reconciliation PR #156 active for the previously absent B200-051..060 and B200-071..090 implementation**.
+- BATCH-200: B200-001..100 COMPLETE; current-main reconciliation COMPLETE via Issue #99 / PR #156, merged `221e44a9f13ed02e994311addff94b0e7996e444`.
 - BATCH-300: B300-001..100 COMPLETE; PR #102 merged as `385c2ee7a4d592c1e32e6e00a5c533c8790963b6`; reconciled CI `31465013971`, 395/395.
 - BATCH-400: B400-001..110 COMPLETE.
 - BATCH-500: B500-001..100 COMPLETE.
@@ -141,4 +148,4 @@ B600 delivered deterministic fail-closed repository orchestration for evidence f
 - MultiNode remains fail-closed and deferred until after stable SingleNode production acceptance.
 - Concurrent team work must be preserved; external P0.5 acceptance cannot be inferred from CI.
 
-**Overall:** 🟢 verified foundation · 🟢 P0.1–P0.4 COMPLETE · 🟢 P0.5 repository cutover/evidence/session/finalization/release workflow COMPLETE · 🟡 external IIS/HTTPS 15-gate acceptance pending · 🟡 BATCH-200 current-main reconciliation PR #156 active · 🔴 production acceptance not yet granted
+**Overall:** 🟢 verified foundation · 🟢 P0.1–P0.4 COMPLETE · 🟢 P0.5 repository cutover/evidence/session/finalization/release workflow COMPLETE · 🟢 BATCH-200 current-main reconciliation COMPLETE · 🟡 external IIS/HTTPS 15-gate acceptance pending · 🔴 production acceptance not yet granted
