@@ -72,6 +72,9 @@
 | Enterprise incident operator metadata | B100 | CI verified | Assignee, bounded notes and current-recommendation acknowledgment; B100-095..097; CI 31442930470 |
 | Safe enterprise export & diagnostics | B100 | CI verified | Formula-safe cache-only CSV plus bounded Administrator redacted ZIP; B100-098/099; CI 31442930470 |
 | Release-candidate enterprise acceptance | B100 | CI verified | One explicit regression test per B100-091..100 plus route authorization/antiforgery gate; B100-100; CI 31442930470 |
+| Retention governance reconciliation | B200 | Current-main CI verified | Issue #99 / PR #156; dry-run + audit-backed prune receipts, bounded retention validation and Administrator POST; implementation CI 31667610170 Green |
+| Enterprise security hardening II reconciliation | B200 | Current-main CI verified | Issue #99 / PR #156; secure download headers/filenames, aggregate input budgets, strict incident route IDs and endpoint policy regression coverage; implementation CI 31667610170 Green |
+| Enterprise scale II reconciliation | B200 | Current-main CI verified | Issue #99 / PR #156; metadata index, bounded paging, streaming CSV, diagnostics timeout and CAS telemetry; implementation CI 31667610170 Green |
 | Zero-SQL monitored GETs | M8 | CI verified | Cache/Peek-only browser monitoring reads; CI 31383991126 |
 | Explicit observed manual refresh | M8 | CI verified | Operator/Admin POST; successful refresh observed once |
 | Performance Health portal | BATCH-400 | Local verified | Dedicated cache-only performance page; monitored SQL is never contacted by GET |
@@ -82,4 +85,4 @@
 
 ## BATCH-200 Enterprise Operations Expansion
 
-Status: **100/100 CI VERIFIED** by final gate `31446970475`. Includes enterprise metadata UX, maintenance/suppression policy, incident collaboration, versioned exports/diagnostics, fleet intelligence, retention governance, shared operator-state disaster recovery, enterprise security hardening, bounded scale controls, operator help/readiness and deployment/runbook compatibility.
+Status: **100/100 historical task accounting; current-main reconciliation active via Issue #99 / PR #156**. The current-main audit confirmed B200-051..060 and B200-071..090 source was missing despite the old completion marker. PR #156 restores those capabilities without replacing later BATCH-300/P0 code; implementation CI `31667610170` is Green and final code+docs CI is required before merge.

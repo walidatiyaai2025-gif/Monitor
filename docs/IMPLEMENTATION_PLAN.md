@@ -160,11 +160,13 @@ The release artifact must not have a weaker construction path than the selected 
 ## Historical hardening batches
 
 - `docs/BATCH_100.md` — B100-001..100 COMPLETE.
-- `docs/BATCH_200.md` — B200-001..100 COMPLETE.
+- `docs/BATCH_200.md` — B200-001..100 historical accounting COMPLETE; **Issue #99 / PR #156 is the active current-main baseline reconciliation for the previously absent B200-051..060 and B200-071..090 implementation**. Initial current-main CI `31667610170` is Green; exact-head final CI is required before merge.
 - BATCH-300 — B300-001..100 COMPLETE; final reconciled CI `31465013971`.
 - `docs/BATCH_400.md` — B400-001..110 COMPLETE.
 - BATCH-500 — B500-001..100 COMPLETE.
 - BATCH-600 — B600-001..100 COMPLETE.
+
+PR #156 is a baseline correction, not feature expansion and not new batch-task accounting. It selectively restores retention governance, enterprise security hardening and scale primitives while preserving `IServerTargetLifecycleService`, BATCH-300, PR #155 release-parity hardening and all P0 production boundaries. It does not change the P0 release order or automatically promote a candidate beyond RC.53.
 
 Historical feature breadth remains available, but it does not outrank the remaining P0.5 production acceptance gate.
 
