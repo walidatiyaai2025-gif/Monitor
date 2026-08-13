@@ -51,14 +51,19 @@ public sealed class ProductionSingleNodeAcceptanceTests
     }
 
     [Fact]
-    public void ReleaseWorkflow_ProducesVersionedWindowsArtifactAndChecksum()
+    public void ReleaseWorkflow_ProducesVersionedWindowsArtifactAndChecksumThroughVerifiedCandidatePipeline()
     {
-        var text = Read(".github/workflows/release.yml");
+        var release = Read(".github/workflows/release.yml");
+        var candidate = Read(".github/workflows/production-candidate.yml");
 
-        Assert.Contains("--runtime win-x64", text, StringComparison.Ordinal);
-        Assert.Contains("Monitor-${version}-win-x64.zip", text, StringComparison.Ordinal);
-        Assert.Contains("sha256sum", text, StringComparison.Ordinal);
-        Assert.Contains("actions/upload-artifact@v4", text, StringComparison.Ordinal);
+        Assert.Contains("uses: ./.github/workflows/production-candidate.yml", release, StringComparison.Ordinal);
+        Assert.Contains("candidate_version: ${{ needs.resolve-version.outputs.version }}", release, StringComparison.Ordinal);
+        Assert.Contains("--runtime win-x64", candidate, StringComparison.Ordinal);
+        Assert.Contains("Monitor-$env:CANDIDATE_VERSION-win-x64.zip", candidate, StringComparison.Ordinal);
+        Assert.Contains("Get-FileHash", candidate, StringComparison.Ordinal);
+        Assert.Contains("actions/upload-artifact@v4", candidate, StringComparison.Ordinal);
+        Assert.Contains("Stage operations bundle and remove runtime state", candidate, StringComparison.Ordinal);
+        Assert.Contains("Revalidate clean package input", candidate, StringComparison.Ordinal);
     }
 
     private static string Read(string relativePath) =>
