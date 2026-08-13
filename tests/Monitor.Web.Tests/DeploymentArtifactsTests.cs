@@ -84,19 +84,25 @@ public sealed partial class DeploymentArtifactsTests
     }
 
     [Fact]
-    public void ReleaseWorkflow_BuildsAndTestsBeforePackaging()
+    public void ReleaseWorkflow_DelegatesToCandidatePipelineThatBuildsAndTestsBeforePackaging()
     {
-        var text = Read(".github/workflows/release.yml");
-        var build = text.IndexOf("dotnet build", StringComparison.Ordinal);
-        var test = text.IndexOf("dotnet test", StringComparison.Ordinal);
-        var publish = text.IndexOf("dotnet publish", StringComparison.Ordinal);
+        var release = Read(".github/workflows/release.yml");
+        var candidate = Read(".github/workflows/production-candidate.yml");
+        var build = candidate.IndexOf("dotnet build", StringComparison.Ordinal);
+        var test = candidate.IndexOf("dotnet test", StringComparison.Ordinal);
+        var publish = candidate.IndexOf("dotnet publish", StringComparison.Ordinal);
+        var package = candidate.IndexOf("Create ZIP and SHA-256", StringComparison.Ordinal);
 
-        Assert.True(build >= 0 && test > build && publish > test);
-        Assert.Contains("--warnaserror", text, StringComparison.Ordinal);
-        Assert.Contains("actions/upload-artifact@v4", text, StringComparison.Ordinal);
-        Assert.Contains("contents: read", text, StringComparison.Ordinal);
-        Assert.Contains("sha256sum", text, StringComparison.Ordinal);
-        Assert.DoesNotContain("contents: write", text, StringComparison.Ordinal);
+        Assert.Contains("uses: ./.github/workflows/production-candidate.yml", release, StringComparison.Ordinal);
+        Assert.Contains("candidate_version:", release, StringComparison.Ordinal);
+        Assert.True(build >= 0 && test > build && publish > test && package > publish);
+        Assert.Contains("--warnaserror", candidate, StringComparison.Ordinal);
+        Assert.Contains("actions/upload-artifact@v4", candidate, StringComparison.Ordinal);
+        Assert.Contains("Get-FileHash", candidate, StringComparison.Ordinal);
+        Assert.Contains("contents: read", release, StringComparison.Ordinal);
+        Assert.Contains("contents: read", candidate, StringComparison.Ordinal);
+        Assert.DoesNotContain("contents: write", release, StringComparison.Ordinal);
+        Assert.DoesNotContain("contents: write", candidate, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -138,6 +144,7 @@ public sealed partial class DeploymentArtifactsTests
             "scripts/sql/monitored_sql_least_privilege.sql",
             "docs/UPGRADE_CHECKLIST.md",
             ".github/workflows/release.yml",
+            ".github/workflows/production-candidate.yml",
             "scripts/Smoke-Monitor.ps1",
             "docs/ROLLBACK_RUNBOOK.md"
         };
