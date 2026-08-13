@@ -87,6 +87,7 @@ public sealed partial class DeploymentArtifactsTests
     public void ReleaseWorkflow_DelegatesToCandidatePipelineThatBuildsAndTestsBeforePackaging()
     {
         var release = Read(".github/workflows/release.yml");
+        var normalizedRelease = release.Replace("\r\n", "\n", StringComparison.Ordinal);
         var candidate = Read(".github/workflows/production-candidate.yml");
         var build = candidate.IndexOf("dotnet build", StringComparison.Ordinal);
         var test = candidate.IndexOf("dotnet test", StringComparison.Ordinal);
@@ -99,9 +100,10 @@ public sealed partial class DeploymentArtifactsTests
         Assert.Contains("--warnaserror", candidate, StringComparison.Ordinal);
         Assert.Contains("actions/upload-artifact@v4", candidate, StringComparison.Ordinal);
         Assert.Contains("Get-FileHash", candidate, StringComparison.Ordinal);
-        Assert.Contains("contents: read", release, StringComparison.Ordinal);
+        Assert.Contains("permissions:\n  contents: read", normalizedRelease, StringComparison.Ordinal);
         Assert.Contains("contents: read", candidate, StringComparison.Ordinal);
-        Assert.DoesNotContain("contents: write", release, StringComparison.Ordinal);
+        Assert.Contains("publish-tagged-release:", release, StringComparison.Ordinal);
+        Assert.Contains("permissions:\n      contents: write", normalizedRelease, StringComparison.Ordinal);
         Assert.DoesNotContain("contents: write", candidate, StringComparison.Ordinal);
     }
 
