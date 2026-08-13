@@ -9,9 +9,8 @@ This is the canonical execution plan. Update it in the same PR as material imple
 **Real SQL evidence:** `docs/REAL_SQL_ACCEPTANCE.md`  
 **Production acceptance guide:** `docs/PRODUCTION_SINGLENODE_ACCEPTANCE.md`  
 **Active release gate:** Issue #116 / P0.5 First Production SingleNode  
-**Repository cutover/evidence/session/finalization tooling:** COMPLETE through Issue #150 / PR #151  
-**Release-integrity hardening:** Issue #154 / PR #155 IN PROGRESS — tagged/manual releases must reuse the same verified Windows production-candidate workflow; RC.53 remains selected until replacement evidence is Green and explicitly promoted on #116.  
-**Live selected candidate/evidence ledger:** Issue #116  
+**Repository cutover/evidence/session/finalization/release tooling:** COMPLETE through Issue #154 / PR #155  
+**Live selected candidate/evidence ledger:** Issue #116 — RC.61  
 **Project rule:** until P0.5 is accepted on the real environment, production-slice blockers outrank unrelated feature expansion.
 
 The production outcome remains one trustworthy vertical slice:
@@ -28,7 +27,7 @@ Production-visible values must come from collected evidence. Missing, stale, per
 | 2 | P0.2 | #113 | First real snapshot + truthful read-model mapping | COMPLETE — PR #121 / final CI `31478470867` |
 | 3 | P0.3 | #114 | Server Details v0.1 trusted evidence surface | COMPLETE — PR #122 / final CI `31479311552` |
 | 4 | P0.4 | #115 | Real SQL end-to-end acceptance under success/failure cases | COMPLETE — PR #124; normal `31481874425`; Real SQL `31481874501` |
-| 5 | P0.5 | #116 | First trusted-HTTPS IIS SingleNode production release | **ACTIVE — core repository tooling complete; #154 release-package parity hardening active; real environment acceptance pending** |
+| 5 | P0.5 | #116 | First trusted-HTTPS IIS SingleNode production release | **ACTIVE — repository workflow complete; real environment acceptance pending** |
 
 ### Resolved production gates
 
@@ -37,9 +36,9 @@ Production-visible values must come from collected evidence. Missing, stale, per
 - **P0.3 COMPLETE:** Server Details is evidence-first, synthetic Health Score is removed, and monitored GET remains cache-only.
 - **P0.4 COMPLETE:** SQL Server 2022 proves Add/Test/Register/Collect/View/Refresh/Restart/View with a non-sysadmin least-privilege login and controlled auth/network/timeout/TLS/server/msdb permission failures. Final normal CI `31481874425` — 518/518; Real SQL `31481874501` — 8/8.
 
-## P0.5 repository preparation — CORE COMPLETE / RELEASE PARITY HARDENING ACTIVE / EXTERNAL ACCEPTANCE ACTIVE
+## P0.5 repository preparation — COMPLETE / EXTERNAL ACCEPTANCE ACTIVE
 
-The repository contains the complete operator cutover and evidence workflow while intentionally leaving production acceptance external:
+The repository contains the complete operator cutover, evidence and release workflow while intentionally leaving production acceptance external:
 
 - PR #127 — HTTPS-only acceptance harness and production acceptance guide; merged `9bdd96940454f2586c0e81ff0c25a524d7f1281c`.
 - PR #126 — Windows production-candidate pipeline; merged `d512ee156f07db566898a817f3c76dd3f46c1091`.
@@ -48,27 +47,30 @@ The repository contains the complete operator cutover and evidence workflow whil
 - PR #142 / Issue #141 — exact 15-gate fail-closed evidence pack and closure validator; complete.
 - PR #145 / Issue #144 — explicit one-gate-at-a-time recorder `Set-ProductionAcceptanceGate.ps1`; complete.
 - PR #148 / Issue #147 — explicit fail-closed final operator acceptance finalizer `Complete-ProductionAcceptance.ps1`; complete and merged `e15a9654fbe744e426c95d5965a5faba60868e14`.
-- PR #151 / Issue #150 — immutable candidate-bound acceptance-session initializer `New-ProductionAcceptanceSession.ps1`; **COMPLETE**, squash-merged `9a76abe61422502c4889b04ce8b6a59f18ac04f4`. It verifies exact candidate/checksum bytes, creates a fresh traversal-safe workspace, SHA-locks a non-secret manifest and starts the canonical external pack at 0/15 without manufacturing production evidence.
-- PR #155 / Issue #154 — **IN PROGRESS** after direct RC.53 artifact audit exposed tagged-release package drift and ambiguous manifest evidence naming. The fix makes `production-candidate.yml` reusable through `workflow_call`, routes `release.yml` through that exact Windows pipeline, validates explicit release versions, and moves the fixed P0.4 run IDs under schema-v2 historical prerequisite evidence rather than candidate-specific acceptance semantics.
+- PR #151 / Issue #150 — immutable candidate-bound acceptance-session initializer `New-ProductionAcceptanceSession.ps1`; complete and merged `9a76abe61422502c4889b04ce8b6a59f18ac04f4`.
+- PR #155 / Issue #154 — tagged/manual release-package parity; **COMPLETE**, squash-merged `8d8ae2c5f35e8a1d774c5a9480f582e432e5dc03`. `production-candidate.yml` is reusable through `workflow_call`; `release.yml` delegates to that exact Windows workflow; explicit candidate versions are syntax-bounded; manifest schema 2 records fixed P0.4 run IDs under `prerequisiteEvidence.p04` and leaves candidate-specific CI authoritative on #116.
 
-### Current selected repository candidate evidence — RC.53
+### Selected repository candidate evidence — RC.61
 
-Issue #116 is the live source of truth. Current selected candidate remains unchanged while #154 is under verification:
+Issue #116 is the live source of truth. Current selected candidate:
 
-- package `Monitor-0.1.0-rc.53-win-x64.zip`;
-- product SHA-256 `466e056a85b1389b817fcbd9c622aeacd448c77596e2d5b3a6e450a7f0afca00`;
-- Actions artifact `9120696113`;
-- source head `b2b004e1a811dfe0eb4197be893aac5116c58cc2`;
-- tested merge ref `68cd8f25819f82a9cb7205ed81523f4beb55d5e5`;
-- normal CI `31540968009` Green;
-- Real SQL `31540967997` Green, 8/8;
-- Windows production-candidate `31540968010` Green, Release 0 warnings/errors, 769/769;
-- immutable session initializer runtime Green at 0/15 with reuse/tampered-checksum/non-ZIP/secret/relative/traversal negatives rejected;
-- recorder + finalizer runtime and exact synthetic 15/15 closure validation Green;
+- package `Monitor-0.1.0-rc.61-win-x64.zip`;
+- product SHA-256 `d0a71f8a5611621ee388a1109dedc76e1a6e70357404cb62c9c7aa188f49c3d5`;
+- Actions artifact `9168574442`;
+- outer artifact digest `sha256:1c499b9eb0bfc4245716c14718381b71352df8392aafe430cc415b375b93f382`;
+- source head `e28158da67b36dfc5dbf8f4c38b5c43d99c7c728`;
+- tested merge ref `158148d8bfd05f724014541bc7a0b1eab5dae1b5`;
+- merged main commit `8d8ae2c5f35e8a1d774c5a9480f582e432e5dc03`;
+- normal CI `31667721350` Green, Release 0 warnings/errors, 770/770;
+- Real SQL `31667721353` Green, 8/8;
+- Windows production-candidate `31667721306` Green, Release 0 warnings/errors, 770/770;
+- candidate-version validation, immutable session initializer, recorder, finalizer and exact synthetic 15/15 closure validation Green;
 - HTTPS health/authentication before and after process restart Green;
 - package is secret-free SingleNode with persisted runtime state excluded.
 
-A direct artifact audit on 2026-08-13 independently recomputed the product SHA-256, matched the companion checksum and confirmed all 19 expected `_operations` entries. That audit also found the release-integrity gap tracked by #154. RC.53 remains selected until a later equivalently verified candidate is explicitly selected on #116.
+Independent artifact inspection on 2026-08-13 recomputed the product SHA-256, matched the companion checksum, confirmed 95 package files and all 19 expected `_operations` entries, and verified manifest schema 2 with `prerequisiteEvidence.p04`, `candidateVerification.sourceOfTruth=#116`, `embeddedWorkflowRunIds=false`, and no legacy `realSqlAcceptance` field.
+
+RC.61 supersedes RC.53 unless a later equivalently verified candidate is explicitly selected on #116.
 
 Repository candidate evidence is **not** production acceptance. It does not replace actual IIS, a trusted machine certificate, intended app-pool identity, real recycle durability, deployed least-privilege SQL behavior, operational backup, rollback rehearsal, or human review of the real evidence.
 
@@ -102,17 +104,17 @@ Repository candidate evidence is **not** production acceptance. It does not repl
 9. never deploys/recycles IIS, executes SQL, records a gate PASS, finalizes acceptance, calls GitHub or closes #116/#111;
 10. is parsed, executed and packaged by the Windows production-candidate gate with positive and negative runtime cases.
 
-### Release-package parity hardening — #154 ACTIVE
+### Release-package parity contract — COMPLETE
 
-The release artifact must not have a weaker construction path than the selected production candidate:
+The release artifact no longer has a weaker construction path than the selected production candidate:
 
 1. `production-candidate.yml` is the single reusable Windows package workflow for PR candidates and release callers;
 2. an explicit reusable `candidate_version` is syntax-bounded before it can reach artifact paths/version metadata;
 3. `release.yml` resolves/validates the tag/manual version and delegates packaging to the reusable production-candidate workflow rather than running independent publish/zip/upload steps;
-4. tagged/manual releases therefore inherit the same Release build warnings-as-errors, full tests, production PowerShell parser, immutable-session runtime, recorder/finalizer runtime, RID-specific win-x64 publish, secret-free baseline validation, HTTPS/auth smoke before/after restart, runtime-state removal, `_operations` staging, clean-package validation and SHA-256 artifact upload;
-5. release manifest schema 2 records the fixed P0.4 run IDs as `prerequisiteEvidence.p04`, while candidate-specific run evidence remains authoritative on #116;
-6. regression tests must fail if independent release packaging or the ambiguous `realSqlAcceptance` manifest field returns;
-7. #154 completion is repository release-integrity evidence only and cannot satisfy any real IIS gate.
+4. tagged/manual releases inherit the same Release build warnings-as-errors, full tests, production PowerShell parser, immutable-session runtime, recorder/finalizer runtime, RID-specific win-x64 publish, secret-free baseline validation, HTTPS/auth smoke before/after restart, runtime-state removal, `_operations` staging, clean-package validation and SHA-256 artifact upload;
+5. release manifest schema 2 records fixed P0.4 run IDs as `prerequisiteEvidence.p04`, while candidate-specific run evidence remains authoritative on #116;
+6. regression tests fail if independent release packaging or the ambiguous `realSqlAcceptance` manifest field returns;
+7. this is repository release-integrity evidence only and cannot satisfy a real IIS gate.
 
 ### P0.5 execution order
 
@@ -126,22 +128,20 @@ The release artifact must not have a weaker construction path than the selected 
 | P0-046 | Run health smoke on deployed HTTPS endpoint | CI HTTPS VERIFIED; acceptance tooling READY; **IIS endpoint pending external** |
 | P0-047 | Prove target remains read-only/least-privilege from deployed application identity | P0.4 prerequisite VERIFIED; **external deployment evidence pending** |
 | P0-048 | Create/validate backup and rehearse rollback/recovery | code/unit/tooling VERIFIED; **production rehearsal pending external** |
-| P0-049 | Versioned artifact/checksum + deterministic session/evidence/finalization workflow | **CORE COMPLETE — repository/CI; RC.53 verified; #154 release-package parity hardening ACTIVE** |
+| P0-049 | Versioned artifact/checksum + deterministic session/evidence/finalization/release workflow | **COMPLETE — repository/CI; RC.61 verified** |
 | P0-050 | Final real-environment 15/15 acceptance and #111 closure | **PENDING EXTERNAL** |
 
 ### Immediate next actions
 
-1. Finish #154 / PR #155 on one exact head with normal CI, Real SQL Server 2022 8/8 and Windows production-candidate all Green; inspect the produced artifact/manifest before any candidate promotion.
-2. If #154 produces an equivalently verified package, explicitly promote that candidate on #116; otherwise RC.53 remains selected.
-3. On the intended Windows/IIS host, preserve the selected artifact and product SHA-256 from #116 and create/validate the pre-cutover operational backup.
-4. Start the real cutover by creating one fresh immutable candidate-bound acceptance session; verify `session-manifest.sha256`, `PreparedFailClosed` and 0/15 before any production mutation.
-5. Run packaged IIS preflight, review PLAN ONLY deploy output, then cut over with explicit `-Apply`.
-6. Prove trusted HTTPS health/authentication and the approved least-privilege monitored SQL path.
-7. Recycle IIS and prove registration, protected credential and operational-state durability.
-8. Rehearse rollback/recovery and repeat health/auth/read checks.
-9. Record each real gate with `Set-ProductionAcceptanceGate.ps1` and SHA-bound non-secret evidence from the same session.
-10. After real 15/15, run `Complete-ProductionAcceptance.ps1` with the approved operator identity and explicit final acknowledgement; retain the closure summary.
-11. Human-review the real closure evidence. Only then may #116 close; #111 closes only after #116.
+1. On the intended Windows/IIS host, preserve RC.61 and product SHA-256 from #116 and create/validate the pre-cutover operational backup.
+2. Start the real cutover by creating one fresh immutable candidate-bound acceptance session; verify `session-manifest.sha256`, `PreparedFailClosed` and 0/15 before any production mutation.
+3. Run packaged IIS preflight, review PLAN ONLY deploy output, then cut over with explicit `-Apply`.
+4. Prove trusted HTTPS health/authentication and the approved least-privilege monitored SQL path.
+5. Recycle IIS and prove registration, protected credential and operational-state durability.
+6. Rehearse rollback/recovery and repeat health/auth/read checks.
+7. Record each real gate with `Set-ProductionAcceptanceGate.ps1` and SHA-bound non-secret evidence from the same session.
+8. After real 15/15, run `Complete-ProductionAcceptance.ps1` with the approved operator identity and explicit final acknowledgement; retain the closure summary.
+9. Human-review the real closure evidence. Only then may #116 close; #111 closes only after #116.
 
 ## Verified foundation
 
