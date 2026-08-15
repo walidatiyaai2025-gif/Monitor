@@ -20,7 +20,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: promote-existing-${{ inputs.release_tag }}
+  group: monitor-release-tag-${{ inputs.release_tag }}
   cancel-in-progress: false
 
 jobs:

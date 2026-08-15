@@ -42,6 +42,9 @@ jobs:
     needs:
       - resolve-version
       - verified-production-package
+    concurrency:
+      group: monitor-release-tag-${{ github.ref_name }}
+      cancel-in-progress: false
     runs-on: ubuntu-24.04
     permissions:
       contents: write
