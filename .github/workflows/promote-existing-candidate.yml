@@ -6,6 +6,7 @@ on:
       candidate_version: { required: true, type: string }
       source_run_id: { required: true, type: string }
       source_artifact_id: { required: true, type: string }
+      expected_outer_artifact_digest: { required: true, type: string }
       expected_product_sha256: { required: true, type: string }
       source_commit: { required: true, type: string }
       tested_merge_commit: { required: true, type: string }
@@ -49,10 +50,12 @@ jobs:
       VERSION: ${{ inputs.candidate_version }}
       RUN_ID: ${{ inputs.source_run_id }}
       ARTIFACT_ID: ${{ inputs.source_artifact_id }}
+      OUTER_DIGEST: ${{ inputs.expected_outer_artifact_digest }}
       PRODUCT_SHA: ${{ inputs.expected_product_sha256 }}
       SOURCE_SHA: ${{ inputs.source_commit }}
       TESTED_SHA: ${{ inputs.tested_merge_commit }}
       RELEASE_TAG: ${{ inputs.release_tag }}
+      REPOSITORY_ID: ${{ github.repository_id }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -67,6 +70,8 @@ jobs:
           [[ "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]
           [[ "${RELEASE_TAG}" == "v${VERSION}" ]]
           [[ "${RUN_ID}" =~ ^[1-9][0-9]*$ && "${ARTIFACT_ID}" =~ ^[1-9][0-9]*$ ]]
+          [[ "${REPOSITORY_ID}" =~ ^[1-9][0-9]*$ ]]
+          [[ "${OUTER_DIGEST}" =~ ^sha256:[a-f0-9]{64}$ ]]
           [[ "${PRODUCT_SHA}" =~ ^[a-f0-9]{64}$ ]]
           [[ "${SOURCE_SHA}" =~ ^[a-f0-9]{40}$ && "${TESTED_SHA}" =~ ^[a-f0-9]{40}$ ]]
 
@@ -75,12 +80,18 @@ jobs:
           [[ "$(jq -r '.conclusion' <<<"${run_json}")" == success ]]
           [[ "$(jq -r '.path' <<<"${run_json}")" == '.github/workflows/production-candidate.yml' ]]
           [[ "$(jq -r '.head_sha' <<<"${run_json}")" == "${SOURCE_SHA}" ]]
+          [[ "$(jq -r '.repository.id' <<<"${run_json}")" == "${REPOSITORY_ID}" ]]
+          [[ "$(jq -r '.head_repository.id' <<<"${run_json}")" == "${REPOSITORY_ID}" ]]
 
           name="Monitor-${VERSION}-win-x64"
           item="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}")"
           [[ "$(jq -r '.id' <<<"${item}")" == "${ARTIFACT_ID}" ]]
           [[ "$(jq -r '.workflow_run.id' <<<"${item}")" == "${RUN_ID}" ]]
+          [[ "$(jq -r '.workflow_run.head_sha' <<<"${item}")" == "${SOURCE_SHA}" ]]
+          [[ "$(jq -r '.workflow_run.repository_id' <<<"${item}")" == "${REPOSITORY_ID}" ]]
+          [[ "$(jq -r '.workflow_run.head_repository_id' <<<"${item}")" == "${REPOSITORY_ID}" ]]
           [[ "$(jq -r '.name' <<<"${item}")" == "${name}" ]]
+          [[ "$(jq -r '.digest' <<<"${item}")" == "${OUTER_DIGEST}" ]]
           [[ "$(jq -r '.expired' <<<"${item}")" == false ]]
           size_in_bytes="$(jq -r '.size_in_bytes' <<<"${item}")"
           [[ "${size_in_bytes}" =~ ^[1-9][0-9]*$ ]]
