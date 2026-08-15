@@ -190,6 +190,34 @@ public sealed class P05WorkflowSupplyChainTests
     }
 
     [Fact]
+    public void WriteCapableWorkflows_ExposeGitHubCliTokenOnlyToApprovedSteps()
+    {
+        var root = FindRepoRoot();
+        var workflowsRoot = Path.Combine(root, ".github", "workflows");
+        var release = File.ReadAllText(Path.Combine(workflowsRoot, "release.yml"));
+        var promotion = File.ReadAllText(Path.Combine(workflowsRoot, "promote-existing-candidate.yml"));
+        var jobScopedToken = new Regex(
+            @"(?m)^      GH_TOKEN:\s*\$\{\{\s*github\.token\s*\}\}\s*$",
+            RegexOptions.Compiled | RegexOptions.CultureInvariant);
+        var stepScopedToken = new Regex(
+            @"(?m)^          GH_TOKEN:\s*\$\{\{\s*github\.token\s*\}\}\s*$",
+            RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+        Assert.DoesNotMatch(jobScopedToken, release);
+        Assert.DoesNotMatch(jobScopedToken, promotion);
+        Assert.Single(stepScopedToken.Matches(release).Cast<Match>());
+        Assert.Collection(
+            stepScopedToken.Matches(promotion).Cast<Match>(),
+            _ => { },
+            _ => { });
+
+        Assert.Contains("- name: Publish immutable GitHub Release assets\n        shell: bash\n        env:\n          GH_TOKEN: ${{ github.token }}", release.Replace("\r\n", "\n", StringComparison.Ordinal), StringComparison.Ordinal);
+        Assert.Contains("- name: Validate source run and artifact metadata\n        shell: bash\n        env:\n          GH_TOKEN: ${{ github.token }}", promotion.Replace("\r\n", "\n", StringComparison.Ordinal), StringComparison.Ordinal);
+        Assert.Contains("- name: Publish or verify immutable durable release\n        shell: bash\n        env:\n          GH_TOKEN: ${{ github.token }}", promotion.Replace("\r\n", "\n", StringComparison.Ordinal), StringComparison.Ordinal);
+        Assert.Contains("github-token: ${{ github.token }}", promotion, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void PromotionWriteJob_RequiresReadOnlyMainRefPreflight()
     {
         var root = FindRepoRoot();

@@ -49,7 +49,6 @@ jobs:
     permissions:
       contents: write
     env:
-      GH_TOKEN: ${{ github.token }}
       RELEASE_VERSION: ${{ needs.resolve-version.outputs.version }}
       RELEASE_TAG: ${{ github.ref_name }}
     steps:
@@ -98,6 +97,7 @@ jobs:
       - name: Publish immutable GitHub Release assets
         shell: bash
         env:
+          GH_TOKEN: ${{ github.token }}
           ZIP_NAME: ${{ steps.verify.outputs.zip_name }}
           CHECKSUM_NAME: ${{ steps.verify.outputs.checksum_name }}
           PRODUCT_SHA256: ${{ steps.verify.outputs.product_sha256 }}
