@@ -133,7 +133,7 @@ jobs:
             fi
 
             if [[ "${existing_hash}" != "${PRODUCT_SHA256}" || "${BASH_REMATCH[1]}" != "${PRODUCT_SHA256}" || "${BASH_REMATCH[2]}" != "${ZIP_NAME}" ]]; then
-              echo "Release assets differ from the verified candidate; refusing acceptance." >&2
+              echo "Existing release assets differ from the verified candidate; refusing mutation." >&2
               exit 1
             fi
           }
