@@ -66,6 +66,12 @@ public sealed class P05WorkflowSupplyChainTests
         "release.yml"
     };
 
+    private static readonly string[] ApprovedWriteCapableWorkflows =
+    {
+        "promote-existing-candidate.yml",
+        "release.yml"
+    };
+
     private static readonly string[] SolutionProjectPaths =
     {
         "src/Monitor.Web/Monitor.Web.csproj",
@@ -146,6 +152,41 @@ public sealed class P05WorkflowSupplyChainTests
             Assert.DoesNotMatch(trustedTrigger, workflow);
             Assert.DoesNotMatch(writeAll, workflow);
         }
+    }
+
+    [Fact]
+    public void WriteCapableWorkflows_MatchAllowlistAndRejectPrTriggers()
+    {
+        var root = FindRepoRoot();
+        var workflowsRoot = Path.Combine(root, ".github", "workflows");
+        var contentsWrite = new Regex(
+            @"(?m)^\s+contents:\s*write\s*$",
+            RegexOptions.Compiled | RegexOptions.CultureInvariant);
+        var prOrTrustedTrigger = new Regex(
+            @"(?m)^\s{2}(pull_request|pull_request_target|workflow_run)\s*:",
+            RegexOptions.Compiled | RegexOptions.CultureInvariant);
+        var topLevelRead = new Regex(
+            @"(?m)^permissions:\s*\r?\n\s{2}contents:\s*read\s*$",
+            RegexOptions.Compiled | RegexOptions.CultureInvariant);
+        var observed = new List<string>();
+
+        foreach (var path in Directory.EnumerateFiles(workflowsRoot, "*.yml")
+                     .Concat(Directory.EnumerateFiles(workflowsRoot, "*.yaml"))
+                     .OrderBy(path => path, StringComparer.Ordinal))
+        {
+            var workflow = File.ReadAllText(path);
+            if (!contentsWrite.IsMatch(workflow)) continue;
+
+            var workflowName = Path.GetFileName(path);
+            observed.Add(workflowName);
+            Assert.Contains(workflowName, ApprovedWriteCapableWorkflows);
+            Assert.DoesNotMatch(prOrTrustedTrigger, workflow);
+            Assert.Matches(topLevelRead, workflow);
+        }
+
+        Assert.Equal(
+            ApprovedWriteCapableWorkflows.OrderBy(value => value, StringComparer.Ordinal),
+            observed.OrderBy(value => value, StringComparer.Ordinal));
     }
 
     [Fact]
