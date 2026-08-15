@@ -11,18 +11,20 @@ This file records the exact canonical tracking delta after Issue #162 / PR #163 
 - `promote-existing-candidate` is active but has not been manually dispatched.
 - `v0.1.0-rc.61` is not yet present as a GitHub Release.
 - Issue #162 remains OPEN until the manual promotion run succeeds and the tag, exactly two release assets, and product SHA-256 are independently verified.
-- Issues #116 and #111 remain OPEN; no external IIS gate is satisfied by release-retention work.
+- Issue #168 / PR #171 is **IN VERIFICATION** for repository-side GitHub Actions supply-chain hardening: every active external Action is pinned to an approved immutable commit SHA, a fail-closed regression test owns the pin allowlist, and the completed BATCH-100 one-shot write-capable merge workflow is removed. This hardening does not change RC.61 and does not satisfy #162/#116/#111 external/manual gates.
+- Issues #116 and #111 remain OPEN; no external IIS gate is satisfied by release-retention or workflow-supply-chain work.
 
 ## Canonical reconciliation state
 
-This reconciliation updates `docs/STATUS.md` and `docs/FEATURE_CATALOG.md` directly so both express the current retention boundary:
+This reconciliation updates `docs/STATUS.md` and `docs/FEATURE_CATALOG.md` directly so both express the current retention and repository-hardening boundary:
 
 1. repository release/durable-tag tooling is complete through #159 / PR #160;
 2. existing selected-candidate promotion capability is implemented through #162 / PR #163;
 3. the dedicated handoff docs are merged through PR #164;
 4. RC.61 publication is still pending manual dispatch;
-5. RC.61 remains selected unless #116 explicitly selects another equivalently verified candidate;
-6. real Windows/IIS 15/15 acceptance remains pending external.
+5. Issue #168 / PR #171 hardens active workflow dependencies to immutable approved SHAs and removes obsolete privileged one-shot automation, pending exact-head CI/Real SQL/Windows validation;
+6. RC.61 remains selected unless #116 explicitly selects another equivalently verified candidate;
+7. real Windows/IIS 15/15 acceptance remains pending external.
 
 `docs/IMPLEMENTATION_PLAN.md` already records durable-tag tooling through #159 / PR #160 and remains supplemented by this delta plus `docs/P05_EXISTING_CANDIDATE_PROMOTION.md` for the exact #162 publication state. The connected contents API requires complete-file replacement, while the full plan exceeds the safe complete-file response budget; it is therefore not rewritten here rather than risking truncation.
 

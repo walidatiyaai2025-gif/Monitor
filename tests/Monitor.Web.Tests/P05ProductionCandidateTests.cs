@@ -77,7 +77,7 @@ public sealed class P05ProductionCandidateTests
         Assert.Contains("Test-ProductionCandidate.ps1", workflow, StringComparison.Ordinal);
         Assert.Contains("Get-FileHash", workflow, StringComparison.Ordinal);
         Assert.Contains("SHA-256", workflow, StringComparison.Ordinal);
-        Assert.Contains("upload-artifact@v4", workflow, StringComparison.Ordinal);
+        Assert.Contains("actions/upload-artifact@", workflow, StringComparison.Ordinal);
         Assert.Contains("schemaVersion = 2", workflow, StringComparison.Ordinal);
         Assert.Contains("prerequisiteEvidence", workflow, StringComparison.Ordinal);
         Assert.Contains("p04 = @{", workflow, StringComparison.Ordinal);
@@ -101,7 +101,7 @@ public sealed class P05ProductionCandidateTests
         Assert.DoesNotContain("dotnet publish", release, StringComparison.Ordinal);
         Assert.DoesNotContain("Compress-Archive", release, StringComparison.Ordinal);
         Assert.DoesNotContain("zip -qr", release, StringComparison.Ordinal);
-        Assert.DoesNotContain("upload-artifact@v4", release, StringComparison.Ordinal);
+        Assert.DoesNotContain("actions/upload-artifact@", release, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -113,7 +113,7 @@ public sealed class P05ProductionCandidateTests
         Assert.Contains("publish-tagged-release:", release, StringComparison.Ordinal);
         Assert.Contains("github.event_name == 'push' && github.ref_type == 'tag'", release, StringComparison.Ordinal);
         Assert.Contains("contents: write", release, StringComparison.Ordinal);
-        Assert.Contains("actions/download-artifact@v4", release, StringComparison.Ordinal);
+        Assert.Contains("actions/download-artifact@", release, StringComparison.Ordinal);
         Assert.Contains("Download verified production package from this run", release, StringComparison.Ordinal);
         Assert.Contains("Verify downloaded product checksum", release, StringComparison.Ordinal);
         Assert.Contains("sha256sum", release, StringComparison.Ordinal);

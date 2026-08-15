@@ -37,6 +37,7 @@ on:
       - 'src/Monitor.Web/**'
       - 'tests/Monitor.Web.Tests/ProductionAdminCredentialGuardTests.cs'
       - 'tests/Monitor.Web.Tests/P05ProductionCandidateTests.cs'
+      - 'tests/Monitor.Web.Tests/P05WorkflowSupplyChainTests.cs'
       - 'tests/Monitor.Web.Tests/P05IisDeploymentAutomationTests.cs'
       - 'tests/Monitor.Web.Tests/P05ProductionAcceptanceSessionTests.cs'
       - 'tests/Monitor.Web.Tests/P05ProductionAcceptanceEvidencePackTests.cs'
@@ -54,7 +55,7 @@ jobs:
       CANDIDATE_VERSION: ${{ inputs.candidate_version || format('0.1.0-rc.{0}', github.run_number) }}
       CANDIDATE_PORT: '5089'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Validate candidate version
         shell: pwsh
@@ -65,7 +66,7 @@ jobs:
           }
 
       - name: Setup .NET 8
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with:
           dotnet-version: '8.0.x'
 
@@ -527,7 +528,7 @@ jobs:
           Write-Host "SHA-256: $hash"
 
       - name: Upload production candidate
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: Monitor-${{ env.CANDIDATE_VERSION }}-win-x64
           path: |
