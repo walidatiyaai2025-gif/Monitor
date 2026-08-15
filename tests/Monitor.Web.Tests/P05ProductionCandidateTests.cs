@@ -117,11 +117,11 @@ public sealed class P05ProductionCandidateTests
         Assert.Contains("Download verified production package from this run", release, StringComparison.Ordinal);
         Assert.Contains("Verify downloaded product checksum", release, StringComparison.Ordinal);
         Assert.Contains("sha256sum", release, StringComparison.Ordinal);
-        Assert.Contains("gh release view", release, StringComparison.Ordinal);
+        Assert.Contains("gh api \"repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}\"", release, StringComparison.Ordinal);
         Assert.Contains("gh release download", release, StringComparison.Ordinal);
         Assert.Contains("gh release create", release, StringComparison.Ordinal);
         Assert.Contains("--verify-tag", release, StringComparison.Ordinal);
-        Assert.Contains("Existing release assets differ from the verified candidate; refusing mutation.", release, StringComparison.Ordinal);
+        Assert.Contains("Existing release assets differ from the verified candidate or API digests; refusing mutation.", release, StringComparison.Ordinal);
         Assert.DoesNotContain("--clobber", release, StringComparison.Ordinal);
         Assert.DoesNotContain("gh release upload", release, StringComparison.Ordinal);
     }
