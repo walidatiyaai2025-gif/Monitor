@@ -66,7 +66,7 @@ public sealed class P05ProductionCandidateTests
         Assert.Contains("workflow_call:", workflow, StringComparison.Ordinal);
         Assert.Contains("candidate_version:", workflow, StringComparison.Ordinal);
         Assert.Contains("Validate candidate version", workflow, StringComparison.Ordinal);
-        Assert.Contains("windows-latest", workflow, StringComparison.Ordinal);
+        Assert.Contains("windows-2025", workflow, StringComparison.Ordinal);
         Assert.Contains("--warnaserror", workflow, StringComparison.Ordinal);
         Assert.Contains("dotnet test Monitor.sln", workflow, StringComparison.Ordinal);
         Assert.Contains("Smoke-Monitor.ps1", workflow, StringComparison.Ordinal);
