@@ -8,7 +8,7 @@
 **Real SQL evidence:** `docs/REAL_SQL_ACCEPTANCE.md`  
 **Production acceptance guide:** `docs/PRODUCTION_SINGLENODE_ACCEPTANCE.md`  
 **Active external release gate:** #116 / P0.5 First Production SingleNode  
-**Repository cutover/evidence/finalization/session/release workflow:** COMPLETE through Issue #168 / PR #171; native Node 24 Action migration #173 is IN VERIFICATION; selected RC.61 durable publication remains pending manual dispatch under #162  
+**Repository cutover/evidence/finalization/session/release workflow:** COMPLETE through Issue #173 / PR #174; selected RC.61 durable publication remains pending manual dispatch under #162  
 **Production target:** actual Windows/IIS trusted-HTTPS SingleNode acceptance.
 
 ### P0 release chain
@@ -19,7 +19,7 @@
 | P0.2 / #113 | COMPLETE | PR #121; final CI `31478470867`; 505/505 |
 | P0.3 / #114 | COMPLETE | PR #122 merged `245bb0770d7ec6e7a334f7763d3560cef80324fe`; final CI `31479311552`; 507/507 |
 | P0.4 / #115 | COMPLETE | PR #124 merged `f4c08292734c293a6d0b865cc2a005b8c42b02a6`; normal `31481874425` 518/518; Real SQL `31481874501` 8/8 |
-| P0.5 / #116 | ACTIVE | repository deployment/evidence/session/finalization/release-package/durable-promotion/workflow-supply-chain implementation complete; native Node 24 Action migration #173 in verification; selected RC.61 durable publication + external IIS/HTTPS acceptance pending |
+| P0.5 / #116 | ACTIVE | repository deployment/evidence/session/finalization/release-package/durable-promotion/workflow-supply-chain/native-Node-24 hardening complete; selected RC.61 durable publication + external IIS/HTTPS acceptance pending |
 
 ## P0.5 repository preparation — COMPLETE · EXTERNAL IIS PENDING
 
@@ -36,7 +36,7 @@
 - Issue #159 / PR #160 COMPLETE: real pushed version tags publish only the already-verified same-run ZIP + `.sha256` as durable GitHub Release assets after checksum re-verification, with no rebuild/repackage/clobber path and no production-acceptance implication. PR #160 merged as `a14110181932bcd6e14b99e5b6984974a5b477f8`.
 - Issue #162 implementation COMPLETE via PR #163 merged `43d8a193205495f155bb8866532a4e99ed93b655`; the manual `promote-existing-candidate` workflow validates and preserves exact existing RC.61 bytes without rebuild/repackage. Handoff docs PR #164 merged `930c057f431a36ab2b603d3dc39e70e8c31c744e` after normal CI `31726008394` and Windows production-candidate `31726008464` Green. **Actual durable RC.61 publication remains PENDING MANUAL DISPATCH; #162 stays OPEN until tag/assets/hash are independently verified.**
 - Issue #168 / PR #171 COMPLETE: every active external `actions/*` workflow dependency is pinned to an approved exact 40-character upstream commit SHA; a dedicated fail-closed regression test rejects mutable/unapproved/drifted refs; the completed BATCH-100 one-shot merge workflow with write permissions is removed. PR #171 squash-merged as `c9084dd32b12a9a078f953f85f39b253793e2343`. Exact implementation head `052e969b5ab450526ab996a2e77459f4087846c8` passed normal CI `31881105832`, Real SQL `31881105877`, and Windows production-candidate `31881105818` end-to-end. This does not alter selected RC.61 or satisfy #162/#116/#111.
-- Issue #173 **IN VERIFICATION**: GitHub-hosted validation of #168 exposed deprecation warnings because the older immutable Action majors were Node 20-based and GitHub was force-running them on Node 24. The follow-up keeps exact immutable SHA pinning but moves to official native Node 24 releases verified from upstream `action.yml`: checkout v7.0.1 `3d3c42e5aac5ba805825da76410c181273ba90b1`, setup-dotnet v6.0.0 `a98b56852c35b8e3190ac28c8c2271da59106c68`, upload-artifact v7.0.1 `043fb46d1a93c77aae656e7c1c64a875d1fc6a0a`, and download-artifact v8.0.1 `3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c`. Regression coverage now binds both exact SHA and readable version metadata. No RC.61/release/promotion acceptance semantic changes are made.
+- Issue #173 / PR #174 COMPLETE: the immutable Action allowlist moved from older Node 20-based majors to official native Node 24 releases while retaining exact SHA pinning and readable version metadata. PR #174 squash-merged as `bc7cb2d275f423fb381b83d92c76f6516e404fe9`. Exact implementation head `8134720cf1260abc7e6c0609a5afa239f31bb5f7` passed normal CI `31881744429`, Real SQL `31881744413`, and Windows production-candidate `31881744437`; Windows passed **814/814**, Release **0 warnings / 0 errors**, HTTPS/auth before and after restart, clean package validation and native Node 24 artifact upload. Approved pins: checkout v7.0.1 `3d3c42e5aac5ba805825da76410c181273ba90b1`, setup-dotnet v6.0.0 `a98b56852c35b8e3190ac28c8c2271da59106c68`, upload-artifact v7.0.1 `043fb46d1a93c77aae656e7c1c64a875d1fc6a0a`, download-artifact v8.0.1 `3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c`. The prior Node 20 deprecation/forced-Node-24 warning is absent. RC.87 is implementation CI evidence only and does not supersede selected RC.61.
 
 ### Final selected PR #155 / RC.61 repository evidence
 
@@ -73,7 +73,7 @@ RC.61 supersedes RC.53 unless a later equivalently verified candidate is explici
 | P0-046 deployment health smoke | CI HTTPS VERIFIED; tooling READY; **real IIS endpoint pending external** |
 | P0-047 least-privilege monitored target | P0.4 prerequisite VERIFIED; **deployed IIS identity/target pending external** |
 | P0-048 backup + rollback/recovery | code/unit/tooling VERIFIED; **production rehearsal pending external** |
-| P0-049 versioned artifact/checksum/evidence/release workflow | **REPOSITORY/CI COMPLETE** — RC.61 + reusable release pipeline + durable tag publication tooling + immutable session + generator + recorder + finalizer + validator VERIFIED; exact existing-candidate promotion implementation merged, **actual RC.61 durable publication pending manual #162**; supply-chain pinning/removal hardening #168/#171 COMPLETE; native Node 24 Action migration #173 **IN VERIFICATION** |
+| P0-049 versioned artifact/checksum/evidence/release workflow | **REPOSITORY/CI COMPLETE** — RC.61 + reusable release pipeline + durable tag publication tooling + immutable session + generator + recorder + finalizer + validator VERIFIED; exact existing-candidate promotion implementation merged, **actual RC.61 durable publication pending manual #162**; supply-chain pinning/removal hardening #168/#171 COMPLETE; native Node 24 Action migration #173/#174 COMPLETE via merge `bc7cb2d275f423fb381b83d92c76f6516e404fe9` |
 | P0-050 final production acceptance | **PENDING EXTERNAL** |
 
 ## BATCH-200 baseline reconciliation — COMPLETE
@@ -152,4 +152,4 @@ B600 delivered deterministic fail-closed repository orchestration for evidence f
 - MultiNode remains fail-closed and deferred until after stable SingleNode production acceptance.
 - Concurrent team work must be preserved; external P0.5 acceptance cannot be inferred from CI.
 
-**Overall:** 🟢 verified foundation · 🟢 P0.1–P0.4 COMPLETE · 🟢 P0.5 repository cutover/evidence/session/finalization/release/promotion/workflow-supply-chain implementation COMPLETE · 🟡 native Node 24 Action migration #173 in verification · 🟢 BATCH-200 current-main reconciliation COMPLETE · 🟡 selected RC.61 durable publication pending manual #162 · 🟡 external IIS/HTTPS 15-gate acceptance pending · 🔴 production acceptance not yet granted
+**Overall:** 🟢 verified foundation · 🟢 P0.1–P0.4 COMPLETE · 🟢 P0.5 repository cutover/evidence/session/finalization/release/promotion/workflow-supply-chain/native-Node-24 implementation COMPLETE · 🟢 BATCH-200 current-main reconciliation COMPLETE · 🟡 selected RC.61 durable publication pending manual #162 · 🟡 external IIS/HTTPS 15-gate acceptance pending · 🔴 production acceptance not yet granted
