@@ -6,6 +6,7 @@ on:
     branches: [ main ]
     paths:
       - '.github/workflows/real-sql-acceptance.yml'
+      - 'global.json'
       - 'scripts/sql/monitored_sql_least_privilege.sql'
       - 'src/Monitor.Web/Models/**'
       - 'src/Monitor.Web/Services/SqlConnectionStringFactory.cs'
@@ -13,6 +14,7 @@ on:
       - 'src/Monitor.Web/Services/SqlServerSnapshotCollector.cs'
       - 'tests/Monitor.Web.Tests/RealSqlAcceptanceTests.cs'
       - 'tests/Monitor.Web.Tests/SqlConnectionTesterTests.cs'
+      - 'tests/Monitor.Web.Tests/P05WorkflowSupplyChainTests.cs'
       - 'docs/REAL_SQL_ACCEPTANCE.md'
       - 'docs/PRODUCTION_MVP.md'
       - 'docs/IMPLEMENTATION_PLAN.md'
@@ -39,6 +41,7 @@ jobs:
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: '8.0.x'
+          global-json-file: global.json
 
       - name: Generate ephemeral SQL credentials
         shell: bash
@@ -70,7 +73,7 @@ jobs:
             -e MSSQL_AGENT_ENABLED=true \
             -e MSSQL_SA_PASSWORD="$SQL_SA_PASSWORD" \
             -p "$SQL_HOST_PORT:1433" \
-            mcr.microsoft.com/mssql/server:2022-latest
+            mcr.microsoft.com/mssql/server@sha256:ba4c8329f48fb8f02e1416be6a930ebfd71268caee78aa985f3af4315e457c89 # 2022-latest verified 2026-08-15
 
       - name: Wait for SQL Server readiness
         shell: bash
