@@ -117,9 +117,12 @@ jobs:
           verify_release_assets() {
             local dir="$1"
             local release_json
-            release_json="$(gh release view "${RELEASE_TAG}" --json tagName,isDraft,isPrerelease,assets)"
-            if [[ "$(jq -r '.tagName' <<<"${release_json}")" != "${RELEASE_TAG}" || "$(jq -r '.isDraft' <<<"${release_json}")" != false || "$(jq -r '.isPrerelease' <<<"${release_json}")" != "${expected_prerelease}" ]]; then
-              echo "Release metadata does not match the verified tag/version contract; refusing acceptance." >&2
+            release_json="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}")"
+            if [[ "$(jq -r '.tag_name' <<<"${release_json}")" != "${RELEASE_TAG}" || \
+                  "$(jq -r '.draft' <<<"${release_json}")" != false || \
+                  "$(jq -r '.prerelease' <<<"${release_json}")" != "${expected_prerelease}" || \
+                  "$(jq -r '.name' <<<"${release_json}")" != "Monitor ${RELEASE_VERSION}" ]]; then
+              echo "Release metadata does not match the verified tag/version/title contract; refusing acceptance." >&2
               exit 1
             fi
 
@@ -132,6 +135,29 @@ jobs:
               exit 1
             fi
 
+            local zip_meta
+            local checksum_meta
+            zip_meta="$(jq -c --arg name "${ZIP_NAME}" '.assets[] | select(.name == $name)' <<<"${release_json}")"
+            checksum_meta="$(jq -c --arg name "${CHECKSUM_NAME}" '.assets[] | select(.name == $name)' <<<"${release_json}")"
+
+            local zip_id checksum_id zip_size checksum_size zip_digest checksum_digest zip_url checksum_url
+            zip_id="$(jq -r '.id' <<<"${zip_meta}")"
+            checksum_id="$(jq -r '.id' <<<"${checksum_meta}")"
+            zip_size="$(jq -r '.size' <<<"${zip_meta}")"
+            checksum_size="$(jq -r '.size' <<<"${checksum_meta}")"
+            zip_digest="$(jq -r '.digest' <<<"${zip_meta}")"
+            checksum_digest="$(jq -r '.digest' <<<"${checksum_meta}")"
+            zip_url="$(jq -r '.browser_download_url' <<<"${zip_meta}")"
+            checksum_url="$(jq -r '.browser_download_url' <<<"${checksum_meta}")"
+
+            [[ "$(jq -r '.state' <<<"${zip_meta}")" == uploaded && "$(jq -r '.state' <<<"${checksum_meta}")" == uploaded ]]
+            [[ "${zip_id}" =~ ^[1-9][0-9]*$ && "${checksum_id}" =~ ^[1-9][0-9]*$ && "${zip_id}" != "${checksum_id}" ]]
+            [[ "${zip_size}" =~ ^[1-9][0-9]*$ && "${checksum_size}" =~ ^[1-9][0-9]*$ ]]
+            [[ "${zip_digest}" =~ ^sha256:[a-f0-9]{64}$ && "${checksum_digest}" =~ ^sha256:[a-f0-9]{64}$ ]]
+            [[ "${zip_digest}" == "sha256:${PRODUCT_SHA256}" ]]
+            [[ "${zip_url}" == "https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/${ZIP_NAME}" ]]
+            [[ "${checksum_url}" == "https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/${CHECKSUM_NAME}" ]]
+
             gh release download "${RELEASE_TAG}" \
               --pattern "${ZIP_NAME}" \
               --pattern "${CHECKSUM_NAME}" \
@@ -139,18 +165,25 @@ jobs:
 
             test -f "${dir}/${ZIP_NAME}"
             test -f "${dir}/${CHECKSUM_NAME}"
+            [[ "$(stat -c%s "${dir}/${ZIP_NAME}")" == "${zip_size}" ]]
+            [[ "$(stat -c%s "${dir}/${CHECKSUM_NAME}")" == "${checksum_size}" ]]
 
             local existing_hash
             local existing_checksum_line
+            local existing_checksum_asset_hash
             existing_hash="$(sha256sum "${dir}/${ZIP_NAME}" | awk '{print $1}')"
             existing_checksum_line="$(cat "${dir}/${CHECKSUM_NAME}")"
+            existing_checksum_asset_hash="$(sha256sum "${dir}/${CHECKSUM_NAME}" | awk '{print $1}')"
             if [[ ! "${existing_checksum_line}" =~ ^([a-f0-9]{64})\ \ ([^[:space:]]+)$ ]]; then
               echo "Release checksum asset is non-canonical; refusing acceptance." >&2
               exit 1
             fi
 
-            if [[ "${existing_hash}" != "${PRODUCT_SHA256}" || "${BASH_REMATCH[1]}" != "${PRODUCT_SHA256}" || "${BASH_REMATCH[2]}" != "${ZIP_NAME}" ]]; then
-              echo "Existing release assets differ from the verified candidate; refusing mutation." >&2
+            if [[ "${existing_hash}" != "${PRODUCT_SHA256}" || \
+                  "${BASH_REMATCH[1]}" != "${PRODUCT_SHA256}" || \
+                  "${BASH_REMATCH[2]}" != "${ZIP_NAME}" || \
+                  "${checksum_digest}" != "sha256:${existing_checksum_asset_hash}" ]]; then
+              echo "Existing release assets differ from the verified candidate or API digests; refusing mutation." >&2
               exit 1
             fi
           }
