@@ -6,7 +6,7 @@ This document is the durable acceptance record for Issue #115. It contains no SQ
 
 - Runner: GitHub Actions `ubuntu-24.04`.
 - Engine: Microsoft SQL Server 2022 Developer on Linux.
-- Image: `mcr.microsoft.com/mssql/server:2022-latest`.
+- Image: `mcr.microsoft.com/mssql/server@sha256:ba4c8329f48fb8f02e1416be6a930ebfd71268caee78aa985f3af4315e457c89`.
 - Image digest observed by the accepted run: `sha256:ba4c8329f48fb8f02e1416be6a930ebfd71268caee78aa985f3af4315e457c89`.
 - SQL Agent: enabled and explicitly waited until service state `Running` before job seeding.
 - Monitoring login: ephemeral SQL Login created for the run, verified not to be `sysadmin`.
@@ -85,6 +85,8 @@ The acceptance login is not granted `sysadmin`, workload table data access, DML,
 Use the GitHub Actions workflow `real-sql-acceptance`. The workflow owns its disposable SQL Server target and generates all credentials at runtime. Do not add credentials to repository variables, source files, test fixtures, logs, comments, or this document.
 
 The workflow is fail-closed: `MONITOR_REQUIRE_REAL_SQL=1` means the RealSql test suite fails if its required target environment is incomplete rather than silently skipping.
+
+For P0.5 repository-side hardening, this workflow may also be required as an exact-head cross-platform regression gate even when the change does not alter SQL behavior. A Green P0.5 regression run preserves the already-proven real-engine contract; it does not create new production acceptance or replace the external Windows/IIS gates governed by #116.
 
 ## P0.4 gate decision
 
