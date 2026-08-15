@@ -383,7 +383,7 @@ public sealed class FileOperatorMetadataStore : IOperatorMetadataStore
 public sealed class SharedOperatorMetadataStore(ISharedStateDocumentStore store, TimeProvider timeProvider) : IOperatorMetadataStore
 {
     private const string StateKey = "monitor:operator-metadata:v1";
-    private const int MaxRetries = 12;
+    private const int MaxRetries = 64;
 
     public ServerOperatorMetadata GetServer(Guid registrationId) => Load().State.Servers.FirstOrDefault(item => item.RegistrationId == registrationId)
         ?? InMemoryOperatorMetadataStore.EmptyServer(registrationId, timeProvider.GetUtcNow());
@@ -439,6 +439,7 @@ public sealed class SharedOperatorMetadataStore(ISharedStateDocumentStore store,
 
     private void Mutate(Func<EnterpriseOperatorSnapshot, EnterpriseOperatorSnapshot> mutation)
     {
+        var contentionWait = new SpinWait();
         for (var attempt = 0; attempt < MaxRetries; attempt++)
         {
             var loaded = Load();
@@ -446,6 +447,7 @@ public sealed class SharedOperatorMetadataStore(ISharedStateDocumentStore store,
             var payload = JsonSerializer.Serialize(candidate, AtomicJsonFile.Options);
             var result = store.CompareExchangeAsync(StateKey, loaded.Version, payload).GetAwaiter().GetResult();
             if (result.Applied) return;
+            contentionWait.SpinOnce();
         }
         throw new InvalidOperationException("Shared operator metadata update conflicted repeatedly.");
     }
