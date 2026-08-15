@@ -29,8 +29,8 @@ $payloadEntries = @(Get-ChildItem -LiteralPath $artifactDirectory -Force)
 if ($payloadEntries.Count -ne 2 -or @($payloadEntries | Where-Object { $_.PSIsContainer }).Count -ne 0) {
     throw 'Downloaded promotion payload must contain exactly the selected ZIP and companion checksum.'
 }
-$payloadNames = @($payloadEntries | ForEach-Object { $_.Name } | Sort-Object)
-$expectedPayloadNames = @($expectedName, $expectedChecksumName | Sort-Object)
+[string[]]$payloadNames = @($payloadEntries | ForEach-Object { $_.Name } | Sort-Object)
+[string[]]$expectedPayloadNames = @($expectedName, $expectedChecksumName) | Sort-Object
 if ($payloadNames[0] -cne $expectedPayloadNames[0] -or $payloadNames[1] -cne $expectedPayloadNames[1]) {
     throw 'Downloaded promotion payload contains an unexpected file name.'
 }
@@ -39,7 +39,7 @@ $checksumText = Get-Content -LiteralPath $resolvedChecksumPath -Raw
 if ($checksumText.EndsWith("`r`n", [StringComparison]::Ordinal)) {
     $checksumLine = $checksumText.Substring(0, $checksumText.Length - 2)
 }
-elif ($checksumText.EndsWith("`n", [StringComparison]::Ordinal)) {
+elseif ($checksumText.EndsWith("`n", [StringComparison]::Ordinal)) {
     $checksumLine = $checksumText.Substring(0, $checksumText.Length - 1)
 }
 else {
