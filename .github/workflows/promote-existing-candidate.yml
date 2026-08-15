@@ -19,13 +19,28 @@ permissions:
   contents: read
   actions: read
 
-concurrency:
-  group: monitor-release-tag-${{ inputs.release_tag }}
-  cancel-in-progress: false
-
 jobs:
+  validate-dispatch-ref:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Require default-branch dispatch
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF}" != "refs/heads/main" ]]; then
+            echo "Existing-candidate promotion must be dispatched from refs/heads/main; got ${GITHUB_REF}." >&2
+            exit 1
+          fi
+
   promote:
-    if: ${{ inputs.acknowledge_promotion }}
+    needs: validate-dispatch-ref
+    if: ${{ inputs.acknowledge_promotion && github.ref == 'refs/heads/main' }}
+    concurrency:
+      group: monitor-release-tag-${{ inputs.release_tag }}
+      cancel-in-progress: false
     runs-on: ubuntu-24.04
     permissions:
       contents: write

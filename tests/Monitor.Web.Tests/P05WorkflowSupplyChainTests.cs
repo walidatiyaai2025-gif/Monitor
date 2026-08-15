@@ -45,7 +45,7 @@ public sealed class P05WorkflowSupplyChainTests
         new Dictionary<string, int>(StringComparer.Ordinal)
         {
             ["ci.yml"] = 1,
-            ["promote-existing-candidate.yml"] = 1,
+            ["promote-existing-candidate.yml"] = 2,
             ["real-sql-acceptance.yml"] = 1,
             ["release.yml"] = 2
         };
@@ -187,6 +187,21 @@ public sealed class P05WorkflowSupplyChainTests
         Assert.Equal(
             ApprovedWriteCapableWorkflows.OrderBy(value => value, StringComparer.Ordinal),
             observed.OrderBy(value => value, StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public void PromotionWriteJob_RequiresReadOnlyMainRefPreflight()
+    {
+        var root = FindRepoRoot();
+        var workflow = File.ReadAllText(Path.Combine(root, ".github", "workflows", "promote-existing-candidate.yml"));
+
+        Assert.Contains("validate-dispatch-ref:", workflow, StringComparison.Ordinal);
+        Assert.Contains("Require default-branch dispatch", workflow, StringComparison.Ordinal);
+        Assert.Contains("if [[ \"${GITHUB_REF}\" != \"refs/heads/main\" ]]", workflow, StringComparison.Ordinal);
+        Assert.Contains("needs: validate-dispatch-ref", workflow, StringComparison.Ordinal);
+        Assert.Contains("inputs.acknowledge_promotion && github.ref == 'refs/heads/main'", workflow, StringComparison.Ordinal);
+        Assert.Contains("group: monitor-release-tag-${{ inputs.release_tag }}", workflow, StringComparison.Ordinal);
+        Assert.Contains("cancel-in-progress: false", workflow, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -14,6 +14,14 @@ public sealed class P05ExistingCandidatePromotionTests
         Assert.Contains("source_run_id", workflow, StringComparison.Ordinal);
         Assert.Contains("source_artifact_id", workflow, StringComparison.Ordinal);
         Assert.Contains("expected_product_sha256", workflow, StringComparison.Ordinal);
+        Assert.Contains("validate-dispatch-ref:", workflow, StringComparison.Ordinal);
+        Assert.Contains("Require default-branch dispatch", workflow, StringComparison.Ordinal);
+        Assert.Contains("refs/heads/main", workflow, StringComparison.Ordinal);
+        Assert.Contains("needs: validate-dispatch-ref", workflow, StringComparison.Ordinal);
+        Assert.Contains("inputs.acknowledge_promotion && github.ref == 'refs/heads/main'", workflow, StringComparison.Ordinal);
+        Assert.True(
+            workflow.IndexOf("validate-dispatch-ref:", StringComparison.Ordinal) < workflow.IndexOf("promote:", StringComparison.Ordinal),
+            "Read-only dispatch-ref validation must be declared before the write-capable promotion job.");
         Assert.Contains(".github/workflows/production-candidate.yml", workflow, StringComparison.Ordinal);
         Assert.Contains("actions/download-artifact@", workflow, StringComparison.Ordinal);
         Assert.Contains("github-token: ${{ github.token }}", workflow, StringComparison.Ordinal);
