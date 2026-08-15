@@ -123,6 +123,31 @@ public sealed class P05WorkflowSupplyChainTests
     }
 
     [Fact]
+    public void WorkflowPrivilegeBoundary_RejectsTrustedPrEscalationAndWriteAll()
+    {
+        var root = FindRepoRoot();
+        var workflowsRoot = Path.Combine(root, ".github", "workflows");
+        var trustedTrigger = new Regex(
+            @"(?m)^\s*(pull_request_target|workflow_run)\s*:",
+            RegexOptions.Compiled | RegexOptions.CultureInvariant);
+        var writeAll = new Regex(
+            @"(?m)^\s*permissions:\s*write-all\s*$",
+            RegexOptions.Compiled | RegexOptions.CultureInvariant);
+        var workflowFiles = Directory.EnumerateFiles(workflowsRoot, "*.yml")
+            .Concat(Directory.EnumerateFiles(workflowsRoot, "*.yaml"))
+            .OrderBy(path => path, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.NotEmpty(workflowFiles);
+        foreach (var path in workflowFiles)
+        {
+            var workflow = File.ReadAllText(path);
+            Assert.DoesNotMatch(trustedTrigger, workflow);
+            Assert.DoesNotMatch(writeAll, workflow);
+        }
+    }
+
+    [Fact]
     public void RepositoryDotnetSdk_IsExactAndFailClosed()
     {
         var root = FindRepoRoot();
