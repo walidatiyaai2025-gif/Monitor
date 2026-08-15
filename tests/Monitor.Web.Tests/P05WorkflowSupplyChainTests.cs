@@ -8,10 +8,19 @@ public sealed class P05WorkflowSupplyChainTests
     private static readonly IReadOnlyDictionary<string, string> ApprovedPins =
         new Dictionary<string, string>(StringComparer.Ordinal)
         {
-            ["actions/checkout"] = "11d5960a326750d5838078e36cf38b85af677262",
-            ["actions/setup-dotnet"] = "67a3573c9a986a3f9c594539f4ab511d57bb3ce9",
-            ["actions/upload-artifact"] = "ea165f8d65b6e75b540449e92b4886f43607fa02",
-            ["actions/download-artifact"] = "d3f86a106a0bac45b974a628896c90dbdf5c8093"
+            ["actions/checkout"] = "3d3c42e5aac5ba805825da76410c181273ba90b1",
+            ["actions/setup-dotnet"] = "a98b56852c35b8e3190ac28c8c2271da59106c68",
+            ["actions/upload-artifact"] = "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+            ["actions/download-artifact"] = "3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c"
+        };
+
+    private static readonly IReadOnlyDictionary<string, string> ApprovedVersionComments =
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["actions/checkout"] = "v7.0.1",
+            ["actions/setup-dotnet"] = "v6.0.0",
+            ["actions/upload-artifact"] = "v7.0.1",
+            ["actions/download-artifact"] = "v8.0.1"
         };
 
     private static readonly string[] ActiveWorkflows =
@@ -29,7 +38,7 @@ public sealed class P05WorkflowSupplyChainTests
         var root = FindRepoRoot();
         var workflowsRoot = Path.Combine(root, ".github", "workflows");
         var actionUse = new Regex(
-            @"^\s*-?\s*uses:\s*(?<target>\S+?)(?:\s+#.*)?$",
+            @"^\s*-?\s*uses:\s*(?<target>\S+?)(?:\s+#\s*(?<comment>\S+))?\s*$",
             RegexOptions.Compiled | RegexOptions.CultureInvariant);
         var immutableExternal = new Regex(
             @"^(?<action>[^@]+)@(?<sha>[0-9a-f]{40})$",
@@ -60,6 +69,11 @@ public sealed class P05WorkflowSupplyChainTests
                     ApprovedPins.TryGetValue(action, out var approvedSha),
                     $"External workflow dependency is not allowlisted: {workflowName}: {action}");
                 Assert.Equal(approvedSha, sha);
+
+                Assert.True(
+                    ApprovedVersionComments.TryGetValue(action, out var approvedVersion),
+                    $"External workflow dependency has no approved version metadata: {workflowName}: {action}");
+                Assert.Equal(approvedVersion, use.Groups["comment"].Value);
                 observed.Add(action);
             }
         }
