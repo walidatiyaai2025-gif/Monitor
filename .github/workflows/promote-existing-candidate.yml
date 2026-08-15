@@ -124,59 +124,26 @@ jobs:
           set -euo pipefail
           zip="Monitor-${VERSION}-win-x64.zip"
           sum="${zip}.sha256"
-          expected_prerelease=false
           release_flags=(--latest=false)
           if [[ ! "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            expected_prerelease=true
             release_flags+=(--prerelease)
           fi
 
+          bash -n ./scripts/Verify-DurableRelease.sh
+
           verify_release() {
             local dir="$1"
-            local release_json
-            release_json="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}")"
-            [[ "$(jq -r '.tag_name' <<<"${release_json}")" == "${RELEASE_TAG}" ]]
-            [[ "$(jq -r '.draft' <<<"${release_json}")" == false ]]
-            [[ "$(jq -r '.prerelease' <<<"${release_json}")" == "${expected_prerelease}" ]]
-            [[ "$(jq -r '.name' <<<"${release_json}")" == "Monitor ${VERSION}" ]]
-
-            rm -rf "${dir}" && mkdir -p "${dir}"
-            mapfile -t names < <(jq -r '.assets[].name' <<<"${release_json}" | sort)
-            [[ "${#names[@]}" -eq 2 && "${names[0]}" == "${zip}" && "${names[1]}" == "${sum}" ]]
-
-            local zip_meta sum_meta zip_id sum_id zip_size sum_size zip_digest sum_digest zip_url sum_url
-            zip_meta="$(jq -c --arg name "${zip}" '.assets[] | select(.name == $name)' <<<"${release_json}")"
-            sum_meta="$(jq -c --arg name "${sum}" '.assets[] | select(.name == $name)' <<<"${release_json}")"
-            zip_id="$(jq -r '.id' <<<"${zip_meta}")"
-            sum_id="$(jq -r '.id' <<<"${sum_meta}")"
-            zip_size="$(jq -r '.size' <<<"${zip_meta}")"
-            sum_size="$(jq -r '.size' <<<"${sum_meta}")"
-            zip_digest="$(jq -r '.digest' <<<"${zip_meta}")"
-            sum_digest="$(jq -r '.digest' <<<"${sum_meta}")"
-            zip_url="$(jq -r '.browser_download_url' <<<"${zip_meta}")"
-            sum_url="$(jq -r '.browser_download_url' <<<"${sum_meta}")"
-
-            [[ "$(jq -r '.state' <<<"${zip_meta}")" == uploaded && "$(jq -r '.state' <<<"${sum_meta}")" == uploaded ]]
-            [[ "${zip_id}" =~ ^[1-9][0-9]*$ && "${sum_id}" =~ ^[1-9][0-9]*$ && "${zip_id}" != "${sum_id}" ]]
-            [[ "${zip_size}" =~ ^[1-9][0-9]*$ && "${sum_size}" =~ ^[1-9][0-9]*$ ]]
-            [[ "${zip_digest}" =~ ^sha256:[a-f0-9]{64}$ && "${sum_digest}" =~ ^sha256:[a-f0-9]{64}$ ]]
-            [[ "${zip_digest}" == "sha256:${PRODUCT_SHA}" ]]
-            [[ "${zip_url}" == "https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/${zip}" ]]
-            [[ "${sum_url}" == "https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/${sum}" ]]
-
-            gh release download "${RELEASE_TAG}" --pattern "${zip}" --pattern "${sum}" --dir "${dir}"
-            [[ "$(stat -c%s "${dir}/${zip}")" == "${zip_size}" ]]
-            [[ "$(stat -c%s "${dir}/${sum}")" == "${sum_size}" ]]
-            [[ "$(sha256sum "${dir}/${zip}" | awk '{print $1}')" == "${PRODUCT_SHA}" ]]
-            line="$(cat "${dir}/${sum}")"
-            [[ "${line}" == "${PRODUCT_SHA}  ${zip}" ]]
-            sum_hash="$(sha256sum "${dir}/${sum}" | awk '{print $1}')"
-            [[ "${sum_digest}" == "sha256:${sum_hash}" ]]
+            bash ./scripts/Verify-DurableRelease.sh \
+              --repository "${GITHUB_REPOSITORY}" \
+              --tag "${RELEASE_TAG}" \
+              --version "${VERSION}" \
+              --product-sha256 "${PRODUCT_SHA}" \
+              --destination "${dir}"
           }
 
           if tag_commit="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${RELEASE_TAG}" --jq '.sha' 2>/dev/null)"; then
             [[ "${tag_commit}" == "${TESTED_SHA}" ]]
-            if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
+            if gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" >/dev/null 2>&1; then
               verify_release "${RUNNER_TEMP}/existing-release"
               echo 'Exact durable release already exists; no mutation performed.'
               exit 0
