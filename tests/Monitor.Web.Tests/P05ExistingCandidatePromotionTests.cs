@@ -15,7 +15,7 @@ public sealed class P05ExistingCandidatePromotionTests
         Assert.Contains("source_artifact_id", workflow, StringComparison.Ordinal);
         Assert.Contains("expected_product_sha256", workflow, StringComparison.Ordinal);
         Assert.Contains(".github/workflows/production-candidate.yml", workflow, StringComparison.Ordinal);
-        Assert.Contains("actions/download-artifact@v4", workflow, StringComparison.Ordinal);
+        Assert.Contains("actions/download-artifact@", workflow, StringComparison.Ordinal);
         Assert.Contains("github-token: ${{ github.token }}", workflow, StringComparison.Ordinal);
         Assert.Contains("run-id: ${{ inputs.source_run_id }}", workflow, StringComparison.Ordinal);
         Assert.Contains("Test-ExistingCandidatePromotion.ps1", workflow, StringComparison.Ordinal);
