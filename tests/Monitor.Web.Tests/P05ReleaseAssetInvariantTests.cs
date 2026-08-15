@@ -10,14 +10,18 @@ public sealed class P05ReleaseAssetInvariantTests
         var root = FindRepoRoot();
         var workflow = File.ReadAllText(Path.Combine(root, ".github", "workflows", "release.yml"))
             .Replace("\r\n", "\n", StringComparison.Ordinal);
+        var verifier = File.ReadAllText(Path.Combine(root, "scripts", "Verify-DurableRelease.sh"))
+            .Replace("\r\n", "\n", StringComparison.Ordinal);
 
         const string existingCall = "verify_release_assets \"${RUNNER_TEMP}/existing-release\"";
         const string createdCall = "verify_release_assets \"${RUNNER_TEMP}/created-release\"";
 
         Assert.Contains("verify_release_assets() {", workflow, StringComparison.Ordinal);
-        Assert.Contains("gh api \"repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}\"", workflow, StringComparison.Ordinal);
-        Assert.Contains("jq -r '.assets[].name' <<<\"${release_json}\" | sort", workflow, StringComparison.Ordinal);
-        Assert.Contains("[[ \"${#names[@]}\" -ne 2 || \"${names[0]}\" != \"${ZIP_NAME}\" || \"${names[1]}\" != \"${CHECKSUM_NAME}\" ]]", workflow, StringComparison.Ordinal);
+        Assert.Contains("bash \"${verifier}\"", workflow, StringComparison.Ordinal);
+        Assert.Contains("--repository \"${GITHUB_REPOSITORY}\"", workflow, StringComparison.Ordinal);
+        Assert.Contains("--product-sha256 \"${PRODUCT_SHA256}\"", workflow, StringComparison.Ordinal);
+        Assert.Contains("release must contain exactly two assets", verifier, StringComparison.Ordinal);
+        Assert.Contains("release asset names do not match the exact ZIP/checksum contract", verifier, StringComparison.Ordinal);
         Assert.Contains(existingCall, workflow, StringComparison.Ordinal);
         Assert.Contains(createdCall, workflow, StringComparison.Ordinal);
         Assert.Equal(1, workflow.Split(existingCall, StringSplitOptions.None).Length - 1);
