@@ -8,6 +8,7 @@ public sealed class P05WorkflowSupplyChainTests
 {
     private const string ApprovedDotnetSdk = "8.0.424";
     private const string ApprovedSqlServerImage = "mcr.microsoft.com/mssql/server@sha256:ba4c8329f48fb8f02e1416be6a930ebfd71268caee78aa985f3af4315e457c89";
+    private const string ApprovedUbuntuRunner = "ubuntu-24.04";
 
     private static readonly IReadOnlyDictionary<string, string> ApprovedPins =
         new Dictionary<string, string>(StringComparer.Ordinal)
@@ -25,6 +26,15 @@ public sealed class P05WorkflowSupplyChainTests
             ["actions/setup-dotnet"] = "v6.0.0",
             ["actions/upload-artifact"] = "v7.0.1",
             ["actions/download-artifact"] = "v8.0.1"
+        };
+
+    private static readonly IReadOnlyDictionary<string, int> LinuxWorkflowRunnerCounts =
+        new Dictionary<string, int>(StringComparer.Ordinal)
+        {
+            ["ci.yml"] = 1,
+            ["promote-existing-candidate.yml"] = 1,
+            ["real-sql-acceptance.yml"] = 1,
+            ["release.yml"] = 2
         };
 
     private static readonly string[] ActiveWorkflows =
@@ -110,6 +120,24 @@ public sealed class P05WorkflowSupplyChainTests
         var workflow = File.ReadAllText(Path.Combine(root, ".github", "workflows", workflowName));
 
         Assert.Contains("global-json-file: global.json", workflow, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void LinuxWorkflows_PinUbuntuOsMajorAndRejectLatestAlias()
+    {
+        var root = FindRepoRoot();
+        var workflowsRoot = Path.Combine(root, ".github", "workflows");
+        var approvedRunner = new Regex(
+            @"(?m)^\s*runs-on:\s*ubuntu-24\.04\s*$",
+            RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+        foreach (var pair in LinuxWorkflowRunnerCounts)
+        {
+            var workflow = File.ReadAllText(Path.Combine(workflowsRoot, pair.Key));
+            Assert.DoesNotContain("ubuntu-latest", workflow, StringComparison.Ordinal);
+            Assert.Equal(pair.Value, approvedRunner.Matches(workflow).Count);
+            Assert.Contains(ApprovedUbuntuRunner, workflow, StringComparison.Ordinal);
+        }
     }
 
     [Fact]
