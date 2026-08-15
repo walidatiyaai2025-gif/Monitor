@@ -45,7 +45,7 @@ public sealed class P05WorkflowSupplyChainTests
         new Dictionary<string, int>(StringComparer.Ordinal)
         {
             ["ci.yml"] = 1,
-            ["promote-existing-candidate.yml"] = 1,
+            ["promote-existing-candidate.yml"] = 2,
             ["real-sql-acceptance.yml"] = 1,
             ["release.yml"] = 2
         };
