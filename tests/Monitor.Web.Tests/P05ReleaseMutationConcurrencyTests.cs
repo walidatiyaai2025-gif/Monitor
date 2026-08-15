@@ -16,13 +16,13 @@ public sealed class P05ReleaseMutationConcurrencyTests
         Assert.Contains("publish-tagged-release:", release, StringComparison.Ordinal);
         Assert.Contains("group: monitor-release-tag-${{ github.ref_name }}", release, StringComparison.Ordinal);
         Assert.DoesNotContain("group: promote-existing-", release, StringComparison.Ordinal);
-        Assert.Equal(1, Regex.Matches(release, @"(?m)^\s*concurrency:\s*$").Count);
-        Assert.Equal(1, Regex.Matches(release, @"(?m)^\s*cancel-in-progress:\s*false\s*$").Count);
+        Assert.Single(Regex.Matches(release, @"(?m)^\s*concurrency:\s*$"));
+        Assert.Single(Regex.Matches(release, @"(?m)^\s*cancel-in-progress:\s*false\s*$"));
 
         Assert.Contains("group: monitor-release-tag-${{ inputs.release_tag }}", promotion, StringComparison.Ordinal);
         Assert.DoesNotContain("group: promote-existing-", promotion, StringComparison.Ordinal);
-        Assert.Equal(1, Regex.Matches(promotion, @"(?m)^\s*concurrency:\s*$").Count);
-        Assert.Equal(1, Regex.Matches(promotion, @"(?m)^\s*cancel-in-progress:\s*false\s*$").Count);
+        Assert.Single(Regex.Matches(promotion, @"(?m)^\s*concurrency:\s*$"));
+        Assert.Single(Regex.Matches(promotion, @"(?m)^\s*cancel-in-progress:\s*false\s*$"));
     }
 
     private static string FindRepoRoot()
