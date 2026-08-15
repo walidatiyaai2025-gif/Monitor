@@ -63,7 +63,7 @@ public sealed class P05PromotionProvenanceZipSafetyTests
         Assert.Contains("EndsWith('.', [StringComparison]::Ordinal)", script, StringComparison.Ordinal);
         Assert.Contains("EndsWith(' ', [StringComparison]::Ordinal)", script, StringComparison.Ordinal);
         Assert.Contains("Windows-forbidden or control character", script, StringComparison.Ordinal);
-        Assert.Contains("\\x00-\\x1F", script, StringComparison.Ordinal);
+        Assert.Contains("\x00-\x1F", script, StringComparison.Ordinal);
     }
 
     [Fact]
