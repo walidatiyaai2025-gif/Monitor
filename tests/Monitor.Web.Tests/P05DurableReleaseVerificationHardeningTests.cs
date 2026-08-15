@@ -40,9 +40,10 @@ public sealed class P05DurableReleaseVerificationHardeningTests
         var workflow = Read(".github/workflows/promote-existing-candidate.yml");
 
         Assert.Contains("jq -r '.name'", workflow, StringComparison.Ordinal);
+        Assert.Contains("== \"${name}\"", workflow, StringComparison.Ordinal);
         Assert.Contains("jq -r '.expired'", workflow, StringComparison.Ordinal);
+        Assert.Contains("== false", workflow, StringComparison.Ordinal);
         Assert.Contains("jq -r '.size_in_bytes'", workflow, StringComparison.Ordinal);
-        Assert.Contains("^[-1-9]", workflow.Replace("^[1-9]", "^[-1-9]", StringComparison.Ordinal), StringComparison.Ordinal);
         Assert.Contains("[[ \"${size_in_bytes}\" =~ ^[1-9][0-9]*$ ]]", workflow, StringComparison.Ordinal);
     }
 
@@ -52,6 +53,7 @@ public sealed class P05DurableReleaseVerificationHardeningTests
         var workflow = Read(".github/workflows/promote-existing-candidate.yml");
         var stepStart = workflow.IndexOf("- name: Download exact artifact from selected run", StringComparison.Ordinal);
         var stepEnd = workflow.IndexOf("- name: Validate exact selected candidate bytes", stepStart, StringComparison.Ordinal);
+        Assert.True(stepStart >= 0 && stepEnd > stepStart, "Exact artifact download step must remain directly before byte validation.");
         var step = workflow[stepStart..stepEnd];
 
         Assert.Contains("artifact-ids: ${{ inputs.source_artifact_id }}", step, StringComparison.Ordinal);
