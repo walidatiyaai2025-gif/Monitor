@@ -26,7 +26,7 @@ permissions:
 
 jobs:
   real-sql-2022:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
       SQL_CONTAINER: monitor-p0-sql2022
