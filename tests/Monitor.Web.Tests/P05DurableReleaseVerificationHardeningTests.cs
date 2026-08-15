@@ -114,10 +114,10 @@ public sealed class P05DurableReleaseVerificationHardeningTests
 
         foreach (var workflow in new[] { taggedRelease, promotion })
         {
-            Assert.Contains("--json tagName,isDraft,isPrerelease,assets", workflow, StringComparison.Ordinal);
-            Assert.Contains("'.tagName'", workflow, StringComparison.Ordinal);
-            Assert.Contains("'.isDraft'", workflow, StringComparison.Ordinal);
-            Assert.Contains("'.isPrerelease'", workflow, StringComparison.Ordinal);
+            Assert.Contains("gh api \"repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}\"", workflow, StringComparison.Ordinal);
+            Assert.Contains("'.tag_name'", workflow, StringComparison.Ordinal);
+            Assert.Contains("'.draft'", workflow, StringComparison.Ordinal);
+            Assert.Contains("'.prerelease'", workflow, StringComparison.Ordinal);
             Assert.Contains("expected_prerelease=false", workflow, StringComparison.Ordinal);
         }
 
