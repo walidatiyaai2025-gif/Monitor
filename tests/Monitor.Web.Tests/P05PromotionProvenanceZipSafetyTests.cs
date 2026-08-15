@@ -59,11 +59,13 @@ public sealed class P05PromotionProvenanceZipSafetyTests
     public void PH_006_ZipRejectsTrailingDotsSpacesForbiddenAndControlCharacters()
     {
         var script = Read("scripts/Test-ExistingCandidatePromotion.ps1");
+        var runtime = Read("scripts/Test-ExistingCandidatePromotionSafety.ps1");
 
         Assert.Contains("EndsWith('.', [StringComparison]::Ordinal)", script, StringComparison.Ordinal);
         Assert.Contains("EndsWith(' ', [StringComparison]::Ordinal)", script, StringComparison.Ordinal);
         Assert.Contains("Windows-forbidden or control character", script, StringComparison.Ordinal);
-        Assert.Contains("\x00-\x1F", script, StringComparison.Ordinal);
+        Assert.Contains("CaseName 'control-character'", runtime, StringComparison.Ordinal);
+        Assert.Contains("[char]0x001F", runtime, StringComparison.Ordinal);
     }
 
     [Fact]
