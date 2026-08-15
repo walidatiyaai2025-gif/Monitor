@@ -27,6 +27,15 @@ jobs:
         run: dotnet build Monitor.sln --configuration Release --no-restore --warnaserror
       - name: Test
         run: dotnet test Monitor.sln --configuration Release --no-build
+      - name: Parse durable release Bash safety tooling
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/Verify-DurableRelease.sh
+          bash -n scripts/Test-DurableReleaseVerifierSafety.sh
+      - name: Exercise durable release verifier TOCTOU runtime
+        shell: bash
+        run: bash scripts/Test-DurableReleaseVerifierSafety.sh
       - name: Parse promotion PowerShell safety tooling
         shell: pwsh
         run: |
