@@ -10,6 +10,7 @@ public sealed class P05WorkflowSupplyChainTests
     private const string ApprovedDotnetSdk = "8.0.424";
     private const string ApprovedSqlServerImage = "mcr.microsoft.com/mssql/server@sha256:ba4c8329f48fb8f02e1416be6a930ebfd71268caee78aa985f3af4315e457c89";
     private const string ApprovedUbuntuRunner = "ubuntu-24.04";
+    private const string ApprovedWindowsRunner = "windows-2025";
     private const string ApprovedNugetSource = "https://api.nuget.org/v3/index.json";
 
     private static readonly IReadOnlyDictionary<string, string> ApprovedPins =
@@ -270,6 +271,23 @@ public sealed class P05WorkflowSupplyChainTests
             Assert.DoesNotContain("persist-credentials: true", workflow, StringComparison.Ordinal);
             Assert.Single(disabledPersistence.Matches(workflow));
         }
+    }
+
+    [Fact]
+    public void WindowsProductionCandidate_PinsRunnerCredentialsAndRepositorySdk()
+    {
+        var root = FindRepoRoot();
+        var workflow = File.ReadAllText(Path.Combine(root, ".github", "workflows", "production-candidate.yml"));
+        var disabledPersistence = new Regex(
+            @"(?m)^\s*persist-credentials:\s*false\s*$",
+            RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+        Assert.Contains($"runs-on: {ApprovedWindowsRunner}", workflow, StringComparison.Ordinal);
+        Assert.DoesNotContain("windows-latest", workflow, StringComparison.Ordinal);
+        Assert.Contains("actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1", workflow, StringComparison.Ordinal);
+        Assert.DoesNotContain("persist-credentials: true", workflow, StringComparison.Ordinal);
+        Assert.Single(disabledPersistence.Matches(workflow));
+        Assert.Contains("global-json-file: global.json", workflow, StringComparison.Ordinal);
     }
 
     [Fact]
