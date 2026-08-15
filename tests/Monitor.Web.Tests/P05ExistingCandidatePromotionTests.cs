@@ -44,14 +44,19 @@ public sealed class P05ExistingCandidatePromotionTests
     public void PromotionWorkflow_IsImmutableAndBindsReleaseTagToTestedMerge()
     {
         var workflow = Read(".github/workflows/promote-existing-candidate.yml");
+        var verifier = Read("scripts/Verify-DurableRelease.sh");
 
-        Assert.Contains("gh release view", workflow, StringComparison.Ordinal);
-        Assert.Contains("gh release download", workflow, StringComparison.Ordinal);
+        Assert.Contains("Verify-DurableRelease.sh", workflow, StringComparison.Ordinal);
         Assert.Contains("gh release create", workflow, StringComparison.Ordinal);
         Assert.Contains("--verify-tag", workflow, StringComparison.Ordinal);
         Assert.Contains("--target \"${TESTED_SHA}\"", workflow, StringComparison.Ordinal);
         Assert.Contains("Exact durable release already exists; no mutation performed.", workflow, StringComparison.Ordinal);
         Assert.Contains("External IIS acceptance remains governed by #116", workflow, StringComparison.Ordinal);
+        Assert.Contains("releases/assets/${first_zip_id}", verifier, StringComparison.Ordinal);
+        Assert.Contains("releases/assets/${first_checksum_id}", verifier, StringComparison.Ordinal);
+        Assert.Contains("release or asset security metadata changed during verification", verifier, StringComparison.Ordinal);
+        Assert.DoesNotContain("gh release download", workflow, StringComparison.Ordinal);
+        Assert.DoesNotContain("gh release download", verifier, StringComparison.Ordinal);
     }
 
     [Fact]
