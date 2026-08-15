@@ -243,7 +243,7 @@ public sealed class P05WorkflowSupplyChainTests
             var workflow = File.ReadAllText(Path.Combine(workflowsRoot, workflowName));
             Assert.Contains("actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1", workflow, StringComparison.Ordinal);
             Assert.DoesNotContain("persist-credentials: true", workflow, StringComparison.Ordinal);
-            Assert.Equal(1, disabledPersistence.Matches(workflow).Count);
+            Assert.Single(disabledPersistence.Matches(workflow));
         }
     }
 
