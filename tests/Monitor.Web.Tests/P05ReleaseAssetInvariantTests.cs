@@ -15,7 +15,7 @@ public sealed class P05ReleaseAssetInvariantTests
         const string createdCall = "verify_release_assets \"${RUNNER_TEMP}/created-release\"";
 
         Assert.Contains("verify_release_assets() {", workflow, StringComparison.Ordinal);
-        Assert.Contains("gh release view \"${RELEASE_TAG}\" --json tagName,isDraft,isPrerelease,assets", workflow, StringComparison.Ordinal);
+        Assert.Contains("gh api \"repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}\"", workflow, StringComparison.Ordinal);
         Assert.Contains("jq -r '.assets[].name' <<<\"${release_json}\" | sort", workflow, StringComparison.Ordinal);
         Assert.Contains("[[ \"${#names[@]}\" -ne 2 || \"${names[0]}\" != \"${ZIP_NAME}\" || \"${names[1]}\" != \"${CHECKSUM_NAME}\" ]]", workflow, StringComparison.Ordinal);
         Assert.Contains(existingCall, workflow, StringComparison.Ordinal);
