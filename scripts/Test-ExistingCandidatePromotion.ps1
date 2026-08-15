@@ -59,7 +59,12 @@ if ($actual -ne $ExpectedProductSha256) { throw 'Product SHA-256 does not match 
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $archive = [IO.Compression.ZipFile]::OpenRead($resolvedArtifactPath)
 try {
+    if ($archive.Entries.Count -gt 4096) {
+        throw "Candidate ZIP contains too many entries ($($archive.Entries.Count)); maximum is 4096."
+    }
+
     $seenEntries = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    [long]$totalUncompressedBytes = 0
     foreach ($entry in $archive.Entries) {
         $entryName = [string]$entry.FullName
         if ([string]::IsNullOrWhiteSpace($entryName)) { throw 'Candidate ZIP contains an empty entry path.' }
@@ -79,8 +84,45 @@ try {
         if (@($segments | Where-Object { $_ -eq '.' -or $_ -eq '..' }).Count -ne 0) {
             throw "Candidate ZIP contains a traversal path segment: '$entryName'."
         }
-        if (-not $seenEntries.Add($normalizedEntryName)) {
-            throw "Candidate ZIP contains a duplicate or case-colliding entry path: '$entryName'."
+
+        foreach ($segment in $segments) {
+            if ($segment.EndsWith('.', [StringComparison]::Ordinal) -or $segment.EndsWith(' ', [StringComparison]::Ordinal)) {
+                throw "Candidate ZIP contains a path segment with a trailing dot or space: '$entryName'."
+            }
+            if ($segment -match '[<>"|?*\x00-\x1F]') {
+                throw "Candidate ZIP contains a Windows-forbidden or control character in a path segment: '$entryName'."
+            }
+            $deviceStem = ($segment -split '\.', 2)[0]
+            if ($deviceStem -match '^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$') {
+                throw "Candidate ZIP contains a Windows reserved device-name path segment: '$entryName'."
+            }
+        }
+
+        $canonicalEntryName = $normalizedEntryName.Normalize([Text.NormalizationForm]::FormC)
+        if ($canonicalEntryName.Length -gt 240) {
+            throw "Candidate ZIP contains an overlong normalized entry path (>240 characters): '$entryName'."
+        }
+        if (-not $seenEntries.Add($canonicalEntryName)) {
+            throw "Candidate ZIP contains a duplicate or case-colliding entry path (including Unicode normalization): '$entryName'."
+        }
+
+        $externalAttributes = [uint32](([int64]$entry.ExternalAttributes) -band 0xFFFFFFFFL)
+        $unixFileType = ($externalAttributes -shr 16) -band 0xF000
+        $dosAttributes = $externalAttributes -band 0xFFFF
+        if ($unixFileType -eq 0xA000 -or ($dosAttributes -band [uint32]([IO.FileAttributes]::ReparsePoint)) -ne 0) {
+            throw "Candidate ZIP contains a symlink or reparse-point entry: '$entryName'."
+        }
+
+        if ($entry.Length -gt 256MB) {
+            throw "Candidate ZIP entry exceeds the 256 MiB uncompressed limit: '$entryName'."
+        }
+        $totalUncompressedBytes += [long]$entry.Length
+        if ($totalUncompressedBytes -gt 1GB) {
+            throw 'Candidate ZIP exceeds the 1 GiB total uncompressed-size limit.'
+        }
+        if ($entry.Length -ge 1MB -and
+            ($entry.CompressedLength -le 0 -or ($entry.Length / [double]$entry.CompressedLength) -gt 200.0)) {
+            throw "Candidate ZIP entry has a suspicious compression ratio above 200:1: '$entryName'."
         }
     }
 
