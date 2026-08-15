@@ -104,32 +104,43 @@ jobs:
         run: |
           set -euo pipefail
 
-          if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
-            existing_dir="${RUNNER_TEMP}/existing-release"
-            rm -rf "${existing_dir}"
-            mkdir -p "${existing_dir}"
+          verify_release_assets() {
+            local dir="$1"
+            rm -rf "${dir}"
+            mkdir -p "${dir}"
+
+            mapfile -t names < <(gh release view "${RELEASE_TAG}" --json assets --jq '.assets[].name' | sort)
+            if [[ "${#names[@]}" -ne 2 || "${names[0]}" != "${ZIP_NAME}" || "${names[1]}" != "${CHECKSUM_NAME}" ]]; then
+              echo "Release must contain exactly the verified ZIP and checksum assets; refusing acceptance." >&2
+              exit 1
+            fi
 
             gh release download "${RELEASE_TAG}" \
               --pattern "${ZIP_NAME}" \
               --pattern "${CHECKSUM_NAME}" \
-              --dir "${existing_dir}"
+              --dir "${dir}"
 
-            test -f "${existing_dir}/${ZIP_NAME}"
-            test -f "${existing_dir}/${CHECKSUM_NAME}"
+            test -f "${dir}/${ZIP_NAME}"
+            test -f "${dir}/${CHECKSUM_NAME}"
 
-            existing_hash="$(sha256sum "${existing_dir}/${ZIP_NAME}" | awk '{print $1}')"
-            existing_checksum_line="$(tr -d '\r\n' < "${existing_dir}/${CHECKSUM_NAME}")"
+            local existing_hash
+            local existing_checksum_line
+            existing_hash="$(sha256sum "${dir}/${ZIP_NAME}" | awk '{print $1}')"
+            existing_checksum_line="$(tr -d '\r\n' < "${dir}/${CHECKSUM_NAME}")"
             if [[ ! "${existing_checksum_line}" =~ ^([a-f0-9]{64})[[:space:]]+([^[:space:]]+)$ ]]; then
-              echo "Existing release checksum asset is invalid; refusing mutation." >&2
+              echo "Release checksum asset is invalid; refusing acceptance." >&2
               exit 1
             fi
 
             if [[ "${existing_hash}" != "${PRODUCT_SHA256}" || "${BASH_REMATCH[1]}" != "${PRODUCT_SHA256}" || "${BASH_REMATCH[2]}" != "${ZIP_NAME}" ]]; then
-              echo "Existing release assets differ from the verified candidate; refusing mutation." >&2
+              echo "Release assets differ from the verified candidate; refusing acceptance." >&2
               exit 1
             fi
+          }
 
-            echo "Existing GitHub Release already contains the exact verified product ZIP/checksum; leaving it immutable."
+          if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
+            verify_release_assets "${RUNNER_TEMP}/existing-release"
+            echo "Existing GitHub Release already contains exactly the verified product ZIP/checksum; leaving it immutable."
             exit 0
           fi
 
@@ -144,3 +155,5 @@ jobs:
             --verify-tag \
             --title "Monitor ${RELEASE_VERSION}" \
             "${release_flags[@]}"
+
+          verify_release_assets "${RUNNER_TEMP}/created-release"
