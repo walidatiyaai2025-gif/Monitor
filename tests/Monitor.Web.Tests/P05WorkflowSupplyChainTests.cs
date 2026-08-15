@@ -30,6 +30,16 @@ public sealed class P05WorkflowSupplyChainTests
             ["actions/download-artifact"] = "v8.0.1"
         };
 
+    private static readonly IReadOnlyDictionary<string, string> ApprovedPackageReferences =
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["src/Monitor.Web/Monitor.Web.csproj|Microsoft.Data.SqlClient"] = "7.0.2",
+            ["src/Monitor.Web/Monitor.Web.csproj|Microsoft.Extensions.Hosting.WindowsServices"] = "8.0.1",
+            ["tests/Monitor.Web.Tests/Monitor.Web.Tests.csproj|Microsoft.NET.Test.Sdk"] = "17.12.0",
+            ["tests/Monitor.Web.Tests/Monitor.Web.Tests.csproj|xunit"] = "2.9.2",
+            ["tests/Monitor.Web.Tests/Monitor.Web.Tests.csproj|xunit.runner.visualstudio"] = "2.8.2"
+        };
+
     private static readonly IReadOnlyDictionary<string, int> LinuxWorkflowRunnerCounts =
         new Dictionary<string, int>(StringComparer.Ordinal)
         {
@@ -46,6 +56,12 @@ public sealed class P05WorkflowSupplyChainTests
         "promote-existing-candidate.yml",
         "real-sql-acceptance.yml",
         "release.yml"
+    };
+
+    private static readonly string[] SolutionProjectPaths =
+    {
+        "src/Monitor.Web/Monitor.Web.csproj",
+        "tests/Monitor.Web.Tests/Monitor.Web.Tests.csproj"
     };
 
     [Fact]
@@ -137,6 +153,44 @@ public sealed class P05WorkflowSupplyChainTests
         Assert.Equal("nuget.org", mappedSource.Attribute("key")?.Value);
         var package = Assert.Single(mappedSource.Elements("package"));
         Assert.Equal("*", package.Attribute("pattern")?.Value);
+    }
+
+    [Fact]
+    public void SolutionDirectPackageReferences_MatchExactApprovedAllowlist()
+    {
+        var root = FindRepoRoot();
+        var exactVersion = new Regex(
+            @"^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?$",
+            RegexOptions.Compiled | RegexOptions.CultureInvariant);
+        var observed = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        foreach (var projectPath in SolutionProjectPaths)
+        {
+            var fullPath = Path.Combine(root, projectPath.Replace('/', Path.DirectorySeparatorChar));
+            Assert.True(File.Exists(fullPath), $"Expected solution project is missing: {projectPath}");
+
+            var project = XDocument.Load(fullPath, LoadOptions.None);
+            foreach (var reference in project.Descendants("PackageReference"))
+            {
+                var packageId = reference.Attribute("Include")?.Value;
+                var version = reference.Attribute("Version")?.Value ?? reference.Element("Version")?.Value;
+
+                Assert.False(string.IsNullOrWhiteSpace(packageId), $"PackageReference without Include in {projectPath}.");
+                Assert.False(string.IsNullOrWhiteSpace(version), $"PackageReference {packageId} in {projectPath} must declare an explicit version.");
+                Assert.Matches(exactVersion, version!);
+
+                var key = $"{projectPath}|{packageId}";
+                Assert.True(
+                    ApprovedPackageReferences.TryGetValue(key, out var approvedVersion),
+                    $"Direct dependency is not allowlisted: {key} {version}");
+                Assert.Equal(approvedVersion, version);
+                Assert.True(observed.TryAdd(key, version!), $"Duplicate direct dependency declaration: {key}");
+            }
+        }
+
+        Assert.Equal(
+            ApprovedPackageReferences.OrderBy(pair => pair.Key, StringComparer.Ordinal),
+            observed.OrderBy(pair => pair.Key, StringComparer.Ordinal));
     }
 
     [Theory]
