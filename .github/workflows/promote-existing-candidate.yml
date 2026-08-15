@@ -46,7 +46,6 @@ jobs:
       contents: write
       actions: read
     env:
-      GH_TOKEN: ${{ github.token }}
       VERSION: ${{ inputs.candidate_version }}
       RUN_ID: ${{ inputs.source_run_id }}
       ARTIFACT_ID: ${{ inputs.source_artifact_id }}
@@ -61,6 +60,8 @@ jobs:
 
       - name: Validate source run and artifact metadata
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           [[ "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]
@@ -103,6 +104,8 @@ jobs:
 
       - name: Publish or verify immutable durable release
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           zip="Monitor-${VERSION}-win-x64.zip"
