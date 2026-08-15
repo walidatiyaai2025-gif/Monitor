@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   resolve-version:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
@@ -42,7 +42,7 @@ jobs:
     needs:
       - resolve-version
       - verified-production-package
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
     env:
