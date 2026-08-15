@@ -113,12 +113,19 @@ public sealed class EnterpriseScaleTests
         var nodeA = new SharedOperatorMetadataStore(telemetry, clock);
         var nodeB = new SharedOperatorMetadataStore(telemetry, clock);
         var server = Guid.NewGuid();
-        var writes = Enumerable.Range(0, 40).Select(i => Task.Run(() =>
+        using var ready = new CountdownEvent(40);
+        var start = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var writes = Enumerable.Range(0, 40).Select(i => Task.Run(async () =>
         {
+            ready.Signal();
+            await start.Task;
             var node = i % 2 == 0 ? nodeA : nodeB;
             node.UpsertServer(new(server, ServerEnvironmentClass.Production, $"g-{i:00}", ["scale"], null, null, clock.GetUtcNow()));
-        }));
+        })).ToArray();
+        var allReady = ready.Wait(TimeSpan.FromSeconds(10));
+        start.TrySetResult(true);
         await Task.WhenAll(writes);
+        Assert.True(allReady, "Concurrent metadata writers did not reach the synchronized start gate in time.");
         var final = nodeA.GetServer(server);
         Assert.StartsWith("g-", final.Group, StringComparison.Ordinal);
         Assert.True(telemetry.Attempts >= 40);
