@@ -124,6 +124,11 @@ try {
         -Payload (New-TestPayload -CaseName 'forbidden-character' -Entries @([pscustomobject]@{ Name = 'payload/bad?.txt'; ByteCount = 1; ExternalAttributes = $null })) `
         -ExpectedMessage 'Windows-forbidden or control character'
 
+    $controlCharacterName = "payload/bad$([char]0x001F).txt"
+    Assert-Rejected `
+        -Payload (New-TestPayload -CaseName 'control-character' -Entries @([pscustomobject]@{ Name = $controlCharacterName; ByteCount = 1; ExternalAttributes = $null })) `
+        -ExpectedMessage 'Windows-forbidden or control character'
+
     $composed = "payload/caf$([char]0x00E9).txt"
     $decomposed = "payload/cafe$([char]0x0301).txt"
     Assert-Rejected `
