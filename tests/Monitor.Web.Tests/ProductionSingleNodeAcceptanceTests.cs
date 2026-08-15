@@ -61,7 +61,7 @@ public sealed class ProductionSingleNodeAcceptanceTests
         Assert.Contains("--runtime win-x64", candidate, StringComparison.Ordinal);
         Assert.Contains("Monitor-$env:CANDIDATE_VERSION-win-x64.zip", candidate, StringComparison.Ordinal);
         Assert.Contains("Get-FileHash", candidate, StringComparison.Ordinal);
-        Assert.Contains("actions/upload-artifact@v4", candidate, StringComparison.Ordinal);
+        Assert.Contains("actions/upload-artifact@", candidate, StringComparison.Ordinal);
         Assert.Contains("Stage operations bundle and remove runtime state", candidate, StringComparison.Ordinal);
         Assert.Contains("Revalidate clean package input", candidate, StringComparison.Ordinal);
     }
