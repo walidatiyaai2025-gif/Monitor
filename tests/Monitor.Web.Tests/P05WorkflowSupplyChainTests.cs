@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using Xunit;
 
@@ -5,6 +6,9 @@ namespace Monitor.Web.Tests;
 
 public sealed class P05WorkflowSupplyChainTests
 {
+    private const string ApprovedDotnetSdk = "8.0.424";
+    private const string ApprovedSqlServerImage = "mcr.microsoft.com/mssql/server@sha256:ba4c8329f48fb8f02e1416be6a930ebfd71268caee78aa985f3af4315e457c89";
+
     private static readonly IReadOnlyDictionary<string, string> ApprovedPins =
         new Dictionary<string, string>(StringComparer.Ordinal)
         {
@@ -81,6 +85,41 @@ public sealed class P05WorkflowSupplyChainTests
         Assert.Equal(
             ApprovedPins.Keys.OrderBy(value => value, StringComparer.Ordinal),
             observed.OrderBy(value => value, StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public void RepositoryDotnetSdk_IsExactAndFailClosed()
+    {
+        var root = FindRepoRoot();
+        var globalJsonPath = Path.Combine(root, "global.json");
+        Assert.True(File.Exists(globalJsonPath), "global.json must lock the repository SDK.");
+
+        using var document = JsonDocument.Parse(File.ReadAllText(globalJsonPath));
+        var sdk = document.RootElement.GetProperty("sdk");
+        Assert.Equal(ApprovedDotnetSdk, sdk.GetProperty("version").GetString());
+        Assert.Equal("disable", sdk.GetProperty("rollForward").GetString());
+        Assert.False(sdk.GetProperty("allowPrerelease").GetBoolean());
+    }
+
+    [Theory]
+    [InlineData("ci.yml")]
+    [InlineData("real-sql-acceptance.yml")]
+    public void CoreUbuntuGates_InstallRepositoryLockedSdk(string workflowName)
+    {
+        var root = FindRepoRoot();
+        var workflow = File.ReadAllText(Path.Combine(root, ".github", "workflows", workflowName));
+
+        Assert.Contains("global-json-file: global.json", workflow, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void RealSqlGate_PinsSqlServerImageByExactDigest()
+    {
+        var root = FindRepoRoot();
+        var workflow = File.ReadAllText(Path.Combine(root, ".github", "workflows", "real-sql-acceptance.yml"));
+
+        Assert.Contains(ApprovedSqlServerImage, workflow, StringComparison.Ordinal);
+        Assert.DoesNotContain("mcr.microsoft.com/mssql/server:2022-latest", workflow, StringComparison.Ordinal);
     }
 
     [Fact]
