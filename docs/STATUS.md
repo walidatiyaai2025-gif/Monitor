@@ -2,13 +2,13 @@
 
 ## CURRENT P0 — Real SQL Production MVP
 
-**Updated:** 2026-08-13  
+**Updated:** 2026-08-15  
 **Umbrella:** #111  
 **Execution ledger:** `docs/PRODUCTION_MVP.md`  
 **Real SQL evidence:** `docs/REAL_SQL_ACCEPTANCE.md`  
 **Production acceptance guide:** `docs/PRODUCTION_SINGLENODE_ACCEPTANCE.md`  
 **Active external release gate:** #116 / P0.5 First Production SingleNode  
-**Repository cutover/evidence/finalization/session/release workflow:** COMPLETE through Issue #162 implementation / PR #163 + handoff PR #164; selected RC.61 durable publication remains pending manual dispatch under #162  
+**Repository cutover/evidence/finalization/session/release workflow:** COMPLETE through Issue #162 implementation / PR #163 + handoff PR #164; selected RC.61 durable publication remains pending manual dispatch under #162; Issue #168 / PR #171 workflow supply-chain hardening is IN VERIFICATION  
 **Production target:** actual Windows/IIS trusted-HTTPS SingleNode acceptance.
 
 ### P0 release chain
@@ -19,7 +19,7 @@
 | P0.2 / #113 | COMPLETE | PR #121; final CI `31478470867`; 505/505 |
 | P0.3 / #114 | COMPLETE | PR #122 merged `245bb0770d7ec6e7a334f7763d3560cef80324fe`; final CI `31479311552`; 507/507 |
 | P0.4 / #115 | COMPLETE | PR #124 merged `f4c08292734c293a6d0b865cc2a005b8c42b02a6`; normal `31481874425` 518/518; Real SQL `31481874501` 8/8 |
-| P0.5 / #116 | ACTIVE | repository deployment/evidence/session/finalization/release-package/durable-promotion implementation complete; selected RC.61 durable publication + external IIS/HTTPS acceptance pending |
+| P0.5 / #116 | ACTIVE | repository deployment/evidence/session/finalization/release-package/durable-promotion implementation complete; workflow supply-chain hardening #168/#171 in verification; selected RC.61 durable publication + external IIS/HTTPS acceptance pending |
 
 ## P0.5 repository preparation — COMPLETE · EXTERNAL IIS PENDING
 
@@ -35,6 +35,7 @@
 - Issue #154 / PR #155 COMPLETE: direct RC.53 artifact audit exposed release-package drift and ambiguous manifest evidence naming. PR #155 squash-merged as `8d8ae2c5f35e8a1d774c5a9480f582e432e5dc03`; tagged/manual releases now delegate to the same verified Windows production-candidate workflow, candidate versions are validated, and release manifest schema 2 records fixed P0.4 run IDs as `prerequisiteEvidence.p04` rather than candidate-specific acceptance evidence.
 - Issue #159 / PR #160 COMPLETE: real pushed version tags publish only the already-verified same-run ZIP + `.sha256` as durable GitHub Release assets after checksum re-verification, with no rebuild/repackage/clobber path and no production-acceptance implication. PR #160 merged as `a14110181932bcd6e14b99e5b6984974a5b477f8`.
 - Issue #162 implementation COMPLETE via PR #163 merged `43d8a193205495f155bb8866532a4e99ed93b655`; the manual `promote-existing-candidate` workflow validates and preserves exact existing RC.61 bytes without rebuild/repackage. Handoff docs PR #164 merged `930c057f431a36ab2b603d3dc39e70e8c31c744e` after normal CI `31726008394` and Windows production-candidate `31726008464` Green. **Actual durable RC.61 publication remains PENDING MANUAL DISPATCH; #162 stays OPEN until tag/assets/hash are independently verified.**
+- Issue #168 / PR #171 **IN VERIFICATION**: every active external `actions/*` workflow dependency is pinned to an approved exact 40-character upstream commit SHA; a dedicated fail-closed regression test rejects mutable/unapproved/drifted refs; the completed BATCH-100 one-shot merge workflow with write permissions is removed. This is repository supply-chain hardening only and does not alter selected RC.61 or satisfy #162/#116/#111.
 
 ### Final selected PR #155 / RC.61 repository evidence
 
@@ -71,7 +72,7 @@ RC.61 supersedes RC.53 unless a later equivalently verified candidate is explici
 | P0-046 deployment health smoke | CI HTTPS VERIFIED; tooling READY; **real IIS endpoint pending external** |
 | P0-047 least-privilege monitored target | P0.4 prerequisite VERIFIED; **deployed IIS identity/target pending external** |
 | P0-048 backup + rollback/recovery | code/unit/tooling VERIFIED; **production rehearsal pending external** |
-| P0-049 versioned artifact/checksum/evidence/release workflow | **REPOSITORY/CI COMPLETE** — RC.61 + reusable release pipeline + durable tag publication tooling + immutable session + generator + recorder + finalizer + validator VERIFIED; exact existing-candidate promotion implementation merged, **actual RC.61 durable publication pending manual #162** |
+| P0-049 versioned artifact/checksum/evidence/release workflow | **REPOSITORY/CI COMPLETE** — RC.61 + reusable release pipeline + durable tag publication tooling + immutable session + generator + recorder + finalizer + validator VERIFIED; exact existing-candidate promotion implementation merged, **actual RC.61 durable publication pending manual #162**; supply-chain pinning/removal hardening #168/#171 **IN VERIFICATION** |
 | P0-050 final production acceptance | **PENDING EXTERNAL** |
 
 ## BATCH-200 baseline reconciliation — COMPLETE
@@ -150,4 +151,4 @@ B600 delivered deterministic fail-closed repository orchestration for evidence f
 - MultiNode remains fail-closed and deferred until after stable SingleNode production acceptance.
 - Concurrent team work must be preserved; external P0.5 acceptance cannot be inferred from CI.
 
-**Overall:** 🟢 verified foundation · 🟢 P0.1–P0.4 COMPLETE · 🟢 P0.5 repository cutover/evidence/session/finalization/release/promotion implementation COMPLETE · 🟢 BATCH-200 current-main reconciliation COMPLETE · 🟡 selected RC.61 durable publication pending manual #162 · 🟡 external IIS/HTTPS 15-gate acceptance pending · 🔴 production acceptance not yet granted
+**Overall:** 🟢 verified foundation · 🟢 P0.1–P0.4 COMPLETE · 🟢 P0.5 repository cutover/evidence/session/finalization/release/promotion implementation COMPLETE · 🟡 P0.5 workflow supply-chain hardening #168/#171 in verification · 🟢 BATCH-200 current-main reconciliation COMPLETE · 🟡 selected RC.61 durable publication pending manual #162 · 🟡 external IIS/HTTPS 15-gate acceptance pending · 🔴 production acceptance not yet granted
