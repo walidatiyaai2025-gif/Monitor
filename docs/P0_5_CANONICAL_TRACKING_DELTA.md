@@ -11,7 +11,7 @@ This file records the exact canonical tracking delta after Issue #162 / PR #163 
 - `promote-existing-candidate` is active but has not been manually dispatched.
 - `v0.1.0-rc.61` is not yet present as a GitHub Release.
 - Issue #162 remains OPEN until the manual promotion run succeeds and the tag, exactly two release assets, and product SHA-256 are independently verified.
-- Issue #168 / PR #171 is **IN VERIFICATION** for repository-side GitHub Actions supply-chain hardening: every active external Action is pinned to an approved immutable commit SHA, a fail-closed regression test owns the pin allowlist, and the completed BATCH-100 one-shot write-capable merge workflow is removed. This hardening does not change RC.61 and does not satisfy #162/#116/#111 external/manual gates.
+- Issue #168 is **COMPLETE** via PR #171, squash-merged as `c9084dd32b12a9a078f953f85f39b253793e2343`. Exact implementation head `052e969b5ab450526ab996a2e77459f4087846c8` passed normal CI `31881105832`, Real SQL `31881105877`, and Windows production-candidate `31881105818` end-to-end. Every active external Action is pinned to an approved immutable commit SHA, a fail-closed regression test owns the pin allowlist, and the completed BATCH-100 one-shot write-capable merge workflow is removed. This hardening does not change RC.61 and does not satisfy #162/#116/#111 external/manual gates.
 - Issues #116 and #111 remain OPEN; no external IIS gate is satisfied by release-retention or workflow-supply-chain work.
 
 ## Canonical reconciliation state
@@ -22,7 +22,7 @@ This reconciliation updates `docs/STATUS.md` and `docs/FEATURE_CATALOG.md` direc
 2. existing selected-candidate promotion capability is implemented through #162 / PR #163;
 3. the dedicated handoff docs are merged through PR #164;
 4. RC.61 publication is still pending manual dispatch;
-5. Issue #168 / PR #171 hardens active workflow dependencies to immutable approved SHAs and removes obsolete privileged one-shot automation, pending exact-head CI/Real SQL/Windows validation;
+5. Issue #168 / PR #171 supply-chain hardening is complete and merged as `c9084dd32b12a9a078f953f85f39b253793e2343`, with normal CI `31881105832`, Real SQL `31881105877`, and Windows production-candidate `31881105818` Green on exact implementation head `052e969b5ab450526ab996a2e77459f4087846c8`;
 6. RC.61 remains selected unless #116 explicitly selects another equivalently verified candidate;
 7. real Windows/IIS 15/15 acceptance remains pending external.
 
