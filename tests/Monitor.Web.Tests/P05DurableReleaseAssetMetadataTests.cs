@@ -6,115 +6,96 @@ public sealed class P05DurableReleaseAssetMetadataTests
 {
     private const string ReleaseWorkflow = ".github/workflows/release.yml";
     private const string PromotionWorkflow = ".github/workflows/promote-existing-candidate.yml";
+    private const string Verifier = "scripts/Verify-DurableRelease.sh";
 
     [Fact]
-    public void RA_001_BothPathsReadReleaseByTagThroughRestApi()
+    public void RA_001_BothPathsUseSharedReleaseByTagRestVerifier()
     {
-        AssertBothContain("gh api \"repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}\"");
+        AssertBothContain("Verify-DurableRelease.sh");
+        Assert.Contains("gh api \"repos/${repository}/releases/tags/${tag}\"", Read(Verifier), StringComparison.Ordinal);
     }
 
     [Fact]
-    public void RA_002_BothPathsRequireExactReleaseMetadataAndTitle()
+    public void RA_002_SharedVerifierRequiresExactReleaseMetadataAndTitle()
     {
-        var release = Read(ReleaseWorkflow);
-        var promotion = Read(PromotionWorkflow);
+        var verifier = Read(Verifier);
 
-        Assert.Contains("'.tag_name'", release, StringComparison.Ordinal);
-        Assert.Contains("'.draft'", release, StringComparison.Ordinal);
-        Assert.Contains("'.prerelease'", release, StringComparison.Ordinal);
-        Assert.Contains("'.name'", release, StringComparison.Ordinal);
-        Assert.Contains("Monitor ${RELEASE_VERSION}", release, StringComparison.Ordinal);
-
-        Assert.Contains("'.tag_name'", promotion, StringComparison.Ordinal);
-        Assert.Contains("'.draft'", promotion, StringComparison.Ordinal);
-        Assert.Contains("'.prerelease'", promotion, StringComparison.Ordinal);
-        Assert.Contains("'.name'", promotion, StringComparison.Ordinal);
-        Assert.Contains("Monitor ${VERSION}", promotion, StringComparison.Ordinal);
+        Assert.Contains("'.tag_name // empty'", verifier, StringComparison.Ordinal);
+        Assert.Contains("'.draft'", verifier, StringComparison.Ordinal);
+        Assert.Contains("'.prerelease'", verifier, StringComparison.Ordinal);
+        Assert.Contains("'.name // empty'", verifier, StringComparison.Ordinal);
+        Assert.Contains("Monitor ${version}", verifier, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void RA_003_BothPathsRequireExactTwoAssetNames()
+    public void RA_003_SharedVerifierRequiresExactTwoAssetNames()
     {
-        var release = Read(ReleaseWorkflow);
-        var promotion = Read(PromotionWorkflow);
+        var verifier = Read(Verifier);
 
-        Assert.Contains("${#names[@]}\" -ne 2", release, StringComparison.Ordinal);
-        Assert.Contains("${names[0]}\" != \"${ZIP_NAME}", release, StringComparison.Ordinal);
-        Assert.Contains("${names[1]}\" != \"${CHECKSUM_NAME}", release, StringComparison.Ordinal);
-
-        Assert.Contains("${#names[@]}\" -eq 2", promotion, StringComparison.Ordinal);
-        Assert.Contains("${names[0]}\" == \"${zip}", promotion, StringComparison.Ordinal);
-        Assert.Contains("${names[1]}\" == \"${sum}", promotion, StringComparison.Ordinal);
+        Assert.Contains("${#names[@]}\" -eq 2", verifier, StringComparison.Ordinal);
+        Assert.Contains("${names[0]}\" == \"$zip_name", verifier, StringComparison.Ordinal);
+        Assert.Contains("${names[1]}\" == \"$checksum_name", verifier, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void RA_004_BothPathsRequireUploadedAssetState()
+    public void RA_004_SharedVerifierRequiresUploadedAssetState()
     {
-        AssertBothContain("'.state'");
-        AssertBothContain("== uploaded");
+        var verifier = Read(Verifier);
+        Assert.Contains("'.state // empty'", verifier, StringComparison.Ordinal);
+        Assert.Contains("== uploaded", verifier, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void RA_005_BothPathsRequireDistinctPositiveAssetIds()
+    public void RA_005_SharedVerifierRequiresDistinctPositiveAssetIds()
     {
-        var release = Read(ReleaseWorkflow);
-        var promotion = Read(PromotionWorkflow);
-
-        Assert.Contains("zip_id", release, StringComparison.Ordinal);
-        Assert.Contains("checksum_id", release, StringComparison.Ordinal);
-        Assert.Contains("${zip_id}\" != \"${checksum_id}", release, StringComparison.Ordinal);
-
-        Assert.Contains("zip_id", promotion, StringComparison.Ordinal);
-        Assert.Contains("sum_id", promotion, StringComparison.Ordinal);
-        Assert.Contains("${zip_id}\" != \"${sum_id}", promotion, StringComparison.Ordinal);
+        var verifier = Read(Verifier);
+        Assert.Contains("asset IDs must be positive integers", verifier, StringComparison.Ordinal);
+        Assert.Contains("ZIP and checksum assets must have distinct IDs", verifier, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void RA_006_BothPathsBindApiSizesToDownloadedFiles()
+    public void RA_006_SharedVerifierBindsApiSizesToDownloadedFiles()
     {
-        AssertBothContain("'.size'");
-        AssertBothContain("stat -c%s");
+        var verifier = Read(Verifier);
+        Assert.Contains("'.size // empty'", verifier, StringComparison.Ordinal);
+        Assert.Contains("stat -c%s", verifier, StringComparison.Ordinal);
+        Assert.Contains("first REST snapshot", verifier, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void RA_007_BothPathsRequireCanonicalSha256ApiDigests()
+    public void RA_007_SharedVerifierRequiresCanonicalSha256ApiDigests()
     {
-        AssertBothContain("'.digest'");
-        AssertBothContain("^sha256:[a-f0-9]{64}$");
+        var verifier = Read(Verifier);
+        Assert.Contains("'.digest // empty'", verifier, StringComparison.Ordinal);
+        Assert.Contains("^sha256:[a-f0-9]{64}$", verifier, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void RA_008_BothPathsBindZipAndChecksumAssetDigestsToBytes()
+    public void RA_008_SharedVerifierBindsZipAndChecksumAssetDigestsToBytes()
     {
-        var release = Read(ReleaseWorkflow);
-        var promotion = Read(PromotionWorkflow);
-
-        Assert.Contains("${zip_digest}\" == \"sha256:${PRODUCT_SHA256}", release, StringComparison.Ordinal);
-        Assert.Contains("existing_checksum_asset_hash", release, StringComparison.Ordinal);
-        Assert.Contains("${checksum_digest}\" != \"sha256:${existing_checksum_asset_hash}", release, StringComparison.Ordinal);
-
-        Assert.Contains("${zip_digest}\" == \"sha256:${PRODUCT_SHA}", promotion, StringComparison.Ordinal);
-        Assert.Contains("sum_hash", promotion, StringComparison.Ordinal);
-        Assert.Contains("${sum_digest}\" == \"sha256:${sum_hash}", promotion, StringComparison.Ordinal);
+        var verifier = Read(Verifier);
+        Assert.Contains("first_zip_digest", verifier, StringComparison.Ordinal);
+        Assert.Contains("first_checksum_digest", verifier, StringComparison.Ordinal);
+        Assert.Contains("sha256sum \"$zip_path\"", verifier, StringComparison.Ordinal);
+        Assert.Contains("sha256sum \"$checksum_path\"", verifier, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void RA_009_BothPathsRequireExactRepositoryTagAssetUrls()
+    public void RA_009_SharedVerifierRequiresExactRepositoryTagAssetUrls()
     {
-        AssertBothContain("'.browser_download_url'");
-        AssertBothContain("https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/");
+        var verifier = Read(Verifier);
+        Assert.Contains("'.browser_download_url // empty'", verifier, StringComparison.Ordinal);
+        Assert.Contains("https://github.com/${repository}/releases/download/${tag}/", verifier, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void RA_010_PreExistingByteLevelVerificationRemainsInBothPaths()
+    public void RA_010_PreExistingByteLevelVerificationRemainsSharedAcrossBothPaths()
     {
-        var release = Read(ReleaseWorkflow);
-        var promotion = Read(PromotionWorkflow);
-
-        Assert.Contains("sha256sum \"${dir}/${ZIP_NAME}\"", release, StringComparison.Ordinal);
-        Assert.Contains("Release checksum asset is non-canonical", release, StringComparison.Ordinal);
-        Assert.Contains("sha256sum \"${dir}/${zip}\"", promotion, StringComparison.Ordinal);
-        Assert.Contains("${PRODUCT_SHA}  ${zip}", promotion, StringComparison.Ordinal);
+        var verifier = Read(Verifier);
+        AssertBothContain("--product-sha256");
+        Assert.Contains("sha256sum \"$zip_path\"", verifier, StringComparison.Ordinal);
+        Assert.Contains("${product_sha256}  ${zip_name}", verifier, StringComparison.Ordinal);
+        Assert.Contains("checksum asset is not the canonical approved product checksum line", verifier, StringComparison.Ordinal);
     }
 
     private static void AssertBothContain(string value)
