@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Xml.Linq;
 using Xunit;
 
 namespace Monitor.Web.Tests;
@@ -9,6 +10,7 @@ public sealed class P05WorkflowSupplyChainTests
     private const string ApprovedDotnetSdk = "8.0.424";
     private const string ApprovedSqlServerImage = "mcr.microsoft.com/mssql/server@sha256:ba4c8329f48fb8f02e1416be6a930ebfd71268caee78aa985f3af4315e457c89";
     private const string ApprovedUbuntuRunner = "ubuntu-24.04";
+    private const string ApprovedNugetSource = "https://api.nuget.org/v3/index.json";
 
     private static readonly IReadOnlyDictionary<string, string> ApprovedPins =
         new Dictionary<string, string>(StringComparer.Ordinal)
@@ -109,6 +111,32 @@ public sealed class P05WorkflowSupplyChainTests
         Assert.Equal(ApprovedDotnetSdk, sdk.GetProperty("version").GetString());
         Assert.Equal("disable", sdk.GetProperty("rollForward").GetString());
         Assert.False(sdk.GetProperty("allowPrerelease").GetBoolean());
+    }
+
+    [Fact]
+    public void RepositoryNugetPolicy_ClearsAmbientSourcesAndMapsAllPackagesToNugetOrg()
+    {
+        var root = FindRepoRoot();
+        var configPath = Path.Combine(root, "nuget.config");
+        Assert.True(File.Exists(configPath), "Repository nuget.config must define restore provenance.");
+
+        var document = XDocument.Load(configPath, LoadOptions.None);
+        var configuration = Assert.IsType<XElement>(document.Root);
+        Assert.Equal("configuration", configuration.Name.LocalName);
+
+        var packageSources = Assert.Single(configuration.Elements("packageSources"));
+        Assert.Single(packageSources.Elements("clear"));
+        var source = Assert.Single(packageSources.Elements("add"));
+        Assert.Equal("nuget.org", source.Attribute("key")?.Value);
+        Assert.Equal(ApprovedNugetSource, source.Attribute("value")?.Value);
+        Assert.Equal("3", source.Attribute("protocolVersion")?.Value);
+
+        var sourceMapping = Assert.Single(configuration.Elements("packageSourceMapping"));
+        Assert.Single(sourceMapping.Elements("clear"));
+        var mappedSource = Assert.Single(sourceMapping.Elements("packageSource"));
+        Assert.Equal("nuget.org", mappedSource.Attribute("key")?.Value);
+        var package = Assert.Single(mappedSource.Elements("package"));
+        Assert.Equal("*", package.Attribute("pattern")?.Value);
     }
 
     [Theory]
