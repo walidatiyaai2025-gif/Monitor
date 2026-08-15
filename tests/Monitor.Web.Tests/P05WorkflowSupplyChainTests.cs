@@ -49,6 +49,13 @@ public sealed class P05WorkflowSupplyChainTests
             ["release.yml"] = 2
         };
 
+    private static readonly string[] LinuxCheckoutWorkflows =
+    {
+        "ci.yml",
+        "promote-existing-candidate.yml",
+        "real-sql-acceptance.yml"
+    };
+
     private static readonly string[] ActiveWorkflows =
     {
         "ci.yml",
@@ -219,6 +226,24 @@ public sealed class P05WorkflowSupplyChainTests
             Assert.DoesNotContain("ubuntu-latest", workflow, StringComparison.Ordinal);
             Assert.Equal(pair.Value, approvedRunner.Matches(workflow).Count);
             Assert.Contains(ApprovedUbuntuRunner, workflow, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void LinuxCheckoutJobs_DoNotPersistRepositoryCredentials()
+    {
+        var root = FindRepoRoot();
+        var workflowsRoot = Path.Combine(root, ".github", "workflows");
+        var disabledPersistence = new Regex(
+            @"(?m)^\s*persist-credentials:\s*false\s*$",
+            RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+        foreach (var workflowName in LinuxCheckoutWorkflows)
+        {
+            var workflow = File.ReadAllText(Path.Combine(workflowsRoot, workflowName));
+            Assert.Contains("actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1", workflow, StringComparison.Ordinal);
+            Assert.DoesNotContain("persist-credentials: true", workflow, StringComparison.Ordinal);
+            Assert.Equal(1, disabledPersistence.Matches(workflow).Count);
         }
     }
 
