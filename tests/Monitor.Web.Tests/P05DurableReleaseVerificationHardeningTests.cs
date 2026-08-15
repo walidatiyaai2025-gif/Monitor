@@ -77,11 +77,13 @@ public sealed class P05DurableReleaseVerificationHardeningTests
     {
         var script = Read("scripts/Test-ExistingCandidatePromotion.ps1");
         var release = Read(".github/workflows/release.yml");
+        var durableVerifier = Read("scripts/Verify-DurableRelease.sh");
 
         Assert.Contains("$expectedChecksumLine = \"$ExpectedProductSha256  $expectedName\"", script, StringComparison.Ordinal);
         Assert.Contains("$checksumLine -cne $expectedChecksumLine", script, StringComparison.Ordinal);
         Assert.Contains("lowercase SHA-256, two spaces, and the exact ZIP filename", script, StringComparison.Ordinal);
         Assert.Contains("^([a-f0-9]{64})\\ \\ ([^[:space:]]+)$", release, StringComparison.Ordinal);
+        Assert.Contains("${product_sha256}  ${zip_name}", durableVerifier, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -111,15 +113,15 @@ public sealed class P05DurableReleaseVerificationHardeningTests
     {
         var taggedRelease = Read(".github/workflows/release.yml");
         var promotion = Read(".github/workflows/promote-existing-candidate.yml");
+        var verifier = Read("scripts/Verify-DurableRelease.sh");
 
-        foreach (var workflow in new[] { taggedRelease, promotion })
-        {
-            Assert.Contains("gh api \"repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}\"", workflow, StringComparison.Ordinal);
-            Assert.Contains("'.tag_name'", workflow, StringComparison.Ordinal);
-            Assert.Contains("'.draft'", workflow, StringComparison.Ordinal);
-            Assert.Contains("'.prerelease'", workflow, StringComparison.Ordinal);
-            Assert.Contains("expected_prerelease=false", workflow, StringComparison.Ordinal);
-        }
+        Assert.Contains("Verify-DurableRelease.sh", taggedRelease, StringComparison.Ordinal);
+        Assert.Contains("Verify-DurableRelease.sh", promotion, StringComparison.Ordinal);
+        Assert.Contains("gh api \"repos/${repository}/releases/tags/${tag}\"", verifier, StringComparison.Ordinal);
+        Assert.Contains("'.tag_name // empty'", verifier, StringComparison.Ordinal);
+        Assert.Contains("'.draft'", verifier, StringComparison.Ordinal);
+        Assert.Contains("'.prerelease'", verifier, StringComparison.Ordinal);
+        Assert.Contains("expected_prerelease=false", verifier, StringComparison.Ordinal);
 
         Assert.Contains("release_flags=(--latest=false)", promotion, StringComparison.Ordinal);
         Assert.Contains("release_flags+=(--prerelease)", promotion, StringComparison.Ordinal);

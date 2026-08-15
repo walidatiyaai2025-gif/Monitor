@@ -109,6 +109,7 @@ public sealed class P05ProductionCandidateTests
     {
         var root = FindRepoRoot();
         var release = File.ReadAllText(Path.Combine(root, ".github", "workflows", "release.yml"));
+        var verifier = File.ReadAllText(Path.Combine(root, "scripts", "Verify-DurableRelease.sh"));
 
         Assert.Contains("publish-tagged-release:", release, StringComparison.Ordinal);
         Assert.Contains("github.event_name == 'push' && github.ref_type == 'tag'", release, StringComparison.Ordinal);
@@ -117,11 +118,13 @@ public sealed class P05ProductionCandidateTests
         Assert.Contains("Download verified production package from this run", release, StringComparison.Ordinal);
         Assert.Contains("Verify downloaded product checksum", release, StringComparison.Ordinal);
         Assert.Contains("sha256sum", release, StringComparison.Ordinal);
-        Assert.Contains("gh api \"repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}\"", release, StringComparison.Ordinal);
-        Assert.Contains("gh release download", release, StringComparison.Ordinal);
+        Assert.Contains("Verify-DurableRelease.sh", release, StringComparison.Ordinal);
         Assert.Contains("gh release create", release, StringComparison.Ordinal);
         Assert.Contains("--verify-tag", release, StringComparison.Ordinal);
-        Assert.Contains("Existing release assets differ from the verified candidate or API digests; refusing mutation.", release, StringComparison.Ordinal);
+        Assert.Contains("releases/assets/${first_zip_id}", verifier, StringComparison.Ordinal);
+        Assert.Contains("release or asset security metadata changed during verification", verifier, StringComparison.Ordinal);
+        Assert.DoesNotContain("gh release download", release, StringComparison.Ordinal);
+        Assert.DoesNotContain("gh release download", verifier, StringComparison.Ordinal);
         Assert.DoesNotContain("--clobber", release, StringComparison.Ordinal);
         Assert.DoesNotContain("gh release upload", release, StringComparison.Ordinal);
     }
