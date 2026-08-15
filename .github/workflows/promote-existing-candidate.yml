@@ -71,21 +71,24 @@ jobs:
           [[ "${SOURCE_SHA}" =~ ^[a-f0-9]{40}$ && "${TESTED_SHA}" =~ ^[a-f0-9]{40}$ ]]
 
           run_json="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}")"
+          [[ "$(jq -r '.status' <<<"${run_json}")" == completed ]]
           [[ "$(jq -r '.conclusion' <<<"${run_json}")" == success ]]
           [[ "$(jq -r '.path' <<<"${run_json}")" == '.github/workflows/production-candidate.yml' ]]
           [[ "$(jq -r '.head_sha' <<<"${run_json}")" == "${SOURCE_SHA}" ]]
 
           name="Monitor-${VERSION}-win-x64"
-          artifacts="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/artifacts?per_page=100")"
-          [[ "$(jq --arg n "${name}" '[.artifacts[] | select(.name == $n)] | length' <<<"${artifacts}")" == 1 ]]
-          item="$(jq --arg n "${name}" '.artifacts[] | select(.name == $n)' <<<"${artifacts}")"
+          item="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}")"
           [[ "$(jq -r '.id' <<<"${item}")" == "${ARTIFACT_ID}" ]]
+          [[ "$(jq -r '.workflow_run.id' <<<"${item}")" == "${RUN_ID}" ]]
+          [[ "$(jq -r '.name' <<<"${item}")" == "${name}" ]]
           [[ "$(jq -r '.expired' <<<"${item}")" == false ]]
+          size_in_bytes="$(jq -r '.size_in_bytes' <<<"${item}")"
+          [[ "${size_in_bytes}" =~ ^[1-9][0-9]*$ ]]
 
       - name: Download exact artifact from selected run
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: Monitor-${{ inputs.candidate_version }}-win-x64
+          artifact-ids: ${{ inputs.source_artifact_id }}
           github-token: ${{ github.token }}
           repository: ${{ github.repository }}
           run-id: ${{ inputs.source_run_id }}
@@ -110,15 +113,27 @@ jobs:
           set -euo pipefail
           zip="Monitor-${VERSION}-win-x64.zip"
           sum="${zip}.sha256"
+          expected_prerelease=false
+          release_flags=(--latest=false)
+          if [[ ! "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            expected_prerelease=true
+            release_flags+=(--prerelease)
+          fi
 
           verify_release() {
             local dir="$1"
+            local release_json
+            release_json="$(gh release view "${RELEASE_TAG}" --json tagName,isDraft,isPrerelease,assets)"
+            [[ "$(jq -r '.tagName' <<<"${release_json}")" == "${RELEASE_TAG}" ]]
+            [[ "$(jq -r '.isDraft' <<<"${release_json}")" == false ]]
+            [[ "$(jq -r '.isPrerelease' <<<"${release_json}")" == "${expected_prerelease}" ]]
+
             rm -rf "${dir}" && mkdir -p "${dir}"
-            mapfile -t names < <(gh release view "${RELEASE_TAG}" --json assets --jq '.assets[].name' | sort)
+            mapfile -t names < <(jq -r '.assets[].name' <<<"${release_json}" | sort)
             [[ "${#names[@]}" -eq 2 && "${names[0]}" == "${zip}" && "${names[1]}" == "${sum}" ]]
             gh release download "${RELEASE_TAG}" --pattern "${zip}" --pattern "${sum}" --dir "${dir}"
             [[ "$(sha256sum "${dir}/${zip}" | awk '{print $1}')" == "${PRODUCT_SHA}" ]]
-            line="$(tr -d '\r\n' < "${dir}/${sum}")"
+            line="$(cat "${dir}/${sum}")"
             [[ "${line}" == "${PRODUCT_SHA}  ${zip}" ]]
           }
 
@@ -129,9 +144,9 @@ jobs:
               echo 'Exact durable release already exists; no mutation performed.'
               exit 0
             fi
-            gh release create "${RELEASE_TAG}" "artifacts/${zip}" "artifacts/${sum}" --verify-tag --prerelease --latest=false --title "Monitor ${VERSION}" --notes "Promoted from existing verified candidate run ${RUN_ID}; no rebuild or repackaging. External IIS acceptance remains governed by #116."
+            gh release create "${RELEASE_TAG}" "artifacts/${zip}" "artifacts/${sum}" --verify-tag "${release_flags[@]}" --title "Monitor ${VERSION}" --notes "Promoted from existing verified candidate run ${RUN_ID}; no rebuild or repackaging. External IIS acceptance remains governed by #116."
           else
-            gh release create "${RELEASE_TAG}" "artifacts/${zip}" "artifacts/${sum}" --target "${TESTED_SHA}" --prerelease --latest=false --title "Monitor ${VERSION}" --notes "Promoted from existing verified candidate run ${RUN_ID}; no rebuild or repackaging. External IIS acceptance remains governed by #116."
+            gh release create "${RELEASE_TAG}" "artifacts/${zip}" "artifacts/${sum}" --target "${TESTED_SHA}" "${release_flags[@]}" --title "Monitor ${VERSION}" --notes "Promoted from existing verified candidate run ${RUN_ID}; no rebuild or repackaging. External IIS acceptance remains governed by #116."
           fi
 
           [[ "$(gh api "repos/${GITHUB_REPOSITORY}/commits/${RELEASE_TAG}" --jq '.sha')" == "${TESTED_SHA}" ]]
