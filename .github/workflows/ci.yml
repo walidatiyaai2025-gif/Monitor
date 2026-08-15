@@ -27,17 +27,25 @@ jobs:
         run: dotnet build Monitor.sln --configuration Release --no-restore --warnaserror
       - name: Test
         run: dotnet test Monitor.sln --configuration Release --no-build
-      - name: Parse promotion PowerShell validator
+      - name: Parse promotion PowerShell safety tooling
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $tokens = $null
-          $errors = $null
-          [System.Management.Automation.Language.Parser]::ParseFile(
-            (Resolve-Path 'scripts/Test-ExistingCandidatePromotion.ps1').Path,
-            [ref]$tokens,
-            [ref]$errors) | Out-Null
-          if ($errors.Count -gt 0) {
-            $messages = $errors | ForEach-Object { "scripts/Test-ExistingCandidatePromotion.ps1:$($_.Extent.StartLineNumber): $($_.Message)" }
-            throw ($messages -join [Environment]::NewLine)
+          foreach ($path in @(
+            'scripts/Test-ExistingCandidatePromotion.ps1',
+            'scripts/Test-ExistingCandidatePromotionSafety.ps1'
+          )) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path $path).Path,
+              [ref]$tokens,
+              [ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) {
+              $messages = $errors | ForEach-Object { "${path}:$($_.Extent.StartLineNumber): $($_.Message)" }
+              throw ($messages -join [Environment]::NewLine)
+            }
           }
+      - name: Exercise promotion ZIP safety runtime
+        shell: pwsh
+        run: ./scripts/Test-ExistingCandidatePromotionSafety.ps1
