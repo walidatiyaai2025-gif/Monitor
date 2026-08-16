@@ -3,6 +3,7 @@
 @{
     ViewData["Title"] = "Observability";
     var ready = Model.Readiness.Status == ApplicationReadinessStatus.Ready;
+    var sharedReady = string.Equals(Model.Readiness.SharedStateStatus.ToString(), "Ready", StringComparison.OrdinalIgnoreCase);
 }
 
 <partial name="_PortalPageHeader" model="@(new PortalPageHeaderViewModel("Observability", "Bounded aggregate application telemetry with explicit source and readiness context. SQL text, credentials, endpoints, usernames, IP addresses and request bodies are outside this surface.", "PRODUCTION OBSERVABILITY", "Readiness", Url.Action("Readiness", "EnterpriseHelp")))" />
@@ -20,7 +21,7 @@
 
 <section class="health-command-summary" aria-label="Application observability summary">
     <article class="health-command-card hero state-@(ready ? "healthy" : "critical")"><div><small>READINESS</small><strong>@Model.Readiness.Status</strong><span>@Model.Readiness.Message</span></div></article>
-    <article class="health-command-card state-@(Model.Readiness.SharedStateStatus == SharedStateReadinessStatus.Ready ? "healthy" : "warning")"><small>SHARED STATE</small><strong>@Model.Readiness.SharedStateStatus</strong><span>Control-plane dependency only</span></article>
+    <article class="health-command-card state-@(sharedReady ? "healthy" : "warning")"><small>SHARED STATE</small><strong>@Model.Readiness.SharedStateStatus</strong><span>Control-plane dependency only</span></article>
     <article class="health-command-card state-@(Model.Telemetry.CollectorFailed > 0 ? "warning" : "healthy")"><small>COLLECTOR SUCCESS</small><strong>@Model.Telemetry.CollectorSucceeded / @Model.Telemetry.CollectorAttempts</strong><span>@Model.Telemetry.CollectorFailed failure(s)</span></article>
     <article class="health-command-card state-@(Model.Telemetry.ActiveIncidents > 0 ? "warning" : "healthy")"><small>ACTIVE INCIDENTS</small><strong>@Model.Telemetry.ActiveIncidents</strong><span>@Model.Telemetry.IncidentObservations observations</span></article>
 </section>
