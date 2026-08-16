@@ -1,6 +1,91 @@
 @model SnapshotTrendViewModel
-@{ ViewData["Title"] = "Snapshot history"; }
-<section class="page-heading"><div><span class="eyebrow">READ-ONLY HISTORY · @Model.Window</span><h1>Snapshot trends</h1><p>Bounded aggregate history; missing metrics remain empty rather than zero.</p></div></section>
-<section class="glass-panel table-panel"><div class="incident-table"><div class="table-head"><span>Collected</span><span>Databases</span><span>Memory</span><span>Blocked</span><span>Runnable</span><span>Freshness</span></div>
-@foreach (var point in Model.Points) { <div class="table-row"><span>@point.CollectedAtUtc.ToString("u")</span><span>@point.DatabaseOnline / @point.DatabaseTotal</span><span>@(point.MemoryPercent?.ToString() ?? "—")</span><span>@(point.BlockedRequests?.ToString() ?? "—")</span><span>@(point.RunnableTasks?.ToString() ?? "—")</span><span>@point.Freshness</span></div> }
-</div></section>
+@{
+    ViewData["Title"] = "Snapshot history";
+    var offset = int.TryParse(Context.Request.Query["offset"], out var parsedOffset) ? Math.Max(0, parsedOffset) : 0;
+    var limit = int.TryParse(Context.Request.Query["limit"], out var parsedLimit) ? Math.Clamp(parsedLimit, 1, 500) : 100;
+    var latest = Model.Points.OrderByDescending(point => point.CollectedAtUtc).FirstOrDefault();
+    var memoryPoints = Model.Points.Where(point => point.MemoryPercent.HasValue).Select(point => point.MemoryPercent!.Value).ToArray();
+    var blockedPoints = Model.Points.Where(point => point.BlockedRequests.HasValue).Select(point => point.BlockedRequests!.Value).ToArray();
+    var runnablePoints = Model.Points.Where(point => point.RunnableTasks.HasValue).Select(point => point.RunnableTasks!.Value).ToArray();
+    var averageMemory = memoryPoints.Length == 0 ? (int?)null : (int)Math.Round(memoryPoints.Average());
+    var peakBlocked = blockedPoints.Length == 0 ? (int?)null : blockedPoints.Max();
+    var peakRunnable = runnablePoints.Length == 0 ? (int?)null : runnablePoints.Max();
+    var hasPrevious = offset > 0;
+    var hasNext = Model.Points.Count >= limit;
+    var windows = new[] { "1h", "6h", "24h", "7d" };
+}
+
+<partial name="_PortalPageHeader" model="@(new PortalPageHeaderViewModel("Snapshot trends", $"Bounded aggregate history for server {Model.RegistrationId:D}. Missing metrics remain explicit rather than becoming zero.", $"READ-ONLY HISTORY · {Model.Window}", "Back to server", Url.Action("ServerDetails", "Operations", new { id = Model.RegistrationId.ToString("D") })))" />
+
+<section class="glass-panel history-controls" aria-labelledby="history-window-title">
+    <div class="panel-heading"><div><span class="eyebrow">BOUNDED WINDOW</span><h3 id="history-window-title">History window</h3></div><span class="snapshot-note">Changing window reads stored aggregates only</span></div>
+    <form method="get" class="history-window-form">
+        <label><span>Window</span><select name="window">
+            @foreach (var window in windows)
+            {
+                <option value="@window" selected="@(string.Equals(window, Model.Window, StringComparison.OrdinalIgnoreCase))">@window</option>
+            }
+            @if (!windows.Contains(Model.Window, StringComparer.OrdinalIgnoreCase))
+            {
+                <option value="@Model.Window" selected>@Model.Window</option>
+            }
+        </select></label>
+        <label><span>Rows per page</span><select name="limit">
+            @foreach (var size in new[] { 25, 50, 100, 200 })
+            {
+                <option value="@size" selected="@(size == limit)">@size</option>
+            }
+        </select></label>
+        <input type="hidden" name="offset" value="0" />
+        <button class="primary-button" type="submit">Apply</button>
+    </form>
+</section>
+
+@if (Model.Points.Count == 0)
+{
+    <partial name="_PortalState" model="@(new PortalStateViewModel("No stored history in this window", "No bounded snapshot-history points were returned. Missing history is not displayed as zero activity.", "neutral", "Back to server", Url.Action("ServerDetails", "Operations", new { id = Model.RegistrationId.ToString("D") })))" />
+}
+else
+{
+    <section class="health-command-summary" aria-label="History summary">
+        <article class="health-command-card hero state-healthy"><div><small>LATEST DATABASE STATE</small><strong>@(latest is null ? "Not collected" : $"{latest.DatabaseOnline} / {latest.DatabaseTotal}")</strong><span>@(latest is null ? "No point" : latest.CollectedAtUtc.ToString("u"))</span></div></article>
+        <article class="health-command-card state-@(averageMemory.HasValue ? "healthy" : "offline")"><small>AVG MEMORY</small><strong>@(averageMemory.HasValue ? $"{averageMemory.Value}%" : "Not collected")</strong><span>Only points containing memory evidence</span></article>
+        <article class="health-command-card state-@(peakBlocked.GetValueOrDefault() > 0 ? "warning" : peakBlocked.HasValue ? "healthy" : "offline")"><small>PEAK BLOCKED</small><strong>@(peakBlocked?.ToString() ?? "Not collected")</strong><span>Maximum bounded blocked-request count</span></article>
+        <article class="health-command-card state-@(peakRunnable.GetValueOrDefault() > 4 ? "warning" : peakRunnable.HasValue ? "healthy" : "offline")"><small>PEAK RUNNABLE</small><strong>@(peakRunnable?.ToString() ?? "Not collected")</strong><span>Maximum runnable-task evidence</span></article>
+        <article class="health-command-card state-healthy"><small>POINTS ON PAGE</small><strong>@Model.Points.Count</strong><span>Offset @offset · window @Model.Window</span></article>
+    </section>
+
+    <section class="glass-panel table-panel health-surface-panel">
+        <div class="panel-heading"><div><span class="eyebrow">STORED SNAPSHOT POINTS</span><h3>Evidence timeline</h3></div><span class="snapshot-note">Aggregate history only</span></div>
+        <div class="responsive-table" role="region" aria-label="Snapshot history" tabindex="0">
+            <div class="table-head history-detail-grid" role="row"><span>Collected</span><span>Databases</span><span>Memory</span><span>Blocked</span><span>Runnable</span><span>Freshness</span></div>
+            @foreach (var point in Model.Points.OrderByDescending(item => item.CollectedAtUtc))
+            {
+                <div class="table-row history-detail-grid" role="row">
+                    <time datetime="@point.CollectedAtUtc.ToString("O")">@point.CollectedAtUtc.ToString("u")</time>
+                    <span>@point.DatabaseOnline / @point.DatabaseTotal</span>
+                    <span>@(point.MemoryPercent.HasValue ? $"{point.MemoryPercent.Value}%" : "Not collected")</span>
+                    <span class="@(point.BlockedRequests.GetValueOrDefault() > 0 ? "state-warning" : string.Empty)">@(point.BlockedRequests?.ToString() ?? "Not collected")</span>
+                    <span class="@(point.RunnableTasks.GetValueOrDefault() > 4 ? "state-warning" : string.Empty)">@(point.RunnableTasks?.ToString() ?? "Not collected")</span>
+                    <span class="history-freshness">@point.Freshness</span>
+                </div>
+            }
+        </div>
+    </section>
+}
+
+<nav class="bounded-pager" aria-label="History pagination">
+    @if (hasPrevious)
+    {
+        <a class="secondary-button" asp-action="History" asp-route-registrationId="@Model.RegistrationId" asp-route-window="@Model.Window" asp-route-offset="@Math.Max(0, offset - limit)" asp-route-limit="@limit">Previous page</a>
+    }
+    else
+    {
+        <span></span>
+    }
+    <span>Stored history · @Model.Window · offset @offset</span>
+    @if (hasNext)
+    {
+        <a class="secondary-button" asp-action="History" asp-route-registrationId="@Model.RegistrationId" asp-route-window="@Model.Window" asp-route-offset="@(offset + limit)" asp-route-limit="@limit">Next page</a>
+    }
+</nav>
