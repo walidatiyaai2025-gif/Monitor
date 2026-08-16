@@ -108,6 +108,8 @@ The initializer requires a fresh absolute Windows session root and refuses reuse
 
 A successful session contains the copied candidate/checksum, `evidence/p0-5-evidence-pack.json`, bounded `evidence/proof/`, `session-manifest.json`, `session-manifest.sha256` and `OPERATOR-NEXT-STEPS.txt`.
 
+`New-ProductionAcceptanceEvidencePack.ps1` remains the low-level canonical evidence-pack schema/generator used by the session initializer. The generator creates the exact fail-closed 15-gate structure and never marks a real environment gate PASS.
+
 Session creation proves **0/15** external gates. Every evidence-pack gate remains false; final acceptance metadata is absent. The initializer does not deploy/recycle IIS, execute SQL, record a gate PASS, call GitHub or close #116/#111.
 
 Verify `session-manifest.sha256` before the first production operation. Do not mix candidate bytes or evidence from another workspace.
@@ -153,7 +155,7 @@ Immediately after session creation verify:
 
 ## Record each external gate explicitly
 
-For each real environment gate, save one bounded text/JSON evidence file beneath the session `evidence/proof` root. Do not use screenshots/binary blobs as authoritative machine-verifiable evidence. After the operation is actually performed and reviewed, record exactly one gate with explicit acknowledgement:
+For each real environment gate, save one bounded text/JSON evidence file beneath the session `evidence/proof` root. Do not use screenshots/binary blobs as authoritative machine-verifiable evidence. After the operation is actually performed and reviewed, record **one gate at a time** with explicit acknowledgement:
 
 ```powershell
 .\_operations\scripts\Set-ProductionAcceptanceGate.ps1 `
