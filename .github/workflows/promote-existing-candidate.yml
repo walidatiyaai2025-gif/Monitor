@@ -61,6 +61,13 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Validate durable-release verifier toolchain capabilities
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/Verify-DurableReleaseToolchain.sh
+          bash scripts/Verify-DurableReleaseToolchain.sh
+
       - name: Validate source run and artifact metadata
         shell: bash
         env:
