@@ -9,7 +9,7 @@ This is the canonical execution plan. Update it in the same PR as material imple
 **Real SQL evidence:** `docs/REAL_SQL_ACCEPTANCE.md`  
 **Production acceptance guide:** `docs/PRODUCTION_SINGLENODE_ACCEPTANCE.md`  
 **Active release gate:** Issue #116 / P0.5 First Production SingleNode  
-**Repository cutover/evidence/session/finalization/release/durable-tag/workflow-supply-chain/native-Node-24 tooling:** COMPLETE through Issue #173 / PR #174.  
+**Repository cutover/evidence/session/finalization/release/durable-tag/workflow-supply-chain/native-Node-24/durable-release tooling:** COMPLETE through PR #219.  
 **Live selected candidate/evidence ledger:** Issue #116 — RC.61  
 **Project rule:** until P0.5 is accepted on the real environment, production-slice blockers outrank unrelated feature expansion.
 
@@ -27,7 +27,7 @@ Production-visible values must come from collected evidence. Missing, stale, per
 | 2 | P0.2 | #113 | First real snapshot + truthful read-model mapping | COMPLETE — PR #121 / final CI `31478470867` |
 | 3 | P0.3 | #114 | Server Details v0.1 trusted evidence surface | COMPLETE — PR #122 / final CI `31479311552` |
 | 4 | P0.4 | #115 | Real SQL end-to-end acceptance under success/failure cases | COMPLETE — PR #124; normal `31481874425`; Real SQL `31481874501` |
-| 5 | P0.5 | #116 | First trusted-HTTPS IIS SingleNode production release | **ACTIVE — repository workflow complete through durable candidate-promotion implementation; RC.61 publication/manual external acceptance pending** |
+| 5 | P0.5 | #116 | First trusted-HTTPS IIS SingleNode production release | **ACTIVE — repository workflow complete through durable candidate-promotion and hardening; RC.61 publication/manual external acceptance pending** |
 
 ### Resolved production gates
 
@@ -53,6 +53,7 @@ The repository contains the complete operator cutover, evidence and release work
 - PR #163 / Issue #162 — exact existing-candidate durable-promotion implementation **COMPLETE** and merged `43d8a193205495f155bb8866532a4e99ed93b655`; handoff PR #164 merged `930c057f431a36ab2b603d3dc39e70e8c31c744e`. Actual RC.61 publication remains pending manual dispatch and independent asset/hash verification on #162.
 - PR #171 / Issue #168 — GitHub Actions supply-chain hardening **COMPLETE**, merged `c9084dd32b12a9a078f953f85f39b253793e2343`; mutable external Action refs removed in favor of approved exact SHAs and obsolete write-capable completed workflow removed.
 - PR #174 / Issue #173 — native Node 24 Action migration **COMPLETE**, merged `bc7cb2d275f423fb381b83d92c76f6516e404fe9`; CI `31881744429`, Real SQL `31881744413` and Windows `31881744437` Green. RC.87 is implementation evidence only and does not supersede selected RC.61.
+- PRs #177–#219 — additional repository-only hardening **COMPLETE**: reproducible SDK and exact SQL image, pinned Linux/Windows runners, NuGet source and direct-package guards, checkout/token scope, write-capable workflow allowlists, release-tag mutation serialization, main-ref promotion preflight, exact-two assets, metadata/digest/provenance/TOCTOU/workspace/directory-atomic durable verification, independent read-only verification and toolchain capability preflight. PR #219 is the latest merged durable-release hardening batch. None dispatches promotion, changes RC.61 selection or satisfies external IIS acceptance.
 
 ### Selected repository candidate evidence — RC.61
 
@@ -146,7 +147,7 @@ A real version tag remains recoverable after GitHub Actions artifact retention e
 | P0-046 | Run health smoke on deployed HTTPS endpoint | CI HTTPS VERIFIED; acceptance tooling READY; **IIS endpoint pending external** |
 | P0-047 | Prove target remains read-only/least-privilege from deployed application identity | P0.4 prerequisite VERIFIED; **external deployment evidence pending** |
 | P0-048 | Create/validate backup and rehearse rollback/recovery | code/unit/tooling VERIFIED; **production rehearsal pending external** |
-| P0-049 | Versioned artifact/checksum + deterministic session/evidence/finalization/release workflow | **COMPLETE — repository/CI; RC.61 selected; durable tagged GitHub Release tooling and exact-candidate promotion implementation verified; actual RC.61 publication pending manual #162** |
+| P0-049 | Versioned artifact/checksum + deterministic session/evidence/finalization/release workflow | **COMPLETE — repository/CI; RC.61 selected; durable tagged GitHub Release tooling and exact-candidate promotion implementation/hardening verified through PR #219; actual RC.61 publication pending manual #162** |
 | P0-050 | Final real-environment 15/15 acceptance and #111 closure | **PENDING EXTERNAL** |
 
 ### Immediate next actions
@@ -162,12 +163,12 @@ A real version tag remains recoverable after GitHub Actions artifact retention e
 9. Record each real gate with `Set-ProductionAcceptanceGate.ps1` and SHA-bound non-secret evidence from the same session.
 10. After real 15/15, run `Complete-ProductionAcceptance.ps1` with the approved operator identity and explicit final acknowledgement; human-review the real closure evidence. Only then may #116 close; #111 closes only after #116.
 
-## BATCH-700 — Full visible portal/UI completion
+## BATCH-700 — Full visible portal/UI completion — COMPLETE
 
-**Parent:** Issue #220  
-**Children:** #221–#225  
+**Parent:** Issue #220 — CLOSED / COMPLETED  
+**Children:** #221–#225 — CLOSED / COMPLETED  
 **Task range:** UI700-001..050  
-**Repository state:** **50/50 IMPLEMENTED; PR #240 is the final exact-head CI/merge gate.**
+**Repository state:** **50/50 COMPLETE and merged to `main`.**
 
 BATCH-700 was added after a current-main UI audit showed that backend/CI completion did not mean every visible operator route was product-complete. The batch deliberately changes presentation and control-plane workflows without changing monitored-SQL collection semantics.
 
@@ -177,7 +178,7 @@ Completed sequence:
 2. **#222 / PR #237 — Health:** dedicated Database, Backup, SQL Agent, Storage, Blocking and Performance pages, consistent source states and server drill-down. Merged `308a2f31a42500ce7354b1af2c2369d59be57455`; exact-head CI/Windows Green.
 3. **#223 / PR #238 — Audit/History:** bounded filters/paging, semantic outcomes, history window/page controls, evidence-only summaries and missing-evidence states. Merged `3864b4f8acc14d6e0bd259bfb1ab52d9fec07be1`; synchronized exact-head CI/Windows Green.
 4. **#224 / PR #239 — Recommendations/Reports:** bounded recommendation filters, ordered risk guidance, evidence links, report format/version/access metadata, Administrator diagnostics separation and contextual history export. Merged `cab4b9492eb65a6ec7340add016dd12bb99eb13f`; synchronized exact-head CI/Windows Green.
-5. **#225 / PR #240 — Enterprise/Admin/final:** actionable Readiness, task-oriented Help, Governance dry-run/apply/receipt workflow, Observability source/readiness hierarchy, grouped Settings, reinforced Connection Lab states, Fleet drill-down, role regression, explicit 390px/reduced-motion/focus contracts and CI visible-route smoke. Pre-documentation synchronized implementation head `287dcab3a63a5ba5e1f042a6d10917e4748dc415` passed push CI #1628. Final merge is prohibited unless the exact documentation head is Green on all applicable Actions.
+5. **#225 / PR #240 — Enterprise/Admin/final:** actionable Readiness, task-oriented Help, Governance dry-run/apply/receipt workflow, Observability source/readiness hierarchy, grouped Settings, reinforced Connection Lab states, Fleet drill-down, role regression, explicit 390px/reduced-motion/focus contracts and CI visible-route smoke. PR #240 squash-merged as `fd33e79c6d19d7f9852417b9c35a11f91f21714c`. Exact final head `0834db6b5d518fe5c52eec9b47c03e467929aa89` passed `ci` #1637, `real-sql-acceptance` #91 and `production-candidate` #142 before merge.
 
 BATCH-700 has no browser/Playwright screenshot harness, so responsive/visual acceptance is represented honestly by source contracts, route/view smoke and the existing build/test/Windows gates rather than by a claimed browser screenshot run.
 
@@ -205,7 +206,7 @@ BATCH-700 does **not** change production priority or acceptance truth: monitored
 - `docs/BATCH_400.md` — B400-001..110 COMPLETE.
 - BATCH-500 — B500-001..100 COMPLETE.
 - BATCH-600 — B600-001..100 COMPLETE.
-- `docs/BATCH_700.md` — UI700-001..050 IMPLEMENTED; final PR #240 exact-head CI/merge gate remains fail-closed before parent closure.
+- `docs/BATCH_700.md` — UI700-001..050 COMPLETE; PR #240 squash-merged as `fd33e79c6d19d7f9852417b9c35a11f91f21714c` after exact final head `0834db6b5d518fe5c52eec9b47c03e467929aa89` passed CI #1637, Real SQL #91 and production-candidate #142.
 
 The BATCH-200 reconciliation selectively restored retention governance, enterprise security hardening and bounded scale primitives plus mapped B200-051..090 regression coverage and an additional audit-pagination regression on RC.61-era current main. Legacy issues #87/#91/#93 are closed completed, while stale PRs #88/#92/#94/#104 are closed unmerged as superseded. This was baseline correction rather than feature expansion or new task accounting; it preserves `IServerTargetLifecycleService`, BATCH-300 and all P0 production/release boundaries and does not change #116 or selected RC.61.
 
