@@ -65,9 +65,6 @@ function Assert-NoSecretMaterial {
         return
     }
 
-    # ConvertFrom-Json represents JSON booleans/numbers as CLR value types.
-    # They are terminal JSON values; traversing their adapted PSObject properties can recurse into
-    # framework metadata rather than the JSON document itself.
     if ($Node -is [ValueType]) { return }
 
     if ($Node -is [System.Collections.IDictionary]) {
@@ -262,6 +259,7 @@ $summary = [ordered]@{
 if ($null -ne $sessionBinding) {
     $summary['sessionManifestSha256'] = $sessionBinding.SessionManifestSha256
     $summary['selectedProductSha256'] = $sessionBinding.SelectedProductSha256
+    $summary['operatorToolingCommit'] = $sessionBinding.OperatorToolingCommit
 }
 
 if (-not [string]::IsNullOrWhiteSpace($ClosureSummaryPath)) {
