@@ -1,0 +1,45 @@
+@model HealthModulePageViewModel
+@{
+    ViewData["Title"] = Model.Title;
+    var observed = Model.Servers.Where(server => server.Jobs is not null).ToArray();
+    var totalJobs = observed.Sum(server => server.Jobs!.TotalJobs);
+    var enabledJobs = observed.Sum(server => server.Jobs!.EnabledJobs);
+    var failedJobs = observed.Sum(server => server.Jobs!.FailedLastRun);
+    var unavailable = Model.Servers.Count(server => server.Jobs is null || server.Source == ServerDataSource.RegisteredUnavailable);
+    var canManage = User.IsInRole(Monitor.Web.Services.MonitorRoles.Administrator);
+}
+
+<partial name="_PortalPageHeader" model="@(new PortalPageHeaderViewModel(Model.Title, Model.Description + " Job commands, step text and schedules are not displayed here.", "CACHED SQL AGENT OUTCOMES", "View servers", Url.Action("Servers", "Operations")))" />
+
+@if (Model.Servers.Count == 0)
+{
+    <partial name="_PortalState" model="@(new PortalStateViewModel("No SQL Agent snapshots", "Collect a server snapshot before interpreting SQL Agent outcomes.", "warning", canManage ? "Manage connections" : "View servers", canManage ? Url.Action("Index", "ConnectionLab") : Url.Action("Servers", "Operations")))" />
+}
+else
+{
+    <section class="health-command-summary" aria-label="SQL Agent health summary">
+        <article class="health-command-card hero state-@(failedJobs > 0 ? "critical" : unavailable > 0 ? "warning" : "healthy")"><div><small>SQL AGENT ESTATE</small><strong>@totalJobs jobs</strong><span>@enabledJobs enabled · @failedJobs failed last run</span></div></article>
+        <article class="health-command-card state-healthy"><small>ENABLED</small><strong>@enabledJobs</strong><span>Enabled jobs in collected snapshots</span></article>
+        <article class="health-command-card state-@(failedJobs > 0 ? "critical" : "healthy")"><small>FAILED LAST RUN</small><strong>@failedJobs</strong><span>Aggregate failure evidence only</span></article>
+        <article class="health-command-card state-@(unavailable > 0 ? "offline" : "healthy")"><small>EVIDENCE UNAVAILABLE</small><strong>@unavailable</strong><span>Servers without SQL Agent evidence</span></article>
+    </section>
+
+    <section class="glass-panel table-panel health-surface-panel">
+        <div class="panel-heading"><div><span class="eyebrow">SQL AGENT BY SERVER</span><h3>Latest aggregate job outcomes</h3></div><span class="snapshot-note">No commands or step text collected</span></div>
+        <div class="responsive-table" role="region" aria-label="SQL Agent health by server" tabindex="0">
+            <div class="table-head health-detail-grid health-detail-grid-six" role="row"><span>Server</span><span>Source</span><span>Total jobs</span><span>Enabled</span><span>Failed last run</span><span>Details</span></div>
+            @foreach (var server in Model.Servers)
+            {
+                var jobs = server.Jobs;
+                <div class="table-row health-detail-grid health-detail-grid-six" role="row">
+                    <strong>@server.Name</strong>
+                    <partial name="_HealthSourceBadge" model="server" />
+                    <span>@(jobs is null ? "Not collected" : jobs.TotalJobs)</span>
+                    <span>@(jobs is null ? "Not collected" : jobs.EnabledJobs)</span>
+                    <span class="@(jobs?.FailedLastRun > 0 ? "state-critical" : string.Empty)">@(jobs is null ? "Not collected" : jobs.FailedLastRun)</span>
+                    <a class="secondary-button compact-button" asp-controller="Operations" asp-action="ServerDetails" asp-route-id="@server.Id">Server</a>
+                </div>
+            }
+        </div>
+    </section>
+}
