@@ -19,15 +19,32 @@ public sealed class P05ProductionAcceptanceSessionTests
     }
 
     [Fact]
-    public void Initializer_BindsExactCandidateChecksumAndReadableZipBeforeSessionCreation()
+    public void Initializer_BindsExactCandidateChecksumSelectedHashAndReadableZipBeforeSessionCreation()
     {
         var text = Read("scripts/New-ProductionAcceptanceSession.ps1");
         Assert.Contains("Monitor-$CandidateVersion-win-x64.zip", text, StringComparison.Ordinal);
         Assert.Contains("Candidate checksum file name must be exactly", text, StringComparison.Ordinal);
+        Assert.Contains("ExpectedProductSha256", text, StringComparison.Ordinal);
+        Assert.Contains("ValidatePattern('^[a-fA-F0-9]{64}$')", text, StringComparison.Ordinal);
+        Assert.Contains("$selectedProductHash = $ExpectedProductSha256.ToLowerInvariant()", text, StringComparison.Ordinal);
+        Assert.Contains("Candidate checksum SHA-256 does not match the selected product SHA-256", text, StringComparison.Ordinal);
         Assert.Contains("Get-FileHash -LiteralPath $ArtifactPath -Algorithm SHA256", text, StringComparison.Ordinal);
-        Assert.Contains("Candidate artifact SHA-256 does not match", text, StringComparison.Ordinal);
+        Assert.Contains("Candidate artifact SHA-256 does not match the selected checksum file", text, StringComparison.Ordinal);
+        Assert.Contains("Candidate artifact SHA-256 does not match the selected product SHA-256", text, StringComparison.Ordinal);
         Assert.Contains("[System.IO.Compression.ZipFile]::OpenRead", text, StringComparison.Ordinal);
         Assert.Contains("Candidate ZIP must contain at least one entry", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Initializer_RechecksSelectedHashAfterCopyAndBindsManifestAndEvidencePack()
+    {
+        var text = Read("scripts/New-ProductionAcceptanceSession.ps1");
+        Assert.Contains("Copied candidate artifact SHA-256 does not match the selected product SHA-256", text, StringComparison.Ordinal);
+        Assert.Contains("Copied checksum no longer matches the selected product SHA-256", text, StringComparison.Ordinal);
+        Assert.Contains("-ArtifactSha256 $selectedProductHash", text, StringComparison.Ordinal);
+        Assert.Contains("artifactSha256 = $selectedProductHash", text, StringComparison.Ordinal);
+        Assert.Contains("selectedProductSha256 = $selectedProductHash", text, StringComparison.Ordinal);
+        Assert.Contains("SelectedProductSha256 = $selectedProductHash", text, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -71,7 +88,7 @@ public sealed class P05ProductionAcceptanceSessionTests
     }
 
     [Fact]
-    public void WindowsCandidate_ParsesExecutesAndBundlesSessionInitializerWithNegativeCases()
+    public void WindowsCandidate_ParsesExecutesAndBundlesSessionInitializerWithSelectedHashNegativeCases()
     {
         var workflow = Read(".github/workflows/production-candidate.yml");
         var runtime = Read("scripts/Test-ProductionAcceptanceSession.ps1");
@@ -79,18 +96,22 @@ public sealed class P05ProductionAcceptanceSessionTests
         Assert.Contains("scripts/Test-ProductionAcceptanceSession.ps1", workflow, StringComparison.Ordinal);
         Assert.Contains("Exercise immutable production acceptance session initializer", workflow, StringComparison.Ordinal);
         Assert.Contains("Copy-Item scripts/New-ProductionAcceptanceSession.ps1", workflow, StringComparison.Ordinal);
+        Assert.Contains("ExpectedProductSha256 = $hash", runtime, StringComparison.Ordinal);
         Assert.Contains("reused session root unexpectedly passed", runtime, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("tampered checksum unexpectedly passed", runtime, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Substituted ZIP and checksum pair unexpectedly passed selected-hash binding", runtime, StringComparison.Ordinal);
         Assert.Contains("non-zip artifact unexpectedly passed", runtime, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("secret-like session metadata unexpectedly passed", runtime, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("traversal-bearing absolute session root unexpectedly passed", runtime, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
-    public void Runbook_StartsWithCandidateBoundSessionAndKeepsExternalAcceptanceSeparate()
+    public void Runbook_StartsWithSelectedHashBoundCandidateSessionAndKeepsExternalAcceptanceSeparate()
     {
         var text = Read("docs/PRODUCTION_SINGLENODE_ACCEPTANCE.md");
         Assert.Contains("New-ProductionAcceptanceSession.ps1", text, StringComparison.Ordinal);
+        Assert.Contains("-ExpectedProductSha256", text, StringComparison.Ordinal);
+        Assert.Contains("d0a71f8a5611621ee388a1109dedc76e1a6e70357404cb62c9c7aa188f49c3d5", text, StringComparison.Ordinal);
         Assert.Contains("PreparedFailClosed", text, StringComparison.Ordinal);
         Assert.Contains("0/15", text, StringComparison.Ordinal);
         Assert.Contains("#116", text, StringComparison.Ordinal);
