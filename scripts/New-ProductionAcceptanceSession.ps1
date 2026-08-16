@@ -146,9 +146,27 @@ function Assert-ReadableZip {
     }
 }
 
+$requiredOperatorToolingFiles = @(
+    'New-ProductionAcceptanceSession.ps1',
+    'New-ProductionAcceptanceEvidencePack.ps1',
+    'Test-ProductionAcceptanceSessionBinding.ps1',
+    'Set-ProductionAcceptanceGate.ps1',
+    'Complete-ProductionAcceptance.ps1',
+    'Test-ProductionAcceptanceEvidence.ps1'
+)
+
 $resolvedSessionRoot = Assert-SafeSessionTarget -Value $SessionRoot
 $selectedProductHash = $ExpectedProductSha256.ToLowerInvariant()
 $normalizedToolingCommit = $OperatorToolingCommit.ToLowerInvariant()
+
+$operatorToolingFiles = [ordered]@{}
+foreach ($toolName in $requiredOperatorToolingFiles) {
+    $toolPath = Join-Path $PSScriptRoot $toolName
+    if (-not (Test-Path -LiteralPath $toolPath -PathType Leaf)) {
+        throw "Required acceptance-control sidecar file was not found beside the initializer: $toolName"
+    }
+    $operatorToolingFiles[$toolName] = (Get-FileHash -LiteralPath $toolPath -Algorithm SHA256).Hash.ToLowerInvariant()
+}
 
 if (-not (Test-Path -LiteralPath $ArtifactPath -PathType Leaf)) {
     throw "Candidate artifact was not found: $ArtifactPath"
@@ -196,9 +214,6 @@ if ($actualHash -ne $selectedProductHash) {
 Assert-ReadableZip -Path $ArtifactPath
 
 $generatorPath = Join-Path $PSScriptRoot 'New-ProductionAcceptanceEvidencePack.ps1'
-if (-not (Test-Path -LiteralPath $generatorPath -PathType Leaf)) {
-    throw 'New-ProductionAcceptanceEvidencePack.ps1 was not found beside the session initializer.'
-}
 
 $parentRoot = Split-Path -Parent $resolvedSessionRoot
 $sessionLeaf = Split-Path -Leaf $resolvedSessionRoot
@@ -277,6 +292,7 @@ try {
         sourceCommit = $SourceCommit.ToLowerInvariant()
         testedMergeCommit = $TestedMergeCommit.ToLowerInvariant()
         operatorToolingCommit = $normalizedToolingCommit
+        operatorToolingFiles = $operatorToolingFiles
         hostName = $HostName.ToLowerInvariant()
         siteName = $SiteName
         appPoolName = $AppPoolName
@@ -302,7 +318,7 @@ try {
     $nextSteps = @(
         'Monitor P0.5 production acceptance session — NEXT STEPS',
         '1. Preserve the returned ManifestSha256 outside the mutable session and verify session-manifest.sha256 before any production operation.',
-        '2. Retain the exact reviewed OperatorToolingCommit that supplied the acceptance-control sidecar scripts.',
+        '2. Retain the exact reviewed OperatorToolingCommit and do not modify the six acceptance-control sidecar files whose SHA-256 values are locked in the manifest.',
         '3. Run Test-IisProductionPrerequisites.ps1 on the intended host and retain bounded non-secret proof.',
         '4. Run Deploy-ProductionSingleNode.ps1 in PLAN ONLY mode and review the plan.',
         '5. Use explicit -Apply only after the reviewed plan and operational backup are approved.',
@@ -324,6 +340,7 @@ try {
         CandidateArtifact = Join-Path $resolvedSessionRoot "candidate\$expectedArtifactName"
         SelectedProductSha256 = $selectedProductHash
         OperatorToolingCommit = $normalizedToolingCommit
+        OperatorToolingFileCount = $requiredOperatorToolingFiles.Count
         ExternalGateCount = 15
         ExternalGatesPassed = 0
         ProductionAccepted = $false
