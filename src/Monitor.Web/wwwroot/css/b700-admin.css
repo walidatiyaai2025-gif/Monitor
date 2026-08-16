@@ -1,0 +1,182 @@
+.readiness-checklist,
+.governance-apply,
+.observability-context,
+.settings-jump-nav,
+.runbook-sequence {
+  padding: 18px;
+  margin-bottom: 18px;
+}
+
+.readiness-steps {
+  list-style: none;
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+}
+
+.readiness-steps li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  padding: 12px;
+  border: 1px solid rgba(148, 163, 184, .14);
+  border-radius: 12px;
+  background: rgba(7, 20, 34, .5);
+}
+
+.readiness-steps p { margin: 4px 0 0; }
+.readiness-step-mark,
+.runbook-number,
+.governance-step > span {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid rgba(125, 211, 252, .25);
+  font-weight: 750;
+}
+
+.readiness-action-grid,
+.runbook-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin: 18px 0;
+}
+
+.readiness-action-card,
+.runbook-card {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 16px;
+  color: inherit;
+  text-decoration: none;
+  min-width: 0;
+}
+
+.readiness-action-card {
+  display: grid;
+  gap: 5px;
+}
+
+.readiness-action-card:hover,
+.runbook-card:hover,
+.readiness-action-card:focus-visible,
+.runbook-card:focus-visible {
+  border-color: rgba(125, 211, 252, .42);
+  transform: translateY(-1px);
+}
+
+.runbook-card > div { display: grid; gap: 4px; min-width: 0; }
+.runbook-card small,
+.readiness-action-card small { opacity: .75; }
+
+.governance-flow {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.governance-step {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  padding: 15px;
+}
+
+.governance-step p { margin: 4px 0 0; }
+.governance-candidates { margin-top: 18px; }
+.governance-detail-grid { grid-template-columns: minmax(130px, .65fr) minmax(180px, 1fr) minmax(260px, 1.8fr); }
+.governance-detail-grid code { overflow-wrap: anywhere; }
+.governance-apply { display: flex; justify-content: space-between; gap: 18px; align-items: center; margin-top: 18px; }
+.governance-apply p { max-width: 76ch; }
+.governance-receipt { margin-bottom: 18px; }
+.danger-button { border-color: rgba(251, 113, 133, .55) !important; }
+
+.observability-context {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.observability-context > div {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border-radius: 10px;
+  background: rgba(7, 20, 34, .54);
+}
+
+.settings-section { margin-top: 24px; }
+.settings-grid-single { grid-template-columns: minmax(0, 1fr); }
+.settings-jump-nav { display: flex; flex-wrap: wrap; gap: 8px; }
+.settings-jump-nav a {
+  padding: 8px 11px;
+  border: 1px solid rgba(148, 163, 184, .18);
+  border-radius: 999px;
+  color: inherit;
+  text-decoration: none;
+}
+.settings-jump-nav a:hover,
+.settings-jump-nav a:focus-visible { border-color: rgba(125, 211, 252, .45); }
+.backup-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.backup-actions form { margin: 0; }
+
+.lab-validation:not(:empty) {
+  margin: 14px 0;
+  padding: 12px 14px;
+  border: 1px solid rgba(251, 113, 133, .35);
+  border-radius: 10px;
+}
+
+.lab-target button:disabled,
+.lab-form button:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+.lab-result.state-critical,
+.lab-rule.state-warning { overflow-wrap: anywhere; }
+
+@media (max-width: 1000px) {
+  .governance-flow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .readiness-action-grid,
+  .runbook-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 760px) {
+  .observability-context { grid-template-columns: 1fr; }
+  .governance-apply { display: grid; }
+  .governance-apply form,
+  .governance-apply button { width: 100%; }
+  .backup-actions { display: grid; }
+}
+
+@media (max-width: 520px) {
+  .governance-flow,
+  .readiness-action-grid,
+  .runbook-grid { grid-template-columns: 1fr; }
+  .settings-jump-nav { display: grid; grid-template-columns: 1fr 1fr; }
+  .settings-jump-nav a { text-align: center; }
+  .lab-flow { overflow-x: auto; padding-bottom: 6px; }
+  .lab-actions,
+  .lab-test { align-items: stretch; }
+  .lab-actions > *,
+  .lab-test button { width: 100%; }
+}
+
+@media (max-width: 390px) {
+  .settings-jump-nav { grid-template-columns: 1fr; }
+  .readiness-steps li,
+  .governance-step { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .readiness-action-card,
+  .runbook-card { transition: none !important; transform: none !important; }
+}
