@@ -1,0 +1,50 @@
+@model HealthModulePageViewModel
+@functions {
+    static string Bytes(long value) => value >= 1_099_511_627_776 ? $"{value / 1_099_511_627_776d:0.0} TB" : value >= 1_073_741_824 ? $"{value / 1_073_741_824d:0.0} GB" : value >= 1_048_576 ? $"{value / 1_048_576d:0.0} MB" : $"{value} B";
+}
+@{
+    ViewData["Title"] = Model.Title;
+    var observed = Model.Servers.Where(server => server.Storage is not null).ToArray();
+    var total = observed.Sum(server => server.Storage!.TotalAllocatedBytes);
+    var data = observed.Sum(server => server.Storage!.DataAllocatedBytes);
+    var log = observed.Sum(server => server.Storage!.LogAllocatedBytes);
+    var unavailable = Model.Servers.Count(server => server.Storage is null || server.Source == ServerDataSource.RegisteredUnavailable);
+    var canManage = User.IsInRole(Monitor.Web.Services.MonitorRoles.Administrator);
+}
+
+<partial name="_PortalPageHeader" model="@(new PortalPageHeaderViewModel(Model.Title, Model.Description + " Allocation is not disk capacity and does not imply free space.", "CACHED DATABASE ALLOCATION", "View servers", Url.Action("Servers", "Operations")))" />
+
+@if (Model.Servers.Count == 0)
+{
+    <partial name="_PortalState" model="@(new PortalStateViewModel("No storage snapshots", "Collect a server snapshot before interpreting allocated database bytes.", "warning", canManage ? "Manage connections" : "View servers", canManage ? Url.Action("Index", "ConnectionLab") : Url.Action("Servers", "Operations")))" />
+}
+else
+{
+    <section class="health-command-summary" aria-label="Storage allocation summary">
+        <article class="health-command-card hero state-@(unavailable > 0 ? "warning" : "healthy")"><div><small>TOTAL DATABASE ALLOCATION</small><strong>@Bytes(total)</strong><span>Allocated bytes from available cached snapshots</span></div></article>
+        <article class="health-command-card state-healthy"><small>DATA ALLOCATION</small><strong>@Bytes(data)</strong><span>Allocated data-file bytes</span></article>
+        <article class="health-command-card state-healthy"><small>LOG ALLOCATION</small><strong>@Bytes(log)</strong><span>Allocated log-file bytes</span></article>
+        <article class="health-command-card state-@(unavailable > 0 ? "offline" : "healthy")"><small>EVIDENCE UNAVAILABLE</small><strong>@unavailable</strong><span>Servers without allocation evidence</span></article>
+    </section>
+
+    <div class="data-banner"><strong>IMPORTANT</strong><span>This screen reports database allocation only. It does not report volume capacity, disk free space, filesystem usage, or forecast exhaustion.</span></div>
+
+    <section class="glass-panel table-panel health-surface-panel">
+        <div class="panel-heading"><div><span class="eyebrow">ALLOCATION BY SERVER</span><h3>Latest bounded allocation facts</h3></div><span class="snapshot-note">Cache only</span></div>
+        <div class="responsive-table" role="region" aria-label="Storage allocation by server" tabindex="0">
+            <div class="table-head health-detail-grid health-detail-grid-six" role="row"><span>Server</span><span>Source</span><span>Total allocated</span><span>Data allocated</span><span>Log allocated</span><span>Details</span></div>
+            @foreach (var server in Model.Servers)
+            {
+                var storage = server.Storage;
+                <div class="table-row health-detail-grid health-detail-grid-six" role="row">
+                    <strong>@server.Name</strong>
+                    <partial name="_HealthSourceBadge" model="server" />
+                    <span>@(storage is null ? "Not collected" : Bytes(storage.TotalAllocatedBytes))</span>
+                    <span>@(storage is null ? "Not collected" : Bytes(storage.DataAllocatedBytes))</span>
+                    <span>@(storage is null ? "Not collected" : Bytes(storage.LogAllocatedBytes))</span>
+                    <a class="secondary-button compact-button" asp-controller="Operations" asp-action="ServerDetails" asp-route-id="@server.Id">Server</a>
+                </div>
+            }
+        </div>
+    </section>
+}
