@@ -116,7 +116,7 @@ public sealed class P05DurableReleaseToctouVerifierTests
         Assert.Contains("FAKE_GH_MUTATE_ON_SECOND", harness, StringComparison.Ordinal);
         Assert.Contains("release-mutated.json", harness, StringComparison.Ordinal);
         Assert.Contains("TOCTOU mutation case unexpectedly passed durable release verification", harness, StringComparison.Ordinal);
-        Assert.Contains("Durable release verifier synthetic positive and TOCTOU mutation checks passed", harness, StringComparison.Ordinal);
+        Assert.Contains("Durable release verifier synthetic positive, cleanup, collision and TOCTOU checks passed", harness, StringComparison.Ordinal);
     }
 
     [Fact]
