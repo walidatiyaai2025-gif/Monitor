@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
 using Monitor.Web.Controllers;
 using Xunit;
 
@@ -23,6 +22,17 @@ public sealed class B700UiFoundationTests
         Assert.Contains("StatusCodes.Status403Forbidden", source, StringComparison.Ordinal);
         Assert.DoesNotContain("IExceptionHandlerFeature", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Exception.Message", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Program_WiresSafeProductionErrorsAndDistinctAccessDeniedPath()
+    {
+        var source = Read("src/Monitor.Web/Program.cs");
+        Assert.Contains("options.AccessDeniedPath = \"/access-denied\"", source, StringComparison.Ordinal);
+        Assert.Contains("app.UseExceptionHandler(\"/error\")", source, StringComparison.Ordinal);
+        Assert.Contains("app.UseStatusCodePagesWithReExecute(\"/error/status/{0}\")", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("UseExceptionHandler(\"/login\")", source, StringComparison.Ordinal);
+        Assert.Contains("options.Cookie.SameSite = SameSiteMode.Strict", source, StringComparison.Ordinal);
     }
 
     [Theory]
