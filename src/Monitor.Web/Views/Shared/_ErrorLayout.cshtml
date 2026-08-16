@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#07111f" />
+    <title>@ViewData["Title"] · Monitor</title>
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/fonts.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/command-center.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/portal.css" asp-append-version="true" />
+</head>
+<body class="app-body error-body">
+    <a class="skip-link" href="#main-content">Skip to main content</a>
+    <div class="ambient-grid" aria-hidden="true"></div>
+    <main class="error-shell" id="main-content" tabindex="-1">
+        <a class="brand error-brand" asp-controller="Account" asp-action="Login" aria-label="Monitor home">
+            <span class="brand-mark" aria-hidden="true"><span></span></span>
+            <span><strong>MONITOR</strong><small>SQL OPERATIONS</small></span>
+        </a>
+        @RenderBody()
+    </main>
+</body>
+</html>

@@ -206,7 +206,7 @@ builder.Services.AddSingleton<IDbaOperationsSurfaceService, DbaOperationsSurface
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme).AddCookie(options =>
 {
     options.LoginPath = "/login";
-    options.AccessDeniedPath = "/login";
+    options.AccessDeniedPath = "/access-denied";
     options.Cookie.Name = "Monitor.Auth";
     options.Cookie.HttpOnly = true;
     options.Cookie.SameSite = SameSiteMode.Strict;
@@ -231,7 +231,12 @@ if (deploymentTopologyOptions.Mode == DeploymentTopology.MultiNode && !app.Servi
     throw new InvalidOperationException("Multi-node startup is blocked by credential/key-management readiness.");
 
 if (webSecurityOptions.HasTrustedForwarders) app.UseForwardedHeaders();
-if (!app.Environment.IsDevelopment()) { app.UseExceptionHandler("/login"); app.UseHsts(); }
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/error");
+    app.UseStatusCodePagesWithReExecute("/error/status/{0}");
+    app.UseHsts();
+}
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseHttpsRedirection();
 app.UseMiddleware<SecurityHeadersMiddleware>();

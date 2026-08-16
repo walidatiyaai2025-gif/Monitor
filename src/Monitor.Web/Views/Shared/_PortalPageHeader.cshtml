@@ -1,0 +1,16 @@
+@model PortalPageHeaderViewModel
+<section class="page-heading portal-page-heading">
+    <div>
+        <span class="eyebrow">@Model.Eyebrow</span>
+        <h1>@Model.Title</h1>
+        <p>@Model.Description</p>
+    </div>
+    @if (!string.IsNullOrWhiteSpace(Model.BackText) &&
+         !string.IsNullOrWhiteSpace(Model.BackController) &&
+         !string.IsNullOrWhiteSpace(Model.BackAction))
+    {
+        <a class="secondary-button"
+           asp-controller="@Model.BackController"
+           asp-action="@Model.BackAction">@Model.BackText</a>
+    }
+</section>

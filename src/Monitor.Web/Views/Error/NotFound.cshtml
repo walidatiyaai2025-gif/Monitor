@@ -1,0 +1,13 @@
+@{
+    Layout = "_ErrorLayout";
+    ViewData["Title"] = "Page not found";
+}
+<section class="glass-panel error-panel" aria-labelledby="error-title">
+    <span class="eyebrow">ROUTE NOT FOUND · 404</span>
+    <h1 id="error-title">This Monitor page does not exist</h1>
+    <p>The requested route is unavailable. Use a known navigation destination instead of retrying an unknown path.</p>
+    <div class="error-actions">
+        <a class="primary-button" asp-controller="Operations" asp-action="Dashboard">Open Command Center</a>
+        <a class="secondary-button" asp-controller="Account" asp-action="Login">Return to sign in</a>
+    </div>
+</section>
