@@ -114,10 +114,19 @@ jobs:
             expected_prerelease=true
           fi
 
+          preflight="${RUNNER_TEMP}/Verify-DurableReleaseToolchain.sh"
           verifier="${RUNNER_TEMP}/Verify-DurableRelease.sh"
-          gh api "repos/${GITHUB_REPOSITORY}/contents/scripts/Verify-DurableRelease.sh?ref=${GITHUB_SHA}" \
-            --jq '.content' | tr -d '\n' | base64 --decode > "${verifier}"
+          fetch_exact_script() {
+            local source_path="$1"
+            local destination_path="$2"
+            gh api "repos/${GITHUB_REPOSITORY}/contents/${source_path}?ref=${GITHUB_SHA}" \
+              --jq '.content' | tr -d '\n' | base64 --decode > "${destination_path}"
+          }
+          fetch_exact_script "scripts/Verify-DurableReleaseToolchain.sh" "${preflight}"
+          fetch_exact_script "scripts/Verify-DurableRelease.sh" "${verifier}"
+          bash -n "${preflight}"
           bash -n "${verifier}"
+          bash "${preflight}"
 
           verify_release_assets() {
             local dir="$1"
