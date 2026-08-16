@@ -10,6 +10,7 @@ repository=""
 tag=""
 version=""
 product_sha256=""
+trusted_root=""
 destination=""
 
 while [[ $# -gt 0 ]]; do
@@ -34,6 +35,11 @@ while [[ $# -gt 0 ]]; do
       product_sha256="$2"
       shift 2
       ;;
+    --trusted-root)
+      [[ $# -ge 2 ]] || fail "--trusted-root requires a value"
+      trusted_root="$2"
+      shift 2
+      ;;
     --destination)
       [[ $# -ge 2 ]] || fail "--destination requires a value"
       destination="$2"
@@ -46,11 +52,27 @@ while [[ $# -gt 0 ]]; do
 done
 
 [[ "$repository" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || fail "repository must be an exact owner/name slug"
-[[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]] || fail "version format is invalid"
+[[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$ ]] || fail "version format is invalid"
 [[ "$tag" == "v${version}" ]] || fail "tag must equal v<version>"
 [[ "$product_sha256" =~ ^[a-f0-9]{64}$ ]] || fail "product SHA-256 must be 64 lowercase hex characters"
+
+[[ -n "$trusted_root" ]] || fail "trusted root is required"
+[[ "$trusted_root" == /* ]] || fail "trusted root must be an absolute path"
+[[ "$trusted_root" != "/" ]] || fail "trusted root must not be the filesystem root"
+[[ -d "$trusted_root" && ! -L "$trusted_root" ]] || fail "trusted root must be an existing non-symlink directory"
+trusted_root_canonical="$(realpath -e -- "$trusted_root")"
+[[ "$trusted_root_canonical" == "$trusted_root" ]] || fail "trusted root must already be canonical"
+
 [[ -n "$destination" ]] || fail "destination is required"
+[[ "$destination" == /* ]] || fail "destination must be an absolute path"
 [[ "$destination" != "/" ]] || fail "destination must not be the filesystem root"
+[[ ! -e "$destination" && ! -L "$destination" ]] || fail "destination must not already exist"
+destination_parent="$(dirname -- "$destination")"
+destination_name="$(basename -- "$destination")"
+[[ "$destination_name" != "." && "$destination_name" != ".." ]] || fail "destination basename is invalid"
+destination_parent_canonical="$(realpath -e -- "$destination_parent")"
+[[ "$destination_parent_canonical" == "$trusted_root_canonical" ]] || fail "destination must be a direct child of the trusted root"
+[[ "$destination" == "${trusted_root_canonical}/${destination_name}" ]] || fail "destination must be canonical and contained by the trusted root"
 
 expected_prerelease=false
 if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -135,25 +157,48 @@ first_zip_digest="$SNAP_ZIP_DIGEST"
 first_checksum_digest="$SNAP_CHECKSUM_DIGEST"
 first_security="$SNAP_SECURITY"
 
-rm -rf -- "$destination"
-mkdir -p -- "$destination"
+umask 077
+mkdir -m 700 -- "$destination"
+[[ -d "$destination" && ! -L "$destination" ]] || fail "verifier-owned destination was not created as a real directory"
+[[ "$(stat -Lc '%a' "$destination")" == 700 ]] || fail "verifier-owned destination permissions must be 0700"
+workspace_identity="$(stat -Lc '%d:%i' "$destination")"
+
+assert_workspace_identity() {
+  [[ -d "$destination" && ! -L "$destination" ]] || fail "verifier-owned destination was replaced during verification"
+  [[ "$(realpath -e -- "$destination")" == "$destination" ]] || fail "verifier-owned destination escaped its canonical path"
+  [[ "$(stat -Lc '%d:%i' "$destination")" == "$workspace_identity" ]] || fail "verifier-owned destination identity changed during verification"
+  [[ "$(stat -Lc '%a' "$destination")" == 700 ]] || fail "verifier-owned destination permissions changed during verification"
+}
+
 zip_path="${destination}/${zip_name}"
 checksum_path="${destination}/${checksum_name}"
+zip_tmp="${destination}/.${zip_name}.download"
+checksum_tmp="${destination}/.${checksum_name}.download"
 
-gh api -H "Accept: application/octet-stream" "repos/${repository}/releases/assets/${first_zip_id}" >"$zip_path"
-gh api -H "Accept: application/octet-stream" "repos/${repository}/releases/assets/${first_checksum_id}" >"$checksum_path"
+assert_workspace_identity
+set -o noclobber
+gh api -H "Accept: application/octet-stream" "repos/${repository}/releases/assets/${first_zip_id}" >"$zip_tmp"
+assert_workspace_identity
+gh api -H "Accept: application/octet-stream" "repos/${repository}/releases/assets/${first_checksum_id}" >"$checksum_tmp"
+set +o noclobber
+assert_workspace_identity
 
-[[ -f "$zip_path" && -f "$checksum_path" ]] || fail "exact-ID asset download did not produce both expected files"
-[[ "$(stat -c%s "$zip_path")" == "$first_zip_size" ]] || fail "downloaded ZIP size differs from the first REST snapshot"
-[[ "$(stat -c%s "$checksum_path")" == "$first_checksum_size" ]] || fail "downloaded checksum size differs from the first REST snapshot"
+for path in "$zip_tmp" "$checksum_tmp"; do
+  [[ -f "$path" && ! -L "$path" ]] || fail "downloaded asset must be a regular non-symlink file"
+  [[ "$(stat -Lc '%h' "$path")" == 1 ]] || fail "downloaded asset must have exactly one hard link"
+  [[ "$(stat -Lc '%a' "$path")" == 600 ]] || fail "downloaded asset permissions must be 0600"
+done
 
-zip_hash="$(sha256sum "$zip_path" | awk '{print $1}')"
-checksum_hash="$(sha256sum "$checksum_path" | awk '{print $1}')"
+[[ "$(stat -c%s "$zip_tmp")" == "$first_zip_size" ]] || fail "downloaded ZIP size differs from the first REST snapshot"
+[[ "$(stat -c%s "$checksum_tmp")" == "$first_checksum_size" ]] || fail "downloaded checksum size differs from the first REST snapshot"
+
+zip_hash="$(sha256sum "$zip_tmp" | awk '{print $1}')"
+checksum_hash="$(sha256sum "$checksum_tmp" | awk '{print $1}')"
 [[ "$zip_hash" == "$product_sha256" ]] || fail "downloaded ZIP bytes do not match the approved product SHA-256"
 [[ "$first_zip_digest" == "sha256:${zip_hash}" ]] || fail "downloaded ZIP bytes do not match the first REST API digest"
 [[ "$first_checksum_digest" == "sha256:${checksum_hash}" ]] || fail "downloaded checksum bytes do not match the first REST API digest"
 
-checksum_line="$(cat "$checksum_path")"
+checksum_line="$(cat "$checksum_tmp")"
 [[ "$checksum_line" == "${product_sha256}  ${zip_name}" ]] || fail "checksum asset is not the canonical approved product checksum line"
 
 second_json="$(snapshot_release)"
@@ -164,5 +209,17 @@ validate_snapshot "$second_json"
 [[ "$SNAP_ZIP_ID" == "$first_zip_id" && "$SNAP_CHECKSUM_ID" == "$first_checksum_id" ]] || fail "asset IDs changed during verification"
 [[ "$SNAP_ZIP_SIZE" == "$first_zip_size" && "$SNAP_CHECKSUM_SIZE" == "$first_checksum_size" ]] || fail "asset sizes changed during verification"
 [[ "$SNAP_ZIP_DIGEST" == "$first_zip_digest" && "$SNAP_CHECKSUM_DIGEST" == "$first_checksum_digest" ]] || fail "asset digests changed during verification"
+
+assert_workspace_identity
+[[ ! -e "$zip_path" && ! -L "$zip_path" && ! -e "$checksum_path" && ! -L "$checksum_path" ]] || fail "final durable-release output names must not pre-exist"
+mv -T --no-clobber -- "$zip_tmp" "$zip_path"
+[[ ! -e "$zip_tmp" && ! -L "$zip_tmp" ]] || fail "ZIP finalization encountered an unexpected name collision"
+mv -T --no-clobber -- "$checksum_tmp" "$checksum_path"
+[[ ! -e "$checksum_tmp" && ! -L "$checksum_tmp" ]] || fail "checksum finalization encountered an unexpected name collision"
+assert_workspace_identity
+
+[[ -f "$zip_path" && ! -L "$zip_path" && -f "$checksum_path" && ! -L "$checksum_path" ]] || fail "atomic finalization did not produce both expected regular files"
+[[ "$(sha256sum "$zip_path" | awk '{print $1}')" == "$product_sha256" ]] || fail "final ZIP bytes changed during atomic publication"
+[[ "$(cat "$checksum_path")" == "${product_sha256}  ${zip_name}" ]] || fail "final checksum bytes changed during atomic publication"
 
 echo "Durable release verification passed for ${tag}: release ${first_release_id}, assets ${first_zip_id}/${first_checksum_id}."
