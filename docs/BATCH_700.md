@@ -64,7 +64,7 @@ Download/report/diagnostic endpoints are governed separately from page routes; #
 - [x] UI700-007 — mobile navigation toggle is keyboard-aware, Escape-closeable, and collapses after navigation.
 - [x] UI700-008 — shared responsive table/card/state CSS contracts added.
 - [x] UI700-009 — `portal.css` expanded beyond sidebar-only glue into portal/error/state/mobile contracts.
-- [ ] UI700-010 — regression suite must be Green in GitHub Actions before #221 closes.
+- [x] UI700-010 — exact implementation head `3a996598ff575a931c898248c2b3694b3a7414f7` passed `ci` #1569, `real-sql-acceptance` #87, and `production-candidate` #132 on 2026-08-16.
 
 ## Closure rule
 
