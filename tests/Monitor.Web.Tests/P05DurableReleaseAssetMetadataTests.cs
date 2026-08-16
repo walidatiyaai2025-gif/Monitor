@@ -76,8 +76,8 @@ public sealed class P05DurableReleaseAssetMetadataTests
         var verifier = Read(Verifier);
         Assert.Contains("first_zip_digest", verifier, StringComparison.Ordinal);
         Assert.Contains("first_checksum_digest", verifier, StringComparison.Ordinal);
-        Assert.Contains("sha256sum \"$zip_path\"", verifier, StringComparison.Ordinal);
-        Assert.Contains("sha256sum \"$checksum_path\"", verifier, StringComparison.Ordinal);
+        Assert.Contains("sha256sum \"$zip_tmp\"", verifier, StringComparison.Ordinal);
+        Assert.Contains("sha256sum \"$checksum_tmp\"", verifier, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -93,9 +93,11 @@ public sealed class P05DurableReleaseAssetMetadataTests
     {
         var verifier = Read(Verifier);
         AssertBothContain("--product-sha256");
-        Assert.Contains("sha256sum \"$zip_path\"", verifier, StringComparison.Ordinal);
+        Assert.Contains("sha256sum \"$zip_tmp\"", verifier, StringComparison.Ordinal);
         Assert.Contains("${product_sha256}  ${zip_name}", verifier, StringComparison.Ordinal);
         Assert.Contains("checksum asset is not the canonical approved product checksum line", verifier, StringComparison.Ordinal);
+        Assert.Contains("final ZIP bytes changed during atomic publication", verifier, StringComparison.Ordinal);
+        Assert.Contains("final checksum bytes changed during atomic publication", verifier, StringComparison.Ordinal);
     }
 
     private static void AssertBothContain(string value)
