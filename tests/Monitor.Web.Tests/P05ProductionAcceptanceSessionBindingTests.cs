@@ -31,9 +31,12 @@ public sealed class P05ProductionAcceptanceSessionBindingTests
     }
 
     [Fact]
-    public void BindingVerifier_RehashesCandidateAndComparesPackIdentityToManifest()
+    public void BindingVerifier_RetainsSidecarToolingIdentityAndCandidateChain()
     {
         var text = Read("scripts/Test-ProductionAcceptanceSessionBinding.ps1");
+        Assert.Contains("operatorToolingCommit", text, StringComparison.Ordinal);
+        Assert.Contains("full 40-hex repository commit SHA", text, StringComparison.Ordinal);
+        Assert.Contains("OperatorToolingCommit = $operatorToolingCommit", text, StringComparison.Ordinal);
         Assert.Contains("Session candidate artifact bytes no longer match the selected product SHA-256", text, StringComparison.Ordinal);
         Assert.Contains("Session candidate checksum no longer matches the selected product SHA-256", text, StringComparison.Ordinal);
         Assert.Contains("candidate.sourceCommit", text, StringComparison.Ordinal);
@@ -69,13 +72,14 @@ public sealed class P05ProductionAcceptanceSessionBindingTests
     }
 
     [Fact]
-    public void RuntimeChainRejectsPackManifestAndCandidateDrift()
+    public void RuntimeChainRejectsPackManifestCandidateAndToolingDrift()
     {
         var runtime = Read("scripts/Test-ProductionAcceptanceSessionChain.ps1");
         Assert.Contains("candidate identity drifted from the locked session", runtime, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("no longer matched the externally preserved manifest SHA-256", runtime, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("operator tooling identity drifted", runtime, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("candidate bytes that drifted from the selected product SHA-256", runtime, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Closure summary did not retain the locked session-manifest", runtime, StringComparison.Ordinal);
+        Assert.Contains("Closure summary did not retain the acceptance-control sidecar tooling commit", runtime, StringComparison.Ordinal);
     }
 
     private static string Read(string relativePath) =>
