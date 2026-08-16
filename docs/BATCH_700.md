@@ -21,50 +21,32 @@ Close the gap between backend capability completion and a complete visible opera
 - Desktop, tablet, and 390px mobile are acceptance targets.
 - Status uses text as well as color; keyboard/focus behavior is required.
 
-## Visible route inventory — current main baseline
+## Batch status
 
-| Area | Route | Controller/action | Current surface | B700 disposition |
-|---|---|---|---|---|
-| Operations | `/dashboard` | Operations/Dashboard | Command Center | shell acceptance |
-| Operations | `/servers` | Operations/Servers | estate list | shell acceptance |
-| Operations | `/servers/{id}` | Operations/ServerDetails | server evidence | shell acceptance |
-| Operations | `/alerts` | Operations/Alerts | incident center | shell acceptance |
-| Health | `/database-health` | Operations/DatabaseHealth | generic health partial | dedicated page in #222 |
-| Health | `/memory-health` | Operations/MemoryHealth | dedicated view | consistency in #222 |
-| Health | `/performance-health` | Portal/Performance | basic cached table | dashboard completion in #222 |
-| Health | `/backups` | Operations/Backups | generic HealthModules view | dedicated page in #222 |
-| Health | `/jobs` | Operations/Jobs | generic HealthModules view | dedicated page in #222 |
-| Health | `/storage` | Operations/Storage | generic HealthModules view | dedicated page in #222 |
-| Health | `/blocking` | Operations/Blocking | generic HealthModules view | dedicated page in #222 |
-| Intelligence | `/enterprise/fleet` | FleetIntelligence/Index | fleet view | drill-down audit in #225 |
-| Intelligence | `/enterprise` | EnterpriseOperations/Overview | enterprise overview | drill-down audit in #225 |
-| Intelligence | `/recommendations` | Portal/Recommendations | recommendation cards | filters/context in #224 |
-| Intelligence | `/reports` | Portal/Reports | export cards | metadata/failure UX in #224 |
-| Admin | `/servers/connections` | ConnectionLab/Index | target management | state completion in #225 |
-| Admin | `/observability` | Observability/Index | telemetry view | hierarchy/states in #225 |
-| Admin | `/audit` | Operations/Audit | minimal table | full operator UX in #223 |
-| Admin | `/enterprise/readiness` | EnterpriseHelp/Readiness | readiness view | grouped checklist in #225 |
-| Admin | `/settings` | Operations/Settings | settings view | information architecture in #225 |
-| Help | `/enterprise/help` | EnterpriseHelp/Help | operator help | runbook navigation in #225 |
-| History | `/history/{registrationId}` | Operations/History | minimal table | full operator UX in #223 |
-| Safety | `/error` | Error/ServerError | added in #221 | safe 500 surface |
-| Safety | `/access-denied` | Error/AccessDenied | added in #221 | safe 403 surface |
-| Safety | `/error/status/{statusCode}` | Error/Status | added in #221 | safe status routing |
+### Foundation #221 — COMPLETE
+- [x] UI700-001..010 — PR #236 merged as `59a931cc031e19f162edfadc278dc8b9c6c842e3`; exact head `32dbcd56b14a58ebb193ef81c8fa9c715c31feb8` passed `ci` #1571, `real-sql-acceptance` #88 and `production-candidate` #133.
 
-Download/report/diagnostic endpoints are governed separately from page routes; #224 verifies their discoverability and role-safe presentation.
+### Health #222 — COMPLETE
+- [x] UI700-011..020 — PR #237 merged as `308a2f31a42500ce7354b1af2c2369d59be57455`; exact head `fa0353431bc02abbc7cf520fec04adf5418ecfc6` passed `ci` #1590 and `production-candidate` #134. Real-SQL was not applicable under its path filter.
 
-## Foundation #221
+### Audit / history #223 — COMPLETE
+- [x] UI700-021..030 — PR #238 merged as `3864b4f8acc14d6e0bd259bfb1ab52d9fec07be1`; final synchronized head `473944f21ce4cabb0b96f6040edf5992605930b5` passed `ci` #1617 and `production-candidate` #135. Real-SQL was not applicable.
 
-- [x] UI700-001 — visible route/controller/view/navigation inventory recorded here.
-- [x] UI700-002 — dedicated safe 403/404/500 Razor surfaces added.
-- [x] UI700-003 — production exception/status handling and cookie access-denied path are wired to the safe endpoints.
-- [x] UI700-004 — reusable page-heading contract added for gradual page adoption.
-- [x] UI700-005 — reusable portal state contract added for empty/unavailable/stale/error states.
-- [x] UI700-006 — active navigation matching uses route boundaries; Reports is exact so downloads do not masquerade as page navigation.
-- [x] UI700-007 — mobile navigation toggle is keyboard-aware, Escape-closeable, and collapses after navigation.
-- [x] UI700-008 — shared responsive table/card/state CSS contracts added.
-- [x] UI700-009 — `portal.css` expanded beyond sidebar-only glue into portal/error/state/mobile contracts.
-- [x] UI700-010 — exact implementation head `3a996598ff575a931c898248c2b3694b3a7414f7` passed `ci` #1569, `real-sql-acceptance` #87, and `production-candidate` #132 on 2026-08-16.
+### Recommendations / reports #224 — IMPLEMENTED / CI PENDING
+- [x] UI700-031 — bounded recommendation summary plus severity and exact normalized rule filters.
+- [x] UI700-032 — semantic ordered guidance with explicit risk/caution hierarchy.
+- [x] UI700-033 — incident and server evidence drill-down.
+- [x] UI700-034 — no-data/filter-empty/mobile recommendation states.
+- [x] UI700-035 — report format/version/access/scope metadata.
+- [x] UI700-036 — standard reports separated from Administrator diagnostics.
+- [x] UI700-037 — safe failure/permission disclosure without sensitive provider details.
+- [x] UI700-038 — accessible download labels and bounded/redacted disclosures.
+- [x] UI700-039 — Read/Manage policy regression coverage.
+- [x] UI700-040 — global export discoverability plus contextual stored-history export.
+- [ ] Exact-head applicable GitHub Actions must be Green before #224 closes and PR #239 merges.
+
+### Enterprise / admin / final #225 — IN PROGRESS
+Implementation is isolated in PR #240. Do not mark UI700-041..050 complete until its final synchronized head is Green and canonical docs are reconciled.
 
 ## Closure rule
 
