@@ -1,33 +1,49 @@
 @model HealthModulePageViewModel
 @{
     ViewData["Title"] = Model.Title;
+    var observed = Model.Servers.Where(server => server.Performance is not null).ToArray();
+    var active = observed.Sum(server => server.Performance!.ActiveRequests);
+    var runnable = observed.Sum(server => server.Performance!.RunnableTasks);
+    var pendingIo = observed.Sum(server => server.Performance!.PendingIoRequests);
+    var pressured = observed.Count(server => server.Performance!.RunnableTasks > 4 || server.Performance.PendingIoRequests > 0);
+    var unavailable = Model.Servers.Count(server => server.Performance is null || server.Source == ServerDataSource.RegisteredUnavailable);
+    var canManage = User.IsInRole(Monitor.Web.Services.MonitorRoles.Administrator);
 }
 
-<section class="page-heading">
-    <div><span class="eyebrow">CACHED PERFORMANCE</span><h1>@Model.Title</h1><p>@Model.Description Navigation never starts monitored-SQL collection.</p></div>
-    <a class="secondary-button" asp-controller="Operations" asp-action="Servers">View servers</a>
-</section>
+<partial name="_PortalPageHeader" model="@(new PortalPageHeaderViewModel(Model.Title, Model.Description + " Navigation never starts monitored-SQL collection.", "CACHED PERFORMANCE", "View servers", Url.Action("Servers", "Operations")))" />
 
-<section class="glass-panel table-panel">
-    <div class="panel-heading"><div><span class="eyebrow">ESTATE PRESSURE</span><h3>Latest collected facts</h3></div><span class="snapshot-note">Cache only</span></div>
-    @if (Model.Servers.Count == 0)
-    {
-        <div class="lab-empty"><strong>No cached performance snapshots</strong><span>Connect and collect a server snapshot to populate this page.</span></div>
-    }
-    else
-    {
-        <div class="table-scroll">
-            <div class="table-head db-table"><span>Server</span><span>Source</span><span>Active requests</span><span>Runnable tasks</span><span>Pending I/O</span><span>Age</span></div>
+@if (Model.Servers.Count == 0)
+{
+    <partial name="_PortalState" model="@(new PortalStateViewModel("No performance snapshots", "Collect a server snapshot before interpreting workload pressure.", "warning", canManage ? "Manage connections" : "View servers", canManage ? Url.Action("Index", "ConnectionLab") : Url.Action("Servers", "Operations")))" />
+}
+else
+{
+    <section class="health-command-summary" aria-label="Performance health summary">
+        <article class="health-command-card hero state-@(pressured > 0 ? "warning" : unavailable > 0 ? "warning" : "healthy")"><div><small>CURRENT WORKLOAD</small><strong>@active active</strong><span>@runnable runnable tasks · @pendingIo pending I/O requests</span></div></article>
+        <article class="health-command-card state-@(runnable > 0 ? "warning" : "healthy")"><small>RUNNABLE TASKS</small><strong>@runnable</strong><span>Aggregate scheduler queue evidence</span></article>
+        <article class="health-command-card state-@(pendingIo > 0 ? "warning" : "healthy")"><small>PENDING I/O</small><strong>@pendingIo</strong><span>Pending I/O requests in current evidence</span></article>
+        <article class="health-command-card state-@(pressured > 0 ? "warning" : "healthy")"><small>PRESSURED SERVERS</small><strong>@pressured</strong><span>Runnable &gt; 4 or pending I/O &gt; 0</span></article>
+        <article class="health-command-card state-@(unavailable > 0 ? "offline" : "healthy")"><small>EVIDENCE UNAVAILABLE</small><strong>@unavailable</strong><span>Servers without performance evidence</span></article>
+    </section>
+
+    <section class="glass-panel table-panel health-surface-panel">
+        <div class="panel-heading"><div><span class="eyebrow">WORKLOAD BY SERVER</span><h3>Latest cached performance facts</h3></div><span class="snapshot-note">Cache only</span></div>
+        <div class="responsive-table" role="region" aria-label="Performance health by server" tabindex="0">
+            <div class="table-head health-detail-grid health-detail-grid-six" role="row"><span>Server</span><span>Source</span><span>Active requests</span><span>Runnable tasks</span><span>Pending I/O</span><span>Details</span></div>
             @foreach (var server in Model.Servers)
             {
                 var pressure = server.Performance;
-                <a class="table-row db-table" asp-controller="Operations" asp-action="ServerDetails" asp-route-id="@server.Id">
-                    <strong>@server.Name</strong><span>@server.Source</span>
-                    <span>@(pressure?.ActiveRequests.ToString() ?? "Not collected")</span>
-                    <span class="@(pressure?.RunnableTasks > 4 ? "state-warning" : "")">@(pressure?.RunnableTasks.ToString() ?? "Not collected")</span>
-                    <span>@(pressure?.PendingIoRequests.ToString() ?? "Not collected")</span><span>@server.AgeSeconds s</span>
-                </a>
+                <div class="table-row health-detail-grid health-detail-grid-six" role="row">
+                    <strong>@server.Name</strong>
+                    <partial name="_HealthSourceBadge" model="server" />
+                    <span>@(pressure is null ? "Not collected" : pressure.ActiveRequests)</span>
+                    <span class="@(pressure?.RunnableTasks > 4 ? "state-warning" : string.Empty)">@(pressure is null ? "Not collected" : pressure.RunnableTasks)</span>
+                    <span class="@(pressure?.PendingIoRequests > 0 ? "state-warning" : string.Empty)">@(pressure is null ? "Not collected" : pressure.PendingIoRequests)</span>
+                    <a class="secondary-button compact-button" asp-controller="Operations" asp-action="ServerDetails" asp-route-id="@server.Id">Server</a>
+                </div>
             }
         </div>
-    }
-</section>
+    </section>
+
+    <div class="data-banner"><strong>INTERPRETATION BOUNDARY</strong><span>These are bounded workload counters from the latest cached snapshot. They are not query plans, SQL text, wait-stat history, or automatic remediation signals.</span></div>
+}
