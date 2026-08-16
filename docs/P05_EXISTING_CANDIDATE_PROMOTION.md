@@ -6,7 +6,7 @@ Selected candidate: `Monitor-0.1.0-rc.61-win-x64.zip`
 
 ## Current state
 
-Implementation is **COMPLETE** via PR #163, with subsequent fail-closed hardening in #202/#204. The durable promotion itself remains **PENDING MANUAL DISPATCH**. Issue #162 must remain OPEN until the manual workflow runs successfully and the two durable GitHub Release assets are independently verified.
+Implementation is **COMPLETE** via PR #163, with subsequent fail-closed hardening in #202/#204 and independent-verification readiness in #216. The durable promotion itself remains **PENDING MANUAL DISPATCH**. Issue #162 must remain OPEN until the manual promotion workflow runs successfully **and a separate read-only `verify-durable-release` run independently verifies the resulting tag and two durable GitHub Release assets**.
 
 This is retention/recoverability hardening only; it does not rebuild the application, select a different candidate, deploy IIS, or satisfy any external production gate.
 
@@ -22,7 +22,7 @@ This is retention/recoverability hardening only; it does not rebuild the applica
 - release tag: `v0.1.0-rc.61`
 - observed Actions artifact expiry: `2026-09-12T04:41:34Z`
 
-## Exact manual dispatch inputs
+## Exact manual promotion inputs
 
 Run `.github/workflows/promote-existing-candidate.yml` from `main` with **exactly**:
 
@@ -66,11 +66,34 @@ Promotion rejects candidates exceeding any of these conservative limits:
 
 The selected RC.61 package is far below these ceilings: 95 entries, about 12.7 MB total uncompressed, largest entry about 1.85 MB, longest path 62 characters, and observed maximum ratio about 3.3:1.
 
+## Independent read-only verification after promotion
+
+After the promotion run is Green, run `.github/workflows/verify-durable-release.yml` **separately from `main`**. This workflow has read-only `contents: read` permissions, uses a non-persisting checkout, executes the shared `scripts/Verify-DurableRelease.sh`, stores downloaded verification bytes only under runner-temporary storage, and performs no release/tag mutation or artifact republishing.
+
+Use **exactly** these verification inputs for RC.61:
+
+- `release_version`: `0.1.0-rc.61`
+- `release_tag`: `v0.1.0-rc.61`
+- `expected_commit`: `158148d8bfd05f724014541bc7a0b1eab5dae1b5`
+- `expected_product_sha256`: `d0a71f8a5611621ee388a1109dedc76e1a6e70357404cb62c9c7aa188f49c3d5`
+
+A Green independent run proves, through the shared fail-closed verifier, that:
+
+- the exact Git tag still resolves to the approved tested merge;
+- release tag/title/draft/prerelease metadata match the version contract;
+- exactly two release assets exist with the exact expected names;
+- REST asset IDs, upload state, sizes, SHA-256 digests and browser-download URLs are exact;
+- exact-ID downloaded ZIP/checksum bytes match the approved product SHA-256 and canonical checksum line;
+- tag/release security metadata remains unchanged across the verifier's second snapshots.
+
+Retain the Green verification run URL and its Step Summary as the independent #162 closure evidence. Do not use the promotion run's own post-publication verification as a substitute for this separate read-only run.
+
 ## Closure evidence required for #162
 
-Do not close #162 merely because repository hardening merged. Close it only after all of the following are true:
+Do not close #162 merely because repository hardening merged or because the promotion workflow itself reports success. Close it only after all of the following are true:
 
 - the manual `promote-existing-candidate` run completed successfully using the exact outer artifact digest above;
+- a separate `verify-durable-release` run from `main` completed successfully using the exact RC.61 verification inputs above;
 - tag `v0.1.0-rc.61` resolves to tested merge `158148d8bfd05f724014541bc7a0b1eab5dae1b5`;
 - the release contains exactly `Monitor-0.1.0-rc.61-win-x64.zip` and `Monitor-0.1.0-rc.61-win-x64.zip.sha256`;
 - the durable ZIP SHA-256 is exactly `d0a71f8a5611621ee388a1109dedc76e1a6e70357404cb62c9c7aa188f49c3d5`;
