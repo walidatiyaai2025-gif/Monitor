@@ -1,0 +1,46 @@
+@model HealthModulePageViewModel
+@{
+    ViewData["Title"] = Model.Title;
+    var observed = Model.Servers.Where(server => server.Backups is not null).ToArray();
+    var missing = observed.Sum(server => server.Backups!.MissingFullBackupLast24Hours);
+    var covered = observed.Sum(server => server.Backups!.BackedUpLast24Hours);
+    var unavailable = Model.Servers.Count(server => server.Backups is null || server.Source == ServerDataSource.RegisteredUnavailable);
+    var latestFull = observed.Select(server => server.Backups!.LastFullBackupAtUtc).Where(value => value.HasValue).Select(value => value!.Value).OrderByDescending(value => value).FirstOrDefault();
+    var canManage = User.IsInRole(Monitor.Web.Services.MonitorRoles.Administrator);
+}
+
+<partial name="_PortalPageHeader" model="@(new PortalPageHeaderViewModel(Model.Title, Model.Description + " This page never starts backup collection.", "CACHED BACKUP COVERAGE", "View servers", Url.Action("Servers", "Operations")))" />
+
+@if (Model.Servers.Count == 0)
+{
+    <partial name="_PortalState" model="@(new PortalStateViewModel("No backup snapshots", "Collect a server snapshot before interpreting backup coverage.", "warning", canManage ? "Manage connections" : "View servers", canManage ? Url.Action("Index", "ConnectionLab") : Url.Action("Servers", "Operations")))" />
+}
+else
+{
+    <section class="health-command-summary" aria-label="Backup health summary">
+        <article class="health-command-card hero state-@(missing > 0 ? "critical" : unavailable > 0 ? "warning" : "healthy")"><div><small>24H FULL-BACKUP COVERAGE</small><strong>@covered covered</strong><span>@missing database(s) missing full-backup evidence</span></div></article>
+        <article class="health-command-card state-@(missing > 0 ? "critical" : "healthy")"><small>MISSING / 24H</small><strong>@missing</strong><span>Collected databases without qualifying full backup</span></article>
+        <article class="health-command-card state-@(unavailable > 0 ? "offline" : "healthy")"><small>EVIDENCE UNAVAILABLE</small><strong>@unavailable</strong><span>Servers without backup evidence</span></article>
+        <article class="health-command-card state-healthy"><small>LATEST FULL BACKUP</small><strong>@(latestFull == default ? "Not collected" : latestFull.ToString("u"))</strong><span>Most recent timestamp in cached evidence</span></article>
+    </section>
+
+    <section class="glass-panel table-panel health-surface-panel">
+        <div class="panel-heading"><div><span class="eyebrow">BACKUP COVERAGE BY SERVER</span><h3>Latest bounded backup facts</h3></div><span class="snapshot-note">Full backups only</span></div>
+        <div class="responsive-table" role="region" aria-label="Backup health by server" tabindex="0">
+            <div class="table-head health-detail-grid health-detail-grid-six" role="row"><span>Server</span><span>Source</span><span>Covered / 24h</span><span>Missing / 24h</span><span>Last full backup</span><span>Details</span></div>
+            @foreach (var server in Model.Servers)
+            {
+                var backup = server.Backups;
+                <div class="table-row health-detail-grid health-detail-grid-six" role="row">
+                    <strong>@server.Name</strong>
+                    <partial name="_HealthSourceBadge" model="server" />
+                    <span>@(backup is null ? "Not collected" : backup.BackedUpLast24Hours)</span>
+                    <span class="@(backup?.MissingFullBackupLast24Hours > 0 ? "state-critical" : string.Empty)">@(backup is null ? "Not collected" : backup.MissingFullBackupLast24Hours)</span>
+                    <span>@(backup?.LastFullBackupAtUtc?.ToString("u") ?? "Not collected")</span>
+                    <a class="secondary-button compact-button" asp-controller="Operations" asp-action="ServerDetails" asp-route-id="@server.Id">Server</a>
+                </div>
+            }
+        </div>
+    </section>
+    <div class="data-banner"><strong>INTERPRETATION BOUNDARY</strong><span>Missing full-backup evidence is not the same as backup failure. This screen shows only cached full-backup coverage returned by the collector.</span></div>
+}
