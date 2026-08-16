@@ -84,16 +84,17 @@ After the #162 retention prerequisite is satisfied, record these values before c
 
 ## Initialize one immutable production acceptance session
 
-Use the packaged `_operations` scripts after the operational backup and rollback point are known:
+Use the packaged `_operations` scripts after the operational backup and rollback point are known. The selected product hash is an independent input; do not derive it from the companion checksum being supplied to the initializer.
 
 ```powershell
 .\_operations\scripts\New-ProductionAcceptanceSession.ps1 `
-  -SessionRoot 'C:\ProgramData\Monitor\Acceptance\p0-5-rc-N' `
-  -ArtifactPath '.\Monitor-0.1.0-rc.N-win-x64.zip' `
-  -ChecksumPath '.\Monitor-0.1.0-rc.N-win-x64.zip.sha256' `
-  -CandidateVersion '0.1.0-rc.N' `
-  -SourceCommit '<40-hex-source-head>' `
-  -TestedMergeCommit '<40-hex-tested-merge-ref>' `
+  -SessionRoot 'C:\ProgramData\Monitor\Acceptance\p0-5-rc-61' `
+  -ArtifactPath '.\Monitor-0.1.0-rc.61-win-x64.zip' `
+  -ChecksumPath '.\Monitor-0.1.0-rc.61-win-x64.zip.sha256' `
+  -CandidateVersion '0.1.0-rc.61' `
+  -ExpectedProductSha256 'd0a71f8a5611621ee388a1109dedc76e1a6e70357404cb62c9c7aa188f49c3d5' `
+  -SourceCommit 'e28158da67b36dfc5dbf8f4c38b5c43d99c7c728' `
+  -TestedMergeCommit '158148d8bfd05f724014541bc7a0b1eab5dae1b5' `
   -HostName 'monitor.example.internal' `
   -SiteName 'Monitor' `
   -AppPoolName 'Monitor' `
@@ -104,9 +105,9 @@ Use the packaged `_operations` scripts after the operational backup and rollback
   -StateRoot 'C:\ProgramData\Monitor\App_Data'
 ```
 
-The initializer requires a fresh absolute Windows session root and refuses reuse. Before session creation it verifies exact candidate/checksum naming and bytes, product SHA-256 and readable ZIP structure and rejects secret/provider/connection-string/SQL-text-shaped metadata.
+The initializer requires a fresh absolute Windows session root and refuses reuse. Before session creation it verifies exact candidate/checksum naming, requires the companion checksum and the ZIP bytes to match the independently selected `-ExpectedProductSha256`, validates readable ZIP structure and rejects secret/provider/connection-string/SQL-text-shaped metadata. A substituted ZIP and `.sha256` pair that agree with each other but do not match the selected product hash fails closed before the session workspace is created.
 
-A successful session contains the copied candidate/checksum, `evidence/p0-5-evidence-pack.json`, bounded `evidence/proof/`, `session-manifest.json`, `session-manifest.sha256` and `OPERATOR-NEXT-STEPS.txt`.
+A successful session contains the copied candidate/checksum, `evidence/p0-5-evidence-pack.json`, bounded `evidence/proof/`, `session-manifest.json`, `session-manifest.sha256` and `OPERATOR-NEXT-STEPS.txt`. The candidate is rehashed after copy and the manifest/evidence pack remain bound to the selected product SHA-256.
 
 `New-ProductionAcceptanceEvidencePack.ps1` remains the low-level canonical evidence-pack schema/generator used by the session initializer. The generator creates the exact fail-closed 15-gate structure and never marks a real environment gate PASS.
 
@@ -119,7 +120,7 @@ Verify `session-manifest.sha256` before the first production operation. Do not m
 1. Confirm #162 durable promotion and separate read-only durable verification are Green for the exact selected RC.61 identity.
 2. Obtain the exact selected candidate bytes and verify their SHA-256 against the independently verified durable release.
 3. Create and validate the operational backup and preserve the previous release as the rollback point.
-4. Create the immutable acceptance session above; verify `session-manifest.sha256` and confirm `PreparedFailClosed` / 0/15.
+4. Create the immutable acceptance session above with the independently selected product SHA-256; verify `session-manifest.sha256` and confirm `PreparedFailClosed` / 0/15.
 5. Run `_operations/scripts/Test-IisProductionPrerequisites.ps1` and retain its non-secret output beneath the session `evidence/proof` root.
 6. Run `_operations/scripts/Deploy-ProductionSingleNode.ps1` without `-Apply`; review and retain the PLAN ONLY output.
 7. Apply the reviewed plan with explicit `-Apply`.
@@ -148,6 +149,7 @@ The evidence-pack generator does not perform IIS deployment, recycle IIS, execut
 Immediately after session creation verify:
 
 - candidate copy hashes to the selected product SHA-256;
+- manifest `artifactSha256` and `selectedProductSha256` both equal the independently selected product SHA-256;
 - `session-manifest.sha256` matches `session-manifest.json`;
 - manifest state is `PreparedFailClosed`;
 - evidence pack contains exactly 15 required gates and all are false;
@@ -259,7 +261,7 @@ These results map to `operationalBackupValidated`, `rollbackRehearsed` and `post
 P0.5 can be marked COMPLETE only when all of the following are true:
 
 - #162 exact RC.61 manual promotion and separate read-only durable verification succeeded and the durable tag/exact-two assets/product hash were independently verified;
-- the selected candidate/checksum and environment identity were captured in one verified immutable session before cutover;
+- the selected candidate/checksum, independently selected product SHA-256 and environment identity were captured in one verified immutable session before cutover;
 - all 15 external evidence-pack gates are PASS from the real intended environment;
 - every gate has a matching evidence file and SHA-256;
 - the explicit finalizer succeeds with the approved operator identity;
@@ -272,4 +274,4 @@ Finalizing the evidence pack does not close GitHub issues automatically. #116 re
 
 ## Stop conditions
 
-Do not cut over, or rollback immediately, if durable RC.61 retention/independent verification is incomplete, the session manifest lock is invalid, candidate/checksum bytes do not match, readiness is not Green, the application starts in unintended MultiNode mode, IIS/certificate/app-pool prerequisites fail, key-ring/state paths are unavailable, protected credentials cannot resolve after recycle, monitored SQL requires unexpected write/high privilege, backup/rollback evidence is missing, or finalizer/closure validator does not return PASS.
+Do not cut over, or rollback immediately, if durable RC.61 retention/independent verification is incomplete, the session manifest lock is invalid, candidate/checksum bytes do not match the independently selected product SHA-256, readiness is not Green, the application starts in unintended MultiNode mode, IIS/certificate/app-pool prerequisites fail, key-ring/state paths are unavailable, protected credentials cannot resolve after recycle, monitored SQL requires unexpected write/high privilege, backup/rollback evidence is missing, or finalizer/closure validator does not return PASS.

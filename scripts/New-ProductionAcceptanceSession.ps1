@@ -14,6 +14,10 @@ param(
     [string]$CandidateVersion,
 
     [Parameter(Mandatory = $true)]
+    [ValidatePattern('^[a-fA-F0-9]{64}$')]
+    [string]$ExpectedProductSha256,
+
+    [Parameter(Mandatory = $true)]
     [ValidatePattern('^[a-fA-F0-9]{40}$')]
     [string]$SourceCommit,
 
@@ -139,6 +143,7 @@ function Assert-ReadableZip {
 }
 
 $resolvedSessionRoot = Assert-SafeSessionTarget -Value $SessionRoot
+$selectedProductHash = $ExpectedProductSha256.ToLowerInvariant()
 
 if (-not (Test-Path -LiteralPath $ArtifactPath -PathType Leaf)) {
     throw "Candidate artifact was not found: $ArtifactPath"
@@ -172,9 +177,16 @@ foreach ($pair in @(
 }
 
 $checksumHash = Read-ChecksumContract -Path $ChecksumPath -ExpectedFileName $expectedArtifactName
+if ($checksumHash -ne $selectedProductHash) {
+    throw 'Candidate checksum SHA-256 does not match the selected product SHA-256.'
+}
+
 $actualHash = (Get-FileHash -LiteralPath $ArtifactPath -Algorithm SHA256).Hash.ToLowerInvariant()
 if ($actualHash -ne $checksumHash) {
     throw 'Candidate artifact SHA-256 does not match the selected checksum file.'
+}
+if ($actualHash -ne $selectedProductHash) {
+    throw 'Candidate artifact SHA-256 does not match the selected product SHA-256.'
 }
 Assert-ReadableZip -Path $ArtifactPath
 
@@ -203,15 +215,18 @@ try {
     if ($copiedHash -ne $actualHash) {
         throw 'Candidate artifact changed while creating the acceptance session.'
     }
-    if ((Read-ChecksumContract -Path $copiedChecksum -ExpectedFileName $expectedArtifactName) -ne $copiedHash) {
-        throw 'Copied checksum no longer matches the candidate artifact.'
+    if ($copiedHash -ne $selectedProductHash) {
+        throw 'Copied candidate artifact SHA-256 does not match the selected product SHA-256.'
+    }
+    if ((Read-ChecksumContract -Path $copiedChecksum -ExpectedFileName $expectedArtifactName) -ne $selectedProductHash) {
+        throw 'Copied checksum no longer matches the selected product SHA-256.'
     }
 
     $packPath = Join-Path $evidenceRoot 'p0-5-evidence-pack.json'
     & $generatorPath `
         -CandidateVersion $CandidateVersion `
         -ArtifactFileName $expectedArtifactName `
-        -ArtifactSha256 $copiedHash `
+        -ArtifactSha256 $selectedProductHash `
         -SourceCommit $SourceCommit `
         -TestedMergeCommit $TestedMergeCommit `
         -HostName $HostName `
@@ -239,8 +254,8 @@ try {
     if (-not [string]::IsNullOrWhiteSpace([string]$pack.acceptedBy) -or $null -ne $pack.acceptedAtUtc) {
         throw 'New production acceptance session must not contain final acceptance metadata.'
     }
-    if ($pack.candidate.artifactFileName -ne $expectedArtifactName -or $pack.candidate.sha256 -ne $copiedHash) {
-        throw 'Generated evidence pack is not bound to the copied candidate artifact.'
+    if ($pack.candidate.artifactFileName -ne $expectedArtifactName -or $pack.candidate.sha256 -ne $selectedProductHash) {
+        throw 'Generated evidence pack is not bound to the selected candidate product SHA-256.'
     }
 
     $createdAtUtc = [DateTimeOffset]::UtcNow.ToString('O')
@@ -252,7 +267,8 @@ try {
         deploymentMode = 'SingleNode'
         candidateVersion = $CandidateVersion
         artifactFileName = $expectedArtifactName
-        artifactSha256 = $copiedHash
+        artifactSha256 = $selectedProductHash
+        selectedProductSha256 = $selectedProductHash
         sourceCommit = $SourceCommit.ToLowerInvariant()
         testedMergeCommit = $TestedMergeCommit.ToLowerInvariant()
         hostName = $HostName.ToLowerInvariant()
@@ -299,6 +315,7 @@ try {
         ManifestSha256 = $manifestHash
         EvidencePath = Join-Path $resolvedSessionRoot 'evidence\p0-5-evidence-pack.json'
         CandidateArtifact = Join-Path $resolvedSessionRoot "candidate\$expectedArtifactName"
+        SelectedProductSha256 = $selectedProductHash
         ExternalGateCount = 15
         ExternalGatesPassed = 0
         ProductionAccepted = $false
