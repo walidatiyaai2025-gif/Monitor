@@ -31,8 +31,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          bash -n scripts/Verify-DurableReleaseToolchain.sh
+          bash -n scripts/Test-DurableReleaseToolchainSafety.sh
           bash -n scripts/Verify-DurableRelease.sh
           bash -n scripts/Test-DurableReleaseVerifierSafety.sh
+      - name: Exercise durable release toolchain capability runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/Verify-DurableReleaseToolchain.sh
+          bash scripts/Test-DurableReleaseToolchainSafety.sh
       - name: Exercise durable release verifier TOCTOU runtime
         shell: bash
         run: bash scripts/Test-DurableReleaseVerifierSafety.sh
