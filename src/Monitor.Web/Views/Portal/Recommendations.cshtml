@@ -4,21 +4,64 @@
     ViewData["Title"] = "Recommendations";
 }
 
-<section class="page-heading"><div><span class="eyebrow">HUMAN-REVIEWED GUIDANCE</span><h1>Recommendations</h1><p>Deterministic, read-only DBA guidance derived from active incident evidence. Monitor never executes a recommendation or generated SQL.</p></div><a class="secondary-button" asp-controller="Operations" asp-action="Alerts">Incident center</a></section>
-@if (Model.Items.Count == 0)
+<partial name="_PortalPageHeader" model="@(new PortalPageHeaderViewModel("Recommendations", "Deterministic, read-only DBA guidance derived from active incident evidence. Monitor never executes a recommendation or generated SQL.", "HUMAN-REVIEWED GUIDANCE", "Incident center", Url.Action("Alerts", "Operations")))" />
+
+<section class="health-command-summary" aria-label="Recommendation summary">
+    <article class="health-command-card hero state-@(Model.Critical > 0 ? "critical" : Model.Warning > 0 ? "warning" : "healthy")"><div><small>BOUNDED ACTIVE GUIDANCE</small><strong>@Model.BoundedTotal</strong><span>Maximum 100 active recommendation candidates</span></div></article>
+    <article class="health-command-card state-@(Model.Critical > 0 ? "critical" : "healthy")"><small>CRITICAL</small><strong>@Model.Critical</strong><span>Critical incidents with approved guidance</span></article>
+    <article class="health-command-card state-@(Model.Warning > 0 ? "warning" : "healthy")"><small>WARNING</small><strong>@Model.Warning</strong><span>Warning incidents with approved guidance</span></article>
+    <article class="health-command-card state-healthy"><small>VISIBLE AFTER FILTERS</small><strong>@Model.Items.Count</strong><span>Current bounded result set</span></article>
+</section>
+
+<section class="glass-panel recommendation-filter-panel" aria-labelledby="recommendation-filter-title">
+    <div class="panel-heading"><div><span class="eyebrow">BOUNDED FILTERS</span><h3 id="recommendation-filter-title">Focus guidance</h3></div><span class="snapshot-note">Severity + exact rule ID</span></div>
+    <form method="get" class="recommendation-filter-grid">
+        <label><span>Severity</span><select name="severity">
+            <option value="">All severities</option>
+            <option value="Critical" selected="@(Model.Severity == FindingSeverity.Critical)">Critical</option>
+            <option value="Warning" selected="@(Model.Severity == FindingSeverity.Warning)">Warning</option>
+        </select></label>
+        <label><span>Rule ID</span><input name="ruleId" value="@Model.RuleId" maxlength="80" autocomplete="off" placeholder="Exact approved rule ID" /></label>
+        <div class="recommendation-filter-actions"><button class="primary-button" type="submit">Apply filters</button><a class="secondary-button" asp-action="Recommendations">Clear</a></div>
+    </form>
+</section>
+
+@if (Model.BoundedTotal == 0)
 {
-    <div class="glass-panel lab-empty"><strong>No active recommendations</strong><span>Recommendations appear when an active incident matches an approved rule.</span></div>
+    <partial name="_PortalState" model="@(new PortalStateViewModel("No active recommendations", "Recommendations appear when an active incident matches an approved deterministic rule.", "neutral", "Review incidents", Url.Action("Alerts", "Operations")))" />
+}
+else if (Model.Items.Count == 0)
+{
+    <partial name="_PortalState" model="@(new PortalStateViewModel("No recommendations match these filters", "The bounded recommendation set contains guidance, but none match the selected severity and rule ID.", "warning", "Clear filters", Url.Action("Recommendations", "Portal")))" />
 }
 else
 {
-    <section class="settings-grid">
+    <section class="recommendation-grid" aria-label="Recommendation guidance">
         @foreach (var item in Model.Items)
         {
-            <article class="glass-panel settings-card">
-                <div class="panel-heading"><div><span class="eyebrow">@item.Incident.RuleId</span><h3>@item.Incident.Title</h3></div><span class="severity severity-@item.Incident.Severity.ToString().ToLowerInvariant()">@item.Incident.Severity</span></div>
-                <p>@item.Recommendation.Explanation</p>
-                @foreach (var step in item.Recommendation.Steps) { <div class="lab-rule"><span>@step.Order</span><div><strong>@step.Action</strong><p>@step.Risk</p></div></div> }
-                <a class="secondary-button full-button" asp-controller="Operations" asp-action="IncidentDetails" asp-route-id="@item.Incident.Id">Review incident evidence</a>
+            <article class="glass-panel recommendation-card">
+                <div class="panel-heading">
+                    <div><span class="eyebrow">@item.Incident.RuleId</span><h3>@item.Incident.Title</h3></div>
+                    <span class="severity severity-@item.Incident.Severity.ToString().ToLowerInvariant()">@item.Incident.Severity</span>
+                </div>
+                <div class="recommendation-context">
+                    <span><small>Status</small><strong>@item.Incident.Status</strong></span>
+                    <span><small>Occurrences</small><strong>@item.Incident.Occurrences</strong></span>
+                    <span><small>Last observed</small><strong>@item.Incident.LastSeenUtc.ToString("u")</strong></span>
+                </div>
+                <p class="recommendation-explanation">@item.Recommendation.Explanation</p>
+                <ol class="recommendation-steps" aria-label="Human-reviewed recommendation steps">
+                    @foreach (var step in item.Recommendation.Steps.OrderBy(step => step.Order))
+                    {
+                        <li>
+                            <div><strong>@step.Action</strong><p><span class="risk-label">Risk / caution</span> @step.Risk</p></div>
+                        </li>
+                    }
+                </ol>
+                <div class="recommendation-actions">
+                    <a class="secondary-button" asp-controller="Operations" asp-action="IncidentDetails" asp-route-id="@item.Incident.Id">Review incident evidence</a>
+                    <a class="secondary-button" asp-controller="Operations" asp-action="ServerDetails" asp-route-id="@item.Incident.RegistrationId.ToString("D")">Review server evidence</a>
+                </div>
             </article>
         }
     </section>

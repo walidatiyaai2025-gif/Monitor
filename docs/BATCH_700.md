@@ -24,31 +24,29 @@ Close the gap between backend capability completion and a complete visible opera
 ## Batch status
 
 ### Foundation #221 — COMPLETE
-- [x] UI700-001..010 — PR #236 merged as `59a931cc031e19f162edfadc278dc8b9c6c842e3`; final exact head `32dbcd56b14a58ebb193ef81c8fa9c715c31feb8` passed `ci` #1571, `real-sql-acceptance` #88, and `production-candidate` #133.
+- [x] UI700-001..010 — PR #236 merged as `59a931cc031e19f162edfadc278dc8b9c6c842e3`; exact head `32dbcd56b14a58ebb193ef81c8fa9c715c31feb8` passed `ci` #1571, `real-sql-acceptance` #88 and `production-candidate` #133.
 
 ### Health #222 — COMPLETE
-- [x] UI700-011 — dedicated Database Health surface.
-- [x] UI700-012 — dedicated Backup Health surface.
-- [x] UI700-013 — dedicated SQL Agent surface.
-- [x] UI700-014 — dedicated Storage Allocation surface.
-- [x] UI700-015 — dedicated Blocking surface.
-- [x] UI700-016 — complete cache-only Performance dashboard.
-- [x] UI700-017 — shared live/stale/unavailable/demo source states.
-- [x] UI700-018 — server-detail drill-down from health pages.
-- [x] UI700-019 — role-aware actionable empty states.
-- [x] UI700-020 — regression/build acceptance; PR #237 merged as `308a2f31a42500ce7354b1af2c2369d59be57455`, exact head `fa0353431bc02abbc7cf520fec04adf5418ecfc6`, `ci` #1590 and `production-candidate` #134 Green. Real-SQL workflow was not applicable under its path filter.
+- [x] UI700-011..020 — PR #237 merged as `308a2f31a42500ce7354b1af2c2369d59be57455`; exact head `fa0353431bc02abbc7cf520fec04adf5418ecfc6` passed `ci` #1590 and `production-candidate` #134. Real-SQL was not applicable under its path filter.
 
-### Audit / history #223 — IMPLEMENTED / CI PENDING
-- [x] UI700-021 — Audit empty state and bounded paging controls.
-- [x] UI700-022 — safe actor/action/outcome filters over the already-bounded audit page.
-- [x] UI700-023 — Audit hierarchy, outcome badges, semantic time and mobile layout.
-- [x] UI700-024 — History bounded window selector.
-- [x] UI700-025 — History page-size and Previous/Next controls.
-- [x] UI700-026 — History server context/back-link with explicit missing/stale presentation.
-- [x] UI700-027 — History empty state.
-- [x] UI700-028 — evidence-only history summary cards.
-- [x] UI700-029 — bounded store/control-plane GET contract preserved; no monitored SQL collection dependency.
-- [ ] UI700-030 — exact-head regression/build acceptance must be Green before #223 closes and PR #238 merges.
+### Audit / history #223 — COMPLETE
+- [x] UI700-021..030 — PR #238 merged as `3864b4f8acc14d6e0bd259bfb1ab52d9fec07be1`; final synchronized head `473944f21ce4cabb0b96f6040edf5992605930b5` passed `ci` #1617 and `production-candidate` #135. Real-SQL was not applicable.
+
+### Recommendations / reports #224 — IMPLEMENTED / CI PENDING
+- [x] UI700-031 — bounded recommendation summary plus severity and exact normalized rule filters.
+- [x] UI700-032 — semantic ordered guidance with explicit risk/caution hierarchy.
+- [x] UI700-033 — incident and server evidence drill-down.
+- [x] UI700-034 — no-data/filter-empty/mobile recommendation states.
+- [x] UI700-035 — report format/version/access/scope metadata.
+- [x] UI700-036 — standard reports separated from Administrator diagnostics.
+- [x] UI700-037 — safe failure/permission disclosure without sensitive provider details.
+- [x] UI700-038 — accessible download labels and bounded/redacted disclosures.
+- [x] UI700-039 — Read/Manage policy regression coverage.
+- [x] UI700-040 — global export discoverability plus contextual stored-history export.
+- [ ] Exact-head applicable GitHub Actions must be Green before #224 closes and PR #239 merges.
+
+### Enterprise / admin / final #225 — IN PROGRESS
+Implementation is isolated in PR #240. Do not mark UI700-041..050 complete until its final synchronized head is Green and canonical docs are reconciled.
 
 ## Closure rule
 

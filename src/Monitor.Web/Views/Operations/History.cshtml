@@ -13,6 +13,7 @@
     var hasPrevious = offset > 0;
     var hasNext = Model.Points.Count >= limit;
     var windows = new[] { "1h", "6h", "24h", "7d" };
+    var exportableWindow = new[] { "1h", "6h", "24h" }.Contains(Model.Window, StringComparer.OrdinalIgnoreCase);
 }
 
 <partial name="_PortalPageHeader" model="@(new PortalPageHeaderViewModel("Snapshot trends", $"Bounded aggregate history for server {Model.RegistrationId:D}. Missing metrics remain explicit rather than becoming zero.", $"READ-ONLY HISTORY · {Model.Window}", "Back to server", Url.Action("ServerDetails", "Operations", new { id = Model.RegistrationId.ToString("D") })))" />
@@ -39,6 +40,17 @@
         <input type="hidden" name="offset" value="0" />
         <button class="primary-button" type="submit">Apply</button>
     </form>
+    <div class="history-export-row">
+        @if (exportableWindow)
+        {
+            <a class="secondary-button" asp-controller="EnterpriseReports" asp-action="History" asp-route-registrationId="@Model.RegistrationId" asp-route-window="@Model.Window" aria-label="Download stored snapshot history CSV for this server and window">Download @Model.Window history CSV</a>
+            <span>CSV export uses the same stored aggregate source; it does not collect a new snapshot.</span>
+        }
+        else
+        {
+            <span>CSV export is available for the approved 1h, 6h and 24h windows. Select one of those windows to download.</span>
+        }
+    </div>
 </section>
 
 @if (Model.Points.Count == 0)

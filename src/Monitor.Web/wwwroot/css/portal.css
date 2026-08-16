@@ -41,7 +41,11 @@
 .compact-button:focus-visible,
 .bounded-pager a:focus-visible,
 .audit-filter-panel input:focus-visible,
-.history-controls select:focus-visible {
+.history-controls select:focus-visible,
+.recommendation-filter-panel input:focus-visible,
+.recommendation-filter-panel select:focus-visible,
+.recommendation-actions a:focus-visible,
+.report-card a:focus-visible {
   outline: 2px solid currentColor;
   outline-offset: 3px;
 }
@@ -113,7 +117,8 @@
 }
 
 .audit-filter-panel,
-.history-controls {
+.history-controls,
+.recommendation-filter-panel {
   margin-bottom: 18px;
   padding: 18px;
 }
@@ -126,13 +131,15 @@
 }
 
 .audit-filter-grid label,
-.history-window-form label {
+.history-window-form label,
+.recommendation-filter-grid label {
   display: grid;
   gap: 6px;
 }
 
 .audit-filter-grid label span,
-.history-window-form label span {
+.history-window-form label span,
+.recommendation-filter-grid label span {
   font-size: .76rem;
   letter-spacing: .07em;
   text-transform: uppercase;
@@ -140,7 +147,9 @@
 }
 
 .audit-filter-grid input,
-.history-window-form select {
+.history-window-form select,
+.recommendation-filter-grid input,
+.recommendation-filter-grid select {
   width: 100%;
   min-height: 42px;
   border: 1px solid rgba(148, 163, 184, .2);
@@ -151,12 +160,14 @@
   font: inherit;
 }
 
-.audit-filter-actions {
+.audit-filter-actions,
+.recommendation-filter-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  grid-column: 1 / -1;
 }
+
+.audit-filter-actions { grid-column: 1 / -1; }
 
 .audit-detail-grid {
   grid-template-columns: minmax(150px, 1.1fr) minmax(130px, .9fr) minmax(190px, 1.35fr) minmax(150px, 1fr) minmax(130px, .9fr) minmax(76px, .5fr);
@@ -192,6 +203,40 @@
 
 .history-freshness { font-weight: 650; }
 
+.recommendation-filter-grid {
+  display: grid;
+  grid-template-columns: minmax(160px, .6fr) minmax(220px, 1.3fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.recommendation-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.recommendation-card { padding: 20px; min-width: 0; }
+.recommendation-explanation { margin: 14px 0; }
+.recommendation-context { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.recommendation-context span { display: grid; gap: 3px; padding: 10px; border-radius: 10px; background: rgba(8, 21, 35, .62); }
+.recommendation-context small { opacity: .7; }
+.recommendation-steps { display: grid; gap: 10px; margin: 14px 0; padding-left: 1.5rem; }
+.recommendation-steps li { padding: 10px 12px; border: 1px solid rgba(148, 163, 184, .14); border-radius: 10px; }
+.recommendation-steps p { margin: 5px 0 0; }
+.risk-label { font-size: .72rem; letter-spacing: .05em; text-transform: uppercase; opacity: .72; }
+.recommendation-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+
+.report-section { margin-top: 22px; }
+.report-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.report-card { display: flex; flex-direction: column; min-width: 0; padding: 20px; }
+.report-card > p { flex: 1 1 auto; }
+.report-format { font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; opacity: .78; }
+.report-metadata { display: grid; gap: 7px; margin: 12px 0 16px; }
+.report-metadata div { display: grid; grid-template-columns: minmax(78px, .7fr) 1fr; gap: 8px; }
+.report-metadata dt { opacity: .68; }
+.report-metadata dd { margin: 0; font-weight: 650; }
+
 .error-body {
   min-height: 100vh;
   display: grid;
@@ -210,6 +255,11 @@
 .error-panel h1 { margin: 8px 0 12px; font-size: clamp(1.8rem, 5vw, 3rem); }
 .error-panel p { max-width: 62ch; }
 .error-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+
+@media (max-width: 1100px) {
+  .report-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .recommendation-grid { grid-template-columns: 1fr; }
+}
 
 @media (max-width: 860px) {
   .nav-toggle { display: inline-grid; place-items: center; }
@@ -246,6 +296,13 @@
   .health-command-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .audit-filter-grid { grid-template-columns: 1fr 1fr; }
   .audit-filter-grid label:last-of-type { grid-column: 1 / -1; }
+  .recommendation-filter-grid { grid-template-columns: 1fr 1fr; }
+  .recommendation-filter-actions { grid-column: 1 / -1; }
+}
+
+@media (max-width: 620px) {
+  .report-grid { grid-template-columns: 1fr; }
+  .recommendation-context { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 520px) {
@@ -255,10 +312,13 @@
   .portal-page-heading { display: grid; }
   .health-command-summary { grid-template-columns: 1fr; }
   .audit-filter-grid,
-  .history-window-form { grid-template-columns: 1fr; }
-  .audit-filter-grid label:last-of-type { grid-column: auto; }
+  .history-window-form,
+  .recommendation-filter-grid { grid-template-columns: 1fr; }
+  .audit-filter-grid label:last-of-type,
+  .recommendation-filter-actions { grid-column: auto; }
   .bounded-pager { grid-template-columns: 1fr; }
   .bounded-pager > * { justify-self: stretch !important; text-align: center; }
+  .recommendation-actions { flex-direction: column; }
 }
 
 @media (prefers-reduced-motion: reduce) {

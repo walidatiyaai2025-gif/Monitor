@@ -4,13 +4,70 @@
     var canManage = User.IsInRole(MonitorRoles.Administrator);
 }
 
-<section class="page-heading"><div><span class="eyebrow">BOUNDED EXPORTS</span><h1>Reports & Diagnostics</h1><p>Versioned, size-limited exports built from Monitor-owned metadata and cached evidence. Opening this page never contacts a monitored SQL Server.</p></div></section>
-<section class="settings-grid">
-    <article class="glass-panel settings-card"><div class="panel-heading"><div><span class="eyebrow">ESTATE</span><h3>Server inventory</h3></div></div><p>Safe registration and operator metadata with spreadsheet-formula protection.</p><a class="secondary-button full-button" href="/reports/servers-v2.csv">Download servers CSV v2</a></article>
-    <article class="glass-panel settings-card"><div class="panel-heading"><div><span class="eyebrow">INCIDENTS</span><h3>Incident lifecycle</h3></div></div><p>Bounded incident state without credentials, SQL text or raw provider errors.</p><a class="secondary-button full-button" href="/reports/incidents.csv">Download incidents CSV</a></article>
+<partial name="_PortalPageHeader" model="@(new PortalPageHeaderViewModel("Reports & Diagnostics", "Versioned, size-limited exports built from Monitor-owned metadata and cached evidence. Opening this page never contacts a monitored SQL Server.", "BOUNDED EXPORTS", "View servers", Url.Action("Servers", "Operations")))" />
+
+<div class="data-banner"><strong>SAFE DOWNLOAD BEHAVIOR</strong><span>Exports are bounded and formula-safe where applicable. Permission or validation failures return a safe HTTP error surface; credentials, SQL text, raw provider errors and filesystem paths are never included in download error messaging.</span></div>
+
+<section class="report-section" aria-labelledby="standard-reports-title">
+    <div class="section-heading"><div><span class="eyebrow">VIEWER / OPERATOR / ADMINISTRATOR</span><h2 id="standard-reports-title">Standard reports</h2></div><span class="snapshot-note">Read policy</span></div>
+    <div class="report-grid">
+        <article class="glass-panel report-card">
+            <div class="panel-heading"><div><span class="eyebrow">ESTATE</span><h3>Server inventory</h3></div><span class="report-format">CSV · v2</span></div>
+            <p>Safe registration and operator metadata with spreadsheet-formula protection. The v2 export is the preferred estate report and reads registration metadata plus cached evidence only.</p>
+            <dl class="report-metadata"><div><dt>Access</dt><dd>Viewer+</dd></div><div><dt>Scope</dt><dd>Bounded estate rows</dd></div><div><dt>Sensitive data</dt><dd>Excluded</dd></div></dl>
+            <div class="report-actions">
+                <a class="secondary-button full-button" href="/reports/servers-v2.csv" aria-label="Download server inventory CSV version 2">Download servers CSV v2</a>
+                <a class="secondary-button full-button" href="/reports/servers.csv" aria-label="Download legacy server inventory CSV version 1">Legacy servers CSV v1</a>
+            </div>
+        </article>
+
+        <article class="glass-panel report-card">
+            <div class="panel-heading"><div><span class="eyebrow">INCIDENTS</span><h3>Incident lifecycle</h3></div><span class="report-format">CSV · v1</span></div>
+            <p>Bounded incident lifecycle and operator-safe metadata without credentials, SQL text, plans or raw provider errors.</p>
+            <dl class="report-metadata"><div><dt>Access</dt><dd>Viewer+</dd></div><div><dt>Scope</dt><dd>Bounded incident state</dd></div><div><dt>Execution</dt><dd>Read-only</dd></div></dl>
+            <a class="secondary-button full-button" href="/reports/incidents.csv" aria-label="Download bounded incident lifecycle CSV">Download incidents CSV</a>
+        </article>
+
+        <article class="glass-panel report-card">
+            <div class="panel-heading"><div><span class="eyebrow">HISTORY</span><h3>Server snapshot history</h3></div><span class="report-format">CSV · contextual</span></div>
+            <p>History exports require a selected server registration and an approved 1h, 6h or 24h window. Choose a server first so the export remains explicitly scoped.</p>
+            <dl class="report-metadata"><div><dt>Access</dt><dd>Viewer+</dd></div><div><dt>Windows</dt><dd>1h · 6h · 24h</dd></div><div><dt>Source</dt><dd>Stored aggregates</dd></div></dl>
+            <a class="secondary-button full-button" asp-controller="Operations" asp-action="Servers" aria-label="Choose a server before opening or exporting snapshot history">Choose server for history</a>
+        </article>
+    </div>
+</section>
+
+<section class="report-section" aria-labelledby="admin-reports-title">
+    <div class="section-heading"><div><span class="eyebrow">ADMINISTRATOR ONLY</span><h2 id="admin-reports-title">Audit & support diagnostics</h2></div><span class="snapshot-note">Manage policy</span></div>
     @if (canManage)
     {
-        <article class="glass-panel settings-card"><div class="panel-heading"><div><span class="eyebrow">AUDIT</span><h3>Operator audit</h3></div></div><p>Append-only bounded operator actions and safe outcomes.</p><a class="secondary-button full-button" href="/reports/audit.csv">Download audit CSV</a></article>
-        <article class="glass-panel settings-card"><div class="panel-heading"><div><span class="eyebrow">SUPPORT</span><h3>Redacted diagnostics</h3></div></div><p>Application diagnostics only; secret material and monitored-SQL text are excluded.</p><a class="secondary-button full-button" href="/diagnostics/package">Download diagnostics package</a><a class="secondary-button full-button" href="/diagnostics/manifest.json">View manifest</a></article>
+        <div class="report-grid">
+            <article class="glass-panel report-card">
+                <div class="panel-heading"><div><span class="eyebrow">AUDIT</span><h3>Operator audit</h3></div><span class="report-format">CSV · v1</span></div>
+                <p>Append-only bounded operator actions and safe outcomes. Payload contents and secrets are not exported.</p>
+                <dl class="report-metadata"><div><dt>Access</dt><dd>Administrator</dd></div><div><dt>Scope</dt><dd>Bounded audit records</dd></div><div><dt>Payloads</dt><dd>Excluded</dd></div></dl>
+                <a class="secondary-button full-button" href="/reports/audit.csv" aria-label="Download administrator-only bounded operator audit CSV">Download audit CSV</a>
+            </article>
+
+            <article class="glass-panel report-card">
+                <div class="panel-heading"><div><span class="eyebrow">SUPPORT</span><h3>Redacted diagnostics package</h3></div><span class="report-format">ZIP · bounded</span></div>
+                <p>Application diagnostics only. Secret material, monitored-SQL text, provider payloads and unsafe filesystem details are excluded.</p>
+                <dl class="report-metadata"><div><dt>Access</dt><dd>Administrator</dd></div><div><dt>Content</dt><dd>Redacted diagnostics</dd></div><div><dt>Size</dt><dd>Bounded</dd></div></dl>
+                <a class="secondary-button full-button" href="/diagnostics/package" aria-label="Download administrator-only redacted diagnostics ZIP package">Download diagnostics package</a>
+            </article>
+
+            <article class="glass-panel report-card">
+                <div class="panel-heading"><div><span class="eyebrow">MANIFEST</span><h3>Diagnostics manifest</h3></div><span class="report-format">JSON · v1</span></div>
+                <p>Inspect the redacted diagnostics manifest independently before sharing a support package.</p>
+                <dl class="report-metadata"><div><dt>Access</dt><dd>Administrator</dd></div><div><dt>Format</dt><dd>JSON</dd></div><div><dt>Secrets</dt><dd>Excluded</dd></div></dl>
+                <a class="secondary-button full-button" href="/diagnostics/manifest.json" aria-label="View administrator-only redacted diagnostics JSON manifest">View diagnostics manifest</a>
+            </article>
+        </div>
+    }
+    else
+    {
+        <partial name="_PortalState" model="@(new PortalStateViewModel("Administrator access required", "Audit exports and diagnostics packages are intentionally not available to Viewer or Operator roles. Standard reports above remain available under the Read policy.", "neutral"))" />
     }
 </section>
+
+<div class="data-banner"><strong>DISCOVERABILITY</strong><span>All global export and diagnostics entry points are listed here. Server-specific history export remains contextual by design: open Servers, choose a server, then use its stored history workflow.</span></div>

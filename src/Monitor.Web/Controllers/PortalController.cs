@@ -6,7 +6,13 @@ using Monitor.Web.Services;
 namespace Monitor.Web.Controllers;
 
 public sealed record RecommendationHubRow(HealthIncident Incident, RecommendationPlan Recommendation);
-public sealed record RecommendationHubViewModel(IReadOnlyList<RecommendationHubRow> Items);
+public sealed record RecommendationHubViewModel(
+    IReadOnlyList<RecommendationHubRow> Items,
+    int BoundedTotal,
+    int Critical,
+    int Warning,
+    FindingSeverity? Severity,
+    string? RuleId);
 
 [Authorize(Policy = MonitorPolicies.Read)]
 public sealed class PortalController(
@@ -22,9 +28,10 @@ public sealed class PortalController(
             await monitoring.GetHealthModulesAsync(cancellationToken)));
 
     [HttpGet("/recommendations")]
-    public IActionResult Recommendations()
+    public IActionResult Recommendations(FindingSeverity? severity = null, string? ruleId = null)
     {
-        var rows = incidents.GetAll()
+        var normalizedRuleId = SecurityInput.NormalizeOptionalToken(ruleId, 80);
+        var bounded = incidents.GetAll()
             .Where(item => item.Status != IncidentStatus.Resolved)
             .Select(item => (Incident: item, Plan: recommendations.Build(item)))
             .Where(item => item.Plan is not null)
@@ -33,7 +40,19 @@ public sealed class PortalController(
             .ThenByDescending(item => item.Incident.LastSeenUtc)
             .Take(100)
             .ToArray();
-        return View(new RecommendationHubViewModel(rows));
+
+        var filtered = bounded
+            .Where(item => !severity.HasValue || item.Incident.Severity == severity.Value)
+            .Where(item => normalizedRuleId is null || string.Equals(item.Incident.RuleId, normalizedRuleId, StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+
+        return View(new RecommendationHubViewModel(
+            filtered,
+            bounded.Length,
+            bounded.Count(item => item.Incident.Severity == FindingSeverity.Critical),
+            bounded.Count(item => item.Incident.Severity == FindingSeverity.Warning),
+            severity,
+            normalizedRuleId));
     }
 
     [HttpGet("/reports")]
