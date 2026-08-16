@@ -1,4 +1,77 @@
 @model IReadOnlyList<Monitor.Web.Services.AuditEvent>
-@{ ViewData["Title"] = "Audit trail"; }
-<section class="page-heading"><div><span class="eyebrow">APPEND-ONLY · BOUNDED</span><h1>Audit trail</h1><p>Authentication and operator actions without credentials or payload contents.</p></div></section>
-<section class="glass-panel table-panel"><div class="incident-table"><div class="table-head"><span>Time</span><span>Actor</span><span>Action</span><span>Target</span><span>Outcome</span><span>ID</span></div>@foreach (var item in Model){<div class="table-row"><span>@item.OccurredAtUtc.ToString("u")</span><span>@item.Actor</span><span>@item.Action</span><span>@item.Target</span><span>@item.Outcome</span><span>@item.Id.ToString("N")[..8]</span></div>}</div></section>
+@{
+    ViewData["Title"] = "Audit trail";
+    static string Bound(string value) => value.Length > 80 ? value[..80] : value;
+    var actor = Bound(Context.Request.Query["actor"].ToString().Trim());
+    var action = Bound(Context.Request.Query["action"].ToString().Trim());
+    var outcome = Bound(Context.Request.Query["outcome"].ToString().Trim());
+    var offset = int.TryParse(Context.Request.Query["offset"], out var parsedOffset) ? Math.Max(0, parsedOffset) : 0;
+    var limit = int.TryParse(Context.Request.Query["limit"], out var parsedLimit) ? Math.Clamp(parsedLimit, 1, 200) : 50;
+    var filtered = Model
+        .Where(item => string.IsNullOrEmpty(actor) || item.Actor.Contains(actor, StringComparison.OrdinalIgnoreCase))
+        .Where(item => string.IsNullOrEmpty(action) || item.Action.Contains(action, StringComparison.OrdinalIgnoreCase))
+        .Where(item => string.IsNullOrEmpty(outcome) || item.Outcome.Contains(outcome, StringComparison.OrdinalIgnoreCase))
+        .ToArray();
+    var hasPrevious = offset > 0;
+    var hasNext = Model.Count >= limit;
+}
+
+<partial name="_PortalPageHeader" model="@(new PortalPageHeaderViewModel("Audit trail", "Authentication and operator actions from the bounded append-only audit store. Credentials and payload contents are never rendered.", "APPEND-ONLY · BOUNDED", "Reports", Url.Action("Reports", "Portal")))" />
+
+<section class="glass-panel audit-filter-panel" aria-labelledby="audit-filter-title">
+    <div class="panel-heading"><div><span class="eyebrow">SAFE FILTERS</span><h3 id="audit-filter-title">Filter the current bounded audit window</h3></div><span class="snapshot-note">Actor, action and outcome metadata only</span></div>
+    <form method="get" class="audit-filter-grid">
+        <label><span>Actor</span><input name="actor" value="@actor" maxlength="80" autocomplete="off" /></label>
+        <label><span>Action</span><input name="action" value="@action" maxlength="80" autocomplete="off" /></label>
+        <label><span>Outcome</span><input name="outcome" value="@outcome" maxlength="80" autocomplete="off" /></label>
+        <input type="hidden" name="limit" value="@limit" />
+        <div class="audit-filter-actions"><button class="primary-button" type="submit">Apply filters</button><a class="secondary-button" asp-action="Audit" asp-route-limit="@limit">Clear</a></div>
+    </form>
+</section>
+
+@if (Model.Count == 0)
+{
+    <partial name="_PortalState" model="@(new PortalStateViewModel("No audit events in this page", "No bounded audit records were returned for the requested page. This does not infer that no older records exist.", "neutral"))" />
+}
+else if (filtered.Length == 0)
+{
+    <partial name="_PortalState" model="@(new PortalStateViewModel("No audit rows match these filters", "The current bounded page has records, but none match the actor, action and outcome filters.", "warning", "Clear filters", Url.Action("Audit", "Operations", new { limit })))" />
+}
+else
+{
+    <section class="glass-panel table-panel health-surface-panel">
+        <div class="panel-heading"><div><span class="eyebrow">AUDIT EVENTS</span><h3>@filtered.Length visible event(s)</h3></div><span class="snapshot-note">Offset @offset · page limit @limit</span></div>
+        <div class="responsive-table" role="region" aria-label="Audit events" tabindex="0">
+            <div class="table-head audit-detail-grid" role="row"><span>Time</span><span>Actor</span><span>Action</span><span>Target</span><span>Outcome</span><span>ID</span></div>
+            @foreach (var item in filtered)
+            {
+                var negative = item.Outcome.Contains("fail", StringComparison.OrdinalIgnoreCase) || item.Outcome.Contains("reject", StringComparison.OrdinalIgnoreCase) || item.Outcome.Contains("conflict", StringComparison.OrdinalIgnoreCase);
+                var caution = !negative && (item.Outcome.Contains("unavailable", StringComparison.OrdinalIgnoreCase) || item.Outcome.Contains("requested", StringComparison.OrdinalIgnoreCase));
+                <div class="table-row audit-detail-grid" role="row">
+                    <time datetime="@item.OccurredAtUtc.ToString("O")">@item.OccurredAtUtc.ToString("u")</time>
+                    <strong>@item.Actor</strong>
+                    <span class="audit-action">@item.Action</span>
+                    <span>@item.Target</span>
+                    <span><strong class="audit-outcome state-@(negative ? "critical" : caution ? "warning" : "healthy")">@item.Outcome</strong></span>
+                    <code>@item.Id.ToString("N")[..8]</code>
+                </div>
+            }
+        </div>
+    </section>
+}
+
+<nav class="bounded-pager" aria-label="Audit pagination">
+    @if (hasPrevious)
+    {
+        <a class="secondary-button" asp-action="Audit" asp-route-offset="@Math.Max(0, offset - limit)" asp-route-limit="@limit" asp-route-actor="@actor" asp-route-action="@action" asp-route-outcome="@outcome">Previous page</a>
+    }
+    else
+    {
+        <span></span>
+    }
+    <span>Bounded page starting at @offset</span>
+    @if (hasNext)
+    {
+        <a class="secondary-button" asp-action="Audit" asp-route-offset="@(offset + limit)" asp-route-limit="@limit" asp-route-actor="@actor" asp-route-action="@action" asp-route-outcome="@outcome">Next page</a>
+    }
+</nav>
