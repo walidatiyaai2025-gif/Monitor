@@ -8,7 +8,7 @@ fail() {
 
 required_commands=(
   gh jq realpath stat mktemp find sort mv sha256sum awk
-  dirname basename chmod rm rmdir cat
+  dirname basename chmod mkdir rm rmdir cat
 )
 for required in "${required_commands[@]}"; do
   command -v "$required" >/dev/null 2>&1 || fail "required command is unavailable: ${required}"
