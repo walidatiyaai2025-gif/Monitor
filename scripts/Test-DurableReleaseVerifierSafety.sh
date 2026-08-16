@@ -48,15 +48,20 @@ set -euo pipefail
 shift
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    -H)
-      shift 2
-      ;;
-    *)
-      break
-      ;;
+    -H) shift 2 ;;
+    *) break ;;
   esac
 done
 endpoint="${1:-}"
+
+assert_hidden_stage_contract() {
+  [[ "${FAKE_GH_ASSERT_STAGE:-0}" == 1 ]] || return 0
+  [[ ! -e "${FAKE_GH_EXPECT_DEST}" && ! -L "${FAKE_GH_EXPECT_DEST}" ]] || { echo 'destination became visible before verification finished' >&2; exit 66; }
+  mapfile -t stages < <(find "${FAKE_GH_TRUSTED_ROOT}" -mindepth 1 -maxdepth 1 -type d -name '.monitor-durable-release.*' -print)
+  [[ "${#stages[@]}" -eq 1 ]] || { echo 'expected exactly one hidden staging directory' >&2; exit 67; }
+  [[ "$(stat -c '%a' "${stages[0]}")" == 700 ]] || { echo 'staging directory is not private' >&2; exit 68; }
+}
+
 case "$endpoint" in
   repos/example-owner/Monitor/releases/tags/v1.2.3-rc.1)
     count_file="${FAKE_GH_STATE_DIR}/release-count"
@@ -64,6 +69,11 @@ case "$endpoint" in
     [[ -f "$count_file" ]] && count="$(cat "$count_file")"
     count=$((count + 1))
     printf '%s' "$count" >"$count_file"
+    if [[ "${FAKE_GH_CREATE_COLLISION_ON_SECOND:-0}" == 1 && "$count" -ge 2 ]]; then
+      mkdir "${FAKE_GH_COLLISION_DEST}"
+      printf 'collision-sentinel\n' >"${FAKE_GH_COLLISION_DEST}/sentinel.txt"
+      unset FAKE_GH_CREATE_COLLISION_ON_SECOND
+    fi
     if [[ "${FAKE_GH_MUTATE_ON_SECOND:-0}" == 1 && "$count" -ge 2 ]]; then
       cat "${FAKE_GH_FIXTURE_DIR}/release-mutated.json"
     else
@@ -71,9 +81,11 @@ case "$endpoint" in
     fi
     ;;
   repos/example-owner/Monitor/releases/assets/101)
+    assert_hidden_stage_contract
     cat "${FAKE_GH_FIXTURE_DIR}/Monitor-1.2.3-rc.1-win-x64.zip"
     ;;
   repos/example-owner/Monitor/releases/assets/102)
+    assert_hidden_stage_contract
     cat "${FAKE_GH_FIXTURE_DIR}/Monitor-1.2.3-rc.1-win-x64.zip.sha256"
     ;;
   *)
@@ -102,17 +114,24 @@ run_verifier() {
 
 reset_snapshot_state() {
   printf '0' >"${state_dir}/release-count"
-  unset FAKE_GH_MUTATE_ON_SECOND || true
+  unset FAKE_GH_MUTATE_ON_SECOND FAKE_GH_CREATE_COLLISION_ON_SECOND FAKE_GH_COLLISION_DEST FAKE_GH_ASSERT_STAGE FAKE_GH_EXPECT_DEST FAKE_GH_TRUSTED_ROOT || true
+}
+
+assert_no_hidden_staging() {
+  [[ -z "$(find "$trusted_root" -mindepth 1 -maxdepth 1 -type d -name '.monitor-durable-release.*' -print -quit)" ]]
 }
 
 reset_snapshot_state
 positive="${trusted_root}/positive"
+export FAKE_GH_ASSERT_STAGE=1 FAKE_GH_EXPECT_DEST="$positive" FAKE_GH_TRUSTED_ROOT="$trusted_root"
 run_verifier "$positive" >/dev/null
 [[ "$(stat -c '%a' "$positive")" == 700 ]]
 [[ "$(stat -c '%a' "${positive}/${zip_name}")" == 600 ]]
 [[ "$(stat -c '%a' "${positive}/${checksum_name}")" == 600 ]]
 [[ "$(sha256sum "${positive}/${zip_name}" | awk '{print $1}')" == "$product_sha" ]]
 [[ "$(cat "${positive}/${checksum_name}")" == "${product_sha}  ${zip_name}" ]]
+[[ "$(find "$positive" -mindepth 1 -maxdepth 1 -type f | wc -l)" -eq 2 ]]
+assert_no_hidden_staging
 
 reset_snapshot_state
 existing="${trusted_root}/existing"
@@ -148,15 +167,25 @@ grep -Fq 'destination must be a direct child of the trusted root' "${work}/trave
 
 reset_snapshot_state
 mutated="${trusted_root}/mutated"
-export FAKE_GH_MUTATE_ON_SECOND=1
+export FAKE_GH_MUTATE_ON_SECOND=1 FAKE_GH_ASSERT_STAGE=1 FAKE_GH_EXPECT_DEST="$mutated" FAKE_GH_TRUSTED_ROOT="$trusted_root"
 if run_verifier "$mutated" >"${work}/mutated.stdout" 2>"${work}/mutated.stderr"; then
   echo 'TOCTOU mutation case unexpectedly passed durable release verification.' >&2
   exit 1
 fi
 grep -Fq 'release or asset security metadata changed during verification' "${work}/mutated.stderr"
-[[ -d "$mutated" ]]
-[[ ! -e "${mutated}/${zip_name}" && ! -L "${mutated}/${zip_name}" ]]
-[[ ! -e "${mutated}/${checksum_name}" && ! -L "${mutated}/${checksum_name}" ]]
+[[ ! -e "$mutated" && ! -L "$mutated" ]]
+assert_no_hidden_staging
+
+reset_snapshot_state
+collision="${trusted_root}/collision"
+export FAKE_GH_CREATE_COLLISION_ON_SECOND=1 FAKE_GH_COLLISION_DEST="$collision" FAKE_GH_ASSERT_STAGE=1 FAKE_GH_EXPECT_DEST="$collision" FAKE_GH_TRUSTED_ROOT="$trusted_root"
+if run_verifier "$collision" >"${work}/collision.stdout" 2>"${work}/collision.stderr"; then
+  echo 'Late destination collision unexpectedly passed durable release verification.' >&2
+  exit 1
+fi
+grep -Fq 'destination appeared before atomic directory publication' "${work}/collision.stderr"
+[[ "$(cat "${collision}/sentinel.txt")" == collision-sentinel ]]
+assert_no_hidden_staging
 
 reset_snapshot_state
 bad_version_destination="${trusted_root}/bad-version"
@@ -172,5 +201,6 @@ if bash "$verifier" \
 fi
 grep -Fq 'version format is invalid' "${work}/version.stderr"
 [[ ! -e "$bad_version_destination" && ! -L "$bad_version_destination" ]]
+assert_no_hidden_staging
 
-echo 'Durable release verifier synthetic positive and TOCTOU mutation checks passed.'
+echo 'Durable release verifier synthetic positive, cleanup, collision and TOCTOU checks passed.'

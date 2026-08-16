@@ -96,8 +96,8 @@ public sealed class P05DurableReleaseAssetMetadataTests
         Assert.Contains("sha256sum \"$zip_tmp\"", verifier, StringComparison.Ordinal);
         Assert.Contains("${product_sha256}  ${zip_name}", verifier, StringComparison.Ordinal);
         Assert.Contains("checksum asset is not the canonical approved product checksum line", verifier, StringComparison.Ordinal);
-        Assert.Contains("final ZIP bytes changed during atomic publication", verifier, StringComparison.Ordinal);
-        Assert.Contains("final checksum bytes changed during atomic publication", verifier, StringComparison.Ordinal);
+        Assert.Contains("published ZIP bytes changed during atomic directory publication", verifier, StringComparison.Ordinal);
+        Assert.Contains("published checksum bytes changed during atomic directory publication", verifier, StringComparison.Ordinal);
     }
 
     private static void AssertBothContain(string value)
