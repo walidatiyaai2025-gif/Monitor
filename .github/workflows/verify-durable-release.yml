@@ -1,0 +1,103 @@
+name: verify-durable-release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: Exact durable release version without the v prefix
+        required: true
+        type: string
+      release_tag:
+        description: Exact durable release tag (v<version>)
+        required: true
+        type: string
+      expected_commit:
+        description: Exact approved tested-merge commit SHA
+        required: true
+        type: string
+      expected_product_sha256:
+        description: Exact approved product ZIP SHA-256
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    env:
+      RELEASE_VERSION: ${{ inputs.release_version }}
+      RELEASE_TAG: ${{ inputs.release_tag }}
+      EXPECTED_COMMIT: ${{ inputs.expected_commit }}
+      EXPECTED_PRODUCT_SHA256: ${{ inputs.expected_product_sha256 }}
+    steps:
+      - name: Require default-branch dispatch and validate exact inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF}" != "refs/heads/main" ]]; then
+            echo "Independent durable-release verification must be dispatched from refs/heads/main; got ${GITHUB_REF}." >&2
+            exit 1
+          fi
+          [[ "${RELEASE_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$ ]] || {
+            echo 'Release version format is invalid.' >&2
+            exit 1
+          }
+          [[ "${RELEASE_TAG}" == "v${RELEASE_VERSION}" ]] || {
+            echo 'Release tag must equal v<release_version>.' >&2
+            exit 1
+          }
+          [[ "${EXPECTED_COMMIT}" =~ ^[a-f0-9]{40}$ ]] || {
+            echo 'Expected commit must be 40 lowercase hex characters.' >&2
+            exit 1
+          }
+          [[ "${EXPECTED_PRODUCT_SHA256}" =~ ^[a-f0-9]{64}$ ]] || {
+            echo 'Expected product SHA-256 must be 64 lowercase hex characters.' >&2
+            exit 1
+          }
+
+      - name: Checkout reviewed verifier from main dispatch ref
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Independently verify durable tag, release metadata and bytes
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          bash -n scripts/Verify-DurableRelease.sh
+
+          trusted_root="$(realpath -e -- "${RUNNER_TEMP}")"
+          destination="${trusted_root}/independent-durable-release-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+
+          bash scripts/Verify-DurableRelease.sh \
+            --repository "${GITHUB_REPOSITORY}" \
+            --tag "${RELEASE_TAG}" \
+            --version "${RELEASE_VERSION}" \
+            --product-sha256 "${EXPECTED_PRODUCT_SHA256}" \
+            --expected-commit "${EXPECTED_COMMIT}" \
+            --trusted-root "${trusted_root}" \
+            --destination "${destination}"
+
+          zip_name="Monitor-${RELEASE_VERSION}-win-x64.zip"
+          checksum_name="${zip_name}.sha256"
+          [[ "$(sha256sum "${destination}/${zip_name}" | awk '{print $1}')" == "${EXPECTED_PRODUCT_SHA256}" ]]
+          [[ "$(cat "${destination}/${checksum_name}")" == "${EXPECTED_PRODUCT_SHA256}  ${zip_name}" ]]
+
+          {
+            echo '## Independent durable release verification'
+            echo
+            echo '- Status: **PASS**'
+            echo "- Repository: \`${GITHUB_REPOSITORY}\`"
+            echo "- Version: \`${RELEASE_VERSION}\`"
+            echo "- Tag: \`${RELEASE_TAG}\`"
+            echo "- Approved commit: \`${EXPECTED_COMMIT}\`"
+            echo "- Approved product SHA-256: \`${EXPECTED_PRODUCT_SHA256}\`"
+            echo '- Verification: exact tag provenance + release metadata + exact-two assets + REST IDs/sizes/digests + downloaded ZIP/checksum bytes.'
+            echo '- Mutation: none; this workflow is read-only and keeps verified bytes only in runner-temporary storage.'
+          } >> "${GITHUB_STEP_SUMMARY}"
