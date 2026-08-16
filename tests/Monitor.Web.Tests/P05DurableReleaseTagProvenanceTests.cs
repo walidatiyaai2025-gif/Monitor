@@ -17,7 +17,7 @@ public sealed class P05DurableReleaseTagProvenanceTests
 
         Assert.Contains("--expected-commit", verifier, StringComparison.Ordinal);
         Assert.Contains("approved commit SHA must be 40 lowercase hex characters", verifier, StringComparison.Ordinal);
-        Assert.Contains("^\[a-f0-9\]{40}$".Replace("\\[", "[", StringComparison.Ordinal).Replace("\\]", "]", StringComparison.Ordinal), verifier, StringComparison.Ordinal);
+        Assert.Contains("^[a-f0-9]{40}$", verifier, StringComparison.Ordinal);
     }
 
     [Fact]
