@@ -143,7 +143,7 @@ Verify `session-manifest.sha256` before the first production operation. Do not m
 
 ## External acceptance evidence pack
 
-The pack is machine-verifiable but never self-generates PASS evidence. Start a real cutover with the immutable session so candidate bytes and evidence cannot be mixed across workspaces.
+The evidence-pack generator does not perform IIS deployment, recycle IIS, execute SQL, or grant production acceptance. The pack is machine-verifiable but never self-generates PASS evidence. Start a real cutover with the immutable session so candidate bytes and evidence cannot be mixed across workspaces.
 
 Immediately after session creation verify:
 
