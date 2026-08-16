@@ -1,10 +1,44 @@
-@{ ViewData["Title"] = "Enterprise Operations Help"; }
+@using Monitor.Web.Services
+@{
+    ViewData["Title"] = "Enterprise Operations Help";
+    var canManage = User.IsInRole(MonitorRoles.Administrator);
+}
 <link rel="stylesheet" href="~/css/enterprise-operations.css" asp-append-version="true" />
-<section class="page-heading"><div><span class="eyebrow">OPERATOR HELP</span><h1>Enterprise Operations Help</h1><p>Use Monitor as a bounded control plane over cached evidence. Navigation, filtering, reporting and help pages never initiate monitored SQL collection.</p></div><div class="enterprise-help-actions"><a class="button secondary" asp-controller="EnterpriseOperations" asp-action="Overview">Enterprise Operations</a><a class="button secondary" asp-controller="FleetIntelligence" asp-action="Index">Fleet Intelligence</a><a class="button secondary" asp-action="Readiness">Persistence Readiness</a></div></section>
-<section class="enterprise-help-grid">
-<article class="glass-panel panel-pad enterprise-help-card"><span class="eyebrow">MAINTENANCE</span><h3>Scheduled collection policy</h3><p>Active maintenance pauses scheduled collection for the target. Manual refresh remains an explicit Operator/Administrator override and is audited.</p><p>Maintenance windows are start-inclusive and end-exclusive.</p></article>
-<article class="glass-panel panel-pad enterprise-help-card"><span class="eyebrow">SUPPRESSION</span><h3>Incident actionability</h3><p>Alert suppression changes actionability presentation only. It never deletes, resolves or rewrites incident evidence.</p></article>
-<article class="glass-panel panel-pad enterprise-help-card"><span class="eyebrow">COLLABORATION</span><h3>Owners, notes and reasons</h3><p>Use bounded operator notes, assignees, resolution notes and reopen reasons. Credential- or connection-shaped content is rejected.</p></article>
-<article class="glass-panel panel-pad enterprise-help-card"><span class="eyebrow">REPORTING</span><h3>Safe exports</h3><p>Versioned reports are cache/control-plane only, bounded by row and byte caps, and neutralize spreadsheet formula prefixes.</p></article>
+
+<partial name="_PortalPageHeader" model="@(new PortalPageHeaderViewModel("Enterprise Operations Help", "Task-oriented runbooks for operating Monitor as a bounded control plane over cached evidence. Help and navigation never initiate monitored SQL collection.", "OPERATOR RUNBOOKS", "Enterprise Operations", Url.Action("Overview", "EnterpriseOperations")))" />
+
+<nav class="runbook-grid" aria-label="Operator runbooks">
+    @if (canManage)
+    {
+        <a class="glass-panel runbook-card" asp-controller="ConnectionLab" asp-action="Index"><span class="runbook-number">01</span><div><span class="eyebrow">ONBOARD</span><strong>Register a SQL target</strong><small>Register → test → collect → review health</small></div></a>
+    }
+    <a class="glass-panel runbook-card" asp-controller="Operations" asp-action="Servers"><span class="runbook-number">02</span><div><span class="eyebrow">REFRESH</span><strong>Review or refresh a server</strong><small>Cached GETs; explicit Operator/Admin POST refresh</small></div></a>
+    <a class="glass-panel runbook-card" asp-controller="Operations" asp-action="Alerts"><span class="runbook-number">03</span><div><span class="eyebrow">INCIDENTS</span><strong>Triage operational evidence</strong><small>Acknowledge, assign, document and resolve under policy</small></div></a>
+    <a class="glass-panel runbook-card" asp-controller="Portal" asp-action="Recommendations"><span class="runbook-number">04</span><div><span class="eyebrow">GUIDANCE</span><strong>Review recommendations</strong><small>Deterministic advisory steps; never auto-executed</small></div></a>
+    <a class="glass-panel runbook-card" asp-controller="Portal" asp-action="Reports"><span class="runbook-number">05</span><div><span class="eyebrow">REPORTING</span><strong>Export bounded evidence</strong><small>Versioned, redacted and role-aware downloads</small></div></a>
+    @if (canManage)
+    {
+        <a class="glass-panel runbook-card" asp-controller="Operations" asp-action="Settings"><span class="runbook-number">06</span><div><span class="eyebrow">BACKUP / RECOVERY</span><strong>Protect operational state</strong><small>Create, validate and restore bounded control-plane backups</small></div></a>
+        <a class="glass-panel runbook-card" asp-controller="Governance" asp-action="Index"><span class="runbook-number">07</span><div><span class="eyebrow">RETENTION</span><strong>Dry-run governance cleanup</strong><small>Review impact before audited pruning</small></div></a>
+        <a class="glass-panel runbook-card" asp-controller="Observability" asp-action="Index"><span class="runbook-number">08</span><div><span class="eyebrow">RUNTIME</span><strong>Check application observability</strong><small>Readiness, cache, scheduler and security aggregates</small></div></a>
+    }
+    <a class="glass-panel runbook-card" asp-controller="EnterpriseHelp" asp-action="Readiness"><span class="runbook-number">09</span><div><span class="eyebrow">READINESS</span><strong>Check persistence readiness</strong><small>Control-plane gate; separate from monitored SQL health</small></div></a>
+</nav>
+
+<section class="runbook-sequence glass-panel" aria-labelledby="operating-sequence-title">
+    <div class="panel-heading"><div><span class="eyebrow">STANDARD OPERATING SEQUENCE</span><h3 id="operating-sequence-title">From registration to production evidence</h3></div><span class="snapshot-note">Human-controlled</span></div>
+    <ol class="readiness-steps">
+        <li class="state-healthy"><span class="readiness-step-mark">1</span><div><strong>Establish control-plane readiness</strong><p>Confirm persistence, deployment topology, credential policy and application readiness before relying on operational mutations.</p></div></li>
+        <li class="state-healthy"><span class="readiness-step-mark">2</span><div><strong>Register and test connectivity</strong><p>Use the Administrator connection workflow. Secret values remain write-only or external references.</p></div></li>
+        <li class="state-healthy"><span class="readiness-step-mark">3</span><div><strong>Collect evidence deliberately</strong><p>Scheduled collection is backend-controlled; manual refresh is an explicit audited Operator/Administrator action.</p></div></li>
+        <li class="state-healthy"><span class="readiness-step-mark">4</span><div><strong>Triage incidents and recommendations</strong><p>Review evidence first. Recommendation text is advisory and Monitor never executes DBA changes.</p></div></li>
+        <li class="state-healthy"><span class="readiness-step-mark">5</span><div><strong>Export, back up and retain safely</strong><p>Use bounded reports, operational backups and dry-run governance under role policy and change control.</p></div></li>
+    </ol>
 </section>
-<section class="enterprise-callout glass-panel"><div><strong>Need to change SQL?</strong><span>Monitor provides evidence and advisory context only. Execute administrative changes in the approved DBA tool under change control.</span></div></section>
+
+<section class="enterprise-help-grid">
+    <article class="glass-panel panel-pad enterprise-help-card"><span class="eyebrow">MAINTENANCE</span><h3>Scheduled collection policy</h3><p>Active maintenance pauses scheduled collection for the target. Manual refresh remains an explicit Operator/Administrator override and is audited. Maintenance windows are start-inclusive and end-exclusive.</p></article>
+    <article class="glass-panel panel-pad enterprise-help-card"><span class="eyebrow">SUPPRESSION</span><h3>Incident actionability</h3><p>Alert suppression changes actionability presentation only. It never deletes, resolves or rewrites incident evidence.</p></article>
+    <article class="glass-panel panel-pad enterprise-help-card"><span class="eyebrow">COLLABORATION</span><h3>Owners, notes and reasons</h3><p>Use bounded operator notes, assignees, resolution notes and reopen reasons. Credential- or connection-shaped content is rejected.</p></article>
+    <article class="glass-panel panel-pad enterprise-help-card"><span class="eyebrow">CHANGE CONTROL</span><h3>SQL changes stay outside Monitor</h3><p>Monitor provides evidence and advisory context only. Execute administrative changes in the approved DBA tool under change control.</p></article>
+</section>
