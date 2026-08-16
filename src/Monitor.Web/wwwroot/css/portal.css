@@ -38,7 +38,10 @@
 .nav-toggle:focus-visible,
 .portal-state-action:focus-visible,
 .error-actions a:focus-visible,
-.compact-button:focus-visible {
+.compact-button:focus-visible,
+.bounded-pager a:focus-visible,
+.audit-filter-panel input:focus-visible,
+.history-controls select:focus-visible {
   outline: 2px solid currentColor;
   outline-offset: 3px;
 }
@@ -109,6 +112,86 @@
   white-space: nowrap;
 }
 
+.audit-filter-panel,
+.history-controls {
+  margin-bottom: 18px;
+  padding: 18px;
+}
+
+.audit-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+
+.audit-filter-grid label,
+.history-window-form label {
+  display: grid;
+  gap: 6px;
+}
+
+.audit-filter-grid label span,
+.history-window-form label span {
+  font-size: .76rem;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  opacity: .72;
+}
+
+.audit-filter-grid input,
+.history-window-form select {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid rgba(148, 163, 184, .2);
+  border-radius: 9px;
+  background: rgba(6, 18, 31, .78);
+  color: inherit;
+  padding: 9px 11px;
+  font: inherit;
+}
+
+.audit-filter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  grid-column: 1 / -1;
+}
+
+.audit-detail-grid {
+  grid-template-columns: minmax(150px, 1.1fr) minmax(130px, .9fr) minmax(190px, 1.35fr) minmax(150px, 1fr) minmax(130px, .9fr) minmax(76px, .5fr);
+}
+
+.audit-action { overflow-wrap: anywhere; }
+.audit-outcome { display: inline-flex; width: fit-content; padding: 4px 8px; border-radius: 999px; font-size: .76rem; }
+.audit-outcome.state-healthy { background: rgba(52, 211, 153, .1); }
+.audit-outcome.state-warning { background: rgba(251, 191, 36, .1); }
+.audit-outcome.state-critical { background: rgba(251, 113, 133, .1); }
+
+.bounded-pager {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.bounded-pager > :last-child { justify-self: end; }
+.bounded-pager > span { font-size: .82rem; opacity: .76; text-align: center; }
+
+.history-window-form {
+  display: grid;
+  grid-template-columns: minmax(140px, .8fr) minmax(140px, .8fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.history-detail-grid {
+  grid-template-columns: minmax(180px, 1.2fr) repeat(4, minmax(105px, .8fr)) minmax(105px, .8fr);
+}
+
+.history-freshness { font-weight: 650; }
+
 .error-body {
   min-height: 100vh;
   display: grid;
@@ -161,6 +244,8 @@
   }
 
   .health-command-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .audit-filter-grid { grid-template-columns: 1fr 1fr; }
+  .audit-filter-grid label:last-of-type { grid-column: 1 / -1; }
 }
 
 @media (max-width: 520px) {
@@ -169,6 +254,11 @@
   .error-actions a { width: 100%; text-align: center; }
   .portal-page-heading { display: grid; }
   .health-command-summary { grid-template-columns: 1fr; }
+  .audit-filter-grid,
+  .history-window-form { grid-template-columns: 1fr; }
+  .audit-filter-grid label:last-of-type { grid-column: auto; }
+  .bounded-pager { grid-template-columns: 1fr; }
+  .bounded-pager > * { justify-self: stretch !important; text-align: center; }
 }
 
 @media (prefers-reduced-motion: reduce) {
