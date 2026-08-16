@@ -53,7 +53,7 @@ Close the gap between backend capability completion and a complete visible opera
 
 Download/report/diagnostic endpoints are governed separately from page routes; #224 verifies their discoverability and role-safe presentation.
 
-## Foundation #221
+## Foundation #221 — COMPLETE
 
 - [x] UI700-001 — visible route/controller/view/navigation inventory recorded here.
 - [x] UI700-002 — dedicated safe 403/404/500 Razor surfaces added.
@@ -64,7 +64,20 @@ Download/report/diagnostic endpoints are governed separately from page routes; #
 - [x] UI700-007 — mobile navigation toggle is keyboard-aware, Escape-closeable, and collapses after navigation.
 - [x] UI700-008 — shared responsive table/card/state CSS contracts added.
 - [x] UI700-009 — `portal.css` expanded beyond sidebar-only glue into portal/error/state/mobile contracts.
-- [x] UI700-010 — exact implementation head `3a996598ff575a931c898248c2b3694b3a7414f7` passed `ci` #1569, `real-sql-acceptance` #87, and `production-candidate` #132 on 2026-08-16.
+- [x] UI700-010 — final exact head `32dbcd56b14a58ebb193ef81c8fa9c715c31feb8` passed `ci` #1571, `real-sql-acceptance` #88, and `production-candidate` #133; PR #236 merged to main as `59a931cc031e19f162edfadc278dc8b9c6c842e3`.
+
+## Health #222 — IMPLEMENTED / CI PENDING
+
+- [x] UI700-011 — dedicated Database Health surface with online/state evidence and explicit not-collected treatment.
+- [x] UI700-012 — dedicated Backup Health surface with bounded 24-hour full-backup coverage.
+- [x] UI700-013 — dedicated SQL Agent surface with aggregate total/enabled/failed-last-run evidence only.
+- [x] UI700-014 — dedicated Storage surface for allocated database bytes with no disk-capacity inference.
+- [x] UI700-015 — dedicated Blocking surface with bounded blocked-request/max-wait evidence and no SQL text/client identity.
+- [x] UI700-016 — Performance Health upgraded to a cache-only estate summary plus per-server evidence.
+- [x] UI700-017 — shared LIVE/STALE/UNAVAILABLE/DEMO source-state treatment.
+- [x] UI700-018 — every dedicated health surface includes server-detail drill-down.
+- [x] UI700-019 — role-aware empty states route administrators to Connections and other readers to Servers.
+- [ ] UI700-020 — exact-head CI/regression acceptance must be Green before #222 closes and PR #237 merges.
 
 ## Closure rule
 

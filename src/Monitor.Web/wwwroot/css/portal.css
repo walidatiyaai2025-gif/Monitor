@@ -37,7 +37,8 @@
 
 .nav-toggle:focus-visible,
 .portal-state-action:focus-visible,
-.error-actions a:focus-visible {
+.error-actions a:focus-visible,
+.compact-button:focus-visible {
   outline: 2px solid currentColor;
   outline-offset: 3px;
 }
@@ -76,6 +77,37 @@
 }
 
 .responsive-table [role="row"] { min-width: 680px; }
+
+.health-surface-panel { margin-top: 18px; }
+.health-detail-grid { grid-template-columns: minmax(150px, 1.35fr) minmax(112px, .8fr) repeat(4, minmax(100px, 1fr)) minmax(84px, .6fr); }
+.health-detail-grid-six { grid-template-columns: minmax(150px, 1.35fr) minmax(112px, .8fr) repeat(3, minmax(118px, 1fr)) minmax(84px, .6fr); }
+.health-detail-grid-five { grid-template-columns: minmax(150px, 1.35fr) minmax(112px, .8fr) repeat(2, minmax(126px, 1fr)) minmax(84px, .6fr); }
+
+.health-source-badge {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+}
+
+.health-source-badge strong {
+  font-size: .72rem;
+  letter-spacing: .08em;
+}
+
+.health-source-badge small { opacity: .72; white-space: nowrap; }
+.health-source-badge.state-healthy strong { color: #34d399; }
+.health-source-badge.state-warning strong { color: #fbbf24; }
+.health-source-badge.state-offline strong { color: #94a3b8; }
+.health-source-badge.state-unknown strong { color: #7dd3fc; }
+
+.compact-button {
+  min-height: 34px;
+  padding: 7px 11px;
+  justify-self: start;
+  white-space: nowrap;
+}
 
 .error-body {
   min-height: 100vh;
@@ -127,6 +159,8 @@
     width: 100%;
     text-align: center;
   }
+
+  .health-command-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 520px) {
@@ -134,6 +168,7 @@
   .error-actions { flex-direction: column; }
   .error-actions a { width: 100%; text-align: center; }
   .portal-page-heading { display: grid; }
+  .health-command-summary { grid-template-columns: 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {
