@@ -1,0 +1,20 @@
+@model HealthModuleServerViewModel
+@{
+    var state = Model.Source switch
+    {
+        ServerDataSource.LiveFresh => "healthy",
+        ServerDataSource.LiveStale => "warning",
+        ServerDataSource.RegisteredUnavailable => "offline",
+        _ => "unknown"
+    };
+    var label = Model.Source switch
+    {
+        ServerDataSource.LiveFresh => "LIVE",
+        ServerDataSource.LiveStale => "STALE",
+        ServerDataSource.RegisteredUnavailable => "UNAVAILABLE",
+        ServerDataSource.Demo => "DEMO",
+        _ => "UNKNOWN"
+    };
+    var detail = Model.Source == ServerDataSource.RegisteredUnavailable ? "No cached snapshot" : $"{Model.AgeSeconds}s old";
+}
+<span class="health-source-badge state-@state"><strong>@label</strong><small>@detail</small></span>
