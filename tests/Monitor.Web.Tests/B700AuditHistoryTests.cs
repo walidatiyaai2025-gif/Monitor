@@ -30,8 +30,10 @@ public sealed class B700AuditHistoryTests
         Assert.Contains("bounded-pager", audit, StringComparison.Ordinal);
         Assert.Contains("Previous page", audit, StringComparison.Ordinal);
         Assert.Contains("Next page", audit, StringComparison.Ordinal);
-        Assert.DoesNotContain("payload", audit, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("connectionstring", audit, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Credentials and payload contents are never rendered", audit, StringComparison.Ordinal);
+        Assert.DoesNotContain("ConnectionString", audit, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Exception.Message", audit, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("SqlConnection", audit, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -48,8 +50,9 @@ public sealed class B700AuditHistoryTests
         Assert.Contains("PEAK BLOCKED", history, StringComparison.Ordinal);
         Assert.Contains("PEAK RUNNABLE", history, StringComparison.Ordinal);
         Assert.Contains("bounded-pager", history, StringComparison.Ordinal);
-        Assert.DoesNotContain("SELECT ", history, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("SqlConnection", history, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("ExecuteReader", history, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("ISqlSnapshotQuery", history, StringComparison.Ordinal);
     }
 
     [Fact]
