@@ -108,6 +108,7 @@ Assert-ExactProperties -Value $manifest -Allowed @(
     'selectedProductSha256',
     'sourceCommit',
     'testedMergeCommit',
+    'operatorToolingCommit',
     'hostName',
     'siteName',
     'appPoolName',
@@ -139,6 +140,10 @@ if (([string]$manifest.artifactSha256).ToLowerInvariant() -ne $selectedProductHa
 }
 if ([string]$manifest.sourceCommit -notmatch '^[a-fA-F0-9]{40}$' -or [string]$manifest.testedMergeCommit -notmatch '^[a-fA-F0-9]{40}$') {
     throw 'Session manifest source/tested-merge identity is invalid.'
+}
+$operatorToolingCommit = ([string]$manifest.operatorToolingCommit).ToLowerInvariant()
+if ($operatorToolingCommit -notmatch '^[a-f0-9]{40}$') {
+    throw 'Session manifest operatorToolingCommit must be a full 40-hex repository commit SHA.'
 }
 
 $expectedArtifactName = "Monitor-$($manifest.candidateVersion)-win-x64.zip"
@@ -211,6 +216,7 @@ foreach ($pair in $identityPairs) {
     SessionManifestPath = $manifestPath
     SessionManifestSha256 = $expectedManifestHash
     SelectedProductSha256 = $selectedProductHash
+    OperatorToolingCommit = $operatorToolingCommit
     CandidateArtifact = $candidateArtifactPath
     EvidencePack = $resolvedEvidencePath
     ProofRoot = $proofRoot
