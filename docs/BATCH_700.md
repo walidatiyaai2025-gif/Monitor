@@ -57,7 +57,7 @@ Download/report/diagnostic endpoints are governed separately from page routes; #
 
 - [x] UI700-001 — visible route/controller/view/navigation inventory recorded here.
 - [x] UI700-002 — dedicated safe 403/404/500 Razor surfaces added.
-- [ ] UI700-003 — wire production exception/status handling and cookie access-denied path to the safe endpoints.
+- [x] UI700-003 — production exception/status handling and cookie access-denied path are wired to the safe endpoints.
 - [x] UI700-004 — reusable page-heading contract added for gradual page adoption.
 - [x] UI700-005 — reusable portal state contract added for empty/unavailable/stale/error states.
 - [x] UI700-006 — active navigation matching uses route boundaries; Reports is exact so downloads do not masquerade as page navigation.
