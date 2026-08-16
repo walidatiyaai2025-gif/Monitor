@@ -9,6 +9,9 @@ trap 'rm -rf -- "$work"' EXIT
 version="1.2.3-rc.1"
 tag="v${version}"
 repository="example-owner/Monitor"
+expected_commit="1111111111111111111111111111111111111111"
+mutated_tag_ref="2222222222222222222222222222222222222222"
+wrong_commit="3333333333333333333333333333333333333333"
 zip_name="Monitor-${version}-win-x64.zip"
 checksum_name="${zip_name}.sha256"
 fixture_dir="${work}/fixtures"
@@ -63,6 +66,21 @@ assert_hidden_stage_contract() {
 }
 
 case "$endpoint" in
+  repos/example-owner/Monitor/git/ref/tags/v1.2.3-rc.1)
+    count_file="${FAKE_GH_STATE_DIR}/tag-ref-count"
+    count=0
+    [[ -f "$count_file" ]] && count="$(cat "$count_file")"
+    count=$((count + 1))
+    printf '%s' "$count" >"$count_file"
+    if [[ "${FAKE_GH_MUTATE_TAG_ON_SECOND:-0}" == 1 && "$count" -ge 2 ]]; then
+      jq -n --arg ref 'refs/tags/v1.2.3-rc.1' --arg sha "$FAKE_GH_MUTATED_TAG_REF" '{ref:$ref,object:{sha:$sha,type:"tag"}}'
+    else
+      jq -n --arg ref 'refs/tags/v1.2.3-rc.1' --arg sha "$FAKE_GH_EXPECTED_COMMIT" '{ref:$ref,object:{sha:$sha,type:"commit"}}'
+    fi
+    ;;
+  repos/example-owner/Monitor/commits/v1.2.3-rc.1)
+    jq -n --arg sha "${FAKE_GH_RESOLVED_COMMIT:-$FAKE_GH_EXPECTED_COMMIT}" '{sha:$sha}'
+    ;;
   repos/example-owner/Monitor/releases/tags/v1.2.3-rc.1)
     count_file="${FAKE_GH_STATE_DIR}/release-count"
     count=0
@@ -98,23 +116,28 @@ chmod +x "${fake_bin}/gh"
 
 export FAKE_GH_FIXTURE_DIR="$fixture_dir"
 export FAKE_GH_STATE_DIR="$state_dir"
+export FAKE_GH_EXPECTED_COMMIT="$expected_commit"
+export FAKE_GH_MUTATED_TAG_REF="$mutated_tag_ref"
 export PATH="${fake_bin}:${PATH}"
 
 run_verifier() {
   local destination="$1"
   local root="${2:-$trusted_root}"
+  local commit="${3:-$expected_commit}"
   bash "$verifier" \
     --repository "$repository" \
     --tag "$tag" \
     --version "$version" \
     --product-sha256 "$product_sha" \
+    --expected-commit "$commit" \
     --trusted-root "$root" \
     --destination "$destination"
 }
 
 reset_snapshot_state() {
   printf '0' >"${state_dir}/release-count"
-  unset FAKE_GH_MUTATE_ON_SECOND FAKE_GH_CREATE_COLLISION_ON_SECOND FAKE_GH_COLLISION_DEST FAKE_GH_ASSERT_STAGE FAKE_GH_EXPECT_DEST FAKE_GH_TRUSTED_ROOT || true
+  printf '0' >"${state_dir}/tag-ref-count"
+  unset FAKE_GH_MUTATE_ON_SECOND FAKE_GH_MUTATE_TAG_ON_SECOND FAKE_GH_RESOLVED_COMMIT FAKE_GH_CREATE_COLLISION_ON_SECOND FAKE_GH_COLLISION_DEST FAKE_GH_ASSERT_STAGE FAKE_GH_EXPECT_DEST FAKE_GH_TRUSTED_ROOT || true
 }
 
 assert_no_hidden_staging() {
@@ -177,6 +200,27 @@ grep -Fq 'release or asset security metadata changed during verification' "${wor
 assert_no_hidden_staging
 
 reset_snapshot_state
+tag_mutated="${trusted_root}/tag-mutated"
+export FAKE_GH_MUTATE_TAG_ON_SECOND=1 FAKE_GH_ASSERT_STAGE=1 FAKE_GH_EXPECT_DEST="$tag_mutated" FAKE_GH_TRUSTED_ROOT="$trusted_root"
+if run_verifier "$tag_mutated" >"${work}/tag-mutated.stdout" 2>"${work}/tag-mutated.stderr"; then
+  echo 'Tag-ref mutation case unexpectedly passed durable release verification.' >&2
+  exit 1
+fi
+grep -Fq 'tag ref object changed during verification' "${work}/tag-mutated.stderr"
+[[ ! -e "$tag_mutated" && ! -L "$tag_mutated" ]]
+assert_no_hidden_staging
+
+reset_snapshot_state
+wrong_commit_destination="${trusted_root}/wrong-commit"
+if run_verifier "$wrong_commit_destination" "$trusted_root" "$wrong_commit" >"${work}/wrong-commit.stdout" 2>"${work}/wrong-commit.stderr"; then
+  echo 'Wrong approved-commit case unexpectedly passed durable release verification.' >&2
+  exit 1
+fi
+grep -Fq 'tag does not resolve to the approved commit' "${work}/wrong-commit.stderr"
+[[ ! -e "$wrong_commit_destination" && ! -L "$wrong_commit_destination" ]]
+assert_no_hidden_staging
+
+reset_snapshot_state
 collision="${trusted_root}/collision"
 export FAKE_GH_CREATE_COLLISION_ON_SECOND=1 FAKE_GH_COLLISION_DEST="$collision" FAKE_GH_ASSERT_STAGE=1 FAKE_GH_EXPECT_DEST="$collision" FAKE_GH_TRUSTED_ROOT="$trusted_root"
 if run_verifier "$collision" >"${work}/collision.stdout" 2>"${work}/collision.stderr"; then
@@ -194,6 +238,7 @@ if bash "$verifier" \
   --tag 'v1.2.3-rc..1' \
   --version '1.2.3-rc..1' \
   --product-sha256 "$product_sha" \
+  --expected-commit "$expected_commit" \
   --trusted-root "$trusted_root" \
   --destination "$bad_version_destination" >"${work}/version.stdout" 2>"${work}/version.stderr"; then
   echo 'Non-canonical version case unexpectedly passed durable release verification.' >&2
