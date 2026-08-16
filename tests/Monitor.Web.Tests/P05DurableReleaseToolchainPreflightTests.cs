@@ -19,7 +19,7 @@ public sealed class P05DurableReleaseToolchainPreflightTests
         var promotion = Read(PromotionWorkflowPath);
         var independent = Read(IndependentWorkflowPath);
 
-        foreach (var command in new[] { "gh", "jq", "realpath", "stat", "mktemp", "find", "sort", "mv", "sha256sum", "awk", "dirname", "basename", "chmod", "rm", "rmdir", "cat" })
+        foreach (var command in new[] { "gh", "jq", "realpath", "stat", "mktemp", "find", "sort", "mv", "sha256sum", "awk", "dirname", "basename", "chmod", "mkdir", "rm", "rmdir", "cat" })
         {
             Assert.Contains(command, preflight, StringComparison.Ordinal);
         }
