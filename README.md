@@ -4,9 +4,16 @@
 
 ## Current state
 
-M0 through M6 are CI verified. M7 production-readiness includes durable registration metadata, fail-closed external secret routing, durable bounded operational state, protected local SQL Login credentials, a topology guard and a dedicated Monitor shared-state SQL capability. M8 enforces zero-SQL monitoring GETs for monitored targets.
+M0 through M8 are verified. BATCH-100 through BATCH-700 are complete, representing **660 completed hardening/UI task IDs** across shared-state/HA foundations, encrypted credential/key management, backup/restore, observability, scale/security, production acceptance tooling, operator readiness and full visible portal/UI completion.
 
-BATCH-100 is the active enterprise hardening program. Batches 1–7 deliver HA shared state/coordination, encrypted key management, operational backup/restore, production observability, deterministic performance/scale budgets, centralized DBA control-plane UX and web/application security hardening. `docs/BATCH_100.md` is the 100-task execution ledger. **B100-001..070 are CI verified.**
+The active delivery gate is **P0.5 — First Production SingleNode**. P0.1 through P0.4 are COMPLETE. Repository-side P0.5 implementation and durable-release hardening are complete through PR #219, while the selected cutover candidate remains **RC.61**.
+
+Two acceptance boundaries remain intentionally open and separate:
+
+- **#162 — durable RC.61 retention:** manually promote the exact existing candidate from `main`, then run the separate read-only `verify-durable-release` workflow and independently verify tag provenance, the exact two release assets and product SHA-256.
+- **#116 / #111 — real production acceptance:** deploy the exact selected candidate on the intended trusted-certificate Windows/IIS SingleNode host and complete the real 15/15 evidence, recycle/durability, least-privilege SQL, backup/rollback and explicit operator finalization. Umbrella #111 closes only after #116.
+
+Repository CI, candidate packaging or durable release publication/verification does **not** substitute for actual production acceptance.
 
 ## Run
 
@@ -153,9 +160,9 @@ Administrator Settings exposes Create, Dry-run Validate and Restore commands. Re
 - Runtime telemetry/logging is bounded and redacted; free-form provider detail is not retained.
 - Browser trust, authenticated lifetime and forwarded proxy acceptance are explicit fail-closed policies.
 - MultiNode stays fail-closed until all remaining distributed login-security and snapshot-cache/delivery prerequisites are verified.
+
 ## Enterprise operations
 
 `/enterprise` is the bounded control-plane surface for environment classification, groups/tags, maintenance and alert-suppression windows, incident ownership/notes and deterministic recommendation acknowledgment. Mutations require Operator/Administrator authorization plus antiforgery.
 
 `/reports/servers.csv` exports formula-safe registration/operator/cached-snapshot metadata and never initiates monitored SQL collection. `/diagnostics/package` is Administrator-only and returns a bounded redacted ZIP of aggregate readiness/deployment/count metadata; it excludes SQL endpoints, credentials, secret references, incident evidence, operator note content, provider detail and SQL text.
-
