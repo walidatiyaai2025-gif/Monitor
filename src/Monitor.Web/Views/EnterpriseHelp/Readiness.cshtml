@@ -28,6 +28,11 @@
 
 @if (!ready)
 {
+    <section class="glass-panel readiness-degraded-contract" aria-labelledby="degraded-enterprise-title">
+        <span class="eyebrow">DEGRADED</span>
+        <h3 id="degraded-enterprise-title">Degraded enterprise state</h3>
+        <p>The control-plane persistence dependency is unavailable or invalid. This message remains intentionally opaque and exposes no provider or credential detail.</p>
+    </section>
     <partial name="_PortalState" model="@(new PortalStateViewModel("Enterprise persistence is degraded", "Do not rely on operator-metadata mutations until persistence readiness is restored. Cached monitoring evidence remains separate from this gate.", "critical", canManage ? "Open Settings" : "Operator Help", canManage ? Url.Action("Settings", "Operations") : Url.Action("Help", "EnterpriseHelp")))" />
 }
 
