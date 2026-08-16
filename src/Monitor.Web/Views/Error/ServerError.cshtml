@@ -1,0 +1,13 @@
+@{
+    Layout = "_ErrorLayout";
+    ViewData["Title"] = "Something went wrong";
+}
+<section class="glass-panel error-panel" aria-labelledby="error-title">
+    <span class="eyebrow">SAFE ERROR · 500</span>
+    <h1 id="error-title">Monitor could not complete this request</h1>
+    <p>The request failed safely. No exception details, credentials, connection strings, SQL text, or provider payloads are displayed here.</p>
+    <div class="error-actions">
+        <a class="primary-button" asp-controller="Account" asp-action="Login">Return to sign in</a>
+        <a class="secondary-button" href="javascript:history.back()">Go back</a>
+    </div>
+</section>
