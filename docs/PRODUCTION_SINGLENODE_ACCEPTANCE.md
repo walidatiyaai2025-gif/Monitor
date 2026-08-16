@@ -87,7 +87,7 @@ After the #162 retention prerequisite is satisfied, record these values before c
 Use the packaged `_operations` scripts after the operational backup and rollback point are known. The selected product hash is an independent input; do not derive it from the companion checksum being supplied to the initializer.
 
 ```powershell
-.\_operations\scripts\New-ProductionAcceptanceSession.ps1 `
+$session = .\_operations\scripts\New-ProductionAcceptanceSession.ps1 `
   -SessionRoot 'C:\ProgramData\Monitor\Acceptance\p0-5-rc-61' `
   -ArtifactPath '.\Monitor-0.1.0-rc.61-win-x64.zip' `
   -ChecksumPath '.\Monitor-0.1.0-rc.61-win-x64.zip.sha256' `
@@ -103,6 +103,8 @@ Use the packaged `_operations` scripts after the operational backup and rollback
   -OperationalBackupId '<validated-backup-id>' `
   -PreviousPhysicalPath 'C:\Program Files\Monitor\releases\previous' `
   -StateRoot 'C:\ProgramData\Monitor\App_Data'
+
+$sessionManifestSha256 = $session.ManifestSha256
 ```
 
 The initializer requires a fresh absolute Windows session root and refuses reuse. Before session creation it verifies exact candidate/checksum naming, requires the companion checksum and the ZIP bytes to match the independently selected `-ExpectedProductSha256`, validates readable ZIP structure and rejects secret/provider/connection-string/SQL-text-shaped metadata. A substituted ZIP and `.sha256` pair that agree with each other but do not match the selected product hash fails closed before the session workspace is created.
@@ -113,14 +115,24 @@ A successful session contains the copied candidate/checksum, `evidence/p0-5-evid
 
 Session creation proves **0/15** external gates. Every evidence-pack gate remains false; final acceptance metadata is absent. The initializer does not deploy/recycle IIS, execute SQL, record a gate PASS, call GitHub or close #116/#111.
 
-Verify `session-manifest.sha256` before the first production operation. Do not mix candidate bytes or evidence from another workspace.
+Verify `session-manifest.sha256` before the first production operation. Preserve `$sessionManifestSha256` in the approved operator record outside the mutable session files for the duration of the cutover. It is non-secret chain-of-custody evidence and is required by every gate recorder/finalizer call. Do not recompute or silently replace the expected value from a later manifest.
+
+Before recording any gate, the packaged `Test-ProductionAcceptanceSessionBinding.ps1` verifies all of the following against that externally preserved manifest SHA-256:
+
+- `session-manifest.json` hashes to the preserved value and `session-manifest.sha256` contains the same canonical lock;
+- manifest status remains `PreparedFailClosed`, `SingleNode`, 15 gates and 0 accepted gates in the immutable anchor;
+- candidate/evidence relative paths remain canonical and session-confined;
+- the copied candidate ZIP and companion checksum still match `selectedProductSha256`;
+- the evidence pack candidate version/source/tested-merge/artifact/hash and environment identity still match the locked session.
+
+A pack-only, manifest-only or candidate-byte substitution therefore fails closed before a gate PASS can be recorded or final acceptance committed.
 
 ## Deployment procedure
 
 1. Confirm #162 durable promotion and separate read-only durable verification are Green for the exact selected RC.61 identity.
 2. Obtain the exact selected candidate bytes and verify their SHA-256 against the independently verified durable release.
 3. Create and validate the operational backup and preserve the previous release as the rollback point.
-4. Create the immutable acceptance session above with the independently selected product SHA-256; verify `session-manifest.sha256` and confirm `PreparedFailClosed` / 0/15.
+4. Create the immutable acceptance session above with the independently selected product SHA-256; preserve `$sessionManifestSha256`, verify `session-manifest.sha256` and confirm `PreparedFailClosed` / 0/15.
 5. Run `_operations/scripts/Test-IisProductionPrerequisites.ps1` and retain its non-secret output beneath the session `evidence/proof` root.
 6. Run `_operations/scripts/Deploy-ProductionSingleNode.ps1` without `-Apply`; review and retain the PLAN ONLY output.
 7. Apply the reviewed plan with explicit `-Apply`.
@@ -150,7 +162,7 @@ Immediately after session creation verify:
 
 - candidate copy hashes to the selected product SHA-256;
 - manifest `artifactSha256` and `selectedProductSha256` both equal the independently selected product SHA-256;
-- `session-manifest.sha256` matches `session-manifest.json`;
+- `session-manifest.sha256` matches `session-manifest.json` and the externally preserved `$sessionManifestSha256`;
 - manifest state is `PreparedFailClosed`;
 - evidence pack contains exactly 15 required gates and all are false;
 - no closure summary or final operator acceptance metadata exists.
@@ -162,12 +174,13 @@ For each real environment gate, save one bounded text/JSON evidence file beneath
 ```powershell
 .\_operations\scripts\Set-ProductionAcceptanceGate.ps1 `
   -EvidencePath 'C:\ProgramData\Monitor\Acceptance\p0-5-rc-N\evidence\p0-5-evidence-pack.json' `
+  -ExpectedSessionManifestSha256 $sessionManifestSha256 `
   -GateName 'iisPreflightPassed' `
   -EvidenceFile 'proof\iis-preflight.txt' `
   -AcknowledgePass
 ```
 
-The recorder accepts only the exact gate names, requires explicit acknowledgement, confines evidence to the pack root, scans for secret/provider/connection-string/SQL-text material, computes evidence hash/time itself, modifies only one gate atomically and never writes final acceptance metadata.
+The recorder accepts only the exact gate names, requires explicit acknowledgement and the externally preserved session-manifest SHA-256, validates the locked session/candidate/pack binding before mutation, confines evidence to the pack root, scans for secret/provider/connection-string/SQL-text material, computes evidence hash/time itself, modifies only one gate atomically and never writes final acceptance metadata.
 
 ### Exact 15 required real-environment gates
 
@@ -196,26 +209,28 @@ Do not hand-edit `acceptedBy` or `acceptedAtUtc`. After all 15 real gates are pe
 ```powershell
 .\_operations\scripts\Complete-ProductionAcceptance.ps1 `
   -EvidencePath 'C:\ProgramData\Monitor\Acceptance\p0-5-rc-N\evidence\p0-5-evidence-pack.json' `
+  -ExpectedSessionManifestSha256 $sessionManifestSha256 `
   -AcceptedBy 'DOMAIN\approved.operator' `
   -ClosureSummaryFile 'p0-5-closure-summary.json' `
   -AcknowledgeFinalAcceptance
 ```
 
-The finalizer requires explicit final acknowledgement, never changes a gate from FAIL to PASS, validates a prospective finalized copy, detects concurrent mutation, atomically commits only final operator metadata, validates the authoritative pack again, writes the closure summary only after success and rolls final metadata back if authoritative validation fails. It does not deploy/recycle IIS, execute SQL, call GitHub or close #116/#111.
+The finalizer requires explicit final acknowledgement and the externally preserved session-manifest SHA-256, never changes a gate from FAIL to PASS, validates the locked session before prospective work, validates a prospective finalized copy, detects concurrent pack mutation, rechecks locked-session binding immediately before the authoritative commit, atomically commits only final operator metadata, validates the authoritative pack with locked-session binding again, writes the closure summary only after success and rolls final metadata back if authoritative validation fails. It does not deploy/recycle IIS, execute SQL, call GitHub or close #116/#111.
 
 The explicit acknowledgement means the approved operator reviewed real environment evidence and asserts that all recorded gates correspond to operations actually executed on the intended production host.
 
 ## Independent closure validation
 
-The finalizer runs the validator twice. A reviewer can independently re-run:
+The finalizer runs the validator twice. A reviewer can independently re-run the authoritative validation with the same preserved session anchor:
 
 ```powershell
 .\_operations\scripts\Test-ProductionAcceptanceEvidence.ps1 `
   -EvidencePath 'C:\ProgramData\Monitor\Acceptance\p0-5-rc-N\evidence\p0-5-evidence-pack.json' `
+  -ExpectedSessionManifestSha256 $sessionManifestSha256 `
   -ClosureSummaryPath 'C:\ProgramData\Monitor\Acceptance\p0-5-rc-N\evidence\p0-5-review-summary.json'
 ```
 
-The validator fails on missing/false/unknown gates, malformed candidate/environment metadata, non-SingleNode mode, missing/out-of-root evidence, hash mismatch or secret/provider/connection-string/SQL-text content. A PASS closure summary is generated only after exact 15/15 validation and valid final operator acceptance metadata.
+The validator fails on missing/false/unknown gates, malformed candidate/environment metadata, non-SingleNode mode, missing/out-of-root evidence, hash mismatch or secret/provider/connection-string/SQL-text content. When `-ExpectedSessionManifestSha256` is supplied it first requires the same locked-session binding and includes `sessionManifestSha256` plus `selectedProductSha256` in the PASS closure summary. Standalone validation without this parameter remains available only as the low-level evidence-pack/schema validator; the production finalizer and production review path are session-bound.
 
 Repository CI proves validator mechanics only; real operations must still be performed on the intended Windows/IIS host.
 
@@ -262,10 +277,11 @@ P0.5 can be marked COMPLETE only when all of the following are true:
 
 - #162 exact RC.61 manual promotion and separate read-only durable verification succeeded and the durable tag/exact-two assets/product hash were independently verified;
 - the selected candidate/checksum, independently selected product SHA-256 and environment identity were captured in one verified immutable session before cutover;
+- the session manifest SHA-256 was preserved outside the mutable session and all production gate recording/finalization/review remained bound to that exact anchor;
 - all 15 external evidence-pack gates are PASS from the real intended environment;
 - every gate has a matching evidence file and SHA-256;
 - the explicit finalizer succeeds with the approved operator identity;
-- the closure validator returns PASS and the closure summary is retained;
+- the session-bound closure validator returns PASS and the closure summary is retained;
 - selected candidate metadata matches Issue #116;
 - operations were executed on the intended trusted-certificate Windows/IIS SingleNode host;
 - no secret-bearing evidence was retained.
@@ -274,4 +290,4 @@ Finalizing the evidence pack does not close GitHub issues automatically. #116 re
 
 ## Stop conditions
 
-Do not cut over, or rollback immediately, if durable RC.61 retention/independent verification is incomplete, the session manifest lock is invalid, candidate/checksum bytes do not match the independently selected product SHA-256, readiness is not Green, the application starts in unintended MultiNode mode, IIS/certificate/app-pool prerequisites fail, key-ring/state paths are unavailable, protected credentials cannot resolve after recycle, monitored SQL requires unexpected write/high privilege, backup/rollback evidence is missing, or finalizer/closure validator does not return PASS.
+Do not cut over, or rollback immediately, if durable RC.61 retention/independent verification is incomplete, the externally preserved session manifest hash or `session-manifest.sha256` no longer matches `session-manifest.json`, candidate/checksum bytes do not match the independently selected product SHA-256, the evidence pack candidate/environment identity drifts from the locked session, readiness is not Green, the application starts in unintended MultiNode mode, IIS/certificate/app-pool prerequisites fail, key-ring/state paths are unavailable, protected credentials cannot resolve after recycle, monitored SQL requires unexpected write/high privilege, backup/rollback evidence is missing, or finalizer/closure validator does not return PASS.
