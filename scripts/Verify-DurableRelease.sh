@@ -62,6 +62,13 @@ done
 [[ -d "$trusted_root" && ! -L "$trusted_root" ]] || fail "trusted root must be an existing non-symlink directory"
 trusted_root_canonical="$(realpath -e -- "$trusted_root")"
 [[ "$trusted_root_canonical" == "$trusted_root" ]] || fail "trusted root must already be canonical"
+trusted_root_identity="$(stat -Lc '%d:%i' "$trusted_root_canonical")"
+
+assert_trusted_root_identity() {
+  [[ -d "$trusted_root_canonical" && ! -L "$trusted_root_canonical" ]] || fail "trusted root was replaced during verification"
+  [[ "$(realpath -e -- "$trusted_root_canonical")" == "$trusted_root_canonical" ]] || fail "trusted root canonical path changed during verification"
+  [[ "$(stat -Lc '%d:%i' "$trusted_root_canonical")" == "$trusted_root_identity" ]] || fail "trusted root identity changed during verification"
+}
 
 [[ -n "$destination" ]] || fail "destination is required"
 [[ "$destination" == /* ]] || fail "destination must be an absolute path"
@@ -73,6 +80,7 @@ destination_name="$(basename -- "$destination")"
 destination_parent_canonical="$(realpath -e -- "$destination_parent")"
 [[ "$destination_parent_canonical" == "$trusted_root_canonical" ]] || fail "destination must be a direct child of the trusted root"
 [[ "$destination" == "${trusted_root_canonical}/${destination_name}" ]] || fail "destination must be canonical and contained by the trusted root"
+assert_trusted_root_identity
 
 expected_prerelease=false
 if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -158,30 +166,76 @@ first_checksum_digest="$SNAP_CHECKSUM_DIGEST"
 first_security="$SNAP_SECURITY"
 
 umask 077
-mkdir -m 700 -- "$destination"
-[[ -d "$destination" && ! -L "$destination" ]] || fail "verifier-owned destination was not created as a real directory"
-[[ "$(stat -Lc '%a' "$destination")" == 700 ]] || fail "verifier-owned destination permissions must be 0700"
-workspace_identity="$(stat -Lc '%d:%i' "$destination")"
+assert_trusted_root_identity
+staging_dir="$(mktemp -d -p "$trusted_root_canonical" '.monitor-durable-release.XXXXXXXXXX')"
+chmod 700 -- "$staging_dir"
+[[ -d "$staging_dir" && ! -L "$staging_dir" ]] || fail "verifier-owned staging directory was not created as a real directory"
+[[ "$(dirname -- "$staging_dir")" == "$trusted_root_canonical" ]] || fail "verifier-owned staging directory escaped the trusted root"
+[[ "$(realpath -e -- "$staging_dir")" == "$staging_dir" ]] || fail "verifier-owned staging directory is not canonical"
+[[ "$(stat -Lc '%a' "$staging_dir")" == 700 ]] || fail "verifier-owned staging directory permissions must be 0700"
+staging_identity="$(stat -Lc '%d:%i' "$staging_dir")"
 
-assert_workspace_identity() {
-  [[ -d "$destination" && ! -L "$destination" ]] || fail "verifier-owned destination was replaced during verification"
-  [[ "$(realpath -e -- "$destination")" == "$destination" ]] || fail "verifier-owned destination escaped its canonical path"
-  [[ "$(stat -Lc '%d:%i' "$destination")" == "$workspace_identity" ]] || fail "verifier-owned destination identity changed during verification"
-  [[ "$(stat -Lc '%a' "$destination")" == 700 ]] || fail "verifier-owned destination permissions changed during verification"
+zip_tmp_name=".${zip_name}.download"
+checksum_tmp_name=".${checksum_name}.download"
+zip_tmp="${staging_dir}/${zip_tmp_name}"
+checksum_tmp="${staging_dir}/${checksum_tmp_name}"
+zip_path="${staging_dir}/${zip_name}"
+checksum_path="${staging_dir}/${checksum_name}"
+cleanup_armed=true
+
+assert_staging_identity() {
+  assert_trusted_root_identity
+  [[ -d "$staging_dir" && ! -L "$staging_dir" ]] || fail "verifier-owned staging directory was replaced during verification"
+  [[ "$(dirname -- "$staging_dir")" == "$trusted_root_canonical" ]] || fail "verifier-owned staging directory was reparented during verification"
+  [[ "$(realpath -e -- "$staging_dir")" == "$staging_dir" ]] || fail "verifier-owned staging directory escaped its canonical path"
+  [[ "$(stat -Lc '%d:%i' "$staging_dir")" == "$staging_identity" ]] || fail "verifier-owned staging directory identity changed during verification"
+  [[ "$(stat -Lc '%a' "$staging_dir")" == 700 ]] || fail "verifier-owned staging directory permissions changed during verification"
 }
 
-zip_path="${destination}/${zip_name}"
-checksum_path="${destination}/${checksum_name}"
-zip_tmp="${destination}/.${zip_name}.download"
-checksum_tmp="${destination}/.${checksum_name}.download"
+cleanup_owned_path() {
+  local path="$1"
+  [[ -n "${staging_identity:-}" ]] || return 0
+  [[ "$(dirname -- "$path")" == "$trusted_root_canonical" ]] || return 0
+  [[ -d "$path" && ! -L "$path" ]] || return 0
+  [[ "$(stat -Lc '%d:%i' "$path" 2>/dev/null || true)" == "$staging_identity" ]] || return 0
+  rm -f -- \
+    "${path}/${zip_tmp_name}" \
+    "${path}/${checksum_tmp_name}" \
+    "${path}/${zip_name}" \
+    "${path}/${checksum_name}" 2>/dev/null || true
+  rmdir -- "$path" 2>/dev/null || true
+}
 
-assert_workspace_identity
+cleanup_workspace() {
+  [[ "${cleanup_armed:-false}" == true ]] || return 0
+  [[ -d "$trusted_root_canonical" && ! -L "$trusted_root_canonical" ]] || return 0
+  [[ "$(realpath -e -- "$trusted_root_canonical" 2>/dev/null || true)" == "$trusted_root_canonical" ]] || return 0
+  [[ "$(stat -Lc '%d:%i' "$trusted_root_canonical" 2>/dev/null || true)" == "$trusted_root_identity" ]] || return 0
+  cleanup_owned_path "$destination"
+  cleanup_owned_path "$staging_dir"
+}
+
+trap cleanup_workspace EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+assert_staging_identity
+[[ ! -e "$destination" && ! -L "$destination" ]] || fail "destination appeared before durable-release verification completed"
 set -o noclobber
-gh api -H "Accept: application/octet-stream" "repos/${repository}/releases/assets/${first_zip_id}" >"$zip_tmp"
-assert_workspace_identity
-gh api -H "Accept: application/octet-stream" "repos/${repository}/releases/assets/${first_checksum_id}" >"$checksum_tmp"
+if ! gh api -H "Accept: application/octet-stream" "repos/${repository}/releases/assets/${first_zip_id}" >"$zip_tmp"; then
+  set +o noclobber
+  fail "exact-ID ZIP asset download failed"
+fi
+assert_staging_identity
+[[ ! -e "$destination" && ! -L "$destination" ]] || fail "destination appeared before durable-release verification completed"
+if ! gh api -H "Accept: application/octet-stream" "repos/${repository}/releases/assets/${first_checksum_id}" >"$checksum_tmp"; then
+  set +o noclobber
+  fail "exact-ID checksum asset download failed"
+fi
 set +o noclobber
-assert_workspace_identity
+assert_staging_identity
+[[ ! -e "$destination" && ! -L "$destination" ]] || fail "destination appeared before durable-release verification completed"
 
 for path in "$zip_tmp" "$checksum_tmp"; do
   [[ -f "$path" && ! -L "$path" ]] || fail "downloaded asset must be a regular non-symlink file"
@@ -205,21 +259,54 @@ second_json="$(snapshot_release)"
 validate_snapshot "$second_json"
 [[ "$SNAP_RELEASE_ID" == "$first_release_id" ]] || fail "release ID changed during verification"
 [[ "$SNAP_SECURITY" == "$first_security" ]] || fail "release or asset security metadata changed during verification"
-
 [[ "$SNAP_ZIP_ID" == "$first_zip_id" && "$SNAP_CHECKSUM_ID" == "$first_checksum_id" ]] || fail "asset IDs changed during verification"
 [[ "$SNAP_ZIP_SIZE" == "$first_zip_size" && "$SNAP_CHECKSUM_SIZE" == "$first_checksum_size" ]] || fail "asset sizes changed during verification"
 [[ "$SNAP_ZIP_DIGEST" == "$first_zip_digest" && "$SNAP_CHECKSUM_DIGEST" == "$first_checksum_digest" ]] || fail "asset digests changed during verification"
 
-assert_workspace_identity
-[[ ! -e "$zip_path" && ! -L "$zip_path" && ! -e "$checksum_path" && ! -L "$checksum_path" ]] || fail "final durable-release output names must not pre-exist"
+assert_staging_identity
+[[ ! -e "$destination" && ! -L "$destination" ]] || fail "destination appeared before atomic directory publication"
+[[ ! -e "$zip_path" && ! -L "$zip_path" && ! -e "$checksum_path" && ! -L "$checksum_path" ]] || fail "final durable-release output names must not pre-exist in staging"
 mv -T --no-clobber -- "$zip_tmp" "$zip_path"
 [[ ! -e "$zip_tmp" && ! -L "$zip_tmp" ]] || fail "ZIP finalization encountered an unexpected name collision"
 mv -T --no-clobber -- "$checksum_tmp" "$checksum_path"
 [[ ! -e "$checksum_tmp" && ! -L "$checksum_tmp" ]] || fail "checksum finalization encountered an unexpected name collision"
-assert_workspace_identity
+assert_staging_identity
 
-[[ -f "$zip_path" && ! -L "$zip_path" && -f "$checksum_path" && ! -L "$checksum_path" ]] || fail "atomic finalization did not produce both expected regular files"
-[[ "$(sha256sum "$zip_path" | awk '{print $1}')" == "$product_sha256" ]] || fail "final ZIP bytes changed during atomic publication"
-[[ "$(cat "$checksum_path")" == "${product_sha256}  ${zip_name}" ]] || fail "final checksum bytes changed during atomic publication"
+mapfile -t staged_entries < <(find "$staging_dir" -mindepth 1 -maxdepth 1 -printf '%f\n' | sort)
+[[ "${#staged_entries[@]}" -eq 2 && "${staged_entries[0]}" == "$zip_name" && "${staged_entries[1]}" == "$checksum_name" ]] || fail "final staging payload must contain exactly the ZIP and checksum"
+for path in "$zip_path" "$checksum_path"; do
+  [[ -f "$path" && ! -L "$path" ]] || fail "final staged asset must be a regular non-symlink file"
+  [[ "$(stat -Lc '%h' "$path")" == 1 ]] || fail "final staged asset must have exactly one hard link"
+  [[ "$(stat -Lc '%a' "$path")" == 600 ]] || fail "final staged asset permissions must be 0600"
+done
+[[ "$(sha256sum "$zip_path" | awk '{print $1}')" == "$product_sha256" ]] || fail "final staged ZIP bytes changed before publication"
+[[ "$(cat "$checksum_path")" == "${product_sha256}  ${zip_name}" ]] || fail "final staged checksum bytes changed before publication"
+
+assert_trusted_root_identity
+assert_staging_identity
+[[ ! -e "$destination" && ! -L "$destination" ]] || fail "destination appeared before atomic directory publication"
+mv -T --no-clobber -- "$staging_dir" "$destination"
+[[ ! -e "$staging_dir" && ! -L "$staging_dir" ]] || fail "atomic directory publication encountered an unexpected destination collision"
+
+assert_trusted_root_identity
+[[ -d "$destination" && ! -L "$destination" ]] || fail "atomic directory publication did not produce the destination directory"
+[[ "$(realpath -e -- "$destination")" == "$destination" ]] || fail "published destination is not canonical"
+[[ "$(stat -Lc '%d:%i' "$destination")" == "$staging_identity" ]] || fail "published destination identity differs from verified staging"
+[[ "$(stat -Lc '%a' "$destination")" == 700 ]] || fail "published destination permissions must remain 0700"
+
+published_zip="${destination}/${zip_name}"
+published_checksum="${destination}/${checksum_name}"
+mapfile -t published_entries < <(find "$destination" -mindepth 1 -maxdepth 1 -printf '%f\n' | sort)
+[[ "${#published_entries[@]}" -eq 2 && "${published_entries[0]}" == "$zip_name" && "${published_entries[1]}" == "$checksum_name" ]] || fail "published durable-release payload must contain exactly the ZIP and checksum"
+for path in "$published_zip" "$published_checksum"; do
+  [[ -f "$path" && ! -L "$path" ]] || fail "published durable-release asset must be a regular non-symlink file"
+  [[ "$(stat -Lc '%h' "$path")" == 1 ]] || fail "published durable-release asset must have exactly one hard link"
+  [[ "$(stat -Lc '%a' "$path")" == 600 ]] || fail "published durable-release asset permissions must be 0600"
+done
+[[ "$(sha256sum "$published_zip" | awk '{print $1}')" == "$product_sha256" ]] || fail "published ZIP bytes changed during atomic directory publication"
+[[ "$(cat "$published_checksum")" == "${product_sha256}  ${zip_name}" ]] || fail "published checksum bytes changed during atomic directory publication"
+
+cleanup_armed=false
+trap - EXIT HUP INT TERM
 
 echo "Durable release verification passed for ${tag}: release ${first_release_id}, assets ${first_zip_id}/${first_checksum_id}."
