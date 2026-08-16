@@ -1,0 +1,44 @@
+@model HealthModulePageViewModel
+@{
+    ViewData["Title"] = Model.Title;
+    var observed = Model.Servers.Where(server => server.Blocking is not null).ToArray();
+    var blocked = observed.Sum(server => server.Blocking!.BlockedRequests);
+    var maxWait = observed.Length == 0 ? (long?)null : observed.Max(server => server.Blocking!.MaxWaitMilliseconds);
+    var affected = observed.Count(server => server.Blocking!.BlockedRequests > 0);
+    var unavailable = Model.Servers.Count(server => server.Blocking is null || server.Source == ServerDataSource.RegisteredUnavailable);
+    var canManage = User.IsInRole(Monitor.Web.Services.MonitorRoles.Administrator);
+}
+
+<partial name="_PortalPageHeader" model="@(new PortalPageHeaderViewModel(Model.Title, Model.Description + " SQL text, plans and client identity are deliberately excluded.", "CACHED BLOCKING COUNTS", "View servers", Url.Action("Servers", "Operations")))" />
+
+@if (Model.Servers.Count == 0)
+{
+    <partial name="_PortalState" model="@(new PortalStateViewModel("No blocking snapshots", "Collect a server snapshot before interpreting blocking evidence.", "warning", canManage ? "Manage connections" : "View servers", canManage ? Url.Action("Index", "ConnectionLab") : Url.Action("Servers", "Operations")))" />
+}
+else
+{
+    <section class="health-command-summary" aria-label="Blocking health summary">
+        <article class="health-command-card hero state-@(blocked > 0 ? "critical" : unavailable > 0 ? "warning" : "healthy")"><div><small>BLOCKED REQUESTS</small><strong>@blocked</strong><span>Across available cached snapshots</span></div></article>
+        <article class="health-command-card state-@(affected > 0 ? "warning" : "healthy")"><small>AFFECTED SERVERS</small><strong>@affected</strong><span>Servers reporting one or more blocked requests</span></article>
+        <article class="health-command-card state-@(maxWait.GetValueOrDefault() > 0 ? "warning" : "healthy")"><small>MAX WAIT</small><strong>@(maxWait.HasValue ? $"{maxWait.Value} ms" : "Not collected")</strong><span>Largest bounded wait in current evidence</span></article>
+        <article class="health-command-card state-@(unavailable > 0 ? "offline" : "healthy")"><small>EVIDENCE UNAVAILABLE</small><strong>@unavailable</strong><span>Servers without blocking evidence</span></article>
+    </section>
+
+    <section class="glass-panel table-panel health-surface-panel">
+        <div class="panel-heading"><div><span class="eyebrow">BLOCKING BY SERVER</span><h3>Latest bounded blocking facts</h3></div><span class="snapshot-note">No SQL text collected</span></div>
+        <div class="responsive-table" role="region" aria-label="Blocking health by server" tabindex="0">
+            <div class="table-head health-detail-grid health-detail-grid-five" role="row"><span>Server</span><span>Source</span><span>Blocked requests</span><span>Max wait</span><span>Details</span></div>
+            @foreach (var server in Model.Servers)
+            {
+                var blocking = server.Blocking;
+                <div class="table-row health-detail-grid health-detail-grid-five" role="row">
+                    <strong>@server.Name</strong>
+                    <partial name="_HealthSourceBadge" model="server" />
+                    <span class="@(blocking?.BlockedRequests > 0 ? "state-critical" : string.Empty)">@(blocking is null ? "Not collected" : blocking.BlockedRequests)</span>
+                    <span class="@(blocking?.MaxWaitMilliseconds > 0 ? "state-warning" : string.Empty)">@(blocking is null ? "Not collected" : $"{blocking.MaxWaitMilliseconds} ms")</span>
+                    <a class="secondary-button compact-button" asp-controller="Operations" asp-action="ServerDetails" asp-route-id="@server.Id">Server</a>
+                </div>
+            }
+        </div>
+    </section>
+}
