@@ -1,0 +1,20 @@
+@model PortalStateViewModel
+@{
+    var tone = Model.Tone is "warning" or "critical" or "success" ? Model.Tone : "neutral";
+}
+<div class="portal-state portal-state-@tone" role="status">
+    <div class="portal-state-mark" aria-hidden="true"></div>
+    <div class="portal-state-copy">
+        <h3>@Model.Title</h3>
+        <p>@Model.Message</p>
+    </div>
+    @if (!string.IsNullOrWhiteSpace(Model.ActionText) &&
+         !string.IsNullOrWhiteSpace(Model.ActionController) &&
+         !string.IsNullOrWhiteSpace(Model.ActionName))
+    {
+        <a class="secondary-button portal-state-action"
+           asp-controller="@Model.ActionController"
+           asp-action="@Model.ActionName"
+           asp-all-route-data="@(Model.ActionRouteValues as IDictionary<string, string>)">@Model.ActionText</a>
+    }
+</div>
