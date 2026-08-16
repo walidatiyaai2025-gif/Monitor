@@ -1,8 +1,14 @@
 @{
     var path = Context.Request.Path.Value?.ToLowerInvariant() ?? string.Empty;
-    string Active(string value, bool exact = false) => (exact ? path == value : path.StartsWith(value)) ? "nav-link active" : "nav-link";
-    var serverNavClass = path == "/servers" || (path.StartsWith("/servers/") && !path.StartsWith("/servers/connections")) ? "nav-link active" : "nav-link";
-    var bodyClass = path.StartsWith("/dashboard") ? "app-body wallboard-ready" : "app-body";
+    string Active(string value, bool exact = false)
+    {
+        var match = exact
+            ? path == value
+            : path == value || path.StartsWith($"{value}/", StringComparison.Ordinal);
+        return match ? "nav-link active" : "nav-link";
+    }
+    var serverNavClass = path == "/servers" || (path.StartsWith("/servers/", StringComparison.Ordinal) && !path.StartsWith("/servers/connections", StringComparison.Ordinal)) ? "nav-link active" : "nav-link";
+    var bodyClass = path.StartsWith("/dashboard", StringComparison.Ordinal) ? "app-body wallboard-ready" : "app-body";
 }
 <!DOCTYPE html>
 <html lang="en">
@@ -23,13 +29,16 @@
 <body class="@bodyClass">
     <a class="skip-link" href="#main-content">Skip to main content</a>
     <div class="ambient-grid" aria-hidden="true"></div>
-    <aside class="sidebar">
+    <aside class="sidebar" data-sidebar>
         <a class="brand" asp-controller="Operations" asp-action="Dashboard" aria-label="Monitor SQL Operations home">
             <span class="brand-mark" aria-hidden="true"><span></span></span>
             <span><strong>MONITOR</strong><small>SQL OPERATIONS</small></span>
         </a>
+        <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="primary-navigation" data-nav-toggle>
+            <span aria-hidden="true">☰</span><span class="sr-only">Toggle navigation</span>
+        </button>
 
-        <nav class="primary-nav" aria-label="Primary navigation">
+        <nav class="primary-nav" id="primary-navigation" aria-label="Primary navigation">
             <span class="nav-section">OPERATIONS</span>
             <a class="@Active("/dashboard")" asp-controller="Operations" asp-action="Dashboard"><span class="nav-icon" aria-hidden="true">⌁</span>Command Center</a>
             <a class="@serverNavClass" asp-controller="Operations" asp-action="Servers"><span class="nav-icon" aria-hidden="true">▦</span>Servers</a>
@@ -43,11 +52,12 @@
             <a class="@Active("/jobs")" asp-controller="Operations" asp-action="Jobs"><span class="nav-icon" aria-hidden="true">◆</span>SQL Agent</a>
             <a class="@Active("/storage")" asp-controller="Operations" asp-action="Storage"><span class="nav-icon" aria-hidden="true">◧</span>Storage</a>
             <a class="@Active("/blocking")" asp-controller="Operations" asp-action="Blocking"><span class="nav-icon" aria-hidden="true">⇄</span>Blocking</a>
+
             <span class="nav-section">INTELLIGENCE</span>
             <a class="@Active("/enterprise/fleet")" asp-controller="FleetIntelligence" asp-action="Index"><span class="nav-icon" aria-hidden="true">◎</span>Fleet Intelligence</a>
             <a class="@Active("/enterprise", exact: true)" asp-controller="EnterpriseOperations" asp-action="Overview"><span class="nav-icon" aria-hidden="true">◇</span>Enterprise Operations</a>
             <a class="@Active("/recommendations")" asp-controller="Portal" asp-action="Recommendations"><span class="nav-icon" aria-hidden="true">⌘</span>Recommendations</a>
-            <a class="@Active("/reports")" asp-controller="Portal" asp-action="Reports"><span class="nav-icon" aria-hidden="true">▤</span>Reports</a>
+            <a class="@Active("/reports", exact: true)" asp-controller="Portal" asp-action="Reports"><span class="nav-icon" aria-hidden="true">▤</span>Reports</a>
 
             @if (User.IsInRole(Monitor.Web.Services.MonitorRoles.Administrator))
             {
