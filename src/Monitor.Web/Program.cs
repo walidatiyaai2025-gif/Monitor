@@ -209,7 +209,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
     options.AccessDeniedPath = "/access-denied";
     options.Cookie.Name = "Monitor.Auth";
     options.Cookie.HttpOnly = true;
-    options.Cookie.SameSiteMode = SameSiteMode.Strict;
+    options.Cookie.SameSite = SameSiteMode.Strict;
     options.Cookie.SecurePolicy = builder.Environment.IsDevelopment() ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.Always;
     options.SlidingExpiration = true;
     options.ExpireTimeSpan = TimeSpan.FromMinutes(webSecurityOptions.SessionIdleMinutes);
