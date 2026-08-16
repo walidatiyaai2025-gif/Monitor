@@ -9,7 +9,7 @@ This is the canonical execution plan. Update it in the same PR as material imple
 **Real SQL evidence:** `docs/REAL_SQL_ACCEPTANCE.md`  
 **Production acceptance guide:** `docs/PRODUCTION_SINGLENODE_ACCEPTANCE.md`  
 **Active release gate:** Issue #116 / P0.5 First Production SingleNode  
-**Repository cutover/evidence/session/finalization/release/durable-tag/workflow-supply-chain/native-Node-24/durable-release tooling:** COMPLETE through PR #219; selected-product-hash acceptance-session hardening tracked under #256.  
+**Repository cutover/evidence/session/finalization/release/durable-tag/workflow-supply-chain/native-Node-24/durable-release tooling:** COMPLETE through PR #219 plus selected-product-hash acceptance-session hardening PR #257; locked-session gate/finalization chain-of-custody hardening tracked under #258 / PR #259.  
 **Live selected candidate/evidence ledger:** Issue #116 — RC.61  
 **Project rule:** until P0.5 is accepted on the real environment, production-slice blockers outrank unrelated feature expansion.
 
@@ -27,7 +27,7 @@ Production-visible values must come from collected evidence. Missing, stale, per
 | 2 | P0.2 | #113 | First real snapshot + truthful read-model mapping | COMPLETE — PR #121 / final CI `31478470867` |
 | 3 | P0.3 | #114 | Server Details v0.1 trusted evidence surface | COMPLETE — PR #122 / final CI `31479311552` |
 | 4 | P0.4 | #115 | Real SQL end-to-end acceptance under success/failure cases | COMPLETE — PR #124; normal `31481874425`; Real SQL `31481874501` |
-| 5 | P0.5 | #116 | First trusted-HTTPS IIS SingleNode production release | **ACTIVE — repository workflow complete through durable candidate-promotion and hardening; selected-hash session hardening #256, RC.61 publication/manual external acceptance remain separately tracked** |
+| 5 | P0.5 | #116 | First trusted-HTTPS IIS SingleNode production release | **ACTIVE — repository workflow complete through durable candidate-promotion and selected-product-hash hardening; locked-session evidence chain #258, RC.61 publication #162 and external IIS acceptance remain separately tracked** |
 
 ### Resolved production gates
 
@@ -48,7 +48,8 @@ The repository contains the complete operator cutover, evidence and release work
 - PR #145 / Issue #144 — explicit one-gate-at-a-time recorder `Set-ProductionAcceptanceGate.ps1`; complete.
 - PR #148 / Issue #147 — explicit fail-closed final operator acceptance finalizer `Complete-ProductionAcceptance.ps1`; complete and merged `e15a9654fbe744e426c95d5965a5faba60868e14`.
 - PR #151 / Issue #150 — immutable candidate-bound acceptance-session initializer `New-ProductionAcceptanceSession.ps1`; complete and merged `9a76abe61422502c4889b04ce8b6a59f18ac04f4`.
-- Issue #256 — selected-product-hash acceptance-session hardening: `New-ProductionAcceptanceSession.ps1` must require an independently selected 64-hex product SHA-256, reject a mutually consistent but substituted ZIP + checksum pair before workspace creation, recheck that selected hash after copy and bind manifest/evidence to it. Runtime negative coverage, RC.61 operator command and canonical tracking move together; exact PR/CI/Windows evidence is tracked on #256. This cannot publish RC.61 or satisfy any external gate.
+- PR #257 / Issue #256 — selected-product-hash acceptance-session hardening **COMPLETE**, squash-merged `41410491df19699be6329e26e99a9328965782bc`. `New-ProductionAcceptanceSession.ps1` requires an independently selected 64-hex product SHA-256, rejects a mutually consistent but substituted ZIP + checksum pair before workspace creation, rechecks the selected hash after copy and binds manifest/evidence to it. Exact final head `70d1a8fb6814de1ec23dcff6b9942b945333c052` passed CI #1696, Real SQL #94 and Windows production-candidate #151 Green. This cannot publish RC.61 or satisfy any external gate.
+- Issue #258 / PR #259 — locked-session gate/finalization chain-of-custody hardening: preserve the initializer-returned session-manifest SHA-256 outside mutable session files; authenticate the manifest + lock, canonical paths, actual candidate ZIP/checksum and evidence-pack candidate/environment identity before any gate PASS; require the same anchor through finalization and independent production review; exercise the real Session → Recorder → Finalizer → Validator chain on Windows with pack/manifest/candidate drift negatives. Exact final-head evidence is tracked on #258. This cannot manufacture any external production PASS.
 - PR #155 / Issue #154 — tagged/manual release-package parity; **COMPLETE**, squash-merged `8d8ae2c5f35e8a1d774c5a9480f582e432e5dc03`. `production-candidate.yml` is reusable through `workflow_call`; `release.yml` delegates to that exact Windows workflow; explicit candidate versions are syntax-bounded; manifest schema 2 records fixed P0.4 run IDs under `prerequisiteEvidence.p04` and leaves candidate-specific CI authoritative on #116.
 - PR #160 / Issue #159 — durable tagged GitHub Release assets; **COMPLETE**, squash-merged `a14110181932bcd6e14b99e5b6984974a5b477f8`. Real pushed version tags publish only the already-verified same-run ZIP + `.sha256` after checksum re-verification; package construction remains solely in `production-candidate.yml`; publication is tag-only, has job-scoped `contents: write`, never rebuilds/repackages, never clobbers an existing release, and accepts a rerun only when existing release assets exactly match the verified product/checksum. Final exact-head normal CI `31677055397` was Green 809/809, Real SQL `31677055241` Green 8/8, and Windows production-candidate `31677055305` Green 809/809.
 - PR #163 / Issue #162 — exact existing-candidate durable-promotion implementation **COMPLETE** and merged `43d8a193205495f155bb8866532a4e99ed93b655`; handoff PR #164 merged `930c057f431a36ab2b603d3dc39e70e8c31c744e`. Actual RC.61 publication remains pending manual dispatch and independent asset/hash verification on #162.
@@ -84,15 +85,15 @@ Repository candidate evidence is **not** production acceptance. It does not repl
 
 `Complete-ProductionAcceptance.ps1` closes the last manual JSON mutation in the external evidence workflow:
 
-1. requires explicit `-AcknowledgeFinalAcceptance` and a bounded non-secret operator identity;
-2. never changes a gate from FAIL to PASS;
-3. restricts closure summary output to a relative path under the evidence-pack root;
-4. creates and validates a prospective finalized copy against all exact 15 SHA-bound gates before authoritative mutation;
-5. re-hashes the authoritative pack to detect concurrent mutation;
-6. atomically commits only `acceptedBy` / `acceptedAtUtc`;
-7. revalidates the authoritative finalized pack and writes the closure summary;
-8. restores the original unaccepted pack if final authoritative validation unexpectedly fails;
-9. refuses existing acceptance metadata, existing closure summary, unsafe paths and re-finalization;
+1. requires explicit `-AcknowledgeFinalAcceptance`, a bounded non-secret operator identity and the externally preserved expected session-manifest SHA-256;
+2. requires locked-session binding before prospective work and again immediately before authoritative commit;
+3. never changes a gate from FAIL to PASS;
+4. restricts closure summary output to a relative path under the evidence-pack root;
+5. creates and validates a prospective finalized copy against all exact 15 SHA-bound gates before authoritative mutation;
+6. re-hashes the authoritative pack to detect concurrent mutation;
+7. atomically commits only `acceptedBy` / `acceptedAtUtc`;
+8. revalidates the authoritative finalized pack with locked-session binding and writes the closure summary including session/product anchors;
+9. restores the original unaccepted pack if final authoritative validation unexpectedly fails and refuses existing acceptance metadata, unsafe paths or re-finalization;
 10. has no IIS deployment/recycle, SQL execution, GitHub API call or issue-closing authority.
 
 ### Immutable acceptance session contract — COMPLETE
@@ -106,9 +107,24 @@ Repository candidate evidence is **not** production acceptance. It does not repl
 5. invokes the canonical 15-gate generator and verifies all 15 gates remain false with no final acceptance metadata;
 6. writes bounded non-secret `session-manifest.json`, including the selected product hash, `session-manifest.sha256` and deterministic `OPERATOR-NEXT-STEPS.txt`;
 7. creates `evidence/proof/` as the bounded authoritative proof root;
-8. returns `ExternalGateCount=15`, `ExternalGatesPassed=0`, `ProductionAccepted=false` and the selected product hash;
+8. returns `ExternalGateCount=15`, `ExternalGatesPassed=0`, `ProductionAccepted=false`, the selected product hash and the manifest SHA-256 that must be preserved externally for the rest of the cutover;
 9. never deploys/recycles IIS, executes SQL, records a gate PASS, finalizes acceptance, calls GitHub or closes #116/#111;
 10. is parsed, executed and packaged by the Windows production-candidate gate with positive and negative runtime cases, including rejection of a valid substituted ZIP + matching checksum pair whose bytes differ from the independently selected hash.
+
+### Locked-session evidence chain contract — #258 / PR #259
+
+`Test-ProductionAcceptanceSessionBinding.ps1` and the session-bound recorder/finalizer close the post-initialization chain-of-custody gap without creating production evidence:
+
+1. the operator preserves the initializer-returned manifest SHA-256 outside the mutable session files; later code never silently derives a replacement expected value from the current manifest;
+2. the binding verifier requires the actual manifest hash and canonical `session-manifest.sha256` lock to equal that externally preserved value;
+3. manifest schema/status/SingleNode/0-of-15 anchor and candidate/evidence relative paths must remain exact and session-confined;
+4. the copied candidate ZIP is re-hashed and its companion checksum must still equal `selectedProductSha256`;
+5. evidence-pack candidate version/source/tested-merge/artifact/hash and environment host/site/app-pool/identity/certificate/backup/paths must exactly match the locked manifest;
+6. `Set-ProductionAcceptanceGate.ps1` requires this binding before every explicit one-gate-at-a-time PASS mutation;
+7. `Complete-ProductionAcceptance.ps1` requires binding before prospective validation, rechecks it immediately before authoritative commit, and invokes authoritative session-bound validation after commit;
+8. `Test-ProductionAcceptanceEvidence.ps1` retains low-level standalone schema/evidence validation, but production finalization/review supplies the expected manifest SHA and emits `sessionManifestSha256` + `selectedProductSha256` in closure summaries;
+9. Windows production-candidate runtime exercises Session → Recorder → Finalizer → Validator and rejects wrong manifest anchors, pack candidate drift, manifest drift, candidate-byte drift, unsafe evidence and invalid finalization;
+10. this chain is repository safety only: it never proves trusted IIS, real SQL operations, recycle durability, backup/rollback or any of the 15 external gates.
 
 ### Release-package parity contract — COMPLETE
 
@@ -117,7 +133,7 @@ The release artifact no longer has a weaker construction path than the selected 
 1. `production-candidate.yml` is the single reusable Windows package workflow for PR candidates and release callers;
 2. an explicit reusable `candidate_version` is syntax-bounded before it can reach artifact paths/version metadata;
 3. `release.yml` resolves/validates the tag/manual version and delegates packaging to the reusable production-candidate workflow rather than running independent publish/zip/upload steps;
-4. tagged/manual releases inherit the same Release build warnings-as-errors, full tests, production PowerShell parser, immutable-session runtime, recorder/finalizer runtime, RID-specific win-x64 publish, secret-free baseline validation, HTTPS/auth smoke before/after restart, runtime-state removal, `_operations` staging, clean-package validation and SHA-256 artifact upload;
+4. tagged/manual releases inherit the same Release build warnings-as-errors, full tests, production PowerShell parser, immutable-session runtime, session-bound recorder/finalizer runtime, RID-specific win-x64 publish, secret-free baseline validation, HTTPS/auth smoke before/after restart, runtime-state removal, `_operations` staging, clean-package validation and SHA-256 artifact upload;
 5. release manifest schema 2 records fixed P0.4 run IDs as `prerequisiteEvidence.p04`, while candidate-specific run evidence remains authoritative on #116;
 6. regression tests fail if independent release packaging or the ambiguous `realSqlAcceptance` manifest field returns;
 7. this is repository release-integrity evidence only and cannot satisfy a real IIS gate.
@@ -148,7 +164,7 @@ A real version tag remains recoverable after GitHub Actions artifact retention e
 | P0-046 | Run health smoke on deployed HTTPS endpoint | CI HTTPS VERIFIED; acceptance tooling READY; **IIS endpoint pending external** |
 | P0-047 | Prove target remains read-only/least-privilege from deployed application identity | P0.4 prerequisite VERIFIED; **external deployment evidence pending** |
 | P0-048 | Create/validate backup and rehearse rollback/recovery | code/unit/tooling VERIFIED; **production rehearsal pending external** |
-| P0-049 | Versioned artifact/checksum + deterministic session/evidence/finalization/release workflow | **REPOSITORY HARDENED — RC.61 selected; durable tagged GitHub Release tooling and exact-candidate promotion implementation/hardening verified through PR #219; selected-product-hash session binding tracked under #256; actual RC.61 publication pending manual #162** |
+| P0-049 | Versioned artifact/checksum + deterministic session/evidence/finalization/release workflow | **REPOSITORY HARDENED — RC.61 selected; durable tagged GitHub Release tooling and exact-candidate promotion implementation/hardening verified through PR #219; selected-product-hash session binding COMPLETE via #256/#257; locked-session gate/finalization chain tracked under #258/#259; actual RC.61 publication pending manual #162** |
 | P0-050 | Final real-environment 15/15 acceptance and #111 closure | **PENDING EXTERNAL** |
 
 ### Immediate next actions
@@ -156,13 +172,13 @@ A real version tag remains recoverable after GitHub Actions artifact retention e
 1. Preserve RC.61 and product SHA-256 from #116 unless #116 explicitly selects another equivalently verified candidate.
 2. Complete the manual exact-existing-candidate durable publication workflow on #162 and independently verify tag/assets/hash without rebuilding RC.61.
 3. On the intended Windows/IIS host, create/validate the pre-cutover operational backup.
-4. Start the real cutover by creating one fresh immutable candidate-bound acceptance session with the independently selected RC.61 product SHA-256; verify the copied candidate still matches that selected hash, `session-manifest.sha256`, `PreparedFailClosed` and 0/15 before any production mutation.
+4. Start the real cutover by creating one fresh immutable candidate-bound acceptance session with the independently selected RC.61 product SHA-256; verify the copied candidate still matches that selected hash, preserve the initializer-returned session manifest SHA-256 outside mutable session files, verify `session-manifest.sha256`, `PreparedFailClosed` and 0/15 before any production mutation.
 5. Run packaged IIS preflight, review PLAN ONLY deploy output, then cut over with explicit `-Apply`.
 6. Prove trusted HTTPS health/authentication and the approved least-privilege monitored SQL path.
 7. Recycle IIS and prove registration, protected credential and operational-state durability.
 8. Rehearse rollback/recovery and repeat health/auth/read checks.
-9. Record each real gate with `Set-ProductionAcceptanceGate.ps1` and SHA-bound non-secret evidence from the same session.
-10. After real 15/15, run `Complete-ProductionAcceptance.ps1` with the approved operator identity and explicit final acknowledgement; human-review the real closure evidence. Only then may #116 close; #111 closes only after #116.
+9. Record each real gate with `Set-ProductionAcceptanceGate.ps1`, the externally preserved expected session-manifest SHA-256 and SHA-bound non-secret evidence from the same session.
+10. After real 15/15, run `Complete-ProductionAcceptance.ps1` with the same manifest anchor, approved operator identity and explicit final acknowledgement; independently re-run session-bound validation and human-review the real closure evidence. Only then may #116 close; #111 closes only after #116.
 
 ## BATCH-700 — Full visible portal/UI completion — COMPLETE
 
@@ -227,4 +243,4 @@ Historical feature breadth remains available, but it does not outrank the remain
 
 ## Definition of done
 
-The production plan is complete only when P0-001..050 are reconciled, P0.1..P0.5 are accepted in order, the selected SingleNode release has actual trusted-HTTPS IIS/recycle/least-privilege/backup/rollback evidence, the real 15/15 evidence pack is explicitly finalized and validates, and the final required CI/acceptance gates are Green. BATCH-700 repository/UI completion is independent of that external production acceptance and cannot satisfy it.
+The production plan is complete only when P0-001..050 are reconciled, P0.1..P0.5 are accepted in order, the selected SingleNode release has actual trusted-HTTPS IIS/recycle/least-privilege/backup/rollback evidence, the real 15/15 evidence pack remains bound to the externally preserved session-manifest SHA-256 through recording/finalization/review, and the final required CI/acceptance gates are Green. BATCH-700 repository/UI completion is independent of that external production acceptance and cannot satisfy it.
