@@ -139,7 +139,9 @@ public sealed class P05DurableReleaseToolchainPreflightTests
         Assert.Contains("bash scripts/Verify-DurableReleaseToolchain.sh", ci, StringComparison.Ordinal);
         Assert.Contains("bash scripts/Test-DurableReleaseToolchainSafety.sh", ci, StringComparison.Ordinal);
 
-        Assert.Contains("contents/scripts/Verify-DurableReleaseToolchain.sh?ref=${GITHUB_SHA}", release, StringComparison.Ordinal);
+        Assert.Contains("contents/${source_path}?ref=${GITHUB_SHA}", release, StringComparison.Ordinal);
+        Assert.Contains("fetch_exact_script \"scripts/Verify-DurableReleaseToolchain.sh\" \"${preflight}\"", release, StringComparison.Ordinal);
+        Assert.Contains("fetch_exact_script \"scripts/Verify-DurableRelease.sh\" \"${verifier}\"", release, StringComparison.Ordinal);
         Assert.DoesNotContain("actions/checkout@", release, StringComparison.Ordinal);
     }
 
