@@ -1,57 +1,104 @@
 # P0.5 Canonical Tracking Delta
 
-This file records the exact canonical tracking delta after Issue #162 / PR #163 and the merged operator handoff PR #164.
+**Updated:** 2026-08-16  
+**Parents:** #162 / #116 / #111  
+**Selected cutover candidate:** **RC.61**  
+**Repository hardening state:** **COMPLETE through PR #219**  
+**Durable RC.61 publication:** **PENDING MANUAL PROMOTION + SEPARATE READ-ONLY VERIFICATION**  
+**Real Windows/IIS production acceptance:** **PENDING EXTERNAL**
 
-## Current truth
+This delta records repository-only P0.5 retention, workflow-supply-chain and durable-release hardening that occurred after the original RC.61 candidate was selected. It does not replace the live external acceptance checklist in #116 and cannot grant production acceptance.
 
-- Selected cutover candidate remains **RC.61**.
-- Issue #159 / PR #160 completed durable publication hardening for future pushed version tags.
-- Issue #162 implementation is complete via PR #163, squash-merged as `43d8a193205495f155bb8866532a4e99ed93b655`.
-- PR #164 merged as `930c057f431a36ab2b603d3dc39e70e8c31c744e` after exact-head normal CI `31726008394` and Windows production-candidate `31726008464` were Green.
-- `promote-existing-candidate` is active but has not been manually dispatched.
-- `v0.1.0-rc.61` is not yet present as a GitHub Release.
-- Issue #162 remains OPEN until the manual promotion run succeeds and the tag, exactly two release assets, and product SHA-256 are independently verified.
-- Issue #168 is **COMPLETE** via PR #171, squash-merged as `c9084dd32b12a9a078f953f85f39b253793e2343`. Exact implementation head `052e969b5ab450526ab996a2e77459f4087846c8` passed normal CI `31881105832`, Real SQL `31881105877`, and Windows production-candidate `31881105818` end-to-end. Every active external Action is pinned to an approved immutable commit SHA, a fail-closed regression test owns the pin allowlist, and the completed BATCH-100 one-shot write-capable merge workflow is removed. This hardening does not change RC.61 and does not satisfy #162/#116/#111 external/manual gates.
-- Issue #173 is **COMPLETE** via PR #174, squash-merged as `bc7cb2d275f423fb381b83d92c76f6516e404fe9`. Exact implementation head `8134720cf1260abc7e6c0609a5afa239f31bb5f7` passed normal CI `31881744429`, Real SQL `31881744413`, and Windows production-candidate `31881744437` end-to-end. The immutable allowlist now uses official native Node 24 releases: checkout `v7.0.1` / `3d3c42e5aac5ba805825da76410c181273ba90b1`, setup-dotnet `v6.0.0` / `a98b56852c35b8e3190ac28c8c2271da59106c68`, upload-artifact `v7.0.1` / `043fb46d1a93c77aae656e7c1c64a875d1fc6a0a`, and download-artifact `v8.0.1` / `3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c`. Windows validation passed 814/814 tests with Release 0 warnings / 0 errors, HTTPS/auth before and after restart, clean package validation and artifact upload; the old Node 20 deprecation/forced-Node-24 warning was absent. RC.87 is CI implementation evidence only and does not supersede RC.61.
-- Issue #176 is **COMPLETE** via PR #177, squash-merged as `12c481367fe9073c125665a696728db1e205b5d8`. Exact implementation head `bb3b0bacbb1202443e79d59e335bd7e342e5b217` passed normal CI `31882356229`, Real SQL `31882356222`, and Windows production-candidate `31882356220`. Repository .NET is fail-closed on SDK `8.0.424` through root `global.json` with `rollForward=disable`; the Real SQL Server 2022 image is pinned to exact digest `sha256:ba4c8329f48fb8f02e1416be6a930ebfd71268caee78aa985f3af4315e457c89`. Normal and Windows suites passed 818/818 with Release 0 warnings / 0 errors; Real SQL passed 8/8 against the exact digest. RC.89 is CI implementation evidence only and does not supersede RC.61.
-- Issue #178 is **COMPLETE** via PR #179, squash-merged as `83b14a8e733990cfa952eeb926db4fd83b7eb069`. Exact implementation head `0819a54ef5021f4bf08187c4823a955c7837c697` passed normal CI `31882629755`, Real SQL `31882629809`, and Windows production-candidate `31882629813`. Active Linux jobs now use explicit `ubuntu-24.04`; Linux logs confirmed Ubuntu 24.04.4 / `Image: ubuntu-24.04`, normal CI passed 819/819 with Release 0 warnings / 0 errors, Real SQL passed 8/8 with the exact SQL digest, and the unchanged Windows path passed end-to-end. RC.90 is CI implementation evidence only and does not supersede RC.61.
-- Issue #180 is **COMPLETE** via PR #181, squash-merged as `e6ee1950679fe3d753804087a5a6b9bed5f9051a`. Exact implementation head `61d326246c258a1a1e872c2f3bea13f495dae839` passed normal CI `31882867960`, Real SQL `31882867928`, and Windows production-candidate `31882867947`. Root `nuget.config` clears ambient sources, declares only `https://api.nuget.org/v3/index.json` using protocol v3, and maps `*` only to `nuget.org`; restore succeeded on Ubuntu, Real SQL and Windows including win-x64 runtime restore. Normal/Windows suites passed 820/820 with Release 0 warnings / 0 errors and Real SQL passed 8/8. RC.91 is CI implementation evidence only and does not supersede RC.61.
-- Issue #182 is **COMPLETE** via PR #183, squash-merged as `6eca7034c510cbcd423c0e1b4b684339d4540283`. Exact implementation head `67341cf6086a53fd7f6251153f6f1d806f5827ba` passed normal CI `31883107925`, Real SQL `31883107941`, and Windows production-candidate `31883107922`. The direct dependency guard now owns all five PackageReference IDs and exact versions across both solution projects; normal and Windows suites passed 821/821 with Release 0 warnings / 0 errors and Real SQL passed 8/8. No `.csproj` or package version changed. RC.92 is CI implementation evidence only and does not supersede RC.61.
-- Issue #184 is **COMPLETE** via PR #185, squash-merged as `7f24fc4aa795e8a7c72b53bc76f829fe8cd72379`. Exact implementation head `2c9d2c9dd1da7b5756950e77cc726b82cd74d1cc` passed normal CI `31883467702`, Real SQL `31883467704`, and Windows production-candidate `31883467706`. CI and Real SQL checkout logs explicitly showed `persist-credentials: false` followed by immediate auth removal. CI/Windows passed 822/822 with Release 0 warnings / 0 errors and Real SQL passed 8/8. The first Windows job attempt exposed an unrelated pre-existing B200-088 CAS contention flake; rerunning only that failed job on the same SHA passed 822/822 and the full production-candidate path. RC.94 is CI implementation evidence only and does not supersede RC.61.
-- Issue #186 is **COMPLETE** via PR #187, squash-merged as `576979e27ffe674c90bbd89c19ae886c622ace16`. Exact implementation head `51b876d091fb70065a36339e9489083e2d5feeb8` passed normal CI `31883922223`, Real SQL `31883922208`, and Windows production-candidate `31883922187` on the first attempt. `SharedOperatorMetadataStore` remains fail-closed and bounded but now uses 64 contention-aware CAS attempts with progressive `SpinWait`; B200-088 synchronizes 40 writers to deliberate contention and passed in the first Windows full suite. CI/Windows passed 822/822 with Release 0 warnings / 0 errors; Real SQL passed 8/8. The Real SQL path filter now includes the shared metadata store and scale contention test. RC.95 is CI implementation evidence only and does not supersede RC.61.
-- Issue #188 is **COMPLETE** via PR #189, squash-merged as `f62d2dd6adae1c62da6e53919bf11c07fb086c70`. Exact implementation head `356c175f5a5f1c827197fea3f572cf046b5ddc0c` passed normal CI `31884178969`, Real SQL `31884178960`, and Windows production-candidate `31884178922`. Repository-wide workflow regression coverage now rejects `pull_request_target`, `workflow_run`, and `permissions: write-all` across every workflow YAML file while preserving existing narrow job-scoped permissions. Normal and Windows suites passed 823/823 with Release 0 warnings / 0 errors; Real SQL passed 8/8. The task changed only the workflow supply-chain test and this tracking delta. RC.97 is CI implementation evidence only and does not supersede RC.61.
-- Issue #190 is **COMPLETE** via PR #191, squash-merged as `c1e884dcc3b6084c31b57942d9ed13ecbb7cb708`. Exact final implementation head `47956a60947d91edd2f20acff351ed01f0c976a7` passed normal CI `31885006707`, Real SQL `31885006745`, and Windows production-candidate `31885006751`. The Windows candidate job now uses explicit `windows-2025`, checkout `persist-credentials: false`, and setup-dotnet `global-json-file: global.json`; Windows logs confirmed Microsoft Windows Server 2025 / `windows-2025-vs2026`, SDK 8.0.424, 824/824 tests, Release 0 warnings / 0 errors, HTTPS/auth before and after restart, clean package validation and artifact upload. Real SQL passed 8/8 with Release 0 warnings / 0 errors. RC.99 is CI implementation evidence only and does not supersede RC.61.
-- Issue #192 is **COMPLETE** via PR #193, squash-merged as `e32f25c7486ead79306a54585489bbf83fde3119`. Exact implementation head `530e27b0323cc90228996cac889e4b26c49c7802` passed normal CI `31885353905`, Real SQL `31885353926`, and Windows production-candidate `31885353900`. Regression coverage now allowlists exactly `release.yml` and `promote-existing-candidate.yml` as the only workflows permitted to contain `contents: write`, rejects PR/trusted-context triggers in write-capable workflows, and requires top-level `contents: read`. Normal/Windows passed 825/825 with Release 0 warnings / 0 errors; Real SQL passed 8/8. No workflow behavior or permissions changed. RC.100 is CI implementation evidence only and does not supersede RC.61.
-- Issue #194 is **COMPLETE** via PR #195, squash-merged as `3af990f0f43c62a8322bc546ba1ec155f687e0df`. Exact implementation head `36ca686fe4ebc7baf35acf2b79c9d1b998624e2e` passed normal CI `31885793180`, Real SQL `31885793164`, and Windows production-candidate `31885793157`. `release.yml` tag publishing and `promote-existing-candidate.yml` now share the tag-derived `monitor-release-tag-*` concurrency namespace with `cancel-in-progress: false`, preventing both write-capable paths from racing the same release tag. Normal/Windows passed 826/826 with Release 0 warnings / 0 errors; Real SQL passed 8/8. `docs/REAL_SQL_ACCEPTANCE.md` was also reconciled to the already-pinned SQL image digest and P0.5 regression-gate boundary. RC.102 is CI implementation evidence only and does not supersede RC.61.
-- Issue #196 is **COMPLETE** via PR #197, squash-merged as `0ecc6149988ef8195ace57d1f02988eecbb338f7`. Exact implementation head `3bb12d5bad5856ce0a6f49ca5eed13b10a0f1665` passed normal CI `31886341390`, Real SQL `31886341349`, and Windows production-candidate `31886341500`. Existing-candidate promotion now has a read-only `refs/heads/main` dispatch preflight before its write-capable job; the promotion job also requires `github.ref == 'refs/heads/main'` and owns the shared non-cancelling release-tag lock. Normal/Windows passed 827/827 with Release 0 warnings / 0 errors; Real SQL passed 8/8. No promotion was dispatched. RC.103 is CI implementation evidence only and does not supersede RC.61.
-- Issue #198 is **IN VERIFICATION**: job-scoped `GH_TOKEN` exposure is being removed from both write-capable workflows. The token remains available only on the three shell steps that actually invoke GitHub CLI: one tagged-release publishing step and two promotion validation/publishing steps. The promotion artifact download continues to receive `github-token` explicitly through the action input. No permission grant changes.
-- Issues #116 and #111 remain OPEN; no external IIS gate is satisfied by release-retention, workflow-supply-chain, contention, privilege-guard, runner/toolchain, write-surface, release-mutation-lock, dispatch-ref, or token-scope hardening work.
+## Selected RC.61 identity
+
+- version `0.1.0-rc.61`;
+- source production-candidate run `31667721306`;
+- Actions artifact ID `9168574442`;
+- artifact name `Monitor-0.1.0-rc.61-win-x64`;
+- source head `e28158da67b36dfc5dbf8f4c38b5c43d99c7c728`;
+- tested merge `158148d8bfd05f724014541bc7a0b1eab5dae1b5`;
+- product SHA-256 `d0a71f8a5611621ee388a1109dedc76e1a6e70357404cb62c9c7aa188f49c3d5`;
+- outer Actions artifact digest `sha256:1c499b9eb0bfc4245716c14718381b71352df8392aafe430cc415b375b93f382`;
+- intended durable tag `v0.1.0-rc.61`.
+
+Fresh source-artifact verification on 2026-08-16 confirmed artifact `9168574442` still exists with size `4,824,061` bytes, `expired=false`, the expected outer digest, source/head repository ID `1329517438`, and GitHub expiry `2026-09-12T04:41:34Z`.
+
+No promotion has been inferred from readiness evidence. At the latest check, `promote-existing-candidate` had zero workflow runs and tag/release `v0.1.0-rc.61` was absent.
+
+## Retention and hardening ledger — COMPLETE
+
+| Issue / PR | State | Repository result |
+|---|---|---|
+| #159 / #160 | COMPLETE | Durable pushed-version-tag publication path; verified same-run ZIP + `.sha256`; no rebuild/repackage/clobber path. |
+| #162 / #163 | IMPLEMENTATION COMPLETE | Exact existing-candidate promotion capability for RC.61; manual dispatch remains intentionally external. |
+| PR #164 | COMPLETE | Initial operator handoff for exact RC.61 promotion. |
+| #168 / #171 | COMPLETE | External Actions pinned to approved immutable SHAs; obsolete privileged one-shot workflow removed. |
+| #173 / #174 | COMPLETE | Active pinned Actions moved to official native Node 24 releases. |
+| #176 / #177 | COMPLETE | .NET SDK fail-closed at `8.0.424`; Real SQL Server image pinned by exact digest. |
+| #178 / #179 | COMPLETE | Linux jobs pinned to `ubuntu-24.04`. |
+| #180 / #181 | COMPLETE | Repository NuGet restore source/mapping policy locked to approved nuget.org v3 source. |
+| #182 / #183 | COMPLETE | Exact direct PackageReference ID/version allowlist. |
+| #184 / #185 | COMPLETE | Linux checkout credentials are not persisted. |
+| #186 / #187 | COMPLETE | Bounded contention-aware shared operator metadata CAS behavior. |
+| #188 / #189 | COMPLETE | Workflow regression guard rejects trusted-context triggers and `write-all`. |
+| #190 / #191 | COMPLETE | Windows production candidate pinned to `windows-2025`, non-persisting checkout and repository SDK lock. |
+| #192 / #193 | COMPLETE | Exactly two write-capable workflows allowlisted with narrow trigger/permission boundaries. |
+| #194 / #195 | COMPLETE | Release/tag mutations serialized by one non-cancelling tag-derived concurrency namespace. |
+| #196 / #197 | COMPLETE | Promotion writes fail closed unless manually dispatched from `refs/heads/main`. |
+| #198 / #199 | COMPLETE | Job-scoped `GH_TOKEN` removed; token exposure limited to the exact shell steps invoking GitHub CLI. PR #199 merged as `b615acd313ae3dcc733dda54f41771adead78d96` from exact head `30829fcde3bd6ec4be60483be1e10f8cf0612c37`. |
+| #200 / #201 | COMPLETE | Tagged releases must contain exactly the approved ZIP and companion `.sha256`; normal CI `31893312477` and Windows `31893312462` Green on exact head `7be4b679a3a9751a8225edf059fcf458da4299dd`. |
+| #202 / #203 | COMPLETE | Exact source-run/artifact binding, canonical checksum and durable-release metadata validation hardened. |
+| #204 / #205 | COMPLETE | Promotion requires exact outer artifact digest and hardened Windows-safe ZIP/provenance validation. |
+| #206 / #207 | COMPLETE | Durable release REST asset metadata, IDs, sizes, digests and bytes are bound fail-closed. |
+| #208 / #209 | COMPLETE | Shared durable-release verification made exact-ID and TOCTOU-safe; CI `31915563581`, Windows `31915563637` Green on exact head `50989cf58e07558759187d649d7c02b22db0a651`. |
+| #210 / #211 | COMPLETE | Verifier workspace is private, trusted-root confined and no-clobber/atomic-output hardened. |
+| #212 / #213 | COMPLETE | Verified output publication made directory-atomic; normal CI `31932943983` Green on exact head `9a31a7c74e1ed5e46fdb6c2fb5c4480f9971d139`. |
+| #214 / #215 | COMPLETE | Durable release tag provenance is snapshotted and bound to the approved tested merge; CI `31933321364`, Windows `31933321429` Green. |
+| #216 / #217 | COMPLETE | Separate manual-only `verify-durable-release.yml` added with `contents: read` only; exact tag/commit/product verification is independent closure evidence for #162; CI `31933642305` Green. |
+| #218 / #219 | COMPLETE | Shared durable-release toolchain capability preflight fails fast on jq/realpath/stat/mktemp/find/sha256sum/mv semantic drift; CI `31935989980` and Windows `31935989954` Green on exact head `ca1e40acfac635650df32cd0bc60ed63df224380`, 919/919 tests. |
+| #243 / #245 | COMPLETE | Short `deploy/RC61_DURABLE_PROMOTION.md` reconciled with the hardened promotion/verification input contracts, including outer artifact digest and separate read-only verifier; PR #245 merged as `75661cfc730f60667d1786a9bcd6ca9427ef2faa` after CI #1656 and Windows #146 Green. |
+
+All later CI-generated candidates mentioned by hardening PRs are implementation evidence only. **None supersedes RC.61** unless #116 explicitly selects another equivalently verified candidate.
+
+## Current #162 execution contract
+
+Repository implementation is complete. The remaining retention operation is intentionally manual and fail-closed.
+
+### Step 1 — promotion
+
+Dispatch `.github/workflows/promote-existing-candidate.yml` from `main` using the exact RC.61 identity in `deploy/RC61_DURABLE_PROMOTION.md` and `docs/P05_EXISTING_CANDIDATE_PROMOTION.md`.
+
+The required identity includes:
+
+- source run `31667721306`;
+- artifact ID `9168574442`;
+- expected outer artifact digest `sha256:1c499b9eb0bfc4245716c14718381b71352df8392aafe430cc415b375b93f382`;
+- expected product SHA-256 `d0a71f8a5611621ee388a1109dedc76e1a6e70357404cb62c9c7aa188f49c3d5`;
+- source head `e28158da67b36dfc5dbf8f4c38b5c43d99c7c728`;
+- tested merge `158148d8bfd05f724014541bc7a0b1eab5dae1b5`;
+- tag `v0.1.0-rc.61`;
+- explicit promotion acknowledgement.
+
+### Step 2 — independent verification
+
+After promotion is Green, separately dispatch `.github/workflows/verify-durable-release.yml` from `main`. This workflow is read-only and independently verifies tag provenance, release metadata, exact-two assets, asset IDs/sizes/digests/downloaded bytes and canonical checksum. The promotion workflow's own post-publication checks are not a substitute for this second run.
+
+Keep #162 open until both runs are Green and the tag, exact-two assets and durable product hash are independently verified.
 
 ## Canonical reconciliation state
 
-This reconciliation records the current retention and repository-hardening boundary:
+The canonical repository tracking is now intentionally aligned:
 
-1. repository release/durable-tag tooling is complete through #159 / PR #160;
-2. existing selected-candidate promotion capability is implemented through #162 / PR #163;
-3. the dedicated handoff docs are merged through PR #164;
-4. RC.61 publication is still pending manual dispatch;
-5. Issue #168 / PR #171 supply-chain hardening is complete and merged as `c9084dd32b12a9a078f953f85f39b253793e2343`, with normal CI `31881105832`, Real SQL `31881105877`, and Windows production-candidate `31881105818` Green on exact implementation head `052e969b5ab450526ab996a2e77459f4087846c8`;
-6. Issue #173 / PR #174 native Node 24 Action migration is complete and merged as `bc7cb2d275f423fb381b83d92c76f6516e404fe9`, with normal CI `31881744429`, Real SQL `31881744413`, and Windows production-candidate `31881744437` Green on exact implementation head `8134720cf1260abc7e6c0609a5afa239f31bb5f7`;
-7. Issue #176 / PR #177 reproducible SDK/SQL-image hardening is complete and merged as `12c481367fe9073c125665a696728db1e205b5d8`, with normal CI `31882356229`, Real SQL `31882356222`, and Windows production-candidate `31882356220` Green on exact implementation head `bb3b0bacbb1202443e79d59e335bd7e342e5b217`;
-8. Issue #178 / PR #179 explicit Ubuntu 24.04 runner-major hardening is complete and merged as `83b14a8e733990cfa952eeb926db4fd83b7eb069`, with normal CI `31882629755`, Real SQL `31882629809`, and Windows production-candidate `31882629813` Green on exact implementation head `0819a54ef5021f4bf08187c4823a955c7837c697`;
-9. Issue #180 / PR #181 repository NuGet source provenance hardening is complete and merged as `e6ee1950679fe3d753804087a5a6b9bed5f9051a`, with normal CI `31882867960`, Real SQL `31882867928`, and Windows production-candidate `31882867947` Green on exact implementation head `61d326246c258a1a1e872c2f3bea13f495dae839`;
-10. Issue #182 / PR #183 direct PackageReference allowlist hardening is complete and merged as `6eca7034c510cbcd423c0e1b4b684339d4540283`, with normal CI `31883107925`, Real SQL `31883107941`, and Windows production-candidate `31883107922` Green on exact implementation head `67341cf6086a53fd7f6251153f6f1d806f5827ba`;
-11. Issue #184 / PR #185 non-persisting Linux checkout credential hardening is complete and merged as `7f24fc4aa795e8a7c72b53bc76f829fe8cd72379`, with normal CI `31883467702`, Real SQL `31883467704`, and same-SHA Windows production-candidate `31883467706` ultimately Green on exact implementation head `2c9d2c9dd1da7b5756950e77cc726b82cd74d1cc`;
-12. Issue #186 / PR #187 bounded contention-aware shared operator metadata hardening is complete and merged as `576979e27ffe674c90bbd89c19ae886c622ace16`, with normal CI `31883922223`, Real SQL `31883922208`, and first-attempt Windows production-candidate `31883922187` Green on exact implementation head `51b876d091fb70065a36339e9489083e2d5feeb8`;
-13. Issue #188 / PR #189 trusted-trigger/write-all workflow privilege guard is complete and merged as `f62d2dd6adae1c62da6e53919bf11c07fb086c70`, with normal CI `31884178969`, Real SQL `31884178960`, and Windows production-candidate `31884178922` Green on exact implementation head `356c175f5a5f1c827197fea3f572cf046b5ddc0c`;
-14. Issue #190 / PR #191 Windows production-candidate runner/checkout/SDK setup hardening is complete and merged as `c1e884dcc3b6084c31b57942d9ed13ecbb7cb708`, with normal CI `31885006707`, Real SQL `31885006745`, and Windows production-candidate `31885006751` Green on exact final head `47956a60947d91edd2f20acff351ed01f0c976a7`;
-15. Issue #192 / PR #193 write-capable workflow allowlist / PR-trigger boundary hardening is complete and merged as `e32f25c7486ead79306a54585489bbf83fde3119`, with normal CI `31885353905`, Real SQL `31885353926`, and Windows production-candidate `31885353900` Green on exact head `530e27b0323cc90228996cac889e4b26c49c7802`;
-16. Issue #194 / PR #195 shared release-tag mutation lock hardening is complete and merged as `3af990f0f43c62a8322bc546ba1ec155f687e0df`, with normal CI `31885793180`, Real SQL `31885793164`, and Windows production-candidate `31885793157` Green on exact head `36ca686fe4ebc7baf35acf2b79c9d1b998624e2e`;
-17. Issue #196 / PR #197 promotion dispatch-ref/read-only preflight hardening is complete and merged as `0ecc6149988ef8195ace57d1f02988eecbb338f7`, with normal CI `31886341390`, Real SQL `31886341349`, and Windows production-candidate `31886341500` Green on exact head `3bb12d5bad5856ce0a6f49ca5eed13b10a0f1665`;
-18. Issue #198 step-scoped GitHub CLI token exposure hardening is in verification;
-19. RC.61 remains selected unless #116 explicitly selects another equivalently verified candidate;
-20. real Windows/IIS 15/15 acceptance remains pending external.
+1. `docs/STATUS.md` records repository P0.5 hardening through PR #219 and keeps RC.61 publication pending manual #162;
+2. `docs/FEATURE_CATALOG.md` records the selected-candidate promotion implementation separately from actual publication;
+3. `docs/IMPLEMENTATION_PLAN.md` has been fully reconciled and records durable-release hardening through PR #219; the obsolete connector-size limitation no longer applies;
+4. `deploy/RC61_DURABLE_PROMOTION.md` is synchronized with the current promotion and independent-verification workflow inputs through PR #245;
+5. this delta records the same current boundary and no longer carries transient `IN VERIFICATION` states from already merged hardening work.
 
-`docs/IMPLEMENTATION_PLAN.md` already records durable-tag tooling through #159 / PR #160 and remains supplemented by this delta plus `docs/P05_EXISTING_CANDIDATE_PROMOTION.md` for the exact #162 publication state. The connected contents API requires complete-file replacement, while the full plan exceeds the safe complete-file response budget; it is therefore not rewritten here rather than risking truncation.
+## External production boundary
 
-This delta does not grant production acceptance, does not close #162/#116/#111, and does not promote a later candidate over RC.61.
+Issues #116 and #111 remain OPEN. No repository CI, release-retention hardening, durable publication, independent release verification, UI completion, candidate packaging or synthetic 15/15 evidence can satisfy the actual production gate.
+
+The real #116 checklist still requires the intended trusted-certificate Windows/IIS SingleNode host, actual app-pool identity, validated pre-cutover backup, immutable acceptance session, trusted HTTPS authentication, least-privilege monitored SQL Test/Refresh, IIS recycle durability, operational-state durability, rollback/recovery rehearsal, 15 SHA-bound real gate records, explicit final operator acknowledgement and independent human review.
+
+This file does not dispatch promotion, create or mutate a release/tag, select a new candidate, deploy IIS, execute SQL, or close #162/#116/#111.
