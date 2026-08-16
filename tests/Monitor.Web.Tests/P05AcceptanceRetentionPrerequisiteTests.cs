@@ -18,7 +18,7 @@ public sealed class P05AcceptanceRetentionPrerequisiteTests
         Assert.Contains("expected_product_sha256=d0a71f8a5611621ee388a1109dedc76e1a6e70357404cb62c9c7aa188f49c3d5", runbook, StringComparison.Ordinal);
         Assert.Contains("expected_commit=158148d8bfd05f724014541bc7a0b1eab5dae1b5", runbook, StringComparison.Ordinal);
         Assert.Contains("Neither successful promotion nor successful durable verification marks any external production gate PASS", runbook, StringComparison.Ordinal);
-        Assert.Contains("do not build, publish, compress or repackage RC.61", runbook, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("does not build, publish, compress or repackage RC.61", runbook, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
