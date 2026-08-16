@@ -1,8 +1,49 @@
 @using Monitor.Web.Services
 @model GovernanceCleanupPlan
-@{ ViewData["Title"] = "Retention Governance"; }
-<section class="page-heading"><div><span class="eyebrow">ADMINISTRATOR GOVERNANCE</span><h1>Retention Governance</h1><p>Dry-run candidates are computed from Monitor-owned metadata and audit state. Apply writes reversible audit-backed prune receipts; it never initiates monitored SQL collection.</p></div></section>
-@if (TempData["GovernanceStatus"] is string status) { <div class="status-banner" role="status">@status</div> }
-<section class="incident-summary"><div class="glass-panel"><small>ORPHAN SERVERS</small><strong>@Model.OrphanServers</strong></div><div class="glass-panel"><small>INCIDENT METADATA</small><strong>@Model.IncidentMetadata</strong></div><div class="glass-panel"><small>EXPIRED NOTES</small><strong>@Model.ExpiredNotes</strong></div><div class="glass-panel"><small>TOTAL</small><strong>@Model.Candidates.Count</strong></div></section>
-<section class="glass-panel table-panel"><div class="panel-heading"><div><span class="eyebrow">DRY RUN</span><h3>Cleanup candidates</h3></div><span class="snapshot-note">@Model.EvaluatedAtUtc.ToString("u")</span></div><div class="incident-table"><div class="table-head"><span>Kind</span><span>Key</span><span>Reason</span><span></span><span></span><span></span></div>@foreach (var item in Model.Candidates.Take(100)) { <div class="table-row"><strong>@item.Kind</strong><span>@item.Key</span><span>@item.Reason</span><span></span><span></span><span></span></div> }@if (Model.Candidates.Count == 0) { <div class="incident-empty">No cleanup candidates.</div> }</div></section>
-@if (Model.Candidates.Count > 0) { <form asp-action="Apply" method="post"><button class="button primary" type="submit">Apply audited pruning</button></form> }
+@{
+    ViewData["Title"] = "Retention Governance";
+}
+
+<partial name="_PortalPageHeader" model="@(new PortalPageHeaderViewModel("Retention Governance", "Administrator-only retention workflow over Monitor-owned metadata. Dry run never mutates state; Apply creates bounded audit-backed prune receipts and never initiates monitored SQL collection.", "ADMINISTRATOR GOVERNANCE", "Operator Help", Url.Action("Help", "EnterpriseHelp")))" />
+
+@if (TempData["GovernanceStatus"] is string status)
+{
+    <div class="status-banner governance-receipt" role="status" aria-live="polite"><strong>Prune receipt recorded.</strong> @status</div>
+}
+
+<section class="governance-flow" aria-label="Retention governance workflow">
+    <article class="glass-panel governance-step state-healthy"><span>1</span><div><strong>Dry run</strong><p>Compute bounded candidates from Monitor-owned metadata and audit state only.</p></div></article>
+    <article class="glass-panel governance-step state-warning"><span>2</span><div><strong>Review impact</strong><p>Inspect candidate kind, key and reason. Candidate display is capped to the first 100 rows.</p></div></article>
+    <article class="glass-panel governance-step state-critical"><span>3</span><div><strong>Apply pruning</strong><p>Administrator POST with antiforgery. This mutates control-plane retention state and must be deliberate.</p></div></article>
+    <article class="glass-panel governance-step state-healthy"><span>4</span><div><strong>Audit receipt</strong><p>Applied work returns a bounded prune-receipt count and remains auditable.</p></div></article>
+</section>
+
+<section class="health-command-summary" aria-label="Retention candidate summary">
+    <article class="health-command-card state-@(Model.OrphanServers > 0 ? "warning" : "healthy")"><small>ORPHAN SERVERS</small><strong>@Model.OrphanServers</strong><span>Monitor-owned registration metadata candidates</span></article>
+    <article class="health-command-card state-@(Model.IncidentMetadata > 0 ? "warning" : "healthy")"><small>INCIDENT METADATA</small><strong>@Model.IncidentMetadata</strong><span>Retention candidates in operator metadata</span></article>
+    <article class="health-command-card state-@(Model.ExpiredNotes > 0 ? "warning" : "healthy")"><small>EXPIRED NOTES</small><strong>@Model.ExpiredNotes</strong><span>Expired bounded note candidates</span></article>
+    <article class="health-command-card hero state-@(Model.Candidates.Count > 0 ? "warning" : "healthy")"><div><small>TOTAL DRY-RUN CANDIDATES</small><strong>@Model.Candidates.Count</strong><span>Evaluated @Model.EvaluatedAtUtc.ToString("u")</span></div></article>
+</section>
+
+@if (Model.Candidates.Count == 0)
+{
+    <partial name="_PortalState" model="@(new PortalStateViewModel("No cleanup candidates", "The current dry run found no bounded retention candidates. No mutation is necessary.", "success", "Audit trail", Url.Action("Audit", "Operations")))" />
+}
+else
+{
+    <section class="glass-panel table-panel governance-candidates">
+        <div class="panel-heading"><div><span class="eyebrow">DRY RUN · NO MUTATION</span><h3>Cleanup candidates</h3></div><span class="snapshot-note">Showing up to 100 of @Model.Candidates.Count</span></div>
+        <div class="responsive-table" role="region" aria-label="Retention cleanup candidates" tabindex="0">
+            <div class="table-head governance-detail-grid" role="row"><span>Kind</span><span>Key</span><span>Reason</span></div>
+            @foreach (var item in Model.Candidates.Take(100))
+            {
+                <div class="table-row governance-detail-grid" role="row"><strong>@item.Kind</strong><code>@item.Key</code><span>@item.Reason</span></div>
+            }
+        </div>
+    </section>
+
+    <section class="glass-panel governance-apply" aria-labelledby="governance-apply-title">
+        <div><span class="eyebrow">MUTATING ACTION</span><h3 id="governance-apply-title">Apply the reviewed retention plan</h3><p id="governance-apply-warning">This action prunes the current bounded candidate set from Monitor-owned control-plane state. It does not touch a monitored SQL target, but it is still a destructive metadata-retention operation. Re-run the dry run after any unexpected change before applying.</p></div>
+        <form asp-action="Apply" method="post" aria-describedby="governance-apply-warning"><button class="button primary danger-button" type="submit">Apply audited pruning</button></form>
+    </section>
+}
