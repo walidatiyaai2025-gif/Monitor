@@ -26,6 +26,7 @@ $common = @{
     ArtifactPath = $artifactPath
     ChecksumPath = $checksumPath
     CandidateVersion = $version
+    ExpectedProductSha256 = $hash
     SourceCommit = ('a' * 40) -join ''
     TestedMergeCommit = ('b' * 40) -join ''
     HostName = 'monitor.example.internal'
@@ -44,6 +45,9 @@ if (-not (Test-Path -LiteralPath $sessionRoot -PathType Container)) { throw 'Ses
 if ($result.ExternalGateCount -ne 15 -or $result.ExternalGatesPassed -ne 0 -or $result.ProductionAccepted) {
     throw 'Session initializer did not remain fail-closed at 0/15 external gates.'
 }
+if ($result.SelectedProductSha256 -ne $hash) {
+    throw 'Session initializer did not report the independently selected product SHA-256.'
+}
 
 $manifestPath = Join-Path $sessionRoot 'session-manifest.json'
 $manifestLockPath = Join-Path $sessionRoot 'session-manifest.sha256'
@@ -60,8 +64,8 @@ $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json -Dept
 if ($manifest.status -ne 'PreparedFailClosed' -or $manifest.externalGateCount -ne 15 -or $manifest.externalGatesPassed -ne 0) {
     throw 'Session manifest did not record the fail-closed 0/15 state.'
 }
-if ($manifest.artifactSha256 -ne $hash -or $manifest.artifactFileName -ne $fileName) {
-    throw 'Session manifest is not bound to the selected candidate bytes.'
+if ($manifest.artifactSha256 -ne $hash -or $manifest.selectedProductSha256 -ne $hash -or $manifest.artifactFileName -ne $fileName) {
+    throw 'Session manifest is not bound to the independently selected candidate bytes.'
 }
 
 $lockLine = (Get-Content -LiteralPath $manifestLockPath -Raw).Trim()
@@ -77,6 +81,9 @@ if ($gates.Count -ne 15 -or @($gates | Where-Object { $_.Value.passed }).Count -
 }
 if (-not [string]::IsNullOrWhiteSpace([string]$pack.acceptedBy) -or $null -ne $pack.acceptedAtUtc) {
     throw 'Session evidence pack unexpectedly contains final acceptance metadata.'
+}
+if ($pack.candidate.sha256 -ne $hash) {
+    throw 'Session evidence pack is not bound to the independently selected product SHA-256.'
 }
 
 $copiedArtifact = Join-Path $sessionRoot "candidate\$fileName"
@@ -112,6 +119,23 @@ Assert-SessionRejected `
     -Action { ./scripts/New-ProductionAcceptanceSession.ps1 @tamperedArgs -SessionRoot (Join-Path $root 'session-tampered') } `
     -FailureMessage 'Tampered checksum unexpectedly passed.'
 
+$substitutedRoot = Join-Path $root 'substituted-source'
+$substitutedPayloadRoot = Join-Path $substitutedRoot 'payload'
+New-Item -ItemType Directory -Force -Path $substitutedRoot, $substitutedPayloadRoot | Out-Null
+'candidate=substituted;purpose=selected-hash-negative-case' | Set-Content -LiteralPath (Join-Path $substitutedPayloadRoot 'candidate.txt') -Encoding utf8NoBOM
+$substitutedArtifact = Join-Path $substitutedRoot $fileName
+$substitutedChecksum = Join-Path $substitutedRoot $checksumName
+Compress-Archive -Path (Join-Path $substitutedPayloadRoot '*') -DestinationPath $substitutedArtifact -CompressionLevel Optimal -Force
+$substitutedHash = (Get-FileHash -LiteralPath $substitutedArtifact -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($substitutedHash -eq $hash) { throw 'Synthetic substituted candidate unexpectedly matched the selected product SHA-256.' }
+"$substitutedHash  $fileName" | Set-Content -LiteralPath $substitutedChecksum -Encoding ascii
+$substitutedArgs = $common.Clone()
+$substitutedArgs.ArtifactPath = $substitutedArtifact
+$substitutedArgs.ChecksumPath = $substitutedChecksum
+Assert-SessionRejected `
+    -Action { ./scripts/New-ProductionAcceptanceSession.ps1 @substitutedArgs -SessionRoot (Join-Path $root 'session-substituted') } `
+    -FailureMessage 'Substituted ZIP and checksum pair unexpectedly passed selected-hash binding.'
+
 $nonZipRoot = Join-Path $root 'non-zip-source'
 New-Item -ItemType Directory -Force -Path $nonZipRoot | Out-Null
 $nonZipArtifact = Join-Path $nonZipRoot $fileName
@@ -122,6 +146,7 @@ $nonZipHash = (Get-FileHash -LiteralPath $nonZipArtifact -Algorithm SHA256).Hash
 $nonZipArgs = $common.Clone()
 $nonZipArgs.ArtifactPath = $nonZipArtifact
 $nonZipArgs.ChecksumPath = $nonZipChecksum
+$nonZipArgs.ExpectedProductSha256 = $nonZipHash
 Assert-SessionRejected `
     -Action { ./scripts/New-ProductionAcceptanceSession.ps1 @nonZipArgs -SessionRoot (Join-Path $root 'session-non-zip') } `
     -FailureMessage 'Non-ZIP artifact unexpectedly passed.'
@@ -141,4 +166,4 @@ Assert-SessionRejected `
     -Action { ./scripts/New-ProductionAcceptanceSession.ps1 @common -SessionRoot $traversalRoot } `
     -FailureMessage 'Traversal-bearing absolute session root unexpectedly passed.'
 
-Write-Host 'Immutable production acceptance session initializer contract passed: candidate-bound workspace created at 0/15 gates; negative reuse/checksum/ZIP/secret/relative/traversal path cases rejected.'
+Write-Host 'Immutable production acceptance session initializer contract passed: candidate is independently selected-hash-bound at 0/15 gates; negative reuse/checksum/twin-substitution/ZIP/secret/relative/traversal path cases rejected.'
