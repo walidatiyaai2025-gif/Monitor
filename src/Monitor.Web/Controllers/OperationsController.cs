@@ -164,19 +164,19 @@ public sealed class OperationsController : Controller
     }
 
     [HttpGet("/database-health")]
-    public async Task<IActionResult> DatabaseHealth(CancellationToken cancellationToken) => View(new HealthModulePageViewModel("Database & Backup Health", "Cached database states and full-backup coverage.", await _readService.GetHealthModulesAsync(cancellationToken)));
+    public async Task<IActionResult> DatabaseHealth(CancellationToken cancellationToken) => View(new HealthModulePageViewModel("Database Health", "Cached database states from the shared snapshot. Missing database detail remains explicit.", await _readService.GetHealthModulesAsync(cancellationToken)));
 
     [HttpGet("/backups")]
-    public async Task<IActionResult> Backups(CancellationToken cancellationToken) => View("HealthModules", new HealthModulePageViewModel("Backup Health", "Full-backup coverage from the shared cached snapshot.", await _readService.GetHealthModulesAsync(cancellationToken)));
+    public async Task<IActionResult> Backups(CancellationToken cancellationToken) => View(new HealthModulePageViewModel("Backup Health", "Full-backup coverage from the shared cached snapshot.", await _readService.GetHealthModulesAsync(cancellationToken)));
 
     [HttpGet("/jobs")]
-    public async Task<IActionResult> Jobs(CancellationToken cancellationToken) => View("HealthModules", new HealthModulePageViewModel("SQL Agent Jobs", "Aggregate job outcomes; commands and step text are never collected.", await _readService.GetHealthModulesAsync(cancellationToken)));
+    public async Task<IActionResult> Jobs(CancellationToken cancellationToken) => View(new HealthModulePageViewModel("SQL Agent Jobs", "Aggregate job outcomes; commands and step text are never collected.", await _readService.GetHealthModulesAsync(cancellationToken)));
 
     [HttpGet("/storage")]
-    public async Task<IActionResult> Storage(CancellationToken cancellationToken) => View("HealthModules", new HealthModulePageViewModel("Storage Allocation", "Allocated database bytes only; this is not disk capacity or free space.", await _readService.GetHealthModulesAsync(cancellationToken)));
+    public async Task<IActionResult> Storage(CancellationToken cancellationToken) => View(new HealthModulePageViewModel("Storage Allocation", "Allocated database bytes only; this is not disk capacity or free space.", await _readService.GetHealthModulesAsync(cancellationToken)));
 
     [HttpGet("/blocking")]
-    public async Task<IActionResult> Blocking(CancellationToken cancellationToken) => View("HealthModules", new HealthModulePageViewModel("Blocking", "Bounded blocking counts without SQL text, plans or client identity.", await _readService.GetHealthModulesAsync(cancellationToken)));
+    public async Task<IActionResult> Blocking(CancellationToken cancellationToken) => View(new HealthModulePageViewModel("Blocking", "Bounded blocking counts without SQL text, plans or client identity.", await _readService.GetHealthModulesAsync(cancellationToken)));
 
     [HttpGet("/memory-health")]
     public async Task<IActionResult> MemoryHealth(CancellationToken cancellationToken) => View(await _readService.GetServersAsync(cancellationToken));
