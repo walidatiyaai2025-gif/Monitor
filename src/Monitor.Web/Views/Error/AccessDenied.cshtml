@@ -1,0 +1,13 @@
+@{
+    Layout = "_ErrorLayout";
+    ViewData["Title"] = "Access denied";
+}
+<section class="glass-panel error-panel" aria-labelledby="error-title">
+    <span class="eyebrow">ROLE POLICY · 403</span>
+    <h1 id="error-title">You do not have permission for this action</h1>
+    <p>Your session is valid, but the requested operation requires a different Monitor role. No protected data was returned.</p>
+    <div class="error-actions">
+        <a class="primary-button" asp-controller="Operations" asp-action="Dashboard">Open Command Center</a>
+        <a class="secondary-button" asp-controller="Account" asp-action="Login">Change account</a>
+    </div>
+</section>
