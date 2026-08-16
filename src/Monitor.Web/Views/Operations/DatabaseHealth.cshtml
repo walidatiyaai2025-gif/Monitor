@@ -1,3 +1,51 @@
 @model HealthModulePageViewModel
-@{ ViewData["Title"] = Model.Title; }
-<partial name="_HealthModuleTable" model="Model" />
+@{
+    ViewData["Title"] = Model.Title;
+    var observed = Model.Servers.Where(server => server.Databases is not null).ToArray();
+    var suspect = observed.Sum(server => server.Databases!.Suspect);
+    var restoring = observed.Sum(server => server.Databases!.Restoring);
+    var recovering = observed.Sum(server => server.Databases!.Recovering + server.Databases.RecoveryPending);
+    var emergency = observed.Sum(server => server.Databases!.Emergency);
+    var unavailable = Model.Servers.Count(server => server.Source == ServerDataSource.RegisteredUnavailable || server.Databases is null);
+    var totalDatabases = Model.Servers.Where(server => server.Source != ServerDataSource.RegisteredUnavailable).Sum(server => server.DatabaseTotal);
+    var onlineDatabases = Model.Servers.Where(server => server.Source != ServerDataSource.RegisteredUnavailable).Sum(server => server.DatabaseOnline);
+    var canManage = User.IsInRole(Monitor.Web.Services.MonitorRoles.Administrator);
+}
+
+<partial name="_PortalPageHeader" model="@(new PortalPageHeaderViewModel(Model.Title, Model.Description + " Navigation reads cached evidence only.", "CACHED DATABASE STATE", "View servers", Url.Action("Servers", "Operations")))" />
+
+@if (Model.Servers.Count == 0)
+{
+    <partial name="_PortalState" model="@(new PortalStateViewModel("No database snapshots", "Register a SQL Server and collect a snapshot before interpreting database health.", "warning", canManage ? "Manage connections" : "View servers", canManage ? Url.Action("Index", "ConnectionLab") : Url.Action("Servers", "Operations")))" />
+}
+else
+{
+    <section class="health-command-summary" aria-label="Database health summary">
+        <article class="health-command-card hero state-@(suspect + emergency > 0 ? "critical" : restoring + recovering > 0 ? "warning" : "healthy")"><div><small>DATABASE AVAILABILITY</small><strong>@onlineDatabases / @totalDatabases</strong><span>Online databases in available cached snapshots</span></div></article>
+        <article class="health-command-card state-@(suspect > 0 ? "critical" : "healthy")"><small>SUSPECT</small><strong>@suspect</strong><span>Collected suspect database states</span></article>
+        <article class="health-command-card state-@(restoring + recovering > 0 ? "warning" : "healthy")"><small>RECOVERY / RESTORE</small><strong>@(restoring + recovering)</strong><span>Restoring, recovering or recovery-pending</span></article>
+        <article class="health-command-card state-@(emergency > 0 ? "critical" : "healthy")"><small>EMERGENCY</small><strong>@emergency</strong><span>Emergency database states</span></article>
+        <article class="health-command-card state-@(unavailable > 0 ? "offline" : "healthy")"><small>DETAIL UNAVAILABLE</small><strong>@unavailable</strong><span>Servers with no database detail evidence</span></article>
+    </section>
+
+    <section class="glass-panel table-panel health-surface-panel">
+        <div class="panel-heading"><div><span class="eyebrow">DATABASE STATE BY SERVER</span><h3>Latest cached database evidence</h3></div><span class="snapshot-note">No live query on page load</span></div>
+        <div class="responsive-table" role="region" aria-label="Database health by server" tabindex="0">
+            <div class="table-head health-detail-grid" role="row"><span>Server</span><span>Source</span><span>Online</span><span>Suspect</span><span>Restore / recovery</span><span>Emergency / other</span><span>Details</span></div>
+            @foreach (var server in Model.Servers)
+            {
+                var detail = server.Databases;
+                var unavailableServer = server.Source == ServerDataSource.RegisteredUnavailable;
+                <div class="table-row health-detail-grid" role="row">
+                    <strong>@server.Name</strong>
+                    <partial name="_HealthSourceBadge" model="server" />
+                    <span>@(unavailableServer ? "Not collected" : $"{server.DatabaseOnline} / {server.DatabaseTotal}")</span>
+                    <span class="@(detail?.Suspect > 0 ? "state-critical" : string.Empty)">@(detail is null ? "Not collected" : detail.Suspect)</span>
+                    <span class="@(detail is not null && detail.Restoring + detail.Recovering + detail.RecoveryPending > 0 ? "state-warning" : string.Empty)">@(detail is null ? "Not collected" : $"{detail.Restoring} / {detail.Recovering + detail.RecoveryPending}")</span>
+                    <span class="@(detail?.Emergency > 0 ? "state-critical" : string.Empty)">@(detail is null ? "Not collected" : $"{detail.Emergency} / {detail.OfflineOrOther}")</span>
+                    <a class="secondary-button compact-button" asp-controller="Operations" asp-action="ServerDetails" asp-route-id="@server.Id">Server</a>
+                </div>
+            }
+        </div>
+    </section>
+}
