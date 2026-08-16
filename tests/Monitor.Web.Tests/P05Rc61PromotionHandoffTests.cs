@@ -60,7 +60,8 @@ public sealed class P05Rc61PromotionHandoffTests
         Assert.Contains("#111 remains open until #116 is accepted", handoff, StringComparison.Ordinal);
     }
 
-    private static string Read(string relative) => File.ReadAllText(Path.Combine(Root, relative));
+    private static string Read(string relative) =>
+        File.ReadAllText(Path.Combine(Root, relative)).Replace("\r\n", "\n", StringComparison.Ordinal);
 
     private static string FindRoot()
     {
