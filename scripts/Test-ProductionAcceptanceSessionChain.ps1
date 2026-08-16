@@ -28,6 +28,7 @@ function New-SyntheticAcceptanceSession {
     Compress-Archive -Path (Join-Path $payloadRoot '*') -DestinationPath $artifactPath -CompressionLevel Optimal -Force
     $productHash = (Get-FileHash -LiteralPath $artifactPath -Algorithm SHA256).Hash.ToLowerInvariant()
     "$productHash  $fileName" | Set-Content -LiteralPath $checksumPath -Encoding ascii
+    $toolingCommit = ('c' * 40) -join ''
 
     $sessionRoot = Join-Path $root 'session'
     $session = ./scripts/New-ProductionAcceptanceSession.ps1 `
@@ -38,6 +39,7 @@ function New-SyntheticAcceptanceSession {
         -ExpectedProductSha256 $productHash `
         -SourceCommit (('a' * 40) -join '') `
         -TestedMergeCommit (('b' * 40) -join '') `
+        -OperatorToolingCommit $toolingCommit `
         -HostName 'monitor.example.internal' `
         -SiteName 'Monitor' `
         -AppPoolName 'Monitor' `
@@ -57,6 +59,7 @@ function New-SyntheticAcceptanceSession {
         ManifestLockPath = Join-Path $sessionRoot 'session-manifest.sha256'
         ManifestSha256 = $session.ManifestSha256
         ProductSha256 = $productHash
+        ToolingCommit = $toolingCommit
         SourceArtifact = $artifactPath
         CandidateArtifact = Join-Path $sessionRoot "candidate\$fileName"
     }
@@ -74,9 +77,12 @@ if ($Mode -eq 'Recorder') {
     $manifestHash = $context.ManifestSha256
     $packPath = $context.EvidencePath
 
-    ./scripts/Test-ProductionAcceptanceSessionBinding.ps1 `
+    $binding = ./scripts/Test-ProductionAcceptanceSessionBinding.ps1 `
         -EvidencePath $packPath `
-        -ExpectedSessionManifestSha256 $manifestHash | Out-Null
+        -ExpectedSessionManifestSha256 $manifestHash
+    if ($binding.OperatorToolingCommit -ne $context.ToolingCommit) {
+        throw 'Session binding did not retain the acceptance-control sidecar tooling commit.'
+    }
 
     $goodRelative = 'proof/artifactChecksumVerified.txt'
     $goodTarget = Join-Path $context.EvidenceRoot $goodRelative
@@ -134,11 +140,11 @@ if ($Mode -eq 'Recorder') {
 
     $originalManifestRaw = Get-Content -LiteralPath $context.ManifestPath -Raw
     $tamperedManifest = $originalManifestRaw | ConvertFrom-Json -Depth 20
-    $tamperedManifest.note = 'tampered-session-manifest'
+    $tamperedManifest.operatorToolingCommit = ('e' * 40) -join ''
     $tamperedManifest | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $context.ManifestPath -Encoding utf8NoBOM
     Assert-Rejected `
         -Action { ./scripts/Set-ProductionAcceptanceGate.ps1 -EvidencePath $packPath -ExpectedSessionManifestSha256 $manifestHash -GateName iisPreflightPassed -EvidenceFile $secondRelative -AcknowledgePass } `
-        -FailureMessage 'Recorder accepted a session manifest that no longer matched the externally preserved manifest SHA-256.'
+        -FailureMessage 'Recorder accepted a session manifest whose operator tooling identity drifted from the externally preserved manifest SHA-256.'
     [IO.File]::WriteAllText($context.ManifestPath, $originalManifestRaw, [Text.UTF8Encoding]::new($false))
 
     Copy-Item -LiteralPath $context.CandidateArtifact -Destination ($context.CandidateArtifact + '.backup') -Force
@@ -148,11 +154,14 @@ if ($Mode -eq 'Recorder') {
         -FailureMessage 'Recorder accepted candidate bytes that drifted from the selected product SHA-256.'
     Move-Item -LiteralPath ($context.CandidateArtifact + '.backup') -Destination $context.CandidateArtifact -Force
 
-    ./scripts/Test-ProductionAcceptanceSessionBinding.ps1 `
+    $finalBinding = ./scripts/Test-ProductionAcceptanceSessionBinding.ps1 `
         -EvidencePath $packPath `
-        -ExpectedSessionManifestSha256 $manifestHash | Out-Null
+        -ExpectedSessionManifestSha256 $manifestHash
+    if ($finalBinding.OperatorToolingCommit -ne $context.ToolingCommit) {
+        throw 'Final session binding did not retain the expected operator tooling commit.'
+    }
 
-    Write-Host 'Session-bound gate recorder contract passed: locked manifest, candidate bytes and evidence-pack identity enforced before PASS mutation.'
+    Write-Host 'Session-bound gate recorder contract passed: locked manifest, sidecar tooling identity, candidate bytes and evidence-pack identity enforced before PASS mutation.'
     return
 }
 
@@ -216,6 +225,9 @@ $summary = Get-Content -LiteralPath $summaryPath -Raw | ConvertFrom-Json -Depth 
 if ($summary.sessionManifestSha256 -ne $manifestHash -or $summary.selectedProductSha256 -ne $context.ProductSha256) {
     throw 'Closure summary did not retain the locked session-manifest and selected-product SHA-256 anchors.'
 }
+if ($summary.operatorToolingCommit -ne $context.ToolingCommit) {
+    throw 'Closure summary did not retain the acceptance-control sidecar tooling commit.'
+}
 
 Assert-Rejected `
     -Action { ./scripts/Complete-ProductionAcceptance.ps1 -EvidencePath $packPath -ExpectedSessionManifestSha256 $manifestHash -AcceptedBy 'ci-operator' -ClosureSummaryFile 'second-summary.json' -AcknowledgeFinalAcceptance } `
@@ -251,4 +263,4 @@ $secretPack | Add-Member -NotePropertyName 'password' -NotePropertyValue 'must-n
 $secretPack | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $secretPath -Encoding utf8NoBOM
 Assert-StandaloneValidatorRejected -Path $secretPath -FailureMessage 'Secret-bearing evidence unexpectedly passed.'
 
-Write-Host 'Session-bound finalizer contract passed: all 15 gates, locked session anchor, authoritative validation and standalone schema negatives verified.'
+Write-Host 'Session-bound finalizer contract passed: all 15 gates, locked session + sidecar tooling anchors, authoritative validation and standalone schema negatives verified.'
