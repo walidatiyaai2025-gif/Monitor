@@ -1,12 +1,52 @@
 @using Monitor.Web.Services
 @model EnterprisePersistenceReadiness
-@{ ViewData["Title"] = "Enterprise Persistence Readiness"; var ready = Model.Status == "ready"; }
+@{
+    ViewData["Title"] = "Enterprise Persistence Readiness";
+    var ready = string.Equals(Model.Status, "ready", StringComparison.OrdinalIgnoreCase);
+    var canManage = User.IsInRole(MonitorRoles.Administrator);
+}
 <link rel="stylesheet" href="~/css/enterprise-operations.css" asp-append-version="true" />
-<section class="page-heading"><div><span class="eyebrow">CONTROL-PLANE READINESS</span><h1>Enterprise Persistence Readiness</h1><p>Readiness is derived only from Monitor-owned operator metadata persistence. This check never connects to a monitored SQL target.</p></div><a class="button secondary" asp-action="Help">Operator Help</a></section>
-<section class="readiness-grid">
-<article class="glass-panel panel-pad readiness-card @(ready ? "enterprise-status-ready" : "enterprise-status-degraded")"><span class="eyebrow">STATUS</span><h3>@Model.Status.ToUpperInvariant()</h3><p>@Model.Message</p></article>
-<article class="glass-panel panel-pad readiness-card"><span class="eyebrow">SERVER METADATA</span><h3>@Model.ServerMetadataRecords</h3><p>Bounded server classification, tags and policy windows.</p></article>
-<article class="glass-panel panel-pad readiness-card"><span class="eyebrow">INCIDENT METADATA</span><h3>@Model.IncidentMetadataRecords</h3><p>Owners, notes and recommendation acknowledgment state.</p></article>
-<article class="glass-panel panel-pad readiness-card"><span class="eyebrow">CHECKED</span><h3>@Model.CheckedAtUtc.ToString("u")</h3><p>Control-plane timestamp only.</p></article>
+
+<partial name="_PortalPageHeader" model="@(new PortalPageHeaderViewModel("Enterprise Persistence Readiness", "Control-plane persistence readiness derived only from Monitor-owned operator metadata. This check never connects to a monitored SQL target.", "CONTROL-PLANE READINESS", "Operator Help", Url.Action("Help", "EnterpriseHelp")))" />
+
+<section class="health-command-summary" aria-label="Enterprise persistence readiness summary">
+    <article class="health-command-card hero state-@(ready ? "healthy" : "critical")"><div><small>CURRENT GATE</small><strong>@Model.Status.ToUpperInvariant()</strong><span>@Model.Message</span></div></article>
+    <article class="health-command-card state-healthy"><small>SERVER METADATA</small><strong>@Model.ServerMetadataRecords</strong><span>Bounded classification and policy records</span></article>
+    <article class="health-command-card state-healthy"><small>INCIDENT METADATA</small><strong>@Model.IncidentMetadataRecords</strong><span>Owners, notes and recommendation state</span></article>
+    <article class="health-command-card state-healthy"><small>CHECKED UTC</small><strong>@Model.CheckedAtUtc.ToString("HH:mm:ss")</strong><span>@Model.CheckedAtUtc.ToString("yyyy-MM-dd")</span></article>
 </section>
-@if (!ready) { <section class="enterprise-callout glass-panel"><div><strong>Degraded enterprise state</strong><span>Do not rely on metadata mutations until persistence readiness is restored. Cached monitoring evidence remains separate from this status.</span></div></section> }
+
+<section class="glass-panel readiness-checklist" aria-labelledby="readiness-checklist-title">
+    <div class="panel-heading"><div><span class="eyebrow">OPERATOR CHECKLIST</span><h3 id="readiness-checklist-title">What this gate means</h3></div><span class="snapshot-note">Control plane only</span></div>
+    <ol class="readiness-steps">
+        <li class="state-@(ready ? "healthy" : "critical")"><span class="readiness-step-mark">1</span><div><strong>Persistence store</strong><p>@(ready ? "Monitor-owned operator metadata is readable and the persistence gate is ready." : "Persistence readiness is degraded. Treat operator-metadata mutations as blocked until the control-plane dependency is restored.")</p></div></li>
+        <li class="state-healthy"><span class="readiness-step-mark">2</span><div><strong>Monitoring evidence remains separate</strong><p>This status does not rewrite cached SQL health, incident evidence or historical snapshot truth.</p></div></li>
+        <li class="state-healthy"><span class="readiness-step-mark">3</span><div><strong>Check adjacent production gates</strong><p>Deployment topology, shared state, credential HA and operational backup readiness are reviewed separately in Administrator Settings.</p></div></li>
+        <li class="state-healthy"><span class="readiness-step-mark">4</span><div><strong>Validate before operations</strong><p>Use Observability and Connections to verify application readiness and target connectivity; this page itself never starts collection.</p></div></li>
+    </ol>
+</section>
+
+@if (!ready)
+{
+    <section class="glass-panel readiness-degraded-contract" aria-labelledby="degraded-enterprise-title">
+        <span class="eyebrow">DEGRADED</span>
+        <h3 id="degraded-enterprise-title">Degraded enterprise state</h3>
+        <p>The control-plane persistence dependency is unavailable or invalid. This message remains intentionally opaque and exposes no provider or credential detail.</p>
+    </section>
+    <partial name="_PortalState" model="@(new PortalStateViewModel("Enterprise persistence is degraded", "Do not rely on operator-metadata mutations until persistence readiness is restored. Cached monitoring evidence remains separate from this gate.", "critical", canManage ? "Open Settings" : "Operator Help", canManage ? Url.Action("Settings", "Operations") : Url.Action("Help", "EnterpriseHelp")))" />
+}
+
+<section class="readiness-action-grid" aria-label="Readiness next actions">
+    @if (canManage)
+    {
+        <a class="glass-panel readiness-action-card" asp-controller="Operations" asp-action="Settings"><span class="eyebrow">DEPLOYMENT</span><strong>Settings</strong><small>Topology, shared state, credentials and backups</small></a>
+        <a class="glass-panel readiness-action-card" asp-controller="ConnectionLab" asp-action="Index"><span class="eyebrow">CONNECTIVITY</span><strong>Connections</strong><small>Registration, credential and test states</small></a>
+        <a class="glass-panel readiness-action-card" asp-controller="Observability" asp-action="Index"><span class="eyebrow">RUNTIME</span><strong>Observability</strong><small>Readiness and bounded telemetry</small></a>
+    }
+    else
+    {
+        <a class="glass-panel readiness-action-card" asp-controller="Operations" asp-action="Servers"><span class="eyebrow">EVIDENCE</span><strong>Servers</strong><small>Read cached monitored-SQL evidence</small></a>
+        <a class="glass-panel readiness-action-card" asp-controller="Operations" asp-action="Alerts"><span class="eyebrow">INCIDENTS</span><strong>Incident center</strong><small>Review active operational evidence</small></a>
+    }
+    <a class="glass-panel readiness-action-card" asp-controller="EnterpriseHelp" asp-action="Help"><span class="eyebrow">RUNBOOKS</span><strong>Operator Help</strong><small>Task-oriented operating guidance</small></a>
+</section>

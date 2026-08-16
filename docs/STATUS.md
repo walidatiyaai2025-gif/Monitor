@@ -2,7 +2,7 @@
 
 ## CURRENT P0 — Real SQL Production MVP
 
-**Updated:** 2026-08-15  
+**Updated:** 2026-08-16  
 **Umbrella:** #111  
 **Execution ledger:** `docs/PRODUCTION_MVP.md`  
 **Real SQL evidence:** `docs/REAL_SQL_ACCEPTANCE.md`  
@@ -91,6 +91,24 @@ Legacy issues #87/#91/#93 are closed completed. Historical PRs #88/#92/#94/#104 
 
 This baseline correction is historical reconciliation rather than new task accounting. It does not change #116, does not claim production acceptance and does not replace RC.61.
 
+## BATCH-700 — Full visible portal/UI completion
+
+**Parent:** #220  
+**Children:** #221–#225  
+**Task range:** UI700-001..050  
+**State:** **50/50 IMPLEMENTED; final PR #240 merge is exact-head CI gated.**
+
+BATCH-700 closes the gap between feature/backend completion and purposeful operator pages. It adds safe error surfaces, reusable UI states, mobile/keyboard shell behavior, dedicated Health pages, complete Audit/History workflows, bounded recommendation filtering, report metadata/discoverability, task-oriented Enterprise/Admin workflows and an executable visible-route contract smoke.
+
+Merged child evidence:
+- #221 / PR #236 merged `59a931cc031e19f162edfadc278dc8b9c6c842e3`; final head `32dbcd56b14a58ebb193ef81c8fa9c715c31feb8`; CI #1571, Real SQL #88 and production-candidate #133 Green.
+- #222 / PR #237 merged `308a2f31a42500ce7354b1af2c2369d59be57455`; head `fa0353431bc02abbc7cf520fec04adf5418ecfc6`; CI #1590 and production-candidate #134 Green.
+- #223 / PR #238 merged `3864b4f8acc14d6e0bd259bfb1ab52d9fec07be1`; synchronized head `473944f21ce4cabb0b96f6040edf5992605930b5`; CI #1617 and production-candidate #135 Green.
+- #224 / PR #239 merged `cab4b9492eb65a6ec7340add016dd12bb99eb13f`; synchronized head `8f5733b4235609a083e0535486342663a80b3b2b`; CI #1623 and production-candidate #137 Green.
+- #225 / PR #240 contains final Enterprise/Admin/390px/accessibility/route-smoke work. Pre-documentation synchronized implementation head `287dcab3a63a5ba5e1f042a6d10917e4748dc415` passed CI #1628; the exact documentation head must also be Green before merge.
+
+The repository has no browser/Playwright screenshot harness; UI700-049 therefore records responsive/accessibility source contracts and CI regression rather than claiming a browser visual run. BATCH-700 never changes the external acceptance boundary: RC.61 publication #162 and real IIS/HTTPS acceptance #116/#111 remain independent and open until their own evidence is complete.
+
 ## BATCH-600 — Live Operator Readiness & Evidence Orchestration
 
 **Issue:** #134 — CLOSED / COMPLETED  
@@ -138,7 +156,8 @@ B600 delivered deterministic fail-closed repository orchestration for evidence f
 - BATCH-400: B400-001..110 COMPLETE.
 - BATCH-500: B500-001..100 COMPLETE.
 - BATCH-600: B600-001..100 COMPLETE.
-- Total completed batch task IDs across B100+B200+B300+B400+B500+B600: **610**. PR #156 is baseline reconciliation, not new task accounting.
+- BATCH-700: UI700-001..050 IMPLEMENTED; final PR #240 remains exact-head CI gated before parent closure.
+- Total completed historical hardening task IDs B100+B200+B300+B400+B500+B600: **610**. BATCH-700 adds 50 UI-completion task IDs only after its final merge; PR #156 remains baseline reconciliation, not new task accounting.
 
 ## Stable guardrails
 
@@ -152,4 +171,4 @@ B600 delivered deterministic fail-closed repository orchestration for evidence f
 - MultiNode remains fail-closed and deferred until after stable SingleNode production acceptance.
 - Concurrent team work must be preserved; external P0.5 acceptance cannot be inferred from CI.
 
-**Overall:** 🟢 verified foundation · 🟢 P0.1–P0.4 COMPLETE · 🟢 P0.5 repository cutover/evidence/session/finalization/release/promotion/workflow-supply-chain/native-Node-24 implementation COMPLETE · 🟢 BATCH-200 current-main reconciliation COMPLETE · 🟡 selected RC.61 durable publication pending manual #162 · 🟡 external IIS/HTTPS 15-gate acceptance pending · 🔴 production acceptance not yet granted
+**Overall:** 🟢 verified foundation · 🟢 P0.1–P0.4 COMPLETE · 🟢 P0.5 repository cutover/evidence/session/finalization/release/promotion/workflow-supply-chain/native-Node-24 implementation COMPLETE · 🟢 BATCH-200 current-main reconciliation COMPLETE · 🟢 BATCH-700 50/50 UI implementation complete with final PR merge CI-gated · 🟡 selected RC.61 durable publication pending manual #162 · 🟡 external IIS/HTTPS 15-gate acceptance pending · 🔴 production acceptance not yet granted
