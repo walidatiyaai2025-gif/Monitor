@@ -10,6 +10,7 @@ repository=""
 tag=""
 version=""
 product_sha256=""
+expected_commit=""
 trusted_root=""
 destination=""
 
@@ -35,6 +36,11 @@ while [[ $# -gt 0 ]]; do
       product_sha256="$2"
       shift 2
       ;;
+    --expected-commit)
+      [[ $# -ge 2 ]] || fail "--expected-commit requires a value"
+      expected_commit="$2"
+      shift 2
+      ;;
     --trusted-root)
       [[ $# -ge 2 ]] || fail "--trusted-root requires a value"
       trusted_root="$2"
@@ -55,6 +61,7 @@ done
 [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$ ]] || fail "version format is invalid"
 [[ "$tag" == "v${version}" ]] || fail "tag must equal v<version>"
 [[ "$product_sha256" =~ ^[a-f0-9]{64}$ ]] || fail "product SHA-256 must be 64 lowercase hex characters"
+[[ "$expected_commit" =~ ^[a-f0-9]{40}$ ]] || fail "approved commit SHA must be 40 lowercase hex characters"
 
 [[ -n "$trusted_root" ]] || fail "trusted root is required"
 [[ "$trusted_root" == /* ]] || fail "trusted root must be an absolute path"
@@ -91,6 +98,36 @@ zip_name="Monitor-${version}-win-x64.zip"
 checksum_name="${zip_name}.sha256"
 zip_url="https://github.com/${repository}/releases/download/${tag}/${zip_name}"
 checksum_url="https://github.com/${repository}/releases/download/${tag}/${checksum_name}"
+
+snapshot_tag_provenance() {
+  local ref_json
+  local resolved_json
+  local observed_ref
+  local ref_sha
+  local ref_type
+  local resolved_sha
+
+  if ! ref_json="$(gh api "repos/${repository}/git/ref/tags/${tag}")"; then
+    fail "tag ref lookup failed"
+  fi
+  observed_ref="$(jq -r '.ref // empty' <<<"$ref_json")"
+  ref_sha="$(jq -r '.object.sha // empty' <<<"$ref_json")"
+  ref_type="$(jq -r '.object.type // empty' <<<"$ref_json")"
+  [[ "$observed_ref" == "refs/tags/${tag}" ]] || fail "tag ref does not match the verified tag"
+  [[ "$ref_sha" =~ ^[a-f0-9]{40}$ ]] || fail "tag ref object SHA must be 40 lowercase hex characters"
+  [[ "$ref_type" == commit || "$ref_type" == tag ]] || fail "tag ref object type must be commit or tag"
+
+  if ! resolved_json="$(gh api "repos/${repository}/commits/${tag}")"; then
+    fail "tag commit resolution failed"
+  fi
+  resolved_sha="$(jq -r '.sha // empty' <<<"$resolved_json")"
+  [[ "$resolved_sha" =~ ^[a-f0-9]{40}$ ]] || fail "resolved tag commit SHA must be 40 lowercase hex characters"
+  [[ "$resolved_sha" == "$expected_commit" ]] || fail "tag does not resolve to the approved commit"
+
+  TAG_REF_SHA="$ref_sha"
+  TAG_REF_TYPE="$ref_type"
+  TAG_RESOLVED_COMMIT="$resolved_sha"
+}
 
 snapshot_release() {
   gh api "repos/${repository}/releases/tags/${tag}"
@@ -153,6 +190,11 @@ validate_snapshot() {
   SNAP_CHECKSUM_DIGEST="$checksum_digest"
   SNAP_SECURITY="$(jq -cS --arg zip "$zip_name" --arg checksum "$checksum_name" '{release:{id:.id,tag_name:.tag_name,name:.name,draft:.draft,prerelease:.prerelease},assets:(.assets | map(select(.name == $zip or .name == $checksum) | {name,id,state,size,digest,browser_download_url}) | sort_by(.name))}' <<<"$release_json")"
 }
+
+snapshot_tag_provenance
+first_tag_ref_sha="$TAG_REF_SHA"
+first_tag_ref_type="$TAG_REF_TYPE"
+first_tag_resolved_commit="$TAG_RESOLVED_COMMIT"
 
 first_json="$(snapshot_release)"
 validate_snapshot "$first_json"
@@ -263,6 +305,11 @@ validate_snapshot "$second_json"
 [[ "$SNAP_ZIP_SIZE" == "$first_zip_size" && "$SNAP_CHECKSUM_SIZE" == "$first_checksum_size" ]] || fail "asset sizes changed during verification"
 [[ "$SNAP_ZIP_DIGEST" == "$first_zip_digest" && "$SNAP_CHECKSUM_DIGEST" == "$first_checksum_digest" ]] || fail "asset digests changed during verification"
 
+snapshot_tag_provenance
+[[ "$TAG_REF_SHA" == "$first_tag_ref_sha" ]] || fail "tag ref object changed during verification"
+[[ "$TAG_REF_TYPE" == "$first_tag_ref_type" ]] || fail "tag ref object type changed during verification"
+[[ "$TAG_RESOLVED_COMMIT" == "$first_tag_resolved_commit" ]] || fail "tag resolved commit changed during verification"
+
 assert_staging_identity
 [[ ! -e "$destination" && ! -L "$destination" ]] || fail "destination appeared before atomic directory publication"
 [[ ! -e "$zip_path" && ! -L "$zip_path" && ! -e "$checksum_path" && ! -L "$checksum_path" ]] || fail "final durable-release output names must not pre-exist in staging"
@@ -309,4 +356,4 @@ done
 cleanup_armed=false
 trap - EXIT HUP INT TERM
 
-echo "Durable release verification passed for ${tag}: release ${first_release_id}, assets ${first_zip_id}/${first_checksum_id}."
+echo "Durable release verification passed for ${tag}: commit ${expected_commit}, release ${first_release_id}, assets ${first_zip_id}/${first_checksum_id}."
