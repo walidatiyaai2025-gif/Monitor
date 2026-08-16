@@ -5,7 +5,10 @@ param(
 
     [string]$EvidenceRoot,
 
-    [string]$ClosureSummaryPath
+    [string]$ClosureSummaryPath,
+
+    [ValidatePattern('^[a-fA-F0-9]{64}$')]
+    [string]$ExpectedSessionManifestSha256
 )
 
 $ErrorActionPreference = 'Stop'
@@ -131,6 +134,17 @@ if (-not (Test-Path -LiteralPath $EvidencePath -PathType Leaf)) {
 }
 
 $resolvedEvidencePath = (Resolve-Path -LiteralPath $EvidencePath).Path
+$sessionBinding = $null
+if (-not [string]::IsNullOrWhiteSpace($ExpectedSessionManifestSha256)) {
+    $bindingVerifierPath = Join-Path $PSScriptRoot 'Test-ProductionAcceptanceSessionBinding.ps1'
+    if (-not (Test-Path -LiteralPath $bindingVerifierPath -PathType Leaf)) {
+        throw 'Test-ProductionAcceptanceSessionBinding.ps1 must be present beside the acceptance validator when session binding is requested.'
+    }
+    $sessionBinding = & $bindingVerifierPath `
+        -EvidencePath $resolvedEvidencePath `
+        -ExpectedSessionManifestSha256 $ExpectedSessionManifestSha256
+}
+
 if ([string]::IsNullOrWhiteSpace($EvidenceRoot)) {
     $EvidenceRoot = Split-Path -Parent $resolvedEvidencePath
 }
@@ -244,6 +258,10 @@ $summary = [ordered]@{
     requiredGateCount = $requiredGates.Count
     acceptedBy = [string]$record.acceptedBy
     acceptedAtUtc = $acceptedAt.ToString('O')
+}
+if ($null -ne $sessionBinding) {
+    $summary['sessionManifestSha256'] = $sessionBinding.SessionManifestSha256
+    $summary['selectedProductSha256'] = $sessionBinding.SelectedProductSha256
 }
 
 if (-not [string]::IsNullOrWhiteSpace($ClosureSummaryPath)) {
