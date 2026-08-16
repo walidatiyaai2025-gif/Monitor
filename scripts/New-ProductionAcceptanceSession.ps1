@@ -26,6 +26,10 @@ param(
     [string]$TestedMergeCommit,
 
     [Parameter(Mandatory = $true)]
+    [ValidatePattern('^[a-fA-F0-9]{40}$')]
+    [string]$OperatorToolingCommit,
+
+    [Parameter(Mandatory = $true)]
     [string]$HostName,
 
     [Parameter(Mandatory = $true)]
@@ -144,6 +148,7 @@ function Assert-ReadableZip {
 
 $resolvedSessionRoot = Assert-SafeSessionTarget -Value $SessionRoot
 $selectedProductHash = $ExpectedProductSha256.ToLowerInvariant()
+$normalizedToolingCommit = $OperatorToolingCommit.ToLowerInvariant()
 
 if (-not (Test-Path -LiteralPath $ArtifactPath -PathType Leaf)) {
     throw "Candidate artifact was not found: $ArtifactPath"
@@ -271,6 +276,7 @@ try {
         selectedProductSha256 = $selectedProductHash
         sourceCommit = $SourceCommit.ToLowerInvariant()
         testedMergeCommit = $TestedMergeCommit.ToLowerInvariant()
+        operatorToolingCommit = $normalizedToolingCommit
         hostName = $HostName.ToLowerInvariant()
         siteName = $SiteName
         appPoolName = $AppPoolName
@@ -295,14 +301,15 @@ try {
 
     $nextSteps = @(
         'Monitor P0.5 production acceptance session — NEXT STEPS',
-        '1. Verify session-manifest.sha256 before any production operation.',
-        '2. Run Test-IisProductionPrerequisites.ps1 on the intended host and retain bounded non-secret proof.',
-        '3. Run Deploy-ProductionSingleNode.ps1 in PLAN ONLY mode and review the plan.',
-        '4. Use explicit -Apply only after the reviewed plan and operational backup are approved.',
-        '5. Collect real non-secret evidence beneath evidence/proof for each external gate.',
-        '6. Record each real gate with Set-ProductionAcceptanceGate.ps1 and explicit -AcknowledgePass.',
-        '7. After real 15/15, run Complete-ProductionAcceptance.ps1 with explicit final acknowledgement.',
-        '8. Review the real closure summary before #116 or #111 can be closed.',
+        '1. Preserve the returned ManifestSha256 outside the mutable session and verify session-manifest.sha256 before any production operation.',
+        '2. Retain the exact reviewed OperatorToolingCommit that supplied the acceptance-control sidecar scripts.',
+        '3. Run Test-IisProductionPrerequisites.ps1 on the intended host and retain bounded non-secret proof.',
+        '4. Run Deploy-ProductionSingleNode.ps1 in PLAN ONLY mode and review the plan.',
+        '5. Use explicit -Apply only after the reviewed plan and operational backup are approved.',
+        '6. Collect real non-secret evidence beneath evidence/proof for each external gate.',
+        '7. Record each real gate with Set-ProductionAcceptanceGate.ps1, the preserved manifest SHA and explicit -AcknowledgePass.',
+        '8. After real 15/15, run Complete-ProductionAcceptance.ps1 with the preserved manifest SHA and explicit final acknowledgement.',
+        '9. Review the real session-bound closure summary before #116 or #111 can be closed.',
         'Session creation itself proves 0/15 external gates and grants no production acceptance.'
     )
     $nextSteps | Set-Content -LiteralPath (Join-Path $tempRoot 'OPERATOR-NEXT-STEPS.txt') -Encoding utf8NoBOM
@@ -316,6 +323,7 @@ try {
         EvidencePath = Join-Path $resolvedSessionRoot 'evidence\p0-5-evidence-pack.json'
         CandidateArtifact = Join-Path $resolvedSessionRoot "candidate\$expectedArtifactName"
         SelectedProductSha256 = $selectedProductHash
+        OperatorToolingCommit = $normalizedToolingCommit
         ExternalGateCount = 15
         ExternalGatesPassed = 0
         ProductionAccepted = $false
