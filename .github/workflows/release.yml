@@ -21,7 +21,7 @@ jobs:
         run: |
           set -euo pipefail
           if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
-            if [[ ! "${GITHUB_REF_NAME}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+            if [[ ! "${GITHUB_REF_NAME}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$ ]]; then
               echo "Unsupported release tag: ${GITHUB_REF_NAME}" >&2
               exit 1
             fi
@@ -126,6 +126,7 @@ jobs:
               --tag "${RELEASE_TAG}" \
               --version "${RELEASE_VERSION}" \
               --product-sha256 "${PRODUCT_SHA256}" \
+              --trusted-root "${RUNNER_TEMP}" \
               --destination "${dir}"
           }
 
