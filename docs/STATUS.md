@@ -8,7 +8,7 @@
 **Real SQL evidence:** `docs/REAL_SQL_ACCEPTANCE.md`  
 **Production acceptance guide:** `docs/PRODUCTION_SINGLENODE_ACCEPTANCE.md`  
 **Active external release gate:** #116 / P0.5 First Production SingleNode  
-**Repository cutover/evidence/finalization/session/release workflow:** COMPLETE through Issue #173 / PR #174; selected RC.61 durable publication remains pending manual dispatch under #162  
+**Repository cutover/evidence/finalization/session/release workflow:** COMPLETE through durable-release hardening PR #219; selected RC.61 durable publication remains pending manual dispatch under #162  
 **Production target:** actual Windows/IIS trusted-HTTPS SingleNode acceptance.
 
 ### P0 release chain
@@ -19,7 +19,7 @@
 | P0.2 / #113 | COMPLETE | PR #121; final CI `31478470867`; 505/505 |
 | P0.3 / #114 | COMPLETE | PR #122 merged `245bb0770d7ec6e7a334f7763d3560cef80324fe`; final CI `31479311552`; 507/507 |
 | P0.4 / #115 | COMPLETE | PR #124 merged `f4c08292734c293a6d0b865cc2a005b8c42b02a6`; normal `31481874425` 518/518; Real SQL `31481874501` 8/8 |
-| P0.5 / #116 | ACTIVE | repository deployment/evidence/session/finalization/release-package/durable-promotion/workflow-supply-chain/native-Node-24 hardening complete; selected RC.61 durable publication + external IIS/HTTPS acceptance pending |
+| P0.5 / #116 | ACTIVE | repository deployment/evidence/session/finalization/release-package/durable-promotion/workflow-supply-chain/native-Node-24 and durable-release hardening complete; selected RC.61 durable publication + external IIS/HTTPS acceptance pending |
 
 ## P0.5 repository preparation — COMPLETE · EXTERNAL IIS PENDING
 
@@ -37,6 +37,7 @@
 - Issue #162 implementation COMPLETE via PR #163 merged `43d8a193205495f155bb8866532a4e99ed93b655`; the manual `promote-existing-candidate` workflow validates and preserves exact existing RC.61 bytes without rebuild/repackage. Handoff docs PR #164 merged `930c057f431a36ab2b603d3dc39e70e8c31c744e` after normal CI `31726008394` and Windows production-candidate `31726008464` Green. **Actual durable RC.61 publication remains PENDING MANUAL DISPATCH; #162 stays OPEN until tag/assets/hash are independently verified.**
 - Issue #168 / PR #171 COMPLETE: every active external `actions/*` workflow dependency is pinned to an approved exact 40-character upstream commit SHA; a dedicated fail-closed regression test rejects mutable/unapproved/drifted refs; the completed BATCH-100 one-shot merge workflow with write permissions is removed. PR #171 squash-merged as `c9084dd32b12a9a078f953f85f39b253793e2343`. Exact implementation head `052e969b5ab450526ab996a2e77459f4087846c8` passed normal CI `31881105832`, Real SQL `31881105877`, and Windows production-candidate `31881105818` end-to-end. This does not alter selected RC.61 or satisfy #162/#116/#111.
 - Issue #173 / PR #174 COMPLETE: the immutable Action allowlist moved from older Node 20-based majors to official native Node 24 releases while retaining exact SHA pinning and readable version metadata. PR #174 squash-merged as `bc7cb2d275f423fb381b83d92c76f6516e404fe9`. Exact implementation head `8134720cf1260abc7e6c0609a5afa239f31bb5f7` passed normal CI `31881744429`, Real SQL `31881744413`, and Windows production-candidate `31881744437`; Windows passed **814/814**, Release **0 warnings / 0 errors**, HTTPS/auth before and after restart, clean package validation and native Node 24 artifact upload. Approved pins: checkout v7.0.1 `3d3c42e5aac5ba805825da76410c181273ba90b1`, setup-dotnet v6.0.0 `a98b56852c35b8e3190ac28c8c2271da59106c68`, upload-artifact v7.0.1 `043fb46d1a93c77aae656e7c1c64a875d1fc6a0a`, download-artifact v8.0.1 `3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c`. The prior Node 20 deprecation/forced-Node-24 warning is absent. RC.87 is implementation CI evidence only and does not supersede selected RC.61.
+- PRs #177–#219 further hardened reproducible SDK/SQL image selection, pinned Linux/Windows runners, NuGet/package-source policy, checkout/token permissions, write-capable workflow allowlists, release mutation serialization, main-ref promotion gating, durable release exact-asset metadata/digest/provenance/TOCTOU/workspace/atomic-publication behavior, independent read-only verification and toolchain capability preflight. PR #219 is the latest merged durable-release hardening batch; none of these changes dispatches RC.61 promotion or alters the external IIS acceptance boundary.
 
 ### Final selected PR #155 / RC.61 repository evidence
 
@@ -73,7 +74,7 @@ RC.61 supersedes RC.53 unless a later equivalently verified candidate is explici
 | P0-046 deployment health smoke | CI HTTPS VERIFIED; tooling READY; **real IIS endpoint pending external** |
 | P0-047 least-privilege monitored target | P0.4 prerequisite VERIFIED; **deployed IIS identity/target pending external** |
 | P0-048 backup + rollback/recovery | code/unit/tooling VERIFIED; **production rehearsal pending external** |
-| P0-049 versioned artifact/checksum/evidence/release workflow | **REPOSITORY/CI COMPLETE** — RC.61 + reusable release pipeline + durable tag publication tooling + immutable session + generator + recorder + finalizer + validator VERIFIED; exact existing-candidate promotion implementation merged, **actual RC.61 durable publication pending manual #162**; supply-chain pinning/removal hardening #168/#171 COMPLETE; native Node 24 Action migration #173/#174 COMPLETE via merge `bc7cb2d275f423fb381b83d92c76f6516e404fe9` |
+| P0-049 versioned artifact/checksum/evidence/release workflow | **REPOSITORY/CI COMPLETE** — RC.61 + reusable release pipeline + durable tag publication tooling + immutable session + generator + recorder + finalizer + validator VERIFIED; exact existing-candidate promotion implementation merged, **actual RC.61 durable publication pending manual #162**; supply-chain pinning/removal hardening #168/#171 COMPLETE; native Node 24 Action migration #173/#174 COMPLETE; additional durable-release hardening through PR #219 COMPLETE |
 | P0-050 final production acceptance | **PENDING EXTERNAL** |
 
 ## BATCH-200 baseline reconciliation — COMPLETE
@@ -91,12 +92,12 @@ Legacy issues #87/#91/#93 are closed completed. Historical PRs #88/#92/#94/#104 
 
 This baseline correction is historical reconciliation rather than new task accounting. It does not change #116, does not claim production acceptance and does not replace RC.61.
 
-## BATCH-700 — Full visible portal/UI completion
+## BATCH-700 — Full visible portal/UI completion — COMPLETE
 
-**Parent:** #220  
-**Children:** #221–#225  
+**Parent:** #220 — CLOSED / COMPLETED  
+**Children:** #221–#225 — CLOSED / COMPLETED  
 **Task range:** UI700-001..050  
-**State:** **50/50 IMPLEMENTED; final PR #240 merge is exact-head CI gated.**
+**State:** **50/50 COMPLETE and merged to `main`.**
 
 BATCH-700 closes the gap between feature/backend completion and purposeful operator pages. It adds safe error surfaces, reusable UI states, mobile/keyboard shell behavior, dedicated Health pages, complete Audit/History workflows, bounded recommendation filtering, report metadata/discoverability, task-oriented Enterprise/Admin workflows and an executable visible-route contract smoke.
 
@@ -105,7 +106,7 @@ Merged child evidence:
 - #222 / PR #237 merged `308a2f31a42500ce7354b1af2c2369d59be57455`; head `fa0353431bc02abbc7cf520fec04adf5418ecfc6`; CI #1590 and production-candidate #134 Green.
 - #223 / PR #238 merged `3864b4f8acc14d6e0bd259bfb1ab52d9fec07be1`; synchronized head `473944f21ce4cabb0b96f6040edf5992605930b5`; CI #1617 and production-candidate #135 Green.
 - #224 / PR #239 merged `cab4b9492eb65a6ec7340add016dd12bb99eb13f`; synchronized head `8f5733b4235609a083e0535486342663a80b3b2b`; CI #1623 and production-candidate #137 Green.
-- #225 / PR #240 contains final Enterprise/Admin/390px/accessibility/route-smoke work. Pre-documentation synchronized implementation head `287dcab3a63a5ba5e1f042a6d10917e4748dc415` passed CI #1628; the exact documentation head must also be Green before merge.
+- #225 / PR #240 squash-merged `fd33e79c6d19d7f9852417b9c35a11f91f21714c`; exact final head `0834db6b5d518fe5c52eec9b47c03e467929aa89`; CI #1637, Real SQL #91 and production-candidate #142 Green. The Windows gate passed Release build/full suite, production tooling validation, publish, HTTPS/auth smoke before and after restart, clean package validation and ZIP/SHA-256 artifact creation.
 
 The repository has no browser/Playwright screenshot harness; UI700-049 therefore records responsive/accessibility source contracts and CI regression rather than claiming a browser visual run. BATCH-700 never changes the external acceptance boundary: RC.61 publication #162 and real IIS/HTTPS acceptance #116/#111 remain independent and open until their own evidence is complete.
 
@@ -156,8 +157,8 @@ B600 delivered deterministic fail-closed repository orchestration for evidence f
 - BATCH-400: B400-001..110 COMPLETE.
 - BATCH-500: B500-001..100 COMPLETE.
 - BATCH-600: B600-001..100 COMPLETE.
-- BATCH-700: UI700-001..050 IMPLEMENTED; final PR #240 remains exact-head CI gated before parent closure.
-- Total completed historical hardening task IDs B100+B200+B300+B400+B500+B600: **610**. BATCH-700 adds 50 UI-completion task IDs only after its final merge; PR #156 remains baseline reconciliation, not new task accounting.
+- BATCH-700: UI700-001..050 COMPLETE; PR #240 squash-merged as `fd33e79c6d19d7f9852417b9c35a11f91f21714c` after exact final head `0834db6b5d518fe5c52eec9b47c03e467929aa89` passed CI #1637, Real SQL #91 and production-candidate #142.
+- Total completed hardening/UI task IDs B100+B200+B300+B400+B500+B600+B700: **660**. PR #156 remains baseline reconciliation, not new task accounting.
 
 ## Stable guardrails
 
@@ -171,4 +172,4 @@ B600 delivered deterministic fail-closed repository orchestration for evidence f
 - MultiNode remains fail-closed and deferred until after stable SingleNode production acceptance.
 - Concurrent team work must be preserved; external P0.5 acceptance cannot be inferred from CI.
 
-**Overall:** 🟢 verified foundation · 🟢 P0.1–P0.4 COMPLETE · 🟢 P0.5 repository cutover/evidence/session/finalization/release/promotion/workflow-supply-chain/native-Node-24 implementation COMPLETE · 🟢 BATCH-200 current-main reconciliation COMPLETE · 🟢 BATCH-700 50/50 UI implementation complete with final PR merge CI-gated · 🟡 selected RC.61 durable publication pending manual #162 · 🟡 external IIS/HTTPS 15-gate acceptance pending · 🔴 production acceptance not yet granted
+**Overall:** 🟢 verified foundation · 🟢 P0.1–P0.4 COMPLETE · 🟢 P0.5 repository cutover/evidence/session/finalization/release/promotion/workflow-supply-chain/native-Node-24/durable-release hardening implementation COMPLETE through PR #219 · 🟢 BATCH-200 current-main reconciliation COMPLETE · 🟢 BATCH-700 50/50 COMPLETE and merged via PR #240 · 🟡 selected RC.61 durable publication pending manual #162 · 🟡 external IIS/HTTPS 15-gate acceptance pending · 🔴 production acceptance not yet granted
