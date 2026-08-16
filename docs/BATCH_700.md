@@ -1,11 +1,14 @@
 # BATCH-700 — Full UI Completion
 
-**Parent:** #220  
-**Foundation:** #221  
-**Health:** #222  
-**Audit/history:** #223  
-**Recommendations/reports:** #224  
-**Enterprise/admin/final:** #225
+**Parent:** #220 — CLOSED / COMPLETED  
+**Foundation:** #221 — CLOSED / COMPLETED  
+**Health:** #222 — CLOSED / COMPLETED  
+**Audit/history:** #223 — CLOSED / COMPLETED  
+**Recommendations/reports:** #224 — CLOSED / COMPLETED  
+**Enterprise/admin/final:** #225 — CLOSED / COMPLETED
+
+**Task range:** UI700-001..050  
+**Final state:** **50/50 COMPLETE and merged to `main`.**
 
 ## Objective
 
@@ -92,9 +95,9 @@ PR #239 merged as `cab4b9492eb65a6ec7340add016dd12bb99eb13f`.
 
 Final synchronized head `8f5733b4235609a083e0535486342663a80b3b2b`: `ci` #1623 and `production-candidate` #137 Green. Real-SQL acceptance was not applicable.
 
-## #225 — Enterprise / Admin / final acceptance
+### #225 — Enterprise / Admin / final acceptance — COMPLETE
 
-Implementation PR: #240, branch `agent/b700-5-enterprise-admin-final`.
+PR #240 squash-merged to `main` as `fd33e79c6d19d7f9852417b9c35a11f91f21714c`.
 
 - [x] UI700-041 actionable grouped Persistence Readiness checklist and role-aware next actions.
 - [x] UI700-042 task-oriented Operator Help/runbook navigation.
@@ -105,10 +108,18 @@ Implementation PR: #240, branch `agent/b700-5-enterprise-admin-final`.
 - [x] UI700-047 Fleet environment/group/tag/risk/rule drill-down discoverability.
 - [x] UI700-048 consistent Viewer/Operator/Administrator action boundaries locked by regression tests.
 - [x] UI700-049 keyboard focus, reduced-motion, desktop/tablet/mobile and explicit 390px responsive source contracts. The repository has no browser/Playwright screenshot harness, so no visual-browser run is claimed.
-- [x] UI700-050 visible-route contract smoke + Release build/full-suite/final-documentation gate enforced on PR #240 before merge.
+- [x] UI700-050 visible-route contract smoke + Release build/full-suite/final-documentation gate.
 
-Pre-documentation synchronized implementation head `287dcab3a63a5ba5e1f042a6d10917e4748dc415` passed push `ci` #1628. PR #240 remains fail-closed: its final documentation head must pass all applicable GitHub Actions before merge. `real-sql-acceptance` is required only when its SQL/model/service/acceptance path contract applies.
+Final exact PR head `0834db6b5d518fe5c52eec9b47c03e467929aa89` passed all applicable gates before merge:
+
+- normal `ci` #1637 — Green;
+- `real-sql-acceptance` #91 — Green;
+- `production-candidate` #142 — Green, including Release build, full test suite, production PowerShell tooling validation, Windows x64 publish, secret-free baseline validation, HTTPS/auth runtime smoke before and after restart, clean package revalidation, ZIP/SHA-256 creation and artifact upload.
+
+Issues #225 and #220 were closed completed after the exact-head evidence was Green and PR #240 merged.
 
 ## Completion contract
 
-BATCH-700 is repository/UI completion only. The parent #220 and child #225 may close only after PR #240 is merged from an exact Green final head. External IIS deployment, trusted certificate, real app-pool identity, actual recycle durability, production backup/rollback rehearsal and the real 15/15 evidence pack remain governed by #116/#111 and are not satisfied by BATCH-700.
+BATCH-700 is **COMPLETE** as repository/UI product work. Every task UI700-001..050 is implemented and the final batch is merged to `main`.
+
+This completion does **not** change the production acceptance boundary. RC.61 durable publication remains governed by #162, and external IIS deployment, trusted certificate, real app-pool identity, actual recycle durability, production backup/rollback rehearsal and the real 15/15 evidence pack remain governed by #116/#111.

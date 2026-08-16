@@ -91,8 +91,8 @@
 | Purpose-built Health operator surfaces | BATCH-700 | CI verified | #222 / PR #237; Database, Backup, SQL Agent, Storage, Blocking and Performance surfaces use cached evidence, explicit missing states and server drill-down |
 | Audit + snapshot-history operator UX | BATCH-700 | CI verified | #223 / PR #238; bounded Audit filters/paging and stored History windows/paging/summary/context; no monitored-SQL GET collection |
 | Bounded Recommendations + report center | BATCH-700 | CI verified | #224 / PR #239; top-100 deterministic guidance filters, ordered risk steps, evidence links, role-aware exports/diagnostics and contextual history CSV |
-| Enterprise/Admin workflow completion | BATCH-700 | Implemented / final PR CI gated | #225 / PR #240; actionable Readiness, runbook Help, Governance workflow, Observability context, grouped Settings, Connection Lab state coverage and Fleet drill-down |
-| Accessible responsive final portal contract | BATCH-700 | Implemented / final PR CI gated | #225 / PR #240; keyboard focus, reduced motion, desktop/tablet/mobile + explicit 390px source contracts and CI visible-route smoke; no browser screenshot harness claim |
+| Enterprise/Admin workflow completion | BATCH-700 | Complete / exact-head verified | #225 / PR #240 squash-merged as fd33e79c6d19d7f9852417b9c35a11f91f21714c; final head 0834db6b5d518fe5c52eec9b47c03e467929aa89 passed CI #1637, Real SQL #91 and production-candidate #142; actionable Readiness, runbook Help, Governance workflow, Observability context, grouped Settings, Connection Lab state coverage and Fleet drill-down |
+| Accessible responsive final portal contract | BATCH-700 | Complete / exact-head verified | #225 / PR #240 squash-merged as fd33e79c6d19d7f9852417b9c35a11f91f21714c; final head 0834db6b5d518fe5c52eec9b47c03e467929aa89; keyboard focus, reduced motion, desktop/tablet/mobile + explicit 390px source contracts and CI visible-route smoke; no browser screenshot harness claim |
 
 ## BATCH-200 Enterprise Operations Expansion
 
