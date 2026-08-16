@@ -82,11 +82,17 @@
 | Enterprise scale II reconciliation | B200 | Complete | Issue #99 / PR #156 merged 221e44a9f13ed02e994311addff94b0e7996e444; metadata index, bounded paging, streaming CSV, diagnostics timeout and CAS telemetry; final gates 31669072593 / 31669072572 / 31669072625 Green |
 | Zero-SQL monitored GETs | M8 | CI verified | Cache/Peek-only browser monitoring reads; CI 31383991126 |
 | Explicit observed manual refresh | M8 | CI verified | Operator/Admin POST; successful refresh observed once |
-| Performance Health portal | BATCH-400 | Local verified | Dedicated cache-only performance page; monitored SQL is never contacted by GET |
-| Estate Recommendations portal | BATCH-400 | Local verified | Deterministic active-incident recommendations; advisory only |
-| Reports & Diagnostics center | BATCH-400 | Local verified | Discoverable bounded exports, diagnostics package and manifest |
-| Google typography system | BATCH-400 | Local verified | Self-hosted Inter Variable + Noto Sans Arabic Variable under strict CSP |
-| Role-aware portal navigation | BATCH-400 | Local verified | Connected fleet/help/readiness/audit/history surfaces and policy-aware management links |
+| Performance Health portal | BATCH-400 | Superseded by BATCH-700 | Original cache-only page from B400; upgraded in #222 to a dedicated summary + per-server performance dashboard while retaining zero-SQL GET behavior |
+| Estate Recommendations portal | BATCH-400 | Superseded by BATCH-700 | Original deterministic recommendation cards from B400; upgraded in #224 with bounded summary, filters, semantic steps and evidence drill-down |
+| Reports & Diagnostics center | BATCH-400 | Superseded by BATCH-700 | Original export cards from B400; upgraded in #224 with format/version/access/scope metadata, safe permission messaging and complete discoverability |
+| Google typography system | BATCH-400 | CI verified | Self-hosted Inter Variable + Noto Sans Arabic Variable under strict CSP |
+| Role-aware portal navigation | BATCH-400 | Superseded by BATCH-700 | Original connected navigation retained; B700 adds boundary-aware active states, mobile keyboard behavior, role-safe Admin routes and route-smoke coverage |
+| Safe portal error + shared UI state system | BATCH-700 | CI verified | #221 / PR #236; safe 403/404/500, exception/status wiring, reusable page/state components, mobile shell and responsive contracts |
+| Purpose-built Health operator surfaces | BATCH-700 | CI verified | #222 / PR #237; Database, Backup, SQL Agent, Storage, Blocking and Performance surfaces use cached evidence, explicit missing states and server drill-down |
+| Audit + snapshot-history operator UX | BATCH-700 | CI verified | #223 / PR #238; bounded Audit filters/paging and stored History windows/paging/summary/context; no monitored-SQL GET collection |
+| Bounded Recommendations + report center | BATCH-700 | CI verified | #224 / PR #239; top-100 deterministic guidance filters, ordered risk steps, evidence links, role-aware exports/diagnostics and contextual history CSV |
+| Enterprise/Admin workflow completion | BATCH-700 | Implemented / final PR CI gated | #225 / PR #240; actionable Readiness, runbook Help, Governance workflow, Observability context, grouped Settings, Connection Lab state coverage and Fleet drill-down |
+| Accessible responsive final portal contract | BATCH-700 | Implemented / final PR CI gated | #225 / PR #240; keyboard focus, reduced motion, desktop/tablet/mobile + explicit 390px source contracts and CI visible-route smoke; no browser screenshot harness claim |
 
 ## BATCH-200 Enterprise Operations Expansion
 
