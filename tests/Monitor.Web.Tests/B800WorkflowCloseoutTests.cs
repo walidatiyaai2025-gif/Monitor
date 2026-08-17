@@ -34,9 +34,9 @@ public sealed class B800WorkflowCloseoutTests
             (typeof(OperationalBackupController), nameof(OperationalBackupController.ValidateBackup), MonitorPolicies.Manage),
             (typeof(OperationalBackupController), nameof(OperationalBackupController.RestoreBackup), MonitorPolicies.Manage),
             (typeof(GovernanceController), nameof(GovernanceController.Apply), MonitorPolicies.Manage),
-            (typeof(EnterpriseOperationsController), nameof(EnterpriseOperationsController.UpdateServer), MonitorPolicies.Manage),
+            (typeof(EnterpriseOperationsController), nameof(EnterpriseOperationsController.UpdateServerProfile), MonitorPolicies.Manage),
             (typeof(EnterpriseOperationsController), nameof(EnterpriseOperationsController.AssignIncident), MonitorPolicies.Operate),
-            (typeof(EnterpriseOperationsController), nameof(EnterpriseOperationsController.AddNote), MonitorPolicies.Operate),
+            (typeof(EnterpriseOperationsController), nameof(EnterpriseOperationsController.AddIncidentNote), MonitorPolicies.Operate),
             (typeof(EnterpriseOperationsController), nameof(EnterpriseOperationsController.AcknowledgeRecommendation), MonitorPolicies.Operate)
         };
 
