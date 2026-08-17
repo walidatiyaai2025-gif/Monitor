@@ -123,6 +123,11 @@ public sealed class MonitorReadService(
             : jobs.FailedLastRun > 0
                 ? HealthState.Warning
                 : HealthState.Healthy;
+        var tempDb = AdvancedEvidenceProjection.BuildTempDb(snapshot.TempDb);
+        var logRows = AdvancedEvidenceProjection.BuildTransactionLogs(snapshot.TransactionLogs);
+        var logReuseBlocked = logRows.Count(item => item.TruncationBlocked == true);
+        var highVlf = logRows.Count(item => item.VlfBand is LogVlfBand.High or LogVlfBand.Extreme);
+        var ha = AdvancedEvidenceProjection.BuildHa(snapshot.Ha);
 
         return Task.FromResult<ServerDetailsViewModel?>(new ServerDetailsViewModel
         {
@@ -136,7 +141,18 @@ public sealed class MonitorReadService(
                 new("Databases", $"{card.DatabaseOnline} / {card.DatabaseTotal}", "Online databases", card.State),
                 jobs is null
                     ? new("SQL Agent", "Not collected", "SQL Agent evidence is unavailable in this snapshot", HealthState.Unknown)
-                    : new("SQL Agent", $"{jobs.EnabledJobs} enabled / {jobs.TotalJobs}", $"{jobs.FailedLastRun} failed on last run", jobState)
+                    : new("SQL Agent", $"{jobs.EnabledJobs} enabled / {jobs.TotalJobs}", $"{jobs.FailedLastRun} failed on last run", jobState),
+                tempDb is null
+                    ? new("TempDB", "Not collected", "No bounded TempDB evidence is cached", HealthState.Unknown)
+                    : new("TempDB", $"{tempDb.FileCount} / {tempDb.TotalDataFiles} files", TempDbDetail(tempDb), HealthState.Unknown),
+                snapshot.TransactionLogs is null
+                    ? new("Transaction log", "Not collected", "No bounded transaction-log evidence is cached", HealthState.Unknown)
+                    : new("Transaction log", $"{logRows.Count} / {snapshot.TransactionLogs.TotalDatabases} DBs", $"Reuse blocked: {logReuseBlocked} · high/extreme VLF: {highVlf} · composite score not evaluated", logReuseBlocked > 0 || highVlf > 0 ? HealthState.Warning : HealthState.Unknown),
+                ha is null
+                    ? new("HA", "Not collected", "No bounded HA evidence is cached", HealthState.Unknown)
+                    : !ha.IsHadrEnabled
+                        ? new("HA", "Not enabled", "SQL Server reports HADR disabled; quorum/RPO/RTO not evaluated", HealthState.Unknown)
+                        : new("HA", $"{ha.TotalReplicas} replicas", HaDetail(ha), ha.DisconnectedReplicas > 0 || ha.UnhealthyReplicas > 0 || ha.UnsynchronizedDatabases > 0 || ha.SuspendedDatabases > 0 ? HealthState.Warning : HealthState.Unknown)
             ],
             Evidence = new ServerSnapshotEvidence(
                 snapshot.InstanceName,
@@ -148,7 +164,10 @@ public sealed class MonitorReadService(
                 snapshot.Jobs,
                 snapshot.Storage,
                 snapshot.Blocking,
-                snapshot.Performance)
+                snapshot.Performance,
+                snapshot.TempDb,
+                snapshot.TransactionLogs,
+                snapshot.Ha)
         });
     }
 
@@ -168,7 +187,8 @@ public sealed class MonitorReadService(
                     result.Freshness == SnapshotFreshness.Fresh ? ServerDataSource.LiveFresh : ServerDataSource.LiveStale,
                     (int)Math.Clamp(result.Age.TotalSeconds, 0, int.MaxValue),
                     snapshot.DatabaseOnline, snapshot.DatabaseTotal, snapshot.Databases, snapshot.Backups,
-                    snapshot.Jobs, snapshot.Storage, snapshot.Blocking, snapshot.Performance, snapshot.Memory, snapshot.UptimeSeconds));
+                    snapshot.Jobs, snapshot.Storage, snapshot.Blocking, snapshot.Performance, snapshot.Memory, snapshot.UptimeSeconds,
+                    snapshot.TempDb, snapshot.TransactionLogs, snapshot.Ha));
             }
             catch (SnapshotCollectionException)
             {
@@ -247,6 +267,20 @@ public sealed class MonitorReadService(
             snapshot.InstanceName,
             snapshot.UptimeSeconds,
             snapshot.CollectedAtUtc);
+    }
+
+    private static string TempDbDetail(TempDbDiagnostics diagnostics)
+    {
+        var used = diagnostics.UsedPercent.HasValue ? $"used {diagnostics.UsedPercent.Value:0.##}%" : "used unavailable";
+        var recommendation = diagnostics.RecommendedFileCount.HasValue ? $"bounded file guidance {diagnostics.RecommendedFileCount.Value}" : "file guidance unavailable";
+        var truncation = diagnostics.IsTruncated ? " · evidence truncated" : string.Empty;
+        return $"{used} · size imbalance {diagnostics.SizeImbalancePercent:0.##}% · {recommendation}{truncation}; growth/contention not evaluated";
+    }
+
+    private static string HaDetail(HaDiagnostics diagnostics)
+    {
+        var lag = diagnostics.MaxSecondaryLagSeconds.HasValue ? $"max lag {diagnostics.MaxSecondaryLagSeconds.Value}s" : "lag unavailable";
+        return $"Disconnected {diagnostics.DisconnectedReplicas} · unhealthy {diagnostics.UnhealthyReplicas} · unsynchronized DBs {diagnostics.UnsynchronizedDatabases} · suspended {diagnostics.SuspendedDatabases} · {lag}; quorum/RPO/RTO not evaluated";
     }
 
     private static ServerCard ToUnavailableCard(ServerRegistration registration) => new(

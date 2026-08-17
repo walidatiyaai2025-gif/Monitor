@@ -19,4 +19,20 @@
     <article class="glass-panel"><div class="panel-heading"><div><span class="eyebrow">RISK</span><h3>Cached risk signals</h3></div></div><div class="fleet-risk-links"><a asp-controller="Operations" asp-action="Backups"><small>Backup gaps</small><strong>@Model.Risks.BackupGaps</strong></a><a asp-controller="Operations" asp-action="MemoryHealth"><small>Memory pressure</small><strong>@Model.Risks.MemoryPressure</strong></a><a asp-controller="Operations" asp-action="Blocking"><small>Blocking risk</small><strong>@Model.Risks.BlockingRisk</strong></a><a asp-controller="Portal" asp-action="Performance"><small>Runnable pressure</small><strong>@Model.Risks.RunnableRisk</strong></a></div></article>
 </section>
 
+@if (Model.Advanced is { } advanced)
+{
+    <section class="glass-panel" aria-label="Advanced evidence coverage">
+        <div class="panel-heading"><div><span class="eyebrow">BOUNDED EVIDENCE</span><h3>Advanced diagnostic coverage</h3></div><span class="snapshot-note">Facts only · no composite readiness claim</span></div>
+        <div class="fleet-risk-links">
+            <a asp-controller="Operations" asp-action="Storage"><small>TempDB evidence</small><strong>@advanced.TempDbServers servers</strong></a>
+            <a asp-controller="Operations" asp-action="DatabaseHealth"><small>Transaction-log evidence</small><strong>@advanced.TransactionLogServers servers</strong></a>
+            <a asp-controller="Operations" asp-action="DatabaseHealth"><small>HA evidence</small><strong>@advanced.HaEnabledServers enabled / @advanced.HaServers observed</strong></a>
+            <a asp-controller="Operations" asp-action="DatabaseHealth"><small>Reuse blocked</small><strong>@advanced.LogReuseBlockedDatabases databases</strong></a>
+            <a asp-controller="Operations" asp-action="DatabaseHealth"><small>HA suspended</small><strong>@advanced.SuspendedHaDatabases databases</strong></a>
+            <span><small>Stale advanced evidence</small><strong>@advanced.StaleEvidenceServers servers</strong></span>
+        </div>
+        <p class="snapshot-note">TempDB growth/contention, transaction-log composite score, and HA quorum/RPO/RTO remain not evaluated until their missing evidence or policy inputs exist.</p>
+    </section>
+}
+
 <section class="glass-panel table-panel"><div class="panel-heading"><div><span class="eyebrow">RULE HOT-SPOTS</span><h3>Open incident concentration</h3></div><span class="snapshot-note">Top 20 deterministic rules</span></div><div class="responsive-table" role="region" aria-label="Rule hot spots" tabindex="0"><div class="table-head fleet-hotspot-grid" role="row"><span>Rule</span><span>Open</span><span>Critical</span><span>Suppressed</span><span>Incidents</span></div>@foreach (var hotspot in Model.RuleHotspots) { <div class="table-row fleet-hotspot-grid" role="row"><strong>@hotspot.RuleId</strong><span>@hotspot.Open</span><span>@hotspot.Critical</span><span>@hotspot.Suppressed</span><a class="secondary-button compact-button" asp-controller="Operations" asp-action="Alerts" asp-route-ruleId="@hotspot.RuleId">Review</a></div> }@if (Model.RuleHotspots.Count == 0) { <div class="incident-empty">No open incident hot-spots.</div> }</div></section>

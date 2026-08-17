@@ -1,0 +1,30 @@
+@using Monitor.Web.Services
+@model HealthModulePageViewModel
+
+<section class="glass-panel table-panel health-surface-panel" style="margin-top:14px" aria-label="TempDB bounded diagnostics">
+    <div class="panel-heading"><div><span class="eyebrow">TEMPDB · BOUNDED EVIDENCE</span><h3>Point-in-time TempDB diagnostics</h3></div><span class="snapshot-note">No growth/contention score</span></div>
+    <div class="responsive-table" role="region" aria-label="TempDB diagnostics by server" tabindex="0">
+        <div class="table-head health-detail-grid" role="row"><span>Server</span><span>Source</span><span>Files</span><span>Used</span><span>Imbalance</span><span>I/O latency</span><span>Guidance</span></div>
+        @foreach (var server in Model.Servers)
+        {
+            var diagnostics = AdvancedEvidenceProjection.BuildTempDb(server.TempDb);
+            <div class="table-row health-detail-grid" role="row">
+                <strong>@server.Name</strong>
+                <partial name="_HealthSourceBadge" model="server" />
+                @if (diagnostics is null)
+                {
+                    <span>Not collected</span><span>Unavailable</span><span>Unavailable</span><span>Unavailable</span><span>Not evaluated</span>
+                }
+                else
+                {
+                    <span class="@(diagnostics.IsTruncated ? "state-warning" : string.Empty)">@diagnostics.FileCount / @diagnostics.TotalDataFiles@(diagnostics.IsTruncated ? " retained" : string.Empty)</span>
+                    <span>@(diagnostics.UsedPercent.HasValue ? $"{diagnostics.UsedPercent.Value:0.##}%" : "Unavailable")</span>
+                    <span>size @diagnostics.SizeImbalancePercent.ToString("0.##")% · used @(diagnostics.UsedImbalancePercent.HasValue ? $"{diagnostics.UsedImbalancePercent.Value:0.##}%" : "unavailable")</span>
+                    <span>R @(diagnostics.ReadLatencyMs.HasValue ? $"{diagnostics.ReadLatencyMs.Value:0.##} ms" : "n/a") · W @(diagnostics.WriteLatencyMs.HasValue ? $"{diagnostics.WriteLatencyMs.Value:0.##} ms" : "n/a")</span>
+                    <span>@(diagnostics.RecommendedFileCount.HasValue ? $"bounded file guidance {diagnostics.RecommendedFileCount.Value}" : "Unavailable from truncated evidence")</span>
+                }
+            </div>
+        }
+    </div>
+    <p class="server-mini-note">Used/imbalance and cumulative I/O latency are derived only when their retained counters are present. TempDB growth/hour and allocation-contention waits are not collected, so no composite B400 TempDB severity is shown.</p>
+</section>
