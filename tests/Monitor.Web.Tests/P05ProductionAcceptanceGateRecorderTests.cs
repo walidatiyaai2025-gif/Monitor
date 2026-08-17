@@ -19,6 +19,18 @@ public sealed class P05ProductionAcceptanceGateRecorderTests
     }
 
     [Fact]
+    public void Recorder_RequiresExternallyPreservedSessionManifestAnchorBeforePassMutation()
+    {
+        var text = Read("scripts/Set-ProductionAcceptanceGate.ps1");
+        Assert.Contains("ExpectedSessionManifestSha256", text, StringComparison.Ordinal);
+        Assert.Contains("ValidatePattern('^[a-fA-F0-9]{64}$')", text, StringComparison.Ordinal);
+        Assert.Contains("Test-ProductionAcceptanceSessionBinding.ps1", text, StringComparison.Ordinal);
+        var binding = text.IndexOf("-ExpectedSessionManifestSha256 $ExpectedSessionManifestSha256", StringComparison.Ordinal);
+        var mutation = text.IndexOf("$gate.passed = $true", StringComparison.Ordinal);
+        Assert.True(binding >= 0 && mutation > binding);
+    }
+
+    [Fact]
     public void Recorder_BindsOnlyRelativeInRootEvidenceWithComputedSha256()
     {
         var text = Read("scripts/Set-ProductionAcceptanceGate.ps1");
@@ -62,15 +74,19 @@ public sealed class P05ProductionAcceptanceGateRecorderTests
     }
 
     [Fact]
-    public void WindowsCandidate_ExecutesAndBundlesRecorder()
+    public void WindowsCandidate_ExecutesSessionBoundRecorderWithDriftNegativeCases()
     {
-        var text = Read(".github/workflows/production-candidate.yml");
-        Assert.Contains("scripts/Set-ProductionAcceptanceGate.ps1", text, StringComparison.Ordinal);
-        Assert.Contains("Exercise explicit acceptance gate recorder", text, StringComparison.Ordinal);
-        Assert.Contains("recorder without acknowledgement unexpectedly passed", text, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("traversal evidence unexpectedly passed", text, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("secret evidence unexpectedly passed", text, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("duplicate PASS unexpectedly passed", text, StringComparison.OrdinalIgnoreCase);
+        var workflow = Read(".github/workflows/production-candidate.yml");
+        var runtime = Read("scripts/Test-ProductionAcceptanceSessionChain.ps1");
+        Assert.Contains("scripts/Test-ProductionAcceptanceSessionChain.ps1 -Mode Recorder", workflow, StringComparison.Ordinal);
+        Assert.Contains("scripts/Test-ProductionAcceptanceSessionBinding.ps1", workflow, StringComparison.Ordinal);
+        Assert.Contains("recorder without acknowledgement unexpectedly passed", runtime, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("traversal evidence unexpectedly passed", runtime, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("secret evidence unexpectedly passed", runtime, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("duplicate PASS unexpectedly passed", runtime, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("wrong expected session-manifest hash unexpectedly passed", runtime, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("candidate identity drifted from the locked session", runtime, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("candidate bytes that drifted", runtime, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

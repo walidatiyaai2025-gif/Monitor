@@ -21,6 +21,7 @@ $checksumPath = Join-Path $sourceRoot $checksumName
 Compress-Archive -Path (Join-Path $payloadRoot '*') -DestinationPath $artifactPath -CompressionLevel Optimal -Force
 $hash = (Get-FileHash -LiteralPath $artifactPath -Algorithm SHA256).Hash.ToLowerInvariant()
 "$hash  $fileName" | Set-Content -LiteralPath $checksumPath -Encoding ascii
+$toolingCommit = ('c' * 40) -join ''
 
 $common = @{
     ArtifactPath = $artifactPath
@@ -29,6 +30,7 @@ $common = @{
     ExpectedProductSha256 = $hash
     SourceCommit = ('a' * 40) -join ''
     TestedMergeCommit = ('b' * 40) -join ''
+    OperatorToolingCommit = $toolingCommit
     HostName = 'monitor.example.internal'
     SiteName = 'Monitor'
     AppPoolName = 'Monitor'
@@ -48,6 +50,9 @@ if ($result.ExternalGateCount -ne 15 -or $result.ExternalGatesPassed -ne 0 -or $
 if ($result.SelectedProductSha256 -ne $hash) {
     throw 'Session initializer did not report the independently selected product SHA-256.'
 }
+if ($result.OperatorToolingCommit -ne $toolingCommit) {
+    throw 'Session initializer did not report the acceptance-control sidecar tooling commit.'
+}
 
 $manifestPath = Join-Path $sessionRoot 'session-manifest.json'
 $manifestLockPath = Join-Path $sessionRoot 'session-manifest.sha256'
@@ -66,6 +71,9 @@ if ($manifest.status -ne 'PreparedFailClosed' -or $manifest.externalGateCount -n
 }
 if ($manifest.artifactSha256 -ne $hash -or $manifest.selectedProductSha256 -ne $hash -or $manifest.artifactFileName -ne $fileName) {
     throw 'Session manifest is not bound to the independently selected candidate bytes.'
+}
+if ($manifest.operatorToolingCommit -ne $toolingCommit) {
+    throw 'Session manifest is not bound to the acceptance-control sidecar tooling commit.'
 }
 
 $lockLine = (Get-Content -LiteralPath $manifestLockPath -Raw).Trim()
@@ -166,4 +174,4 @@ Assert-SessionRejected `
     -Action { ./scripts/New-ProductionAcceptanceSession.ps1 @common -SessionRoot $traversalRoot } `
     -FailureMessage 'Traversal-bearing absolute session root unexpectedly passed.'
 
-Write-Host 'Immutable production acceptance session initializer contract passed: candidate is independently selected-hash-bound at 0/15 gates; negative reuse/checksum/twin-substitution/ZIP/secret/relative/traversal path cases rejected.'
+Write-Host 'Immutable production acceptance session initializer contract passed: candidate and acceptance-control tooling commit are independently bound at 0/15 gates; negative reuse/checksum/twin-substitution/ZIP/secret/relative/traversal path cases rejected.'

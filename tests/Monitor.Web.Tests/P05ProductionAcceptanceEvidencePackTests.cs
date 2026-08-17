@@ -60,6 +60,16 @@ public sealed class P05ProductionAcceptanceEvidencePackTests
     }
 
     [Fact]
+    public void Validator_OptionallyRequiresLockedSessionBindingAndEmitsSessionAnchors()
+    {
+        var text = Read("scripts/Test-ProductionAcceptanceEvidence.ps1");
+        Assert.Contains("ExpectedSessionManifestSha256", text, StringComparison.Ordinal);
+        Assert.Contains("Test-ProductionAcceptanceSessionBinding.ps1", text, StringComparison.Ordinal);
+        Assert.Contains("sessionManifestSha256", text, StringComparison.Ordinal);
+        Assert.Contains("selectedProductSha256", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Validator_RejectsSecretConnectionStringProviderErrorAndSqlTextMaterial()
     {
         var text = Read("scripts/Test-ProductionAcceptanceEvidence.ps1");
@@ -85,16 +95,18 @@ public sealed class P05ProductionAcceptanceEvidencePackTests
     [Fact]
     public void WindowsCandidate_ParsesExecutesAndBundlesEvidenceTooling()
     {
-        var text = Read(".github/workflows/production-candidate.yml");
-        Assert.Contains("scripts/New-ProductionAcceptanceEvidencePack.ps1", text, StringComparison.Ordinal);
-        Assert.Contains("scripts/Set-ProductionAcceptanceGate.ps1", text, StringComparison.Ordinal);
-        Assert.Contains("scripts/Complete-ProductionAcceptance.ps1", text, StringComparison.Ordinal);
-        Assert.Contains("scripts/Test-ProductionAcceptanceEvidence.ps1", text, StringComparison.Ordinal);
-        Assert.Contains("Exercise final operator acceptance finalizer", text, StringComparison.Ordinal);
-        Assert.Contains("production-acceptance-evidence.example.json", text, StringComparison.Ordinal);
-        Assert.Contains("negative gate unexpectedly passed", text, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("tampered evidence hash unexpectedly passed", text, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("secret-bearing evidence unexpectedly passed", text, StringComparison.OrdinalIgnoreCase);
+        var workflow = Read(".github/workflows/production-candidate.yml");
+        var runtime = Read("scripts/Test-ProductionAcceptanceSessionChain.ps1");
+        Assert.Contains("scripts/New-ProductionAcceptanceEvidencePack.ps1", workflow, StringComparison.Ordinal);
+        Assert.Contains("scripts/Test-ProductionAcceptanceSessionBinding.ps1", workflow, StringComparison.Ordinal);
+        Assert.Contains("scripts/Set-ProductionAcceptanceGate.ps1", workflow, StringComparison.Ordinal);
+        Assert.Contains("scripts/Complete-ProductionAcceptance.ps1", workflow, StringComparison.Ordinal);
+        Assert.Contains("scripts/Test-ProductionAcceptanceEvidence.ps1", workflow, StringComparison.Ordinal);
+        Assert.Contains("Exercise final operator acceptance finalizer", workflow, StringComparison.Ordinal);
+        Assert.Contains("production-acceptance-evidence.example.json", workflow, StringComparison.Ordinal);
+        Assert.Contains("negative gate unexpectedly passed", runtime, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("tampered evidence hash unexpectedly passed", runtime, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("secret-bearing evidence unexpectedly passed", runtime, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
