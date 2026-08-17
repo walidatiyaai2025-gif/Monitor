@@ -17,9 +17,9 @@ public sealed class B800EnterpriseOperationsRoleTests
         var readPolicy = typeof(EnterpriseOperationsController).GetCustomAttributes<AuthorizeAttribute>().Single();
         Assert.Equal(MonitorPolicies.Read, readPolicy.Policy);
 
-        AssertProtectedPost(nameof(EnterpriseOperationsController.UpdateServer), MonitorPolicies.Manage);
+        AssertProtectedPost(nameof(EnterpriseOperationsController.UpdateServerProfile), MonitorPolicies.Manage);
         AssertProtectedPost(nameof(EnterpriseOperationsController.AssignIncident), MonitorPolicies.Operate);
-        AssertProtectedPost(nameof(EnterpriseOperationsController.AddNote), MonitorPolicies.Operate);
+        AssertProtectedPost(nameof(EnterpriseOperationsController.AddIncidentNote), MonitorPolicies.Operate);
         AssertProtectedPost(nameof(EnterpriseOperationsController.AcknowledgeRecommendation), MonitorPolicies.Operate);
     }
 
