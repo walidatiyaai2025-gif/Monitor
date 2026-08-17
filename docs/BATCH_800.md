@@ -37,14 +37,14 @@ Browser GET navigation remains cache/control-plane only. Where a diagnostic dime
 | SQL Agent | cached aggregate + bounded recent job-summary history + current Agent activity evidence | **B800 run-history reliability and current next-run/running evidence wired; lateness explicitly not evaluated without canonical server time-zone + recurrence/expected-run semantics** |
 | Storage | cached allocation + bounded logical-file I/O evidence | **B800 B400 file-I/O projection wired and SQL-real validated on pre-canonical heads** |
 | Blocking | cached blocked-count/max-wait aggregate | Wired aggregate |
-| Alerts | incident workflow/query + role-scoped transitions | B800 bounded filters/paging + PRG/conflict + role-visible mutation controls regression-locked |
+| Alerts | incident workflow/query + role-scoped transitions | **B800 bounded filters/paging + PRG/conflict + role-visible mutation controls regression-locked; B800-074 routes operator paging/summary through `IHealthIncidentRepository.Read(...)` instead of direct full-state `GetAll()`** |
 | Recommendations | incident repository + deterministic recommendation engine | Wired; incident/Advisor mutation controls align with Operator/Administrator policy boundary |
 | Reports | versioned CSV/ZIP/JSON endpoints | Wired existing exports; contextual history export remains explicitly server-scoped/read-only |
 | Connection Lab | registration/test/credential workflow | B800 test-before-save, write-only secret and protected action wiring regression-locked |
 | Audit | bounded audit store | Wired |
 | History | stored snapshot trends | B800 bounded window/limit/paging navigation regression-locked |
-| Fleet Intelligence | enterprise metadata/incidents projection + B300/B400 decision helpers | **B800-071 correlation/routing is merged; B800-073 now bounds active incident evidence admitted to Fleet decisions and withholds clusters/routing/hot-spots on overflow rather than evaluating a partial set** |
-| Enterprise Operations | governance metadata/incidents control plane | **B800 role matrix regression-locked; B800-072 maintenance decision support is merged and B800-073 makes critical-incident evidence unavailable on overflow so readiness stays `NotEvaluated`** |
+| Fleet Intelligence | enterprise metadata/incidents projection + B300/B400 decision helpers | **B800-071 correlation/routing is merged; B800-073 bounds active incident decision evidence and B800-074 routes that bounded read through the repository query contract** |
+| Enterprise Operations | governance metadata/incidents control plane | **B800 role matrix regression-locked; B800-072 maintenance decision support is merged, B800-073 fails explicit on incident overflow, and B800-074 sources that evidence through repository `Read(...)`** |
 | Observability | control-plane telemetry/readiness | Existing surface; validate source/readiness states |
 | Settings | readiness + operational backup/restore POST workflows | B800 Administrator-only Create/Validate/Restore, exact `RESTORE` confirmation, audit and safe feedback regression-locked |
 | Governance retention | dry-run/apply workflow | B800 destructive apply now requires exact typed `PRUNE`; rejection is audited and fails closed |
@@ -62,7 +62,9 @@ B300 estate identity and runtime-pressure helpers are wired from cached evidence
 
 B800-071 and B800-072 deliberately consume only repository/control-plane evidence. Fleet routing/correlation uses current incidents plus registered-server environment, suppression, maintenance and optional assignee metadata. Maintenance decision support uses enabled registration, server environment, observed configured maintenance-window activity and current open critical-incident count. Governed approval, rollback-plan, independently approved-window, replica-readiness and policy-backed recent-backup facts remain nullable; the maintenance surface returns `NotEvaluated` whenever the selected operation actually requires an unavailable fact. An observed configured window is never promoted into approval evidence.
 
-B800-073 centralizes the incident evidence admitted into Fleet/Maintenance operator decisions through `BoundedIncidentReadModel`. The default decision-input limit is 100, matching the existing `PerformanceScaleOptions.IncidentMaxPageSize` default. Active incidents are scoped to the relevant registration set, deterministically ordered and retained only up to the bound; one additional row is inspected so overflow is explicit. A truncated set is never treated as complete: Fleet withholds B400 correlation/B300 routing and rule hot-spots, while Maintenance supplies `null` for active Critical incident count so the B800-072 wrapper remains `NotEvaluated` instead of inferring zero. The underlying `IHealthIncidentRepository.GetAll()` remains a legacy storage API inside this centralized projection; B800-073 does **not** claim File/Shared/InMemory storage materialization is now server-query-bounded or paged.
+B800-073 centralizes the incident evidence admitted into Fleet/Maintenance operator decisions through `BoundedIncidentReadModel`. The default decision-input limit is 100, matching the existing `PerformanceScaleOptions.IncidentMaxPageSize` default. Active incidents are scoped to the relevant registration set, deterministically ordered and retained only up to the bound; overflow remains explicit. A truncated set is never treated as complete: Fleet withholds B400 correlation/B300 routing and rule hot-spots, while Maintenance supplies `null` for active Critical incident count so the B800-072 wrapper remains `NotEvaluated` instead of inferring zero.
+
+B800-074 introduces `IncidentRepositoryQuery` / `IncidentRepositoryReadResult` and routes Alerts plus the B800-073 Fleet/Maintenance decision reads through `IHealthIncidentRepository.Read(...)`. The contract returns only the requested deterministic page while preserving exact global incident summary, exact filtered match count and `HasMore`; status/severity/rule/server filters are applied before paging. InMemory has a native `Read` implementation. `GetAll()` remains intentionally available for full-state workflows such as operational backup. For source compatibility, File/Shared/Telemetry repositories still use the interface fallback through `GetAll()` in B800-074; B800-075 is the explicit follow-up to specialize those production implementations. Shared operational incidents remain one JSON document (`monitor:incidents:v1`), so B800-074 makes no row-level SQL or physical-storage queryability claim.
 
 ## Task program
 
@@ -155,8 +157,10 @@ B800-073 centralizes the incident evidence admitted into Fleet/Maintenance opera
 
 - [x] B800-071 wire bounded B400 fleet-correlation clusters and B300 routing recommendations from current incident/control-plane facts into Fleet Intelligence as read-only decision support; no sender, incident mutation or remediation (`docs/work/B800-071.md`, PR #303 merged as `3821d1a1ebd15039a3c93b1e77ff7bac210e0b08`).
 - [x] B800-072 expose B400 maintenance-safety rules as GET-only operator decision support with nullable required-evidence gating; observed configured maintenance windows are not treated as approval, and no maintenance operation can execute (`docs/work/B800-072.md`, PR #304 merged as `ce81b47ee4de09ced03e4ae275e639a93d1fecb9`).
-- [x] B800-073 bound active incident evidence admitted into Fleet/Maintenance decisions; overflow is explicit and prevents partial-set correlation/routing/hot-spot or false-zero maintenance decisions (`docs/work/B800-073.md`, PR #305).
-- [ ] B800-074..080 continue only evidence-supported fleet/routing/maintenance intelligence; no autonomous action and no fabricated governance/readiness facts.
+- [x] B800-073 bound active incident evidence admitted into Fleet/Maintenance decisions; overflow is explicit and prevents partial-set correlation/routing/hot-spot or false-zero maintenance decisions (`docs/work/B800-073.md`, PR #305 merged as `96e27b17de51e89f1e989fe2a9484f0226f2e53f`).
+- [x] B800-074 add a bounded repository incident query contract and route Alerts/Fleet/Maintenance operator reads through it while preserving full-state `GetAll()` for explicit export/backup workflows (`docs/work/B800-074.md`, PR #306).
+- [ ] B800-075 specialize File/Shared/Telemetry production incident repository `Read(...)` implementations so persisted operator reads no longer depend on the compatibility `GetAll()` fallback; do not claim row-level SharedState queryability while incidents remain one document.
+- [ ] B800-076..080 continue only evidence-supported fleet/routing/maintenance intelligence; no autonomous action and no fabricated governance/readiness facts.
 
 ### B800-081..090 — reports and exports
 
@@ -293,6 +297,14 @@ Bounded incident decision-evidence slice:
 - `tests/Monitor.Web.Tests/B800MaintenanceDecisionSupportSurfaceTests.cs`
 - `docs/work/B800-073.md`
 
+Repository-bounded incident query slice:
+- `src/Monitor.Web/Services/IncidentRepositoryRead.cs`
+- `src/Monitor.Web/Services/HealthIncidentService.cs`
+- `src/Monitor.Web/Services/BoundedIncidentReadModel.cs`
+- `tests/Monitor.Web.Tests/B800IncidentRepositoryQueryTests.cs`
+- `tests/Monitor.Web.Tests/B800BoundedIncidentReadModelTests.cs`
+- `docs/work/B800-074.md`
+
 ## Validation chronology
 
 - Initial Server Details slice: CI Green.
@@ -306,9 +318,9 @@ Bounded incident decision-evidence slice:
 - B800-064 implementation head `129fddec046467bc853675871af8991f88fd404c` passed normal CI #2275 before later BATCH work.
 - B800-071 exact final head `5a18b5167cc24cd292ce7826fb144434762c7eae` passed CI #2393 and Windows production-candidate #393; Real SQL was not selected because the slice added no monitored-SQL query/collector/permission path. PR #303 squash-merged as `3821d1a1ebd15039a3c93b1e77ff7bac210e0b08`.
 - B800-072 exact final head `4b57a688150f974f8f3cd5b7255912b7e3328260` passed CI run `32028002814`, Real SQL run `32028002795`, and Windows production-candidate run `32028002783`; PR #304 squash-merged as `ce81b47ee4de09ced03e4ae275e639a93d1fecb9`.
-- B800-073 first implementation CI exposed only xUnit analyzer `xUnit2000` on one new assertion; expected/actual order was corrected with no product-contract weakening.
-- B800-073 pre-canonical implementation head `a834dcb03ee969e458525e06b1fcf31d31c4df89` passed CI run `32029466447` and Windows production-candidate run `32029466442`. Real SQL was not selected because this slice adds no monitored-SQL query/collector/permission path. Canonical reconciliation moves the source SHA, so these runs are implementation evidence only.
+- B800-073 exact final reconciled head `443eccf16fb1fbcfde1cf5ff3f10864d487fd19b` passed CI `32030485150`, Real SQL `32030485078`, and Windows production-candidate `32030485093`; PR #305 squash-merged as `96e27b17de51e89f1e989fe2a9484f0226f2e53f`.
+- B800-074 pre-canonical implementation head `8f5b695150b7d537af7d88fdfb11bc057cf473dd` passed CI `32031548141` and Windows production-candidate `32031548073`. Real SQL was not selected because no monitored-SQL query/collector/permission path changed. Canonical reconciliation moves the source SHA, so these runs are implementation evidence only.
 
-## Current B800-073 merge gate
+## Current B800-074 merge gate
 
-PR #305 is the current focused B800 slice. `docs/FEATURE_CATALOG.md`, `docs/STATUS.md`, `docs/IMPLEMENTATION_PLAN.md`, and this ledger must describe B800-072 as merged and B800-073 as the current bounded incident decision-evidence slice. Before PR #305 is marked Ready or merged, every repository-selected required workflow must be Green on the same exact final reconciled head, the branch must remain current with `main`, review threads must remain resolved, and the effective diff must stay bounded to B800-073 implementation/tests/work-note plus canonical reconciliation. Real SQL is required only if repository path policy selects it. Issue #287 remains OPEN for B800-074+.
+PR #306 is the current focused B800 slice. `docs/FEATURE_CATALOG.md`, `docs/STATUS.md`, `docs/IMPLEMENTATION_PLAN.md`, and this ledger must describe B800-073 as merged and B800-074 as the current repository-bounded incident query-contract slice, with B800-075 explicitly reserved for persisted File/Shared/Telemetry specialization. Before PR #306 is marked Ready or merged, every repository-selected required workflow must be Green on the same exact final reconciled head, the branch must remain current with `main`, review threads must remain resolved, and the effective diff must stay bounded to B800-074 implementation/tests/work-note plus canonical reconciliation. Real SQL is required only if repository path policy selects it. Issue #287 remains OPEN for B800-075+.
