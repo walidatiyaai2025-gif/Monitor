@@ -33,6 +33,7 @@ public interface IHealthIncidentRepository
     void Apply(IEnumerable<HealthFinding> findings);
     void Reconcile(Guid registrationId, DateTimeOffset observedAtUtc, IEnumerable<HealthFinding> activeFindings, bool canResolve);
     IReadOnlyList<HealthIncident> GetAll();
+    IncidentRepositoryReadResult Read(IncidentRepositoryQuery query) => IncidentRepositoryRead.Project(GetAll(), query);
     HealthIncident? GetById(string id);
     bool TrySetStatus(string id, IncidentStatus expected, IncidentStatus next);
 }
@@ -73,6 +74,9 @@ public sealed class InMemoryHealthIncidentRepository : IHealthIncidentRepository
         .OrderByDescending(item => item.Severity)
         .ThenByDescending(item => item.LastSeenUtc)
         .ToArray();
+
+    public IncidentRepositoryReadResult Read(IncidentRepositoryQuery query) =>
+        IncidentRepositoryRead.Project(_items.Values, query);
 
     public HealthIncident? GetById(string id) => _items.TryGetValue(id, out var value) ? value : null;
 
@@ -141,16 +145,19 @@ public sealed class IncidentWorkflowService(
 {
     public IncidentCenterViewModel Query(IncidentQuery query)
     {
-        var all = repository.GetAll();
-        var filtered = all.Where(item => query.Status is null || item.Status == query.Status)
-            .Where(item => query.Severity is null || item.Severity == query.Severity)
-            .Where(item => string.IsNullOrWhiteSpace(query.RuleId) || string.Equals(item.RuleId, query.RuleId, StringComparison.Ordinal))
-            .Skip(Math.Max(0, query.Offset)).Take(Math.Clamp(query.Limit, 1, 100)).ToArray();
-        var summary = new IncidentSummary(
-            all.Count(item => item.Status == IncidentStatus.Open), all.Count(item => item.Status == IncidentStatus.Acknowledged),
-            all.Count(item => item.Status == IncidentStatus.Resolved), all.Count(item => item.Severity == FindingSeverity.Critical),
-            all.Count(item => item.Severity == FindingSeverity.Warning));
-        return new(filtered, summary, query with { Offset = Math.Max(0, query.Offset), Limit = Math.Clamp(query.Limit, 1, 100) });
+        var normalized = query with
+        {
+            Offset = Math.Max(0, query.Offset),
+            Limit = Math.Clamp(query.Limit, 1, 100),
+            RuleId = string.IsNullOrWhiteSpace(query.RuleId) ? null : query.RuleId.Trim()
+        };
+        var read = repository.Read(new IncidentRepositoryQuery(
+            Status: normalized.Status,
+            Severity: normalized.Severity,
+            RuleId: normalized.RuleId,
+            Offset: normalized.Offset,
+            Limit: normalized.Limit));
+        return new(read.Items, read.Summary, normalized);
     }
 
     public async Task<IncidentDetailsViewModel?> GetDetailsAsync(string id, CancellationToken cancellationToken)

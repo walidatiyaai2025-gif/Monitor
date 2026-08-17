@@ -33,6 +33,7 @@ public sealed class B800BoundedIncidentReadModelTests
         Assert.False(result.IsTruncated);
         Assert.Equal(10, result.Limit);
         Assert.Equal(new[] { "a", "b" }, result.Incidents.Select(item => item.Id).ToArray());
+        Assert.Equal(1, repository.ReadCount);
     }
 
     [Fact]
@@ -50,6 +51,7 @@ public sealed class B800BoundedIncidentReadModelTests
         Assert.True(result.IsTruncated);
         Assert.Equal(2, result.Incidents.Count);
         Assert.Equal(new[] { "1", "2" }, result.Incidents.Select(item => item.Id).ToArray());
+        Assert.Equal(1, repository.ReadCount);
     }
 
     [Fact]
@@ -88,12 +90,13 @@ public sealed class B800BoundedIncidentReadModelTests
 
         public void Apply(IEnumerable<HealthFinding> findings) => throw new NotSupportedException();
         public void Reconcile(Guid registrationId, DateTimeOffset observedAtUtc, IEnumerable<HealthFinding> activeFindings, bool canResolve) => throw new NotSupportedException();
+        public IReadOnlyList<HealthIncident> GetAll() => throw new InvalidOperationException("Bounded decision reads must not use GetAll().");
 
-        public IReadOnlyList<HealthIncident> GetAll()
+        public IncidentRepositoryReadResult Read(IncidentRepositoryQuery query)
         {
             ReadCount++;
             if (throwOnRead) throw new InvalidOperationException("Store read should not occur for empty scope.");
-            return incidents;
+            return IncidentRepositoryRead.Project(incidents, query);
         }
 
         public HealthIncident? GetById(string id) => incidents.FirstOrDefault(item => item.Id == id);

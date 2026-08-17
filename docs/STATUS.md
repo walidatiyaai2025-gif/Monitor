@@ -102,29 +102,32 @@ This baseline correction is historical reconciliation rather than new task accou
 ## BATCH-800 — Full functional operator wiring — IN PROGRESS
 
 **Umbrella:** #287 — OPEN  
-**Current PR:** #305 — DRAFT / B800-073 bounded incident decision-evidence slice  
+**Current PR:** #306 — DRAFT / B800-074 repository-bounded incident query-contract slice  
 **Task range:** B800-001..100  
 **Ledger:** `docs/BATCH_800.md`
 
 BATCH-800 converts visible-route completeness into traceable functional contracts: `UI -> controller -> authorization/antiforgery -> service/read model -> cached/persisted evidence -> explicit state -> regression evidence`. It remains subordinate to the P0 production boundary and cannot publish RC.61 or satisfy #162/#116/#111.
 
-Incremental focused slices are merged through B800-072. Current evidence-backed scope includes cached B300 server intelligence, exact per-database state projection, bounded memory/wait/logical-file-I/O/Agent evidence, workflow/navigation/role safety contracts, explicit backup RPO policy metadata, B800-071 fleet correlation/routing and B800-072 maintenance safety decision support. Unsupported diagnostics remain explicit rather than inferred.
+Incremental focused slices are merged through B800-073. Current evidence-backed scope includes cached B300 server intelligence, exact per-database state projection, bounded memory/wait/logical-file-I/O/Agent evidence, workflow/navigation/role safety contracts, explicit backup RPO policy metadata, B800-071 fleet correlation/routing, B800-072 maintenance safety decision support and B800-073 bounded incident decision evidence. Unsupported diagnostics remain explicit rather than inferred.
 
 B800-071 merged through PR #303 as `3821d1a1ebd15039a3c93b1e77ff7bac210e0b08`. Exact final head `5a18b5167cc24cd292ce7826fb144434762c7eae` passed CI #2393 and Windows production-candidate #393; Real SQL was not selected because the slice added no monitored-SQL query/collector/permission path. Fleet Intelligence exposes bounded correlation clusters and B300 routing recommendations as `RECOMMENDATION ONLY`, with no sender, notification, incident mutation or remediation.
 
 B800-072 merged through PR #304 as `ce81b47ee4de09ced03e4ae275e639a93d1fecb9`. Exact final head `4b57a688150f974f8f3cd5b7255912b7e3328260` passed CI `32028002814`, Real SQL `32028002795`, and Windows production-candidate `32028002783`. Maintenance decision support remains GET-only under `Monitor.Read`, preserves governed approval/rollback/window/replica/recent-backup facts as nullable, rejects numeric/unknown operation input fail-closed and adds no maintenance execution.
 
-PR #305 carries B800-073 only plus canonical reconciliation:
-- centralizes Fleet/Maintenance active-incident decision inputs through `BoundedIncidentReadModel`;
-- uses a default bound of 100, matching the existing `PerformanceScaleOptions.IncidentMaxPageSize` default, and reads one extra candidate row to distinguish complete evidence from overflow;
-- scopes active incidents to the relevant registration set, excludes Resolved rows and orders deterministically before truncation;
-- withholds Fleet correlation/routing and rule hot-spots if the relevant active incident set exceeds the bound rather than treating the retained subset as complete;
-- makes Maintenance `ActiveCriticalIncidents` unavailable on overflow, causing `active-critical-incidents` to remain missing and the existing B400 wrapper to return `NotEvaluated` rather than infer zero;
-- prevents Fleet/Maintenance surfaces from calling `incidents.GetAll()` directly; the legacy storage call remains centralized inside the read projection;
-- does **not** claim the underlying File/Shared/InMemory incident store is now server-query-bounded or paged. Storage-level incident query redesign remains separate follow-up work;
-- contains no POST/action execution, monitored-SQL query, snapshot refresh, notification or remediation path.
+B800-073 merged through PR #305 as `96e27b17de51e89f1e989fe2a9484f0226f2e53f`. Exact final reconciled head `443eccf16fb1fbcfde1cf5ff3f10864d487fd19b` passed CI `32030485150`, Real SQL `32030485078`, and Windows production-candidate `32030485093`. The bounded decision read model scopes active incident evidence to relevant registrations, exposes overflow explicitly, withholds Fleet correlation/routing/hot-spots on truncation and keeps Maintenance critical-incident readiness `NotEvaluated` instead of inferring zero.
 
-B800-073 pre-canonical implementation head `a834dcb03ee969e458525e06b1fcf31d31c4df89` passed CI `32029466447` and Windows production-candidate `32029466442`; Real SQL was not selected because no monitored-SQL query/collector/permission path changed. An earlier CI failed only xUnit analyzer `xUnit2000` on expected/actual assertion order and was corrected without weakening behavior. Canonical reconciliation moves the source SHA, so **Ready/merge still requires every repository-selected required workflow Green on one exact final reconciled head**, no unresolved review threads, branch current with `main`, and a diff bounded to B800-073 plus canonical reconciliation. #287 remains OPEN for B800-074+.
+PR #306 carries B800-074 only plus canonical reconciliation:
+- adds `IncidentRepositoryQuery` / `IncidentRepositoryReadResult` and a deterministic bounded projection;
+- returns the requested page plus exact global incident summary, exact filtered match count and `HasMore`;
+- routes Alerts `IncidentWorkflowService.Query` through `repository.Read(...)` instead of direct `GetAll()`;
+- routes B800-073 Fleet/Maintenance bounded reads through the same repository query contract;
+- adds a native InMemory `Read` implementation;
+- retains `GetAll()` for explicitly full-state workflows such as operational backup;
+- keeps File/Shared/Telemetry source-compatible through the interface fallback in this slice, without claiming persisted-path optimization;
+- reserves B800-075 for native File/Shared/Telemetry `Read(...)` specialization; Shared incidents remain one `monitor:incidents:v1` JSON document and no row-level SQL/physical queryability claim is made;
+- contains no monitored-SQL query, permission change, browser collection/refresh, notification/remediation/maintenance execution or incident mutation semantics change.
+
+B800-074 pre-canonical implementation head `8f5b695150b7d537af7d88fdfb11bc057cf473dd` passed CI `32031548141` and Windows production-candidate `32031548073`; Real SQL was not selected because no monitored-SQL query/collector/permission path changed. Canonical reconciliation moves the source SHA, so **Ready/merge still requires every repository-selected required workflow Green on one exact final reconciled head**, no unresolved review threads, branch current with `main`, and a diff bounded to B800-074 plus canonical reconciliation. #287 remains OPEN for B800-075+.
 
 ## BATCH-700 — Full visible portal/UI completion — COMPLETE
 
@@ -192,7 +195,7 @@ B600 delivered deterministic fail-closed repository orchestration for evidence f
 - BATCH-500: B500-001..100 COMPLETE.
 - BATCH-600: B600-001..100 COMPLETE.
 - BATCH-700: UI700-001..050 COMPLETE; PR #240 squash-merged as `fd33e79c6d19d7f9852417b9c35a11f91f21714c` after exact final head `0834db6b5d518fe5c52eec9b47c03e467929aa89` passed CI #1637, Real SQL #91 and production-candidate #142.
-- BATCH-800: IN PROGRESS under #287; incremental focused slices are merged through B800-072, with current PR #305 carrying B800-073. Excluded from completed-task totals until its own batch gates close.
+- BATCH-800: IN PROGRESS under #287; incremental focused slices are merged through B800-073, with current PR #306 carrying B800-074. Excluded from completed-task totals until its own batch gates close.
 - Total completed hardening/UI task IDs B100+B200+B300+B400+B500+B600+B700: **660**. PR #156 remains baseline reconciliation, not new task accounting.
 
 ## Stable guardrails
@@ -208,6 +211,7 @@ B600 delivered deterministic fail-closed repository orchestration for evidence f
 - Concurrent team work must be preserved; external P0.5 acceptance cannot be inferred from CI.
 - Remaining production order is fail-closed: #162 first, then #116, then #111; no production mutation for #116 while #162 is OPEN.
 - B800 operator decisions must fail explicit when their bounded evidence is incomplete; partial incident sets must not masquerade as complete Fleet/Maintenance state.
+- B800-074 repository paging bounds operator output, but persisted File/Shared/Telemetry specialization is deferred to B800-075 and SharedState incidents remain a single JSON document.
 
 ## Issue #276 / PR #279 — IIS bootstrap installer follow-up — COMPLETE
 
@@ -233,4 +237,4 @@ B600 delivered deterministic fail-closed repository orchestration for evidence f
 - Final PR head `ff14f16006b1d5c953ba4c507f196a3393660e42` passed CI #2085, Real SQL #188 and Windows production-candidate #284 Green. PR #286 squash-merged as `74b804e8b681a77b9e619490610af556a4b1ae3e`; post-merge main CI #2095 passed Green and Issue #285 closed completed.
 - This remains repository/staging behavior only and did not publish or mutate selected RC.61/tag/release state, real production IIS/SQL, #116 acceptance or the strict `#162 -> #116 -> #111` dependency.
 
-**Overall:** 🟢 verified foundation · 🟢 P0.1–P0.4 COMPLETE · 🟢 P0.5 repository cutover/evidence/session/finalization/release/promotion/workflow-supply-chain/native-Node-24/durable-release hardening through PR #219 · 🟢 #256 selected-product-hash session hardening COMPLETE via PR #257 · 🟢 #258/#259 locked-session sidecar binding COMPLETE · 🟢 #261/#262 Acceptance Control Toolkit provenance COMPLETE with exact toolkit source `b422eaaee53d931a62a43b3c36a53b68cd4f3e27` · 🟢 #266/#267 RC.61 read-only promotion preflight COMPLETE · 🟢 #270/#271 Step 0 operator handoff COMPLETE · 🟢 #276/PR #279 IIS bootstrap integration COMPLETE · 🟢 #281/PR #283 fresh-host/PowerShell 7 hardening COMPLETE · 🟢 #285/PR #286 clean IIS no-demo/POST-error fix COMPLETE · 🟡 #287 BATCH-800 IN PROGRESS: focused slices merged through B800-072; PR #305 carries B800-073 bounded incident decision evidence and awaits one exact final-head validation set after canonical reconciliation · 🟡 selected RC.61 durable publication + separate verification pending manual #162 · ⛔ #116 production mutation blocked while #162 is OPEN · 🟡 external IIS/HTTPS 15-gate acceptance pending after #162 · 🔴 production acceptance not yet granted
+**Overall:** 🟢 verified foundation · 🟢 P0.1–P0.4 COMPLETE · 🟢 P0.5 repository cutover/evidence/session/finalization/release/promotion/workflow-supply-chain/native-Node-24/durable-release hardening through PR #219 · 🟢 #256 selected-product-hash session hardening COMPLETE via PR #257 · 🟢 #258/#259 locked-session sidecar binding COMPLETE · 🟢 #261/#262 Acceptance Control Toolkit provenance COMPLETE with exact toolkit source `b422eaaee53d931a62a43b3c36a53b68cd4f3e27` · 🟢 #266/#267 RC.61 read-only promotion preflight COMPLETE · 🟢 #270/#271 Step 0 operator handoff COMPLETE · 🟢 #276/PR #279 IIS bootstrap integration COMPLETE · 🟢 #281/PR #283 fresh-host/PowerShell 7 hardening COMPLETE · 🟢 #285/PR #286 clean IIS no-demo/POST-error fix COMPLETE · 🟡 #287 BATCH-800 IN PROGRESS: focused slices merged through B800-073; PR #306 carries B800-074 repository-bounded incident query contract and awaits one exact final-head validation set after canonical reconciliation · 🟡 selected RC.61 durable publication + separate verification pending manual #162 · ⛔ #116 production mutation blocked while #162 is OPEN · 🟡 external IIS/HTTPS 15-gate acceptance pending after #162 · 🔴 production acceptance not yet granted
