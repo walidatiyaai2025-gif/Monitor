@@ -112,7 +112,7 @@ The required identity includes:
 
 After promotion is Green, separately dispatch `.github/workflows/verify-durable-release.yml` from `main`. This workflow is read-only and independently verifies tag provenance, release metadata, exact-two assets, asset IDs/sizes/digests/downloaded bytes and canonical checksum. The promotion workflow's own post-publication checks are not a substitute for this second run.
 
-Do not infer #162 completion from repository hardening alone. Both operations must be Green and the tag, exact-two assets and durable product hash must be independently verified before the retention gate is treated as satisfied.
+Keep #162 open until both runs are Green and the tag, exact-two assets and durable product hash are independently verified. Do not infer #162 completion from repository hardening alone.
 
 ## Canonical reconciliation state
 
