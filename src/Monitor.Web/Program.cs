@@ -194,6 +194,9 @@ var backupOptions = builder.Configuration.GetSection(BackupStoreOptions.SectionN
 backupOptions.Validate();
 var backupRoot = OperationalStorePath.ResolveOutsideWebRoot(backupOptions.RootPath, builder.Environment.ContentRootPath, builder.Environment.WebRootPath);
 builder.Services.AddSingleton(backupOptions);
+var backupPolicyOptions = builder.Configuration.GetSection(BackupPolicyOptions.SectionName).Get<BackupPolicyOptions>() ?? new();
+backupPolicyOptions.Validate();
+builder.Services.AddSingleton(backupPolicyOptions);
 builder.Services.AddSingleton<IOperationalRestoreWriter>(provider => new OperationalRestoreWriter(registrationStoreOptions, operationalStoreOptions, haStateOptions, provider.GetRequiredService<ISharedStateDocumentStore>(), provider.GetRequiredService<IServerRegistrationRepository>(), builder.Environment.ContentRootPath, builder.Environment.WebRootPath));
 builder.Services.AddSingleton<IOperationalBackupService>(provider => new OperationalBackupService(provider.GetRequiredService<IServerRegistrationRepository>(), provider.GetRequiredService<IHealthIncidentRepository>(), provider.GetRequiredService<ISnapshotHistoryStore>(), provider.GetRequiredService<IAuditStore>(), provider.GetRequiredService<IOperationalRestoreWriter>(), backupOptions, backupRoot, provider.GetRequiredService<TimeProvider>()));
 
