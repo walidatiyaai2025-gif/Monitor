@@ -41,8 +41,8 @@ public sealed class B800TempDbRealSqlTests
         Assert.True(evidence.TotalDataFiles > 0);
         Assert.NotNull(evidence.DataFiles);
         Assert.NotEmpty(evidence.DataFiles!);
-        Assert.InRange(evidence.DataFiles.Count, 1, TempDbSnapshotQuery.MaxFiles);
-        Assert.Equal(evidence.TotalDataFiles > evidence.DataFiles.Count, evidence.IsTruncated);
+        Assert.Equal(Math.Min(evidence.TotalDataFiles, TempDbSnapshotQuery.MaxFiles), evidence.DataFiles.Count);
+        Assert.Equal(evidence.TotalDataFiles > TempDbSnapshotQuery.MaxFiles, evidence.IsTruncated);
         Assert.All(evidence.DataFiles, file =>
         {
             Assert.True(file.FileId > 0);
