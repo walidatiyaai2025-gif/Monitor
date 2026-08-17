@@ -36,7 +36,17 @@ public sealed record MemoryHealthSnapshot(
 
 public sealed record DatabaseHealthDetailSnapshot(int Restoring, int Recovering, int RecoveryPending, int Suspect, int Emergency, int OfflineOrOther);
 public sealed record BackupHealthSnapshot(int BackedUpLast24Hours, int MissingFullBackupLast24Hours, DateTimeOffset? LastFullBackupAtUtc);
-public sealed record SqlAgentHealthSnapshot(int TotalJobs, int EnabledJobs, int FailedLastRun);
+public sealed record AgentJobRunSnapshot(
+    string JobKey,
+    string Owner,
+    bool Succeeded,
+    long RunOrder,
+    long DurationSeconds);
+public sealed record SqlAgentHealthSnapshot(
+    int TotalJobs,
+    int EnabledJobs,
+    int FailedLastRun,
+    IReadOnlyList<AgentJobRunSnapshot>? RecentRuns = null);
 public sealed record IoFileSnapshot(
     string FileKey,
     long Reads,
