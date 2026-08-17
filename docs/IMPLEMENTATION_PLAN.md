@@ -272,12 +272,22 @@ The production plan is complete only when P0-001..050 are reconciled, P0.1..P0.5
 - The bootstrap remains PlanOnly-by-default and preserves the existing authoritative preflight/deploy, immutable release, external `App_Data`, package SHA-256, acceptance and physical-path rollback semantics.
 - This work did not rebuild/repackage the selected RC.61 candidate, dispatch/publish #162, mutate a real IIS/SQL target or manufacture #116 evidence.
 
-## Issue #281 / PR #283 — Fresh-host IIS bootstrap and PowerShell 7 prerequisite — IN VALIDATION
+## Issue #281 / PR #283 — Fresh-host IIS bootstrap and PowerShell 7 prerequisite — COMPLETE
 
-- Port only the unique fresh-host/idempotency improvements from superseded PR #280 onto current main; do not reintroduce duplicate #279 workflow/docs changes.
-- Before any IIS/application mutation, `Install-ProductionSingleNode.ps1` must detect/prepare PowerShell 7 and require relaunch under `pwsh` if the operator starts in Windows PowerShell 5.1.
+- PR #283 ported only the unique fresh-host/idempotency improvements from superseded PR #280 onto current main and squash-merged as `75f4a3e9a8f84ac2c088b2ba77e4d9b18a80eb15`; duplicate #279 workflow/docs changes were not reintroduced.
+- Before any IIS/application mutation, `Install-ProductionSingleNode.ps1` detects/prepares PowerShell 7 and requires relaunch under `pwsh` if the operator starts in Windows PowerShell 5.1.
 - Online PowerShell mode is pinned to official v7.4.16 `PowerShell-7.4.16-win-x64.msi` with SHA-256 `2c0c2036b0032375ad4f7809a92d0b6fa4a8e4ee89a75211514c4cf55ae22495`; Offline mode accepts an operator-supplied MSI. Both paths require SHA-256 and Microsoft Corporation Authenticode verification.
 - Prerequisite installer exit `3010` and Windows-feature reboot requirements stop before IIS/application cutover; after installation the operator reruns from elevated PowerShell 7.
 - Bootstrap hardening includes robust .NET/ANCM discovery, exact approved Microsoft Hosting Bundle Online hosts, optional Hosting Bundle SHA-256, shared-IIS restart gating behind explicit `-AllowIisServiceRestart`, PFX reuse, binding drift fail-closed behavior and conditional ACL handling.
 - Dedicated regression tests plus `docs/IIS_FRESH_HOST_BOOTSTRAP.md` and `docs/work/P0-053.md` cover these boundaries.
-- PR #283 may merge only after exact-head normal CI, applicable Real SQL and Windows production-candidate are Green. It cannot satisfy or bypass #162/#116/#111.
+- Exact-head CI #1957, Real SQL #138 and Windows production-candidate #228 passed Green; post-merge main CI #1958 passed. This work did not satisfy or bypass #162/#116/#111.
+
+## Issue #285 / PR #286 — Clean IIS start without implicit demo data — IN VALIDATION
+
+- Make the sample DA-SQL01..04 estate explicit configuration instead of an unavoidable fallback: base and Production default `DemoData:Enabled=false`; Development explicitly opts in.
+- A fresh/empty persistent store must render a truthful zero-registration dashboard and direct the operator to Connection Lab until a real SQL Server is added/tested/saved; registered real targets and cached snapshot mapping remain unchanged.
+- Keep POST failure handling truthful under IIS/ASP.NET Core status-code re-execution by making `/error` and `/error/status/{statusCode}` verb-agnostic; targeted regression coverage prevents HTTP 405 from masking the intended error surface.
+- Document the disposable staging reset in `docs/IIS_CLEAN_STAGING.md`: removing `App_Data` deletes local registrations, protected SQL secrets, Data Protection keys, audit/history/incidents and local operational backups and must not be treated as a production migration procedure.
+- Implementation head `4ad760d48be8a5bd3066da928f1859d7ecdfe6e7` passed CI #1974 / `32008790112` and Windows production-candidate #232 / `32008790126` Green. Pre-canonical-reconciliation head `5aad3173b2c1f7116324ac98ee015e686ae56c93` passed CI #1983 and Windows production-candidate #234 Green.
+- Final merge requires this canonical plan/status/feature-catalog reconciliation, no unresolved review threads, branch-current-with-main verification and Green CI/production-candidate on the final documentation-reconciled head.
+- Safety boundary remains repository/staging only: no selected RC.61 rebuild/repackage/publication, real production IIS/SQL mutation, #116 acceptance manufacture or bypass of `#162 -> #116 -> #111`.
