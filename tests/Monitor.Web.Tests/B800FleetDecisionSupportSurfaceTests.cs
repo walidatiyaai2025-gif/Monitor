@@ -7,21 +7,23 @@ public sealed class B800FleetDecisionSupportSurfaceTests
     private static readonly string Root = FindRoot();
 
     [Fact]
-    public void FleetService_UsesOpenIncidentsAndOperatorPolicyFactsOnly()
+    public void FleetService_UsesBoundedActiveIncidentsAndOperatorPolicyFactsOnly()
     {
         var service = Read("src/Monitor.Web/Services/FleetIntelligenceService.cs");
 
-        Assert.Contains("item.Status != IncidentStatus.Resolved", service, StringComparison.Ordinal);
+        Assert.Contains("BoundedIncidentReadModel.ActiveForRegistrations", service, StringComparison.Ordinal);
+        Assert.Contains("incidentRead.IsComplete", service, StringComparison.Ordinal);
         Assert.Contains("item.Server.Suppressed", service, StringComparison.Ordinal);
         Assert.Contains("item.Server.Maintenance", service, StringComparison.Ordinal);
         Assert.Contains("ReadAssignee(item.Incident.Id)", service, StringComparison.Ordinal);
         Assert.Contains("FleetDecisionSupport.Build", service, StringComparison.Ordinal);
+        Assert.DoesNotContain("incidents.GetAll()", service, StringComparison.Ordinal);
         Assert.DoesNotContain("SqlConnection", service, StringComparison.Ordinal);
         Assert.DoesNotContain("SnapshotQuery", service, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void DecisionSupportSurface_IsReadOnlyAndExplicitlyNonExecuting()
+    public void DecisionSupportSurface_IsReadOnlyExplicitlyNonExecutingAndTruthfulOnOverflow()
     {
         var view = Read("src/Monitor.Web/Views/Shared/_FleetDecisionSupport.cshtml");
         var fleet = Read("src/Monitor.Web/Views/FleetIntelligence/Index.cshtml");
@@ -30,6 +32,9 @@ public sealed class B800FleetDecisionSupportSurfaceTests
         Assert.Contains("No notification is sent", view, StringComparison.Ordinal);
         Assert.Contains("no sender, pager or mutation action", view, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("_FleetDecisionSupport", fleet, StringComparison.Ordinal);
+        Assert.Contains("Fleet decision support not evaluated", fleet, StringComparison.Ordinal);
+        Assert.Contains("partial incident set", fleet, StringComparison.Ordinal);
+        Assert.Contains("Rule hot-spots are unavailable", fleet, StringComparison.Ordinal);
         Assert.DoesNotContain("method=\"post\"", view, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("asp-action=\"Send", view, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("asp-action=\"Page", view, StringComparison.OrdinalIgnoreCase);

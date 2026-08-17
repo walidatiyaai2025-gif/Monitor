@@ -43,8 +43,8 @@ Browser GET navigation remains cache/control-plane only. Where a diagnostic dime
 | Connection Lab | registration/test/credential workflow | B800 test-before-save, write-only secret and protected action wiring regression-locked |
 | Audit | bounded audit store | Wired |
 | History | stored snapshot trends | B800 bounded window/limit/paging navigation regression-locked |
-| Fleet Intelligence | enterprise metadata/incidents projection + B300/B400 decision helpers | **B800-071 bounded correlation clusters and routing recommendations wired as read-only `RECOMMENDATION ONLY` evidence; no notification is sent** |
-| Enterprise Operations | governance metadata/incidents control plane | **B800 role matrix regression-locked; B800-072 links each enabled server to GET-only maintenance safety decision support protected by `Monitor.Read`** |
+| Fleet Intelligence | enterprise metadata/incidents projection + B300/B400 decision helpers | **B800-071 correlation/routing is merged; B800-073 now bounds active incident evidence admitted to Fleet decisions and withholds clusters/routing/hot-spots on overflow rather than evaluating a partial set** |
+| Enterprise Operations | governance metadata/incidents control plane | **B800 role matrix regression-locked; B800-072 maintenance decision support is merged and B800-073 makes critical-incident evidence unavailable on overflow so readiness stays `NotEvaluated`** |
 | Observability | control-plane telemetry/readiness | Existing surface; validate source/readiness states |
 | Settings | readiness + operational backup/restore POST workflows | B800 Administrator-only Create/Validate/Restore, exact `RESTORE` confirmation, audit and safe feedback regression-locked |
 | Governance retention | dry-run/apply workflow | B800 destructive apply now requires exact typed `PRUNE`; rejection is audited and fails closed |
@@ -61,6 +61,8 @@ Wait and file-I/O counters are cumulative since SQL Server start and are normali
 B300 estate identity and runtime-pressure helpers are wired from cached evidence. B300 per-database state classification/actionable/worst-observed helpers are now wired only from retained exact database-state rows rather than reconstructing detail from aggregate `OfflineOrOther`. B400 wait intelligence, B400 file-I/O intelligence, and the run-history portions of B400 Agent reliability are wired from bounded cached evidence. Bounded current Agent activity/next-run metadata is also available, but lateness scoring remains disabled until the time-zone/recurrence/expected-run contract exists. B800-064 now provides explicit policy-backed Full/Log RPO configuration with no numeric defaults; the Backups page can display that policy metadata but deliberately does not invoke `Batch300BackupCompliance` because the snapshot still lacks per-database recovery model and last log-backup timestamps. B400 query-regression, TempDB, transaction-log and HA helpers still require explicit new snapshot evidence before they can be truthfully displayed.
 
 B800-071 and B800-072 deliberately consume only repository/control-plane evidence. Fleet routing/correlation uses current incidents plus registered-server environment, suppression, maintenance and optional assignee metadata. Maintenance decision support uses enabled registration, server environment, observed configured maintenance-window activity and current open critical-incident count. Governed approval, rollback-plan, independently approved-window, replica-readiness and policy-backed recent-backup facts remain nullable; the maintenance surface returns `NotEvaluated` whenever the selected operation actually requires an unavailable fact. An observed configured window is never promoted into approval evidence.
+
+B800-073 centralizes the incident evidence admitted into Fleet/Maintenance operator decisions through `BoundedIncidentReadModel`. The default decision-input limit is 100, matching the existing `PerformanceScaleOptions.IncidentMaxPageSize` default. Active incidents are scoped to the relevant registration set, deterministically ordered and retained only up to the bound; one additional row is inspected so overflow is explicit. A truncated set is never treated as complete: Fleet withholds B400 correlation/B300 routing and rule hot-spots, while Maintenance supplies `null` for active Critical incident count so the B800-072 wrapper remains `NotEvaluated` instead of inferring zero. The underlying `IHealthIncidentRepository.GetAll()` remains a legacy storage API inside this centralized projection; B800-073 does **not** claim File/Shared/InMemory storage materialization is now server-query-bounded or paged.
 
 ## Task program
 
@@ -152,8 +154,9 @@ B800-071 and B800-072 deliberately consume only repository/control-plane evidenc
 ### B800-071..080 — fleet / routing / maintenance intelligence
 
 - [x] B800-071 wire bounded B400 fleet-correlation clusters and B300 routing recommendations from current incident/control-plane facts into Fleet Intelligence as read-only decision support; no sender, incident mutation or remediation (`docs/work/B800-071.md`, PR #303 merged as `3821d1a1ebd15039a3c93b1e77ff7bac210e0b08`).
-- [x] B800-072 expose B400 maintenance-safety rules as GET-only operator decision support with nullable required-evidence gating; observed configured maintenance windows are not treated as approval, and no maintenance operation can execute (`docs/work/B800-072.md`, PR #304).
-- [ ] B800-073..080 continue only evidence-supported fleet/routing/maintenance intelligence; no autonomous action and no fabricated governance/readiness facts.
+- [x] B800-072 expose B400 maintenance-safety rules as GET-only operator decision support with nullable required-evidence gating; observed configured maintenance windows are not treated as approval, and no maintenance operation can execute (`docs/work/B800-072.md`, PR #304 merged as `ce81b47ee4de09ced03e4ae275e639a93d1fecb9`).
+- [x] B800-073 bound active incident evidence admitted into Fleet/Maintenance decisions; overflow is explicit and prevents partial-set correlation/routing/hot-spot or false-zero maintenance decisions (`docs/work/B800-073.md`, PR #305).
+- [ ] B800-074..080 continue only evidence-supported fleet/routing/maintenance intelligence; no autonomous action and no fabricated governance/readiness facts.
 
 ### B800-081..090 — reports and exports
 
@@ -264,8 +267,8 @@ Per-database state slice:
 Fleet correlation/routing decision-support slice:
 - `src/Monitor.Web/Services/FleetDecisionSupport.cs`
 - `src/Monitor.Web/Services/FleetIntelligenceService.cs`
-- `src/Monitor.Web/Views/Enterprise/Fleet.cshtml`
-- `src/Monitor.Web/Views/Enterprise/_FleetDecisionSupport.cshtml`
+- `src/Monitor.Web/Views/FleetIntelligence/Index.cshtml`
+- `src/Monitor.Web/Views/Shared/_FleetDecisionSupport.cshtml`
 - `tests/Monitor.Web.Tests/B800FleetDecisionSupportTests.cs`
 - `tests/Monitor.Web.Tests/B800FleetDecisionSupportSurfaceTests.cs`
 - `docs/work/B800-071.md`
@@ -279,6 +282,17 @@ Maintenance safety decision-support slice:
 - `tests/Monitor.Web.Tests/B800MaintenanceDecisionSupportSurfaceTests.cs`
 - `docs/work/B800-072.md`
 
+Bounded incident decision-evidence slice:
+- `src/Monitor.Web/Services/BoundedIncidentReadModel.cs`
+- `src/Monitor.Web/Services/FleetIntelligenceService.cs`
+- `src/Monitor.Web/Controllers/MaintenanceDecisionSupportController.cs`
+- `src/Monitor.Web/Views/FleetIntelligence/Index.cshtml`
+- `src/Monitor.Web/Views/MaintenanceDecisionSupport/Index.cshtml`
+- `tests/Monitor.Web.Tests/B800BoundedIncidentReadModelTests.cs`
+- `tests/Monitor.Web.Tests/B800FleetDecisionSupportSurfaceTests.cs`
+- `tests/Monitor.Web.Tests/B800MaintenanceDecisionSupportSurfaceTests.cs`
+- `docs/work/B800-073.md`
+
 ## Validation chronology
 
 - Initial Server Details slice: CI Green.
@@ -291,8 +305,10 @@ Maintenance safety decision-support slice:
 - B800-030 follow-up pre-reconciliation head `ef3d0d34260e0a6f7574331d73aa53f375a7231a` passed CI #2256; later focused slices supersede that head as current batch evidence.
 - B800-064 implementation head `129fddec046467bc853675871af8991f88fd404c` passed normal CI #2275 before later BATCH work.
 - B800-071 exact final head `5a18b5167cc24cd292ce7826fb144434762c7eae` passed CI #2393 and Windows production-candidate #393; Real SQL was not selected because the slice added no monitored-SQL query/collector/permission path. PR #303 squash-merged as `3821d1a1ebd15039a3c93b1e77ff7bac210e0b08`.
-- B800-072 pre-canonical implementation head `40b4ffe9402a498c8a4e1b78d9d2eee730bfd2a5` passed PR CI run `32026739461` and Windows production-candidate run `32026739447`; Real SQL was not selected because the slice adds no monitored-SQL path. Canonical reconciliation moves the head, so these runs are implementation evidence only and the final reconciled SHA still requires exact-head gates before Ready/merge.
+- B800-072 exact final head `4b57a688150f974f8f3cd5b7255912b7e3328260` passed CI run `32028002814`, Real SQL run `32028002795`, and Windows production-candidate run `32028002783`; PR #304 squash-merged as `ce81b47ee4de09ced03e4ae275e639a93d1fecb9`.
+- B800-073 first implementation CI exposed only xUnit analyzer `xUnit2000` on one new assertion; expected/actual order was corrected with no product-contract weakening.
+- B800-073 pre-canonical implementation head `a834dcb03ee969e458525e06b1fcf31d31c4df89` passed CI run `32029466447` and Windows production-candidate run `32029466442`. Real SQL was not selected because this slice adds no monitored-SQL query/collector/permission path. Canonical reconciliation moves the source SHA, so these runs are implementation evidence only.
 
-## Current B800-072 merge gate
+## Current B800-073 merge gate
 
-PR #304 is the current focused B800 slice. `docs/FEATURE_CATALOG.md`, `docs/STATUS.md`, `docs/IMPLEMENTATION_PLAN.md`, and this ledger must describe B800-071 as merged and B800-072 as the current maintenance decision-support slice. Before PR #304 is marked Ready or merged, normal CI and Windows production-candidate must be Green on the same exact final head; Real SQL is required only if repository path policy selects it. The branch must remain current with `main`, review threads must remain resolved, and the effective diff must stay bounded to the B800-072 implementation plus canonical reconciliation. Issue #287 remains OPEN for B800-073+.
+PR #305 is the current focused B800 slice. `docs/FEATURE_CATALOG.md`, `docs/STATUS.md`, `docs/IMPLEMENTATION_PLAN.md`, and this ledger must describe B800-072 as merged and B800-073 as the current bounded incident decision-evidence slice. Before PR #305 is marked Ready or merged, every repository-selected required workflow must be Green on the same exact final reconciled head, the branch must remain current with `main`, review threads must remain resolved, and the effective diff must stay bounded to B800-073 implementation/tests/work-note plus canonical reconciliation. Real SQL is required only if repository path policy selects it. Issue #287 remains OPEN for B800-074+.
