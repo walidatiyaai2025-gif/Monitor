@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Text.Json;
 using Monitor.Web.Models;
 
 namespace Monitor.Web.Services;
@@ -24,16 +25,23 @@ public interface IServerHealthSnapshotCache
 public sealed class ServerHealthSnapshotCache(
     ISqlServerSnapshotCollector collector,
     TimeProvider timeProvider,
-    PerformanceScaleOptions? performance = null) : IServerHealthSnapshotCache
+    PerformanceScaleOptions? performance = null,
+    IServiceProvider? services = null) : IServerHealthSnapshotCache
 {
     internal static readonly TimeSpan FreshFor = TimeSpan.FromSeconds(30);
     internal static readonly TimeSpan RetainStaleFor = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan TempDbTimeout = TimeSpan.FromSeconds(3);
 
     private readonly ConcurrentDictionary<Guid, ServerHealthSnapshot> _snapshots = new();
     private readonly ConcurrentDictionary<Guid, Lazy<Task<ServerHealthSnapshot>>> _inflight = new();
     private readonly ConcurrentDictionary<Guid, long> _generations = new();
     private readonly object _trimGate = new();
     private readonly int _maxEntries = ResolveCapacity(performance);
+    private readonly IConnectionSecretStore? _secretStore = services?.GetService(typeof(IConnectionSecretStore)) as IConnectionSecretStore;
+    private readonly TempDbSnapshotQuery? _tempDbQuery =
+        services?.GetService(typeof(IConnectionSecretStore)) is IConnectionSecretStore
+            ? new TempDbSnapshotQuery(performance)
+            : null;
 
     public SnapshotCacheResult? Peek(Guid registrationId)
     {
@@ -111,6 +119,7 @@ public sealed class ServerHealthSnapshotCache(
         try
         {
             var snapshot = await collector.CollectAsync(registration, CancellationToken.None);
+            snapshot = await TryEnrichTempDbAsync(registration, snapshot);
             if (_generations.GetOrAdd(registration.Id, 0) != generation)
             {
                 throw new SnapshotCollectionException(
@@ -127,6 +136,43 @@ public sealed class ServerHealthSnapshotCache(
         finally
         {
             _inflight.TryRemove(registration.Id, out _);
+        }
+    }
+
+    private async Task<ServerHealthSnapshot> TryEnrichTempDbAsync(
+        ServerRegistration registration,
+        ServerHealthSnapshot snapshot)
+    {
+        if (_tempDbQuery is null || _secretStore is null) return snapshot;
+
+        try
+        {
+            SqlLoginSecret? secret = null;
+            if (registration.AuthenticationMode == SqlAuthenticationMode.SqlLogin)
+            {
+                secret = await _secretStore.ResolveAsync(registration.SecretReference!.Value, CancellationToken.None);
+                if (secret is null) return snapshot;
+            }
+
+            using var timeout = new CancellationTokenSource(TempDbTimeout);
+            var row = await _tempDbQuery.ExecuteAsync(registration, secret, timeout.Token);
+            return snapshot with { TempDb = TempDbEvidenceMapper.Map(row) };
+        }
+        catch (OperationCanceledException)
+        {
+            return snapshot;
+        }
+        catch (SqlProbeException)
+        {
+            return snapshot;
+        }
+        catch (InvalidDataException)
+        {
+            return snapshot;
+        }
+        catch (JsonException)
+        {
+            return snapshot;
         }
     }
 
