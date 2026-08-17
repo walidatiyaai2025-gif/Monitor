@@ -122,8 +122,10 @@ public sealed class ServerIntelligenceProjectionTests
 
         Assert.Contains("ServerIntelligenceProjection.Build(Model)", view, StringComparison.Ordinal);
         Assert.Contains("DBA INTELLIGENCE · BATCH-300 WIRED", view, StringComparison.Ordinal);
+        Assert.Contains("@intelligence.EvidenceStateLabel", view, StringComparison.Ordinal);
+        Assert.Contains("@intelligence.RuntimePressureStatusLabel", view, StringComparison.Ordinal);
         Assert.Contains("No monitored SQL query is started by this GET", view, StringComparison.Ordinal);
-        Assert.Contains("Missing evidence is not replaced with zero", view, StringComparison.Ordinal);
+        Assert.Contains("Missing or unavailable evidence is not replaced with zero", view, StringComparison.Ordinal);
     }
 
     private static ServerDetailsViewModel BuildModel(
