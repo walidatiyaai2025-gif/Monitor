@@ -2,7 +2,7 @@ using Monitor.Web.Models;
 
 namespace Monitor.Web.Services;
 
-public sealed record ServerOperatorPolicyState(Guid RegistrationId, bool PolicyReadable, bool MaintenanceActive, bool AlertSuppressed, ServerEnvironmentClass Environment, string? Group, IReadOnlyList<string> Tags);
+public sealed record ServerOperatorPolicyState(Guid RegistrationId, bool PolicyReadable, bool MaintenanceActive, bool AlertSuppressed, ServerEnvironmentClass Environment, string? Group, IReadOnlyList<string> Tags, ServerOperatorMetadata? Metadata = null);
 public sealed record IncidentOperatorPolicyState(string IncidentId, Guid RegistrationId, bool PolicyReadable, bool AlertSuppressed, string? Assignee);
 public sealed record OperatorPolicySummary(int ServersInMaintenance, int IncidentsActionable, int IncidentsSuppressed, int PolicyUnavailable);
 
@@ -24,7 +24,7 @@ public sealed class OperatorPolicyReadService(IOperatorMetadataStore metadata, T
         {
             var item = metadata.GetServer(registrationId);
             var now = timeProvider.GetUtcNow();
-            return new(registrationId, true, EnterpriseOperatorPolicy.IsMaintenanceActive(item, now), EnterpriseOperatorPolicy.IsAlertSuppressed(item, now), item.Environment, item.Group, item.Tags.ToArray());
+            return new(registrationId, true, EnterpriseOperatorPolicy.IsMaintenanceActive(item, now), EnterpriseOperatorPolicy.IsAlertSuppressed(item, now), item.Environment, item.Group, item.Tags.ToArray(), item);
         }
         catch (InvalidDataException)
         {
