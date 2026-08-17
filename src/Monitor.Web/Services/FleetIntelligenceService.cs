@@ -25,7 +25,9 @@ public sealed record FleetIntelligenceSnapshot(
     IReadOnlyList<FleetRuleHotspot> RuleHotspots,
     FleetRiskSummary Risks,
     FleetAdvancedEvidenceSummary? Advanced = null,
-    FleetDecisionSupportSnapshot? DecisionSupport = null);
+    FleetDecisionSupportSnapshot? DecisionSupport = null,
+    bool IncidentEvidenceComplete = true,
+    int IncidentEvidenceLimit = BoundedIncidentReadModel.DefaultLimit);
 
 public interface IFleetIntelligenceService
 {
@@ -66,26 +68,30 @@ public sealed class FleetIntelligenceService(
             ? [(Key: "Untagged", Item: item)]
             : item.Tags.Select(tag => (Key: tag, Item: item))));
 
-        var incidentRows = incidents.GetAll()
-            .Where(item => item.Status != IncidentStatus.Resolved)
+        var incidentRead = BoundedIncidentReadModel.ActiveForRegistrations(
+            incidents,
+            servers.Select(item => item.Id));
+        var incidentRows = incidentRead.Incidents
             .Select(incident =>
             {
                 var server = servers.FirstOrDefault(item => item.Id == incident.RegistrationId);
                 return (Incident: incident, Server: server, Suppressed: server?.Suppressed ?? false);
             })
             .ToArray();
-        var hotspots = incidentRows
-            .GroupBy(item => item.Incident.RuleId, StringComparer.Ordinal)
-            .Select(group => new FleetRuleHotspot(
-                group.Key,
-                group.Count(),
-                group.Count(item => item.Incident.Severity == FindingSeverity.Critical),
-                group.Count(item => item.Suppressed)))
-            .OrderByDescending(item => item.Critical)
-            .ThenByDescending(item => item.Open)
-            .ThenBy(item => item.RuleId, StringComparer.Ordinal)
-            .Take(20)
-            .ToArray();
+        var hotspots = incidentRead.IsComplete
+            ? incidentRows
+                .GroupBy(item => item.Incident.RuleId, StringComparer.Ordinal)
+                .Select(group => new FleetRuleHotspot(
+                    group.Key,
+                    group.Count(),
+                    group.Count(item => item.Incident.Severity == FindingSeverity.Critical),
+                    group.Count(item => item.Suppressed)))
+                .OrderByDescending(item => item.Critical)
+                .ThenByDescending(item => item.Open)
+                .ThenBy(item => item.RuleId, StringComparer.Ordinal)
+                .Take(20)
+                .ToArray()
+            : [];
 
         var risks = new FleetRiskSummary(
             servers.Sum(item => item.Snapshot?.Snapshot.Backups?.MissingFullBackupLast24Hours ?? 0),
@@ -102,18 +108,20 @@ public sealed class FleetIntelligenceService(
             servers.Sum(item => item.Snapshot?.Snapshot.Ha?.DatabaseReplicas?.Count(database => database.IsSuspended == true) ?? 0),
             servers.Count(item => item.Snapshot?.Freshness == SnapshotFreshness.Stale && HasAdvancedEvidence(item.Snapshot.Snapshot)));
 
-        var decisionSupport = FleetDecisionSupport.Build(incidentRows
-            .Where(item => item.Server is not null)
-            .Select(item => new FleetDecisionIncident(
-                item.Incident.Id,
-                item.Incident.RegistrationId,
-                item.Incident.RuleId,
-                item.Incident.Severity,
-                item.Incident.LastSeenUtc,
-                item.Server!.Environment,
-                item.Server.Suppressed,
-                item.Server.Maintenance,
-                ReadAssignee(item.Incident.Id))));
+        var decisionSupport = incidentRead.IsComplete
+            ? FleetDecisionSupport.Build(incidentRows
+                .Where(item => item.Server is not null)
+                .Select(item => new FleetDecisionIncident(
+                    item.Incident.Id,
+                    item.Incident.RegistrationId,
+                    item.Incident.RuleId,
+                    item.Incident.Severity,
+                    item.Incident.LastSeenUtc,
+                    item.Server!.Environment,
+                    item.Server.Suppressed,
+                    item.Server.Maintenance,
+                    ReadAssignee(item.Incident.Id))))
+            : null;
 
         return new(
             byEnvironment,
@@ -127,7 +135,9 @@ public sealed class FleetIntelligenceService(
             hotspots,
             risks,
             advanced,
-            decisionSupport);
+            decisionSupport,
+            incidentRead.IsComplete,
+            incidentRead.Limit);
     }
 
     private string? ReadAssignee(string incidentId)
