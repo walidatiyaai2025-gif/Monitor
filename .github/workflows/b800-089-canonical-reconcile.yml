@@ -1,9 +1,9 @@
 name: b800-089-canonical-reconcile
 
 on:
-  push:
+  pull_request:
     branches:
-      - agent/b800-089-performance-health-export
+      - main
     paths:
       - .github/workflows/b800-089-canonical-reconcile.yml
 
