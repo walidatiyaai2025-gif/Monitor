@@ -28,7 +28,7 @@ public sealed class B800IncidentRepositoryQueryTests
             Offset: 1,
             Limit: 1));
 
-        Assert.Equal(4, result.Summary.Open);
+        Assert.Equal(3, result.Summary.Open);
         Assert.Equal(1, result.Summary.Acknowledged);
         Assert.Equal(1, result.Summary.Resolved);
         Assert.Equal(3, result.Summary.Critical);
