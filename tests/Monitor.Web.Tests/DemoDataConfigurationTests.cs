@@ -29,7 +29,7 @@ public sealed class DemoDataConfigurationTests
 
         Assert.Empty(servers);
         Assert.Empty(page.Items);
-        Assert.Equal(0, page.Total);
+        Assert.Equal(0, page.TotalCount);
         Assert.Empty(dashboard.Servers);
         Assert.Empty(dashboard.Incidents);
         Assert.Contains(dashboard.Metrics, item => item.Name == "Registered servers" && item.Value == "0");
