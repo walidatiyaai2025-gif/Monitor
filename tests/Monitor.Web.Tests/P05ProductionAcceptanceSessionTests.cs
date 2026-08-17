@@ -43,6 +43,8 @@ public sealed class P05ProductionAcceptanceSessionTests
         Assert.Contains("$normalizedToolingCommit = $OperatorToolingCommit.ToLowerInvariant()", text, StringComparison.Ordinal);
         Assert.Contains("operatorToolingCommit = $normalizedToolingCommit", text, StringComparison.Ordinal);
         Assert.Contains("OperatorToolingCommit = $normalizedToolingCommit", text, StringComparison.Ordinal);
+        Assert.Contains("ExpectedOperatorToolkitManifestSha256", text, StringComparison.Ordinal);
+        Assert.Contains("operatorToolkitManifestSha256 = $expectedToolkitManifestHash", text, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -105,13 +107,17 @@ public sealed class P05ProductionAcceptanceSessionTests
         Assert.Contains("scripts/New-ProductionAcceptanceSession.ps1", workflow, StringComparison.Ordinal);
         Assert.Contains("scripts/Test-ProductionAcceptanceSession.ps1", workflow, StringComparison.Ordinal);
         Assert.Contains("Exercise immutable production acceptance session initializer", workflow, StringComparison.Ordinal);
-        Assert.Contains("Copy-Item scripts/New-ProductionAcceptanceSession.ps1", workflow, StringComparison.Ordinal);
+        Assert.Contains("$env:MONITOR_PACKAGED_TOOLKIT_ROOT/New-ProductionAcceptanceSession.ps1", workflow, StringComparison.Ordinal);
+        Assert.Contains("Export-ProductionAcceptanceToolkit.ps1", workflow, StringComparison.Ordinal);
+        Assert.Contains("Test-ProductionAcceptanceToolkit.ps1", workflow, StringComparison.Ordinal);
         Assert.Contains("ExpectedProductSha256 = $hash", runtime, StringComparison.Ordinal);
         Assert.Contains("OperatorToolingCommit = $toolingCommit", runtime, StringComparison.Ordinal);
+        Assert.Contains("ExpectedOperatorToolkitManifestSha256 = $toolkit.ToolkitManifestSha256", runtime, StringComparison.Ordinal);
         Assert.Contains("reused session root unexpectedly passed", runtime, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("tampered checksum unexpectedly passed", runtime, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Substituted ZIP and checksum pair unexpectedly passed selected-hash binding", runtime, StringComparison.Ordinal);
         Assert.Contains("non-zip artifact unexpectedly passed", runtime, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("wrong independently supplied Acceptance Control Toolkit manifest SHA-256 unexpectedly passed", runtime, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("secret-like session metadata unexpectedly passed", runtime, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("traversal-bearing absolute session root unexpectedly passed", runtime, StringComparison.OrdinalIgnoreCase);
     }
@@ -124,6 +130,7 @@ public sealed class P05ProductionAcceptanceSessionTests
         Assert.Contains("New-ProductionAcceptanceSession.ps1", text, StringComparison.Ordinal);
         Assert.Contains("-ExpectedProductSha256", text, StringComparison.Ordinal);
         Assert.Contains("-OperatorToolingCommit", text, StringComparison.Ordinal);
+        Assert.Contains("-ExpectedOperatorToolkitManifestSha256", text, StringComparison.Ordinal);
         Assert.Contains("d0a71f8a5611621ee388a1109dedc76e1a6e70357404cb62c9c7aa188f49c3d5", text, StringComparison.Ordinal);
         Assert.Contains("PreparedFailClosed", text, StringComparison.Ordinal);
         Assert.Contains("0/15", text, StringComparison.Ordinal);

@@ -1,13 +1,13 @@
 # P0.5 Canonical Tracking Delta
 
-**Updated:** 2026-08-16  
-**Parents:** #162 / #116 / #111  
+**Updated:** 2026-08-17  
+**Parents:** #261 / #260 / #258 / #162 / #116 / #111  
 **Selected cutover candidate:** **RC.61**  
-**Repository hardening state:** **COMPLETE through PR #219**  
+**Repository hardening state:** **COMPLETE through merged PR #259; #261 / PR #262 IN VERIFICATION**  
 **Durable RC.61 publication:** **PENDING MANUAL PROMOTION + SEPARATE READ-ONLY VERIFICATION**  
 **Real Windows/IIS production acceptance:** **PENDING EXTERNAL**
 
-This delta records repository-only P0.5 retention, workflow-supply-chain and durable-release hardening that occurred after the original RC.61 candidate was selected. It does not replace the live external acceptance checklist in #116 and cannot grant production acceptance.
+This delta records repository-only P0.5 retention, workflow-supply-chain, durable-release, locked-session and Acceptance Control Toolkit provenance hardening that occurred after the original RC.61 candidate was selected. It does not replace the live external acceptance checklist in #116 and cannot grant production acceptance.
 
 ## Selected RC.61 identity
 
@@ -23,9 +23,9 @@ This delta records repository-only P0.5 retention, workflow-supply-chain and dur
 
 Fresh source-artifact verification on 2026-08-16 confirmed artifact `9168574442` still exists with size `4,824,061` bytes, `expired=false`, the expected outer digest, source/head repository ID `1329517438`, and GitHub expiry `2026-09-12T04:41:34Z`.
 
-No promotion has been inferred from readiness evidence. At the latest check, `promote-existing-candidate` had zero workflow runs and tag/release `v0.1.0-rc.61` was absent.
+No promotion has been inferred from readiness evidence. At the latest check, `promote-existing-candidate` had zero workflow runs and tag/release `v0.1.0-rc.61` was absent. Repository-side acceptance-control hardening does not change that fact and does not supersede RC.61.
 
-## Retention and hardening ledger — COMPLETE
+## Retention and hardening ledger
 
 | Issue / PR | State | Repository result |
 |---|---|---|
@@ -57,8 +57,37 @@ No promotion has been inferred from readiness evidence. At the latest check, `pr
 | #216 / #217 | COMPLETE | Separate manual-only `verify-durable-release.yml` added with `contents: read` only; exact tag/commit/product verification is independent closure evidence for #162; CI `31933642305` Green. |
 | #218 / #219 | COMPLETE | Shared durable-release toolchain capability preflight fails fast on jq/realpath/stat/mktemp/find/sha256sum/mv semantic drift; CI `31935989980` and Windows `31935989954` Green on exact head `ca1e40acfac635650df32cd0bc60ed63df224380`, 919/919 tests. |
 | #243 / #245 | COMPLETE | Short `deploy/RC61_DURABLE_PROMOTION.md` reconciled with the hardened promotion/verification input contracts, including outer artifact digest and separate read-only verifier; PR #245 merged as `75661cfc730f60667d1786a9bcd6ca9427ef2faa` after CI #1656 and Windows #146 Green. |
+| #256 / #257 | COMPLETE | Production acceptance session requires an independently selected product SHA-256, rejects a mutually consistent substituted ZIP/checksum pair, re-hashes the copied candidate and binds both manifest/evidence to the selected product identity without changing RC.61. |
+| #258 + #260 / #259 | COMPLETE | Gate recording, finalization and production review are bound to the externally preserved session-manifest SHA-256 and exact six-file Acceptance Control Toolkit sidecar while RC.61 bytes remain unchanged. Exact source head `8d79361cccf98acfc0a1753d16de943458887389` passed CI #1751 / `31991194175`, Real SQL #112 / `31991194515`, and Windows production-candidate #170 / `31991194198`; PR #259 squash-merged as `c22c4e5e4f59576cbb41b8fc46886474f8749ebb`. |
+| #261 / #262 | IN VERIFICATION | Adds fail-closed clean-exact-commit export, deterministic `toolkit-manifest.json` + canonical SHA-256 lock, independent toolkit verification, independent toolkit-manifest hash binding into each acceptance session, manifest/lock + six-file re-verification before every Gate/Finalizer/Reviewer operation, Windows provenance negative runtime, and provenance-verified future candidate packaging. Final exact-head CI/Windows evidence and merge are still required before this row becomes COMPLETE. |
 
 All later CI-generated candidates mentioned by hardening PRs are implementation evidence only. **None supersedes RC.61** unless #116 explicitly selects another equivalently verified candidate.
+
+## Locked-session Acceptance Control Toolkit boundary
+
+PR #259 established the safe compatibility boundary for selected RC.61:
+
+- RC.61 product/deployment bytes remain byte-for-byte unchanged;
+- later Session/Gate/Finalizer/Reviewer controls are a sidecar, not a rebuild or repackaging of RC.61;
+- the immutable session locks `OperatorToolingCommit` and the SHA-256 of exactly six acceptance-control scripts;
+- every later evidence mutation/review re-hashes those six files and verifies the externally preserved `session-manifest.json` SHA-256;
+- RC.61 candidate-bundled deployment/preflight/HTTPS tooling remains distinct from the sidecar acceptance-control state machinery.
+
+The exact PR #259 source head `8d79361cccf98acfc0a1753d16de943458887389` is retained as historical proof of the locked-session implementation that passed all required repository gates before merge.
+
+## #261 / PR #262 provenance hardening — IN VERIFICATION
+
+PR #262 closes the remaining manual provenance gap around how the six-file sidecar is staged. Its intended final contract is fail-closed:
+
+1. `Export-ProductionAcceptanceToolkit.ps1` requires an independently supplied exact 40-hex tooling commit, verifies Git `HEAD` equals it, requires tracked state to be clean, requires all six approved scripts to be tracked/present, rejects an output path inside the source checkout, and exports only to a fresh directory.
+2. The exporter writes deterministic `toolkit-manifest.json` containing schema/name, exact tooling commit, exact six filenames and each SHA-256, plus canonical `toolkit-manifest.sha256`. No candidate bytes, source archive, credentials or secrets are included.
+3. `Test-ProductionAcceptanceToolkit.ps1` independently requires both the expected tooling commit and expected toolkit-manifest SHA-256, checks the manifest lock, exact eight-entry root set (six scripts + manifest + lock), exact file order/names/hashes and rejects missing/extra/modified/commit-drift cases.
+4. `New-ProductionAcceptanceSession.ps1` requires `ExpectedOperatorToolkitManifestSha256`, verifies the staged toolkit manifest/lock + six current scripts before session creation, and records `operatorToolkitManifestSha256` beside `operatorToolingCommit` and `operatorToolingFiles` in the immutable session manifest.
+5. `Test-ProductionAcceptanceSessionBinding.ps1` re-verifies the current toolkit manifest hash/lock, exact commit/file-set entries and all six current script hashes against the locked session before any Gate/Finalizer/Reviewer operation can proceed.
+6. Windows runtime covers clean export/verify plus wrong commit, dirty tracked checkout, manifest tamper, extra file, modified file and missing file negatives. The future candidate workflow also exports and independently verifies the toolkit from exact Git HEAD before staging the six acceptance-control scripts and its manifest/lock.
+7. After #262 is Green and merged, the provenance-hardened cutover toolkit identity is the **exact final PR #262 source head** recorded on #261/#260/#258/#116. `main`, `latest`, a moving branch ref or an unrecorded later commit is not accepted as the tooling identity.
+
+Until exact final PR #262 Actions are Green and the PR is merged, this section remains **IN VERIFICATION** and no exact cutover tooling commit is inferred from an intermediate head.
 
 ## Current #162 execution contract
 
@@ -83,22 +112,24 @@ The required identity includes:
 
 After promotion is Green, separately dispatch `.github/workflows/verify-durable-release.yml` from `main`. This workflow is read-only and independently verifies tag provenance, release metadata, exact-two assets, asset IDs/sizes/digests/downloaded bytes and canonical checksum. The promotion workflow's own post-publication checks are not a substitute for this second run.
 
-Keep #162 open until both runs are Green and the tag, exact-two assets and durable product hash are independently verified.
+Keep #162 open until both runs are Green and the tag, exact-two assets and durable product hash are independently verified. Do not infer #162 completion from repository hardening alone.
 
 ## Canonical reconciliation state
 
-The canonical repository tracking is now intentionally aligned:
+The current repository tracking boundary is intentionally explicit:
 
-1. `docs/STATUS.md` records repository P0.5 hardening through PR #219 and keeps RC.61 publication pending manual #162;
-2. `docs/FEATURE_CATALOG.md` records the selected-candidate promotion implementation separately from actual publication;
-3. `docs/IMPLEMENTATION_PLAN.md` has been fully reconciled and records durable-release hardening through PR #219; the obsolete connector-size limitation no longer applies;
-4. `deploy/RC61_DURABLE_PROMOTION.md` is synchronized with the current promotion and independent-verification workflow inputs through PR #245;
-5. this delta records the same current boundary and no longer carries transient `IN VERIFICATION` states from already merged hardening work.
+1. `docs/STATUS.md`, `docs/FEATURE_CATALOG.md` and `docs/IMPLEMENTATION_PLAN.md` remain the canonical project surfaces; this delta records the exact post-RC.61 P0.5 chain-of-custody changes so they can be reconciled without losing external-gate semantics;
+2. merged PR #259 is COMPLETE with exact-head CI/Real-SQL/Windows evidence recorded above;
+3. #261 / PR #262 is IN VERIFICATION until its final exact source head passes applicable Actions and is merged;
+4. `deploy/RC61_ACCEPTANCE_CONTROL_TOOLKIT.md` and `docs/PRODUCTION_SINGLENODE_ACCEPTANCE.md` already carry the clean-commit export, independent toolkit-manifest SHA-256 and session-binding operator contract;
+5. `deploy/RC61_DURABLE_PROMOTION.md` remains the selected RC.61 retention handoff and is not replaced by acceptance-control provenance hardening.
+
+No repository tracking update may convert repository CI, toolkit export/verification, candidate packaging or synthetic evidence into a real production gate PASS.
 
 ## External production boundary
 
-Issues #116 and #111 remain OPEN. No repository CI, release-retention hardening, durable publication, independent release verification, UI completion, candidate packaging or synthetic 15/15 evidence can satisfy the actual production gate.
+Issues #116 and #111 remain OPEN. No repository CI, release-retention hardening, durable publication, independent release verification, UI completion, candidate packaging, toolkit provenance verification or synthetic 15/15 evidence can satisfy the actual production gate.
 
 The real #116 checklist still requires the intended trusted-certificate Windows/IIS SingleNode host, actual app-pool identity, validated pre-cutover backup, immutable acceptance session, trusted HTTPS authentication, least-privilege monitored SQL Test/Refresh, IIS recycle durability, operational-state durability, rollback/recovery rehearsal, 15 SHA-bound real gate records, explicit final operator acknowledgement and independent human review.
 
-This file does not dispatch promotion, create or mutate a release/tag, select a new candidate, deploy IIS, execute SQL, or close #162/#116/#111.
+This file does not dispatch promotion, create or mutate a release/tag, select a new candidate, deploy IIS, execute SQL, mark a real external gate PASS, or close #162/#116/#111.

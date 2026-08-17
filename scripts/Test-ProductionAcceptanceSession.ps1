@@ -8,6 +8,21 @@ $root = Join-Path $env:RUNNER_TEMP 'monitor-p0-5-acceptance-session-contract'
 Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $root | Out-Null
 
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+$toolingCommit = ((& git -C $repoRoot rev-parse --verify HEAD) | Select-Object -First 1).Trim().ToLowerInvariant()
+if ($LASTEXITCODE -ne 0 -or $toolingCommit -notmatch '^[a-f0-9]{40}$') {
+    throw 'Could not resolve exact Git HEAD for production acceptance toolkit session runtime.'
+}
+$toolRoot = Join-Path $root 'acceptance-control-toolkit'
+$toolkit = ./scripts/Export-ProductionAcceptanceToolkit.ps1 `
+    -ExpectedToolingCommit $toolingCommit `
+    -OutputDirectory $toolRoot
+./scripts/Test-ProductionAcceptanceToolkit.ps1 `
+    -ToolkitRoot $toolRoot `
+    -ExpectedToolingCommit $toolingCommit `
+    -ExpectedToolkitManifestSha256 $toolkit.ToolkitManifestSha256 | Out-Null
+$initializerPath = Join-Path $toolRoot 'New-ProductionAcceptanceSession.ps1'
+
 $version = '0.0.0-ci'
 $fileName = "Monitor-$version-win-x64.zip"
 $checksumName = "$fileName.sha256"
@@ -21,7 +36,6 @@ $checksumPath = Join-Path $sourceRoot $checksumName
 Compress-Archive -Path (Join-Path $payloadRoot '*') -DestinationPath $artifactPath -CompressionLevel Optimal -Force
 $hash = (Get-FileHash -LiteralPath $artifactPath -Algorithm SHA256).Hash.ToLowerInvariant()
 "$hash  $fileName" | Set-Content -LiteralPath $checksumPath -Encoding ascii
-$toolingCommit = ('c' * 40) -join ''
 
 $common = @{
     ArtifactPath = $artifactPath
@@ -31,6 +45,7 @@ $common = @{
     SourceCommit = ('a' * 40) -join ''
     TestedMergeCommit = ('b' * 40) -join ''
     OperatorToolingCommit = $toolingCommit
+    ExpectedOperatorToolkitManifestSha256 = $toolkit.ToolkitManifestSha256
     HostName = 'monitor.example.internal'
     SiteName = 'Monitor'
     AppPoolName = 'Monitor'
@@ -42,7 +57,7 @@ $common = @{
 }
 
 $sessionRoot = Join-Path $root 'session-good'
-$result = ./scripts/New-ProductionAcceptanceSession.ps1 @common -SessionRoot $sessionRoot
+$result = & $initializerPath @common -SessionRoot $sessionRoot
 if (-not (Test-Path -LiteralPath $sessionRoot -PathType Container)) { throw 'Session initializer did not create the target workspace.' }
 if ($result.ExternalGateCount -ne 15 -or $result.ExternalGatesPassed -ne 0 -or $result.ProductionAccepted) {
     throw 'Session initializer did not remain fail-closed at 0/15 external gates.'
@@ -50,8 +65,8 @@ if ($result.ExternalGateCount -ne 15 -or $result.ExternalGatesPassed -ne 0 -or $
 if ($result.SelectedProductSha256 -ne $hash) {
     throw 'Session initializer did not report the independently selected product SHA-256.'
 }
-if ($result.OperatorToolingCommit -ne $toolingCommit) {
-    throw 'Session initializer did not report the acceptance-control sidecar tooling commit.'
+if ($result.OperatorToolingCommit -ne $toolingCommit -or $result.OperatorToolkitManifestSha256 -ne $toolkit.ToolkitManifestSha256) {
+    throw 'Session initializer did not report the verified Acceptance Control Toolkit commit/manifest identity.'
 }
 
 $manifestPath = Join-Path $sessionRoot 'session-manifest.json'
@@ -72,8 +87,8 @@ if ($manifest.status -ne 'PreparedFailClosed' -or $manifest.externalGateCount -n
 if ($manifest.artifactSha256 -ne $hash -or $manifest.selectedProductSha256 -ne $hash -or $manifest.artifactFileName -ne $fileName) {
     throw 'Session manifest is not bound to the independently selected candidate bytes.'
 }
-if ($manifest.operatorToolingCommit -ne $toolingCommit) {
-    throw 'Session manifest is not bound to the acceptance-control sidecar tooling commit.'
+if ($manifest.operatorToolingCommit -ne $toolingCommit -or $manifest.operatorToolkitManifestSha256 -ne $toolkit.ToolkitManifestSha256) {
+    throw 'Session manifest is not bound to the independently verified Acceptance Control Toolkit manifest.'
 }
 
 $lockLine = (Get-Content -LiteralPath $manifestLockPath -Raw).Trim()
@@ -111,7 +126,7 @@ function Assert-SessionRejected {
 }
 
 Assert-SessionRejected `
-    -Action { ./scripts/New-ProductionAcceptanceSession.ps1 @common -SessionRoot $sessionRoot } `
+    -Action { & $initializerPath @common -SessionRoot $sessionRoot } `
     -FailureMessage 'Reused session root unexpectedly passed.'
 
 $tamperedRoot = Join-Path $root 'tampered-source'
@@ -124,7 +139,7 @@ $tamperedArgs = $common.Clone()
 $tamperedArgs.ArtifactPath = $tamperedArtifact
 $tamperedArgs.ChecksumPath = $tamperedChecksum
 Assert-SessionRejected `
-    -Action { ./scripts/New-ProductionAcceptanceSession.ps1 @tamperedArgs -SessionRoot (Join-Path $root 'session-tampered') } `
+    -Action { & $initializerPath @tamperedArgs -SessionRoot (Join-Path $root 'session-tampered') } `
     -FailureMessage 'Tampered checksum unexpectedly passed.'
 
 $substitutedRoot = Join-Path $root 'substituted-source'
@@ -141,7 +156,7 @@ $substitutedArgs = $common.Clone()
 $substitutedArgs.ArtifactPath = $substitutedArtifact
 $substitutedArgs.ChecksumPath = $substitutedChecksum
 Assert-SessionRejected `
-    -Action { ./scripts/New-ProductionAcceptanceSession.ps1 @substitutedArgs -SessionRoot (Join-Path $root 'session-substituted') } `
+    -Action { & $initializerPath @substitutedArgs -SessionRoot (Join-Path $root 'session-substituted') } `
     -FailureMessage 'Substituted ZIP and checksum pair unexpectedly passed selected-hash binding.'
 
 $nonZipRoot = Join-Path $root 'non-zip-source'
@@ -156,22 +171,28 @@ $nonZipArgs.ArtifactPath = $nonZipArtifact
 $nonZipArgs.ChecksumPath = $nonZipChecksum
 $nonZipArgs.ExpectedProductSha256 = $nonZipHash
 Assert-SessionRejected `
-    -Action { ./scripts/New-ProductionAcceptanceSession.ps1 @nonZipArgs -SessionRoot (Join-Path $root 'session-non-zip') } `
+    -Action { & $initializerPath @nonZipArgs -SessionRoot (Join-Path $root 'session-non-zip') } `
     -FailureMessage 'Non-ZIP artifact unexpectedly passed.'
+
+$wrongToolkitArgs = $common.Clone()
+$wrongToolkitArgs.ExpectedOperatorToolkitManifestSha256 = ('0' * 64) -join ''
+Assert-SessionRejected `
+    -Action { & $initializerPath @wrongToolkitArgs -SessionRoot (Join-Path $root 'session-wrong-toolkit-manifest') } `
+    -FailureMessage 'Wrong independently supplied Acceptance Control Toolkit manifest SHA-256 unexpectedly passed.'
 
 $secretArgs = $common.Clone()
 $secretArgs.OperationalBackupId = 'password=must-never-be-retained'
 Assert-SessionRejected `
-    -Action { ./scripts/New-ProductionAcceptanceSession.ps1 @secretArgs -SessionRoot (Join-Path $root 'session-secret') } `
+    -Action { & $initializerPath @secretArgs -SessionRoot (Join-Path $root 'session-secret') } `
     -FailureMessage 'Secret-like session metadata unexpectedly passed.'
 
 Assert-SessionRejected `
-    -Action { ./scripts/New-ProductionAcceptanceSession.ps1 @common -SessionRoot 'relative-session' } `
+    -Action { & $initializerPath @common -SessionRoot 'relative-session' } `
     -FailureMessage 'Relative session root unexpectedly passed.'
 
 $traversalRoot = "$root\segment\..\session-traversal"
 Assert-SessionRejected `
-    -Action { ./scripts/New-ProductionAcceptanceSession.ps1 @common -SessionRoot $traversalRoot } `
+    -Action { & $initializerPath @common -SessionRoot $traversalRoot } `
     -FailureMessage 'Traversal-bearing absolute session root unexpectedly passed.'
 
-Write-Host 'Immutable production acceptance session initializer contract passed: candidate and acceptance-control tooling commit are independently bound at 0/15 gates; negative reuse/checksum/twin-substitution/ZIP/secret/relative/traversal path cases rejected.'
+Write-Host 'Immutable production acceptance session initializer contract passed: candidate plus exact clean-commit Acceptance Control Toolkit manifest are independently bound at 0/15 gates; negative reuse/checksum/twin-substitution/ZIP/toolkit-manifest/secret/relative/traversal cases rejected.'

@@ -118,6 +118,7 @@ Assert-ExactProperties -Value $manifest -Allowed @(
     'sourceCommit',
     'testedMergeCommit',
     'operatorToolingCommit',
+    'operatorToolkitManifestSha256',
     'operatorToolingFiles',
     'hostName',
     'siteName',
@@ -155,12 +156,58 @@ $operatorToolingCommit = ([string]$manifest.operatorToolingCommit).ToLowerInvari
 if ($operatorToolingCommit -notmatch '^[a-f0-9]{40}$') {
     throw 'Session manifest operatorToolingCommit must be a full 40-hex repository commit SHA.'
 }
+$operatorToolkitManifestHash = ([string]$manifest.operatorToolkitManifestSha256).ToLowerInvariant()
+if ($operatorToolkitManifestHash -notmatch '^[a-f0-9]{64}$') {
+    throw 'Session manifest operatorToolkitManifestSha256 must be a 64-hex SHA-256.'
+}
+
+$toolkitManifestPath = Join-Path $PSScriptRoot 'toolkit-manifest.json'
+$toolkitManifestLockPath = Join-Path $PSScriptRoot 'toolkit-manifest.sha256'
+if (-not (Test-Path -LiteralPath $toolkitManifestPath -PathType Leaf) -or
+    -not (Test-Path -LiteralPath $toolkitManifestLockPath -PathType Leaf)) {
+    throw 'Acceptance Control Toolkit manifest/lock are missing beside the session binding verifier.'
+}
+$actualToolkitManifestHash = (Get-FileHash -LiteralPath $toolkitManifestPath -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($actualToolkitManifestHash -ne $operatorToolkitManifestHash) {
+    throw 'Acceptance Control Toolkit manifest SHA-256 drifted from the locked session manifest.'
+}
+$toolkitManifestLockLine = (Get-Content -LiteralPath $toolkitManifestLockPath -Raw).Trim()
+if ($toolkitManifestLockLine -cne "$operatorToolkitManifestHash  toolkit-manifest.json") {
+    throw 'toolkit-manifest.sha256 drifted from the locked session manifest.'
+}
+try {
+    $toolkitManifest = Get-Content -LiteralPath $toolkitManifestPath -Raw | ConvertFrom-Json -Depth 20
+}
+catch {
+    throw 'Acceptance Control Toolkit manifest is not valid JSON during session binding.'
+}
+Assert-ExactProperties -Value $toolkitManifest -Allowed @('schemaVersion', 'toolkitName', 'toolingCommit', 'fileCount', 'files', 'note') -Path '$toolkitManifest'
+if ([int]$toolkitManifest.schemaVersion -ne 1 -or [string]$toolkitManifest.toolkitName -cne 'Monitor Acceptance Control Toolkit') {
+    throw 'Acceptance Control Toolkit manifest schema/name drifted from the locked session contract.'
+}
+if (([string]$toolkitManifest.toolingCommit).ToLowerInvariant() -ne $operatorToolingCommit) {
+    throw 'Acceptance Control Toolkit manifest toolingCommit drifted from the locked session manifest.'
+}
+if ([int]$toolkitManifest.fileCount -ne $requiredOperatorToolingFiles.Count) {
+    throw 'Acceptance Control Toolkit manifest fileCount drifted from the locked session manifest.'
+}
+$toolkitEntries = @($toolkitManifest.files)
+if ($toolkitEntries.Count -ne $requiredOperatorToolingFiles.Count) {
+    throw 'Acceptance Control Toolkit manifest file set drifted from the locked session manifest.'
+}
 
 Assert-ExactProperties -Value $manifest.operatorToolingFiles -Allowed $requiredOperatorToolingFiles -Path '$manifest.operatorToolingFiles'
-foreach ($toolName in $requiredOperatorToolingFiles) {
+for ($i = 0; $i -lt $requiredOperatorToolingFiles.Count; $i++) {
+    $toolName = $requiredOperatorToolingFiles[$i]
     $expectedToolHash = ([string]$manifest.operatorToolingFiles.PSObject.Properties[$toolName].Value).ToLowerInvariant()
     if ($expectedToolHash -notmatch '^[a-f0-9]{64}$') {
         throw "Session manifest operatorToolingFiles.$toolName must be a 64-hex SHA-256."
+    }
+
+    $entry = $toolkitEntries[$i]
+    Assert-ExactProperties -Value $entry -Allowed @('fileName', 'sha256') -Path "`$toolkitManifest.files[$i]"
+    if ([string]$entry.fileName -cne $toolName -or ([string]$entry.sha256).ToLowerInvariant() -ne $expectedToolHash) {
+        throw "Acceptance Control Toolkit manifest entry drifted from the locked session file hash: $toolName"
     }
 
     $actualToolPath = Join-Path $PSScriptRoot $toolName
@@ -244,6 +291,7 @@ foreach ($pair in $identityPairs) {
     SessionManifestSha256 = $expectedManifestHash
     SelectedProductSha256 = $selectedProductHash
     OperatorToolingCommit = $operatorToolingCommit
+    OperatorToolkitManifestSha256 = $operatorToolkitManifestHash
     OperatorToolingFileCount = $requiredOperatorToolingFiles.Count
     CandidateArtifact = $candidateArtifactPath
     EvidencePack = $resolvedEvidencePath

@@ -84,16 +84,34 @@ After the #162 retention prerequisite is satisfied, record these values before c
 
 ## Acceptance Control Toolkit sidecar — RC.61 remains immutable
 
-Selected RC.61 predates the later selected-product-hash and locked-session acceptance hardening. **RC.61 product/deployment bytes remain unchanged**: do not rebuild or repackage the selected candidate to add newer acceptance controls.
+Selected RC.61 predates the later selected-product-hash, locked-session and clean-commit toolkit-provenance hardening. **RC.61 product/deployment bytes remain unchanged**: do not rebuild or repackage the selected candidate to add newer acceptance controls.
 
-Use the exact six-file Acceptance Control Toolkit sidecar defined in `deploy/RC61_ACCEPTANCE_CONTROL_TOOLKIT.md`. The sidecar must come from the exact final reviewed PR #259 head recorded on #260/#258/#116 after all required Actions are Green; do not use `main`, `latest`, a moving branch ref, or a later unreviewed commit as the tooling identity.
+Use the Acceptance Control Toolkit procedure defined in `deploy/RC61_ACCEPTANCE_CONTROL_TOOLKIT.md`. After #261 / PR #262 completes, the authoritative cutover toolkit must come from the **exact final PR #262 head** recorded on #261/#260/#258/#116 after all required exact-head Actions are Green. Do not use `main`, `latest`, a moving branch ref, or an unrecorded later commit as the tooling identity.
+
+The approved workstation must start from a clean exact Git checkout and export the toolkit rather than manually copying the six scripts:
 
 ```powershell
-$operatorToolingCommit = '<exact-final-PR-259-head-recorded-on-260-and-116>'
+$operatorToolingCommit = '<exact-final-PR-262-head-recorded-on-261-260-258-116>'
 $acceptanceTools = "C:\ProgramData\Monitor\AcceptanceTooling\$operatorToolingCommit"
+
+$toolkit = .\scripts\Export-ProductionAcceptanceToolkit.ps1 `
+  -ExpectedToolingCommit $operatorToolingCommit `
+  -OutputDirectory $acceptanceTools
+
+$operatorToolkitManifestSha256 = $toolkit.ToolkitManifestSha256
+
+.\scripts\Test-ProductionAcceptanceToolkit.ps1 `
+  -ToolkitRoot $acceptanceTools `
+  -ExpectedToolingCommit $operatorToolingCommit `
+  -ExpectedToolkitManifestSha256 $operatorToolkitManifestSha256
 ```
 
-The **sidecar** owns session/evidence state and must contain exactly:
+Preserve both non-secret toolkit anchors outside the mutable session:
+
+- `$operatorToolingCommit` — exact reviewed 40-hex source commit;
+- `$operatorToolkitManifestSha256` — independently verified 64-hex `toolkit-manifest.json` SHA-256.
+
+The **sidecar** owns session/evidence state and contains exactly the six acceptance-control scripts plus `toolkit-manifest.json` and `toolkit-manifest.sha256`:
 
 - `New-ProductionAcceptanceSession.ps1`
 - `New-ProductionAcceptanceEvidencePack.ps1`
@@ -101,12 +119,14 @@ The **sidecar** owns session/evidence state and must contain exactly:
 - `Set-ProductionAcceptanceGate.ps1`
 - `Complete-ProductionAcceptance.ps1`
 - `Test-ProductionAcceptanceEvidence.ps1`
+- `toolkit-manifest.json`
+- `toolkit-manifest.sha256`
 
 The **candidate-bundled** RC.61 `_operations` tools remain the source for deployment/preflight/HTTPS operations such as `_operations\scripts\Test-IisProductionPrerequisites.ps1`, `_operations\scripts\Deploy-ProductionSingleNode.ps1`, and `_operations\scripts\Accept-ProductionSingleNode.ps1`. The sidecar does not replace those RC.61 application/deployment bytes.
 
 ## Initialize one immutable production acceptance session
 
-Use the Acceptance Control Toolkit sidecar after the operational backup and rollback point are known. The selected product hash is an independent input; do not derive it from the companion checksum being supplied to the initializer.
+Use the independently verified Acceptance Control Toolkit sidecar after the operational backup and rollback point are known. The selected product hash, exact tooling commit and toolkit-manifest hash are independent inputs; do not derive them from mutable session files.
 
 ```powershell
 $session = & "$acceptanceTools\New-ProductionAcceptanceSession.ps1" `
@@ -118,6 +138,7 @@ $session = & "$acceptanceTools\New-ProductionAcceptanceSession.ps1" `
   -SourceCommit 'e28158da67b36dfc5dbf8f4c38b5c43d99c7c728' `
   -TestedMergeCommit '158148d8bfd05f724014541bc7a0b1eab5dae1b5' `
   -OperatorToolingCommit $operatorToolingCommit `
+  -ExpectedOperatorToolkitManifestSha256 $operatorToolkitManifestSha256 `
   -HostName 'monitor.example.internal' `
   -SiteName 'Monitor' `
   -AppPoolName 'Monitor' `
@@ -132,7 +153,9 @@ $sessionManifestSha256 = $session.ManifestSha256
 
 The initializer requires a fresh absolute Windows session root and refuses reuse. Before session creation it verifies exact candidate/checksum naming, requires the companion checksum and the ZIP bytes to match the independently selected `-ExpectedProductSha256`, validates readable ZIP structure and rejects secret/provider/connection-string/SQL-text-shaped metadata. A substituted ZIP and `.sha256` pair that agree with each other but do not match the selected product hash fails closed before the session workspace is created.
 
-The initializer also hashes the exact six acceptance-control sidecar files beside itself and writes both `operatorToolingCommit` and `operatorToolingFiles` into the SHA-locked session manifest. The session therefore binds the selected RC.61 product identity and the exact reviewed acceptance-control tooling identity without changing RC.61 bytes.
+The initializer also requires `toolkit-manifest.json` and `toolkit-manifest.sha256` beside itself, re-hashes the manifest against `-ExpectedOperatorToolkitManifestSha256`, validates the manifest's exact tooling commit/six-file structure, and re-hashes every sidecar script before creating the session.
+
+The SHA-locked `session-manifest.json` records `operatorToolingCommit`, `operatorToolkitManifestSha256` and `operatorToolingFiles` alongside the selected RC.61 product/environment identity. The session therefore binds candidate bytes and clean-commit acceptance-control provenance without changing RC.61 bytes.
 
 A successful session contains the copied candidate/checksum, `evidence/p0-5-evidence-pack.json`, bounded `evidence/proof/`, `session-manifest.json`, `session-manifest.sha256` and `OPERATOR-NEXT-STEPS.txt`. The candidate is rehashed after copy and the manifest/evidence pack remain bound to the selected product SHA-256.
 
@@ -142,27 +165,30 @@ Session creation proves **0/15** external gates. Every evidence-pack gate remain
 
 Verify `session-manifest.sha256` before the first production operation. Preserve `$sessionManifestSha256` in the approved operator record outside the mutable session files for the duration of the cutover. It is non-secret chain-of-custody evidence and is required by every gate recorder/finalizer call. Do not recompute or silently replace the expected value from a later manifest.
 
-Before recording any gate, `$acceptanceTools\Test-ProductionAcceptanceSessionBinding.ps1` verifies all of the following against that externally preserved manifest SHA-256:
+Before recording any gate, `$acceptanceTools\Test-ProductionAcceptanceSessionBinding.ps1` verifies all of the following against that externally preserved session-manifest SHA-256:
 
 - `session-manifest.json` hashes to the preserved value and `session-manifest.sha256` contains the same canonical lock;
 - manifest status remains `PreparedFailClosed`, `SingleNode`, 15 gates and 0 accepted gates in the immutable anchor;
-- the exact six `operatorToolingFiles` entries are present and every current sidecar file SHA-256 still matches the locked value;
+- `operatorToolkitManifestSha256` is a valid locked SHA-256 and current `toolkit-manifest.json` still hashes to it;
+- `toolkit-manifest.sha256` still contains that canonical hash and the manifest still records the exact `operatorToolingCommit` and six-file set;
+- the exact six `operatorToolingFiles` entries are present and every current sidecar file SHA-256 still matches both the toolkit manifest and locked session value;
 - candidate/evidence relative paths remain canonical and session-confined;
 - the copied candidate ZIP and companion checksum still match `selectedProductSha256`;
 - the evidence pack candidate version/source/tested-merge/artifact/hash and environment identity still match the locked session.
 
-A pack-only, manifest-only, candidate-byte, modified-tooling, missing-tooling or substituted-sidecar change therefore fails closed before a gate PASS can be recorded or final acceptance committed.
+A pack-only, session-manifest, toolkit-manifest/lock, candidate-byte, modified-tooling, missing-tooling or substituted-sidecar change therefore fails closed before a gate PASS can be recorded or final acceptance committed.
 
 ## Deployment procedure
 
 1. Confirm #162 durable promotion and separate read-only durable verification are Green for the exact selected RC.61 identity.
 2. Obtain the exact selected candidate bytes and verify their SHA-256 against the independently verified durable release.
 3. Create and validate the operational backup and preserve the previous release as the rollback point.
-4. Stage the exact reviewed Acceptance Control Toolkit sidecar, set `$operatorToolingCommit` / `$acceptanceTools`, create the immutable acceptance session above, preserve `$sessionManifestSha256`, verify `session-manifest.sha256` and confirm `PreparedFailClosed` / 0/15.
-5. Run candidate-bundled `_operations\scripts\Test-IisProductionPrerequisites.ps1` and retain its non-secret output beneath the session `evidence/proof` root.
-6. Run candidate-bundled `_operations\scripts\Deploy-ProductionSingleNode.ps1` without `-Apply`; review and retain the PLAN ONLY output.
-7. Apply the reviewed plan with explicit `-Apply`.
-8. Run the candidate-bundled HTTPS acceptance harness against the session-bound candidate:
+4. Export the exact reviewed Acceptance Control Toolkit from the independently selected commit, independently verify its toolkit-manifest SHA-256, preserve `$operatorToolingCommit` and `$operatorToolkitManifestSha256`, then create the immutable acceptance session above.
+5. Preserve `$sessionManifestSha256`, verify `session-manifest.sha256`, and confirm `PreparedFailClosed` / 0/15 before any production mutation.
+6. Run candidate-bundled `_operations\scripts\Test-IisProductionPrerequisites.ps1` and retain its non-secret output beneath the session `evidence/proof` root.
+7. Run candidate-bundled `_operations\scripts\Deploy-ProductionSingleNode.ps1` without `-Apply`; review and retain the PLAN ONLY output.
+8. Apply the reviewed plan with explicit `-Apply`.
+9. Run the candidate-bundled HTTPS acceptance harness against the session-bound candidate:
 
 ```powershell
 .\_operations\scripts\Accept-ProductionSingleNode.ps1 `
@@ -172,11 +198,11 @@ A pack-only, manifest-only, candidate-byte, modified-tooling, missing-tooling or
   -EvidencePath 'C:\ProgramData\Monitor\Acceptance\p0-5-rc-N\evidence\proof\health-acceptance.json'
 ```
 
-9. Authenticate through the actual trusted HTTPS endpoint.
-10. Register/Test/Refresh the approved least-privilege SQL target and retain bounded non-secret evidence.
-11. Recycle the IIS application pool and repeat health/auth/read checks.
-12. Prove registration, protected credential, audit/history/incident and cached/read state survived the recycle.
-13. Validate the operational backup, execute the approved rollback rehearsal and repeat health/auth/read checks after rollback.
+10. Authenticate through the actual trusted HTTPS endpoint.
+11. Register/Test/Refresh the approved least-privilege SQL target and retain bounded non-secret evidence.
+12. Recycle the IIS application pool and repeat health/auth/read checks.
+13. Prove registration, protected credential, audit/history/incident and cached/read state survived the recycle.
+14. Validate the operational backup, execute the approved rollback rehearsal and repeat health/auth/read checks after rollback.
 
 `Accept-ProductionSingleNode.ps1` validates artifact checksum and the three control-plane health endpoints. It intentionally does not claim recycle, credential, SQL privilege, backup or rollback success.
 
@@ -188,7 +214,9 @@ Immediately after session creation verify:
 
 - candidate copy hashes to the selected product SHA-256;
 - manifest `artifactSha256` and `selectedProductSha256` both equal the independently selected product SHA-256;
-- manifest `operatorToolingCommit` and all six `operatorToolingFiles` hashes match the exact reviewed sidecar;
+- manifest `operatorToolingCommit` equals the independently selected exact reviewed commit;
+- manifest `operatorToolkitManifestSha256` equals the independently preserved toolkit-manifest SHA-256;
+- all six `operatorToolingFiles` hashes match both the verified toolkit manifest and the current sidecar bytes;
 - `session-manifest.sha256` matches `session-manifest.json` and the externally preserved `$sessionManifestSha256`;
 - manifest state is `PreparedFailClosed`;
 - evidence pack contains exactly 15 required gates and all are false;
@@ -207,7 +235,7 @@ For each real environment gate, save one bounded text/JSON evidence file beneath
   -AcknowledgePass
 ```
 
-The recorder accepts only the exact gate names, requires explicit acknowledgement and the externally preserved session-manifest SHA-256, validates the locked session/candidate/sidecar/pack binding before mutation, confines evidence to the pack root, scans for secret/provider/connection-string/SQL-text material, computes evidence hash/time itself, modifies only one gate atomically and never writes final acceptance metadata.
+The recorder accepts only the exact gate names, requires explicit acknowledgement and the externally preserved session-manifest SHA-256, validates the locked session/candidate/toolkit/pack binding before mutation, confines evidence to the pack root, scans for secret/provider/connection-string/SQL-text material, computes evidence hash/time itself, modifies only one gate atomically and never writes final acceptance metadata.
 
 ### Exact 15 required real-environment gates
 
@@ -248,7 +276,7 @@ The explicit acknowledgement means the approved operator reviewed real environme
 
 ## Independent closure validation
 
-The finalizer runs the validator twice. A reviewer can independently re-run the authoritative validation with the same preserved session anchor and exact sidecar:
+The finalizer runs the validator twice. A reviewer can independently re-run the authoritative validation with the same preserved session anchor and exact verified sidecar:
 
 ```powershell
 & "$acceptanceTools\Test-ProductionAcceptanceEvidence.ps1" `
@@ -257,7 +285,7 @@ The finalizer runs the validator twice. A reviewer can independently re-run the 
   -ClosureSummaryPath 'C:\ProgramData\Monitor\Acceptance\p0-5-rc-N\evidence\p0-5-review-summary.json'
 ```
 
-The validator fails on missing/false/unknown gates, malformed candidate/environment metadata, non-SingleNode mode, missing/out-of-root evidence, hash mismatch or secret/provider/connection-string/SQL-text content. When `-ExpectedSessionManifestSha256` is supplied it first requires the same locked-session binding and includes `sessionManifestSha256` plus `selectedProductSha256` in the PASS closure summary. Standalone validation without this parameter remains available only as the low-level evidence-pack/schema validator; the production finalizer and production review path are session-bound.
+The validator fails on missing/false/unknown gates, malformed candidate/environment metadata, non-SingleNode mode, missing/out-of-root evidence, hash mismatch or secret/provider/connection-string/SQL-text content. When `-ExpectedSessionManifestSha256` is supplied it first requires the same locked-session binding and includes `sessionManifestSha256` plus `selectedProductSha256` in the PASS closure summary. The binding layer also re-verifies the toolkit manifest/lock and all six current sidecar hashes. Standalone validation without this parameter remains available only as the low-level evidence-pack/schema validator; the production finalizer and production review path are session-bound.
 
 Repository CI proves validator mechanics only; real operations must still be performed on the intended Windows/IIS host.
 
@@ -303,8 +331,8 @@ These results map to `operationalBackupValidated`, `rollbackRehearsed` and `post
 P0.5 can be marked COMPLETE only when all of the following are true:
 
 - #162 exact RC.61 manual promotion and separate read-only durable verification succeeded and the durable tag/exact-two assets/product hash were independently verified;
-- the selected candidate/checksum, independently selected product SHA-256, exact reviewed Acceptance Control Toolkit identity and environment identity were captured in one verified immutable session before cutover;
-- the session manifest SHA-256 was preserved outside the mutable session and all production gate recording/finalization/review remained bound to that exact anchor and all six locked sidecar hashes;
+- the selected candidate/checksum, independently selected product SHA-256, exact reviewed Acceptance Control Toolkit commit, independently verified toolkit-manifest SHA-256 and environment identity were captured in one verified immutable session before cutover;
+- the session manifest SHA-256 was preserved outside the mutable session and all production gate recording/finalization/review remained bound to that exact anchor, toolkit-manifest hash and all six locked sidecar hashes;
 - all 15 external evidence-pack gates are PASS from the real intended environment;
 - every gate has a matching evidence file and SHA-256;
 - the explicit finalizer succeeds with the approved operator identity;
@@ -317,4 +345,4 @@ Finalizing the evidence pack does not close GitHub issues automatically. #116 re
 
 ## Stop conditions
 
-Do not cut over, or rollback immediately, if durable RC.61 retention/independent verification is incomplete, the exact reviewed Acceptance Control Toolkit commit/files are missing or modified, the externally preserved session manifest hash or `session-manifest.sha256` no longer matches `session-manifest.json`, candidate/checksum bytes do not match the independently selected product SHA-256, the evidence pack candidate/environment identity drifts from the locked session, readiness is not Green, the application starts in unintended MultiNode mode, IIS/certificate/app-pool prerequisites fail, key-ring/state paths are unavailable, protected credentials cannot resolve after recycle, monitored SQL requires unexpected write/high privilege, backup/rollback evidence is missing, or finalizer/closure validator does not return PASS.
+Do not cut over, or rollback immediately, if durable RC.61 retention/independent verification is incomplete, the exact provenance-hardened Acceptance Control Toolkit commit is not recorded, clean-commit export/independent toolkit verification is incomplete, the independently preserved toolkit-manifest SHA-256 differs from `toolkit-manifest.json`/`toolkit-manifest.sha256`, any of the six toolkit files is missing/extra/modified, the externally preserved session manifest hash or `session-manifest.sha256` no longer matches `session-manifest.json`, candidate/checksum bytes do not match the independently selected product SHA-256, the evidence pack candidate/environment identity drifts from the locked session, readiness is not Green, the application starts in unintended MultiNode mode, IIS/certificate/app-pool prerequisites fail, key-ring/state paths are unavailable, protected credentials cannot resolve after recycle, monitored SQL requires unexpected write/high privilege, backup/rollback evidence is missing, or finalizer/closure validator does not return PASS.

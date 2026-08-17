@@ -28,6 +28,9 @@ on:
       - 'scripts/Accept-ProductionSingleNode.ps1'
       - 'scripts/Test-IisProductionPrerequisites.ps1'
       - 'scripts/Deploy-ProductionSingleNode.ps1'
+      - 'scripts/Export-ProductionAcceptanceToolkit.ps1'
+      - 'scripts/Test-ProductionAcceptanceToolkit.ps1'
+      - 'scripts/Test-ProductionAcceptanceToolingSidecar.ps1'
       - 'scripts/New-ProductionAcceptanceSession.ps1'
       - 'scripts/Test-ProductionAcceptanceSession.ps1'
       - 'scripts/Test-ProductionAcceptanceSessionBinding.ps1'
@@ -46,6 +49,7 @@ on:
       - 'tests/Monitor.Web.Tests/P05ProductionAcceptanceGateRecorderTests.cs'
       - 'tests/Monitor.Web.Tests/P05ProductionAcceptanceFinalizationTests.cs'
       - 'tests/Monitor.Web.Tests/P05ProductionAcceptanceSessionBindingTests.cs'
+      - 'tests/Monitor.Web.Tests/P05AcceptanceToolkitProvenanceTests.cs'
 
 permissions:
   contents: read
@@ -96,6 +100,9 @@ jobs:
             'scripts/Accept-ProductionSingleNode.ps1',
             'scripts/Test-IisProductionPrerequisites.ps1',
             'scripts/Deploy-ProductionSingleNode.ps1',
+            'scripts/Export-ProductionAcceptanceToolkit.ps1',
+            'scripts/Test-ProductionAcceptanceToolkit.ps1',
+            'scripts/Test-ProductionAcceptanceToolingSidecar.ps1',
             'scripts/New-ProductionAcceptanceSession.ps1',
             'scripts/Test-ProductionAcceptanceSession.ps1',
             'scripts/Test-ProductionAcceptanceSessionBinding.ps1',
@@ -118,17 +125,62 @@ jobs:
             }
           }
 
+      - name: Exercise Acceptance Control Toolkit provenance runtime
+        shell: pwsh
+        run: ./scripts/Test-ProductionAcceptanceToolingSidecar.ps1
+
       - name: Exercise immutable production acceptance session initializer
         shell: pwsh
         run: ./scripts/Test-ProductionAcceptanceSession.ps1
 
+      - name: Prepare session-chain toolkit manifest fixture
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $required = @(
+            'New-ProductionAcceptanceSession.ps1',
+            'New-ProductionAcceptanceEvidencePack.ps1',
+            'Test-ProductionAcceptanceSessionBinding.ps1',
+            'Set-ProductionAcceptanceGate.ps1',
+            'Complete-ProductionAcceptance.ps1',
+            'Test-ProductionAcceptanceEvidence.ps1'
+          )
+          $entries = foreach ($name in $required) {
+            [ordered]@{
+              fileName = $name
+              sha256 = (Get-FileHash -LiteralPath (Join-Path 'scripts' $name) -Algorithm SHA256).Hash.ToLowerInvariant()
+            }
+          }
+          $manifest = [ordered]@{
+            schemaVersion = 1
+            toolkitName = 'Monitor Acceptance Control Toolkit'
+            toolingCommit = (('c' * 40) -join '')
+            fileCount = $required.Count
+            files = @($entries)
+            note = 'Synthetic Windows session-chain fixture; production provenance is exercised separately from a clean exact Git commit.'
+          }
+          $manifestPath = 'scripts/toolkit-manifest.json'
+          $manifest | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $manifestPath -Encoding utf8NoBOM
+          $manifestHash = (Get-FileHash -LiteralPath $manifestPath -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$manifestHash  toolkit-manifest.json" | Set-Content -LiteralPath 'scripts/toolkit-manifest.sha256' -Encoding ascii
+          "MONITOR_OPERATOR_TOOLKIT_MANIFEST_SHA256=$manifestHash" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
       - name: Exercise explicit acceptance gate recorder
         shell: pwsh
-        run: ./scripts/Test-ProductionAcceptanceSessionChain.ps1 -Mode Recorder
+        run: |
+          $PSDefaultParameterValues['New-ProductionAcceptanceSession.ps1:ExpectedOperatorToolkitManifestSha256'] = $env:MONITOR_OPERATOR_TOOLKIT_MANIFEST_SHA256
+          ./scripts/Test-ProductionAcceptanceSessionChain.ps1 -Mode Recorder
 
       - name: Exercise final operator acceptance finalizer
         shell: pwsh
-        run: ./scripts/Test-ProductionAcceptanceSessionChain.ps1 -Mode Finalizer
+        run: |
+          $PSDefaultParameterValues['New-ProductionAcceptanceSession.ps1:ExpectedOperatorToolkitManifestSha256'] = $env:MONITOR_OPERATOR_TOOLKIT_MANIFEST_SHA256
+          ./scripts/Test-ProductionAcceptanceSessionChain.ps1 -Mode Finalizer
+
+      - name: Remove session-chain toolkit manifest fixture
+        shell: pwsh
+        run: |
+          Remove-Item scripts/toolkit-manifest.json, scripts/toolkit-manifest.sha256 -Force -ErrorAction SilentlyContinue
 
       - name: Restore Windows x64 runtime graph
         run: dotnet restore src/Monitor.Web/Monitor.Web.csproj --runtime win-x64
@@ -287,6 +339,24 @@ jobs:
             $process.WaitForExit()
           }
 
+      - name: Export verified Acceptance Control Toolkit for candidate operations
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $toolkitRoot = Join-Path $env:RUNNER_TEMP 'monitor-packaged-acceptance-control-toolkit'
+          Remove-Item -LiteralPath $toolkitRoot -Recurse -Force -ErrorAction SilentlyContinue
+          $toolingCommit = ((git rev-parse --verify HEAD) | Select-Object -First 1).Trim().ToLowerInvariant()
+          if ($LASTEXITCODE -ne 0 -or $toolingCommit -notmatch '^[a-f0-9]{40}$') { throw 'Could not resolve exact candidate tooling commit.' }
+          $toolkit = ./scripts/Export-ProductionAcceptanceToolkit.ps1 `
+            -ExpectedToolingCommit $toolingCommit `
+            -OutputDirectory $toolkitRoot
+          ./scripts/Test-ProductionAcceptanceToolkit.ps1 `
+            -ToolkitRoot $toolkitRoot `
+            -ExpectedToolingCommit $toolingCommit `
+            -ExpectedToolkitManifestSha256 $toolkit.ToolkitManifestSha256 | Out-Null
+          "MONITOR_PACKAGED_TOOLKIT_ROOT=$toolkitRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "MONITOR_PACKAGED_TOOLKIT_MANIFEST_SHA256=$($toolkit.ToolkitManifestSha256)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
       - name: Stage operations bundle and remove runtime state
         shell: pwsh
         run: |
@@ -295,7 +365,8 @@ jobs:
           Remove-Item artifacts/publish/App_Data -Recurse -Force -ErrorAction SilentlyContinue
 
           $ops = 'artifacts/publish/_operations'
-          New-Item -ItemType Directory -Force -Path "$ops/deploy", "$ops/scripts", "$ops/docs" | Out-Null
+          $toolkitStage = "$ops/acceptance-control-toolkit"
+          New-Item -ItemType Directory -Force -Path "$ops/deploy", "$ops/scripts", "$ops/docs", $toolkitStage | Out-Null
           Copy-Item deploy/appsettings.Production.example.json "$ops/deploy/" -Force
           Copy-Item deploy/production-acceptance-evidence.example.json "$ops/deploy/" -Force
           Copy-Item scripts/Smoke-Monitor.ps1 "$ops/scripts/" -Force
@@ -304,12 +375,13 @@ jobs:
           Copy-Item scripts/Accept-ProductionSingleNode.ps1 "$ops/scripts/" -Force
           Copy-Item scripts/Test-IisProductionPrerequisites.ps1 "$ops/scripts/" -Force
           Copy-Item scripts/Deploy-ProductionSingleNode.ps1 "$ops/scripts/" -Force
-          Copy-Item scripts/New-ProductionAcceptanceSession.ps1 "$ops/scripts/" -Force
-          Copy-Item scripts/New-ProductionAcceptanceEvidencePack.ps1 "$ops/scripts/" -Force
-          Copy-Item scripts/Test-ProductionAcceptanceSessionBinding.ps1 "$ops/scripts/" -Force
-          Copy-Item scripts/Set-ProductionAcceptanceGate.ps1 "$ops/scripts/" -Force
-          Copy-Item scripts/Complete-ProductionAcceptance.ps1 "$ops/scripts/" -Force
-          Copy-Item scripts/Test-ProductionAcceptanceEvidence.ps1 "$ops/scripts/" -Force
+          Copy-Item "$env:MONITOR_PACKAGED_TOOLKIT_ROOT/New-ProductionAcceptanceSession.ps1" "$ops/scripts/" -Force
+          Copy-Item "$env:MONITOR_PACKAGED_TOOLKIT_ROOT/New-ProductionAcceptanceEvidencePack.ps1" "$ops/scripts/" -Force
+          Copy-Item "$env:MONITOR_PACKAGED_TOOLKIT_ROOT/Test-ProductionAcceptanceSessionBinding.ps1" "$ops/scripts/" -Force
+          Copy-Item "$env:MONITOR_PACKAGED_TOOLKIT_ROOT/Set-ProductionAcceptanceGate.ps1" "$ops/scripts/" -Force
+          Copy-Item "$env:MONITOR_PACKAGED_TOOLKIT_ROOT/Complete-ProductionAcceptance.ps1" "$ops/scripts/" -Force
+          Copy-Item "$env:MONITOR_PACKAGED_TOOLKIT_ROOT/Test-ProductionAcceptanceEvidence.ps1" "$ops/scripts/" -Force
+          Copy-Item "$env:MONITOR_PACKAGED_TOOLKIT_ROOT/*" $toolkitStage -Force
           Copy-Item docs/DEPLOY_IIS.md "$ops/docs/" -Force
           Copy-Item docs/UPGRADE_CHECKLIST.md "$ops/docs/" -Force
           Copy-Item docs/ROLLBACK_RUNBOOK.md "$ops/docs/" -Force
@@ -327,6 +399,7 @@ jobs:
             deploymentMode = 'SingleNode'
             configuration = 'Release'
             builtAtUtc = [DateTimeOffset]::UtcNow.ToString('O')
+            acceptanceControlToolkitManifestSha256 = $env:MONITOR_PACKAGED_TOOLKIT_MANIFEST_SHA256
             prerequisiteEvidence = @{
               p04 = @{
                 gate = 'P0.4'
