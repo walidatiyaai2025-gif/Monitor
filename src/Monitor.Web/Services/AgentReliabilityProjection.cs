@@ -38,12 +38,15 @@ public static class AgentReliabilityProjection
     {
         if (snapshots.Count == 0) return null;
 
-        var materialized = snapshots
-            .Select(snapshot => ToRun(snapshot, out var run) ? (Snapshot: snapshot, Run: run) : (Snapshot: snapshot, Run: null))
-            .Where(item => item.Run is not null)
-            .Select(item => (item.Snapshot, Run: item.Run!))
-            .ToArray();
-        if (materialized.Length == 0) return null;
+        var materialized = new List<(AgentJobRunSnapshot Snapshot, AgentJobRun Run)>();
+        foreach (var snapshot in snapshots)
+        {
+            if (ToRun(snapshot, out var run) && run is not null)
+            {
+                materialized.Add((snapshot, run));
+            }
+        }
+        if (materialized.Count == 0) return null;
 
         var runs = materialized.Select(item => item.Run).ToArray();
         var current = runs[0].Duration;
@@ -56,8 +59,8 @@ public static class AgentReliabilityProjection
         var severity = Batch400AgentReliability.Severity(score);
 
         return new(
-            snapshots[0].JobKey,
-            Batch400AgentReliability.NormalizeOwner(snapshots[0].Owner),
+            materialized[0].Snapshot.JobKey,
+            Batch400AgentReliability.NormalizeOwner(materialized[0].Snapshot.Owner),
             successRate,
             streak,
             p95,
