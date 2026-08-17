@@ -7,7 +7,7 @@ public sealed class B800FleetDecisionSupportSurfaceTests
     private static readonly string Root = FindRoot();
 
     [Fact]
-    public void FleetService_UsesBoundedIncidentsAndExplicitOperatorPolicyAvailability()
+    public void FleetService_UsesBoundedIncidentsExplicitOperatorPolicyAvailabilityAndExistingFleetRiskContract()
     {
         var service = Read("src/Monitor.Web/Services/FleetIntelligenceService.cs");
 
@@ -19,6 +19,9 @@ public sealed class B800FleetDecisionSupportSurfaceTests
         Assert.Contains("incidentRead.IsComplete && incidentPolicyEvidenceComplete", service, StringComparison.Ordinal);
         Assert.Contains("item.Server!.Policy.Environment", service, StringComparison.Ordinal);
         Assert.Contains("FleetDecisionSupport.Build", service, StringComparison.Ordinal);
+        Assert.Contains("Batch300FleetRisk.Summarize", service, StringComparison.Ordinal);
+        Assert.Contains("Batch400FleetCorrelation.SeverityWeight", service, StringComparison.Ordinal);
+        Assert.Contains("IncidentRisk", service, StringComparison.Ordinal);
         Assert.DoesNotContain("ReadAssignee", service, StringComparison.Ordinal);
         Assert.DoesNotContain("operatorMetadata.GetServer", service, StringComparison.Ordinal);
         Assert.DoesNotContain("operatorMetadata.GetIncident", service, StringComparison.Ordinal);
@@ -45,6 +48,11 @@ public sealed class B800FleetDecisionSupportSurfaceTests
         Assert.Contains("an unavailable metadata read is a different state", fleet, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Rule hot-spots are unavailable", fleet, StringComparison.Ordinal);
         Assert.Contains("required operator policy metadata could not be read", fleet, StringComparison.Ordinal);
+        Assert.Contains("Bounded active-incident risk", fleet, StringComparison.Ordinal);
+        Assert.Contains("READ-ONLY SCORE", fleet, StringComparison.Ordinal);
+        Assert.Contains("Batch300FleetRisk", Read("src/Monitor.Web/Services/FleetIntelligenceService.cs"), StringComparison.Ordinal);
+        Assert.Contains("Incident risk, correlation clusters", fleet, StringComparison.Ordinal);
+        Assert.Contains("decision support only and performs no notification, mutation or remediation", fleet, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("method=\"post\"", view, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("asp-action=\"Send", view, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("asp-action=\"Page", view, StringComparison.OrdinalIgnoreCase);
@@ -52,15 +60,18 @@ public sealed class B800FleetDecisionSupportSurfaceTests
     }
 
     [Fact]
-    public void DecisionSupport_DelegatesCorrelationAndRoutingToExistingB300B400Contracts()
+    public void DecisionSupport_DelegatesCorrelationRoutingAndIncidentRiskToExistingB300B400Contracts()
     {
         var contract = Read("src/Monitor.Web/Services/FleetDecisionSupport.cs");
+        var fleet = Read("src/Monitor.Web/Services/FleetIntelligenceService.cs");
 
         Assert.Contains("Batch400FleetCorrelation.Correlate", contract, StringComparison.Ordinal);
         Assert.Contains("Batch400FleetCorrelation.ClampWindow(TimeSpan.Zero)", contract, StringComparison.Ordinal);
         Assert.Contains("Batch400FleetCorrelation.SeverityWeight", contract, StringComparison.Ordinal);
         Assert.Contains("Batch300AlertRouting.Decide", contract, StringComparison.Ordinal);
         Assert.Contains("SuggestedRoute", contract, StringComparison.Ordinal);
+        Assert.Contains("Batch300FleetRisk.Summarize", fleet, StringComparison.Ordinal);
+        Assert.Contains("timeProvider.GetUtcNow()", fleet, StringComparison.Ordinal);
         Assert.DoesNotContain("HttpClient", contract, StringComparison.Ordinal);
         Assert.DoesNotContain("Smtp", contract, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Webhook", contract, StringComparison.OrdinalIgnoreCase);

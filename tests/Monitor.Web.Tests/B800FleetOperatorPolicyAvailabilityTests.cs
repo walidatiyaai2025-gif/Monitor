@@ -31,12 +31,14 @@ public sealed class B800FleetOperatorPolicyAvailabilityTests
         Assert.Empty(snapshot.ByTag);
         Assert.Equal(0, snapshot.Maintenance);
         Assert.Equal(0, snapshot.Suppressed);
+        Assert.NotNull(snapshot.IncidentRisk);
+        Assert.Equal(0, snapshot.IncidentRisk!.Score);
         Assert.Equal(1, cache.PeekCalls);
         Assert.Equal(0, cache.CollectionCalls);
     }
 
     [Fact]
-    public void IncidentPolicyFailure_WithholdsHotspotsAndDecisionSupportInsteadOfTreatingItAsUnassigned()
+    public void IncidentPolicyFailure_WithholdsHotspotsDecisionSupportAndIncidentRiskInsteadOfTreatingItAsUnassigned()
     {
         var registration = Registration("SQL-INCIDENT-POLICY-DOWN");
         var registrations = Registrations(registration);
@@ -58,10 +60,11 @@ public sealed class B800FleetOperatorPolicyAvailabilityTests
         Assert.Equal(1, snapshot.OperatorPolicyUnavailable);
         Assert.Empty(snapshot.RuleHotspots);
         Assert.Null(snapshot.DecisionSupport);
+        Assert.Null(snapshot.IncidentRisk);
     }
 
     [Fact]
-    public void ReadableIncidentWithNullAssignee_RemainsValidUnassignedEvidence()
+    public void ReadableIncidentWithNullAssignee_RemainsValidUnassignedEvidenceAndCanBeRiskScored()
     {
         var registration = Registration("SQL-UNASSIGNED");
         var registrations = Registrations(registration);
@@ -84,6 +87,10 @@ public sealed class B800FleetOperatorPolicyAvailabilityTests
         Assert.Single(snapshot.RuleHotspots);
         Assert.NotNull(snapshot.DecisionSupport);
         Assert.Single(snapshot.DecisionSupport!.RoutingSuggestions);
+        Assert.NotNull(snapshot.IncidentRisk);
+        Assert.Equal(FleetRiskLevel.Medium, snapshot.IncidentRisk!.Level);
+        Assert.Equal(1, snapshot.IncidentRisk.ActionableCount);
+        Assert.Contains("memory.pressure", snapshot.IncidentRisk.TopKeys);
     }
 
     private static InMemoryServerRegistrationRepository Registrations(ServerRegistration registration)

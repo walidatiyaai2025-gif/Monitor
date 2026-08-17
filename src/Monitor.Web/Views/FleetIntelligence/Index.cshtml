@@ -44,11 +44,26 @@
     </section>
 }
 
+@if (Model.IncidentRisk is { } incidentRisk)
+{
+    <section class="glass-panel" aria-label="Fleet incident risk score">
+        <div class="panel-heading"><div><span class="eyebrow">INCIDENT RISK</span><h3>Bounded active-incident risk</h3></div><span class="status-chip">READ-ONLY SCORE</span></div>
+        <div class="fleet-risk-links">
+            <span><small>Score</small><strong>@incidentRisk.Score / 100</strong></span>
+            <span><small>Level</small><strong>@incidentRisk.Level</strong></span>
+            <span><small>Actionable</small><strong>@incidentRisk.ActionableCount</strong></span>
+            <span><small>Suppressed</small><strong>@incidentRisk.SuppressedCount</strong></span>
+        </div>
+        <p><strong>Top bounded rule keys:</strong> @(incidentRisk.TopKeys.Length == 0 ? "None" : string.Join(", ", incidentRisk.TopKeys))</p>
+        <p class="snapshot-note">This deterministic B300 score is derived only from the complete bounded active-incident set plus readable suppression and maintenance policy evidence. It is decision support only and performs no notification, mutation or remediation.</p>
+    </section>
+}
+
 @if (!Model.IncidentEvidenceComplete)
 {
     <section class="glass-panel state-warning" aria-label="Fleet incident evidence unavailable">
         <div class="panel-heading"><div><span class="eyebrow">INCIDENT EVIDENCE</span><h3>Fleet decision support not evaluated</h3></div><span class="status-chip">BOUNDED @Model.IncidentEvidenceLimit</span></div>
-        <p>Active incident evidence for the enabled fleet exceeded the bounded decision-read limit. Correlation clusters, routing recommendations, and rule hot-spots are withheld rather than calculated from a partial incident set.</p>
+        <p>Active incident evidence for the enabled fleet exceeded the bounded decision-read limit. Incident risk, correlation clusters, routing recommendations, and rule hot-spots are withheld rather than calculated from a partial incident set.</p>
         <p class="snapshot-note">The legacy incident store may contain more rows; B800-073 bounds operator decision inputs and exposes overflow explicitly. Storage-level server-scoped querying is separate follow-up work.</p>
     </section>
 }
@@ -56,7 +71,7 @@ else if (!Model.IncidentPolicyEvidenceComplete)
 {
     <section class="glass-panel state-warning" aria-label="Fleet incident operator policy evidence unavailable">
         <div class="panel-heading"><div><span class="eyebrow">OPERATOR POLICY EVIDENCE</span><h3>Fleet decision support not evaluated</h3></div><span class="status-chip">FAIL CLOSED</span></div>
-        <p>Operator metadata required for one or more active incidents is unavailable. Correlation clusters, routing recommendations, and rule hot-spots are withheld rather than inferring environment, suppression, maintenance, or assignment.</p>
+        <p>Operator metadata required for one or more active incidents is unavailable. Incident risk, correlation clusters, routing recommendations, and rule hot-spots are withheld rather than inferring environment, suppression, maintenance, or assignment.</p>
         <p class="snapshot-note">An unassigned incident remains valid evidence when metadata is readable; an unavailable metadata read is a different state and is never converted into an unassigned default.</p>
     </section>
 }

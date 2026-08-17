@@ -30,7 +30,8 @@ public sealed record FleetIntelligenceSnapshot(
     int IncidentEvidenceLimit = BoundedIncidentReadModel.DefaultLimit,
     bool ServerPolicyEvidenceComplete = true,
     bool IncidentPolicyEvidenceComplete = true,
-    int OperatorPolicyUnavailable = 0);
+    int OperatorPolicyUnavailable = 0,
+    Batch300FleetRiskSummary? IncidentRisk = null);
 
 public interface IFleetIntelligenceService
 {
@@ -125,6 +126,14 @@ public sealed class FleetIntelligenceService(
                 item.Server.Policy.MaintenanceActive,
                 item.Policy.Assignee)))
             : null;
+        var incidentRisk = incidentRead.IsComplete && incidentPolicyEvidenceComplete
+            ? Batch300FleetRisk.Summarize(incidentRows.Select(item => new FleetRiskSignal(
+                item.Incident.RuleId,
+                ToRiskSeverity(item.Incident.Severity),
+                item.Incident.LastSeenUtc,
+                item.Policy!.AlertSuppressed,
+                item.Server!.Policy.MaintenanceActive)), timeProvider.GetUtcNow())
+            : null;
         var operatorPolicyUnavailable = servers.Count(item => !item.Policy.PolicyReadable)
             + incidentRows.Count(item => incidentRead.IsComplete && item.Policy?.PolicyReadable != true);
 
@@ -145,11 +154,19 @@ public sealed class FleetIntelligenceService(
             incidentRead.Limit,
             serverPolicyEvidenceComplete,
             incidentPolicyEvidenceComplete,
-            operatorPolicyUnavailable);
+            operatorPolicyUnavailable,
+            incidentRisk);
     }
 
     private static bool HasAdvancedEvidence(ServerHealthSnapshot snapshot) =>
         snapshot.TempDb is not null || snapshot.TransactionLogs is not null || snapshot.Ha is not null;
+
+    private static int ToRiskSeverity(FindingSeverity severity) => severity switch
+    {
+        FindingSeverity.Critical => Batch400FleetCorrelation.SeverityWeight(B400Severity.Critical),
+        FindingSeverity.Warning => Batch400FleetCorrelation.SeverityWeight(B400Severity.Warning),
+        _ => 0
+    };
 
     private static FleetHealthBucket[] Bucket(IEnumerable<(string Key, ServerProjection Item)> source) =>
         source.GroupBy(item => item.Key, StringComparer.OrdinalIgnoreCase)
