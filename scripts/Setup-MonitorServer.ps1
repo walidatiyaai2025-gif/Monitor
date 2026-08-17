@@ -52,7 +52,6 @@ $requiredIisFeatures = @(
     'Web-Filtering',
     'Web-Stat-Compression',
     'Web-Mgmt-Tools',
-    'Web-Mgmt-Console',
     'Web-Scripting-Tools'
 )
 
@@ -143,6 +142,20 @@ function Assert-InstallerHash {
     }
 }
 
+function Assert-MicrosoftSignedInstaller {
+    param([string]$Path, [string]$Label)
+
+    $signature = Get-AuthenticodeSignature -FilePath $Path
+    if ($null -eq $signature -or [string]$signature.Status -ne 'Valid' -or $null -eq $signature.SignerCertificate) {
+        throw "$Label does not have a valid Authenticode signature."
+    }
+
+    $subject = [string]$signature.SignerCertificate.Subject
+    if ($subject -notmatch '(?i)(^|,\s*)O=Microsoft Corporation(,|$)') {
+        throw "$Label is not signed by Microsoft Corporation."
+    }
+}
+
 function Get-InstallerFile {
     param(
         [string]$LocalPath,
@@ -156,6 +169,7 @@ function Get-InstallerFile {
     if (-not [string]::IsNullOrWhiteSpace($LocalPath)) {
         if (-not (Test-Path -LiteralPath $LocalPath -PathType Leaf)) { throw "$Label was not found: $LocalPath" }
         Assert-InstallerHash -Path $LocalPath -ExpectedSha256 $ExpectedSha256 -Label $Label
+        Assert-MicrosoftSignedInstaller -Path $LocalPath -Label $Label
         return [pscustomobject]@{ Path = (Resolve-Path -LiteralPath $LocalPath).Path; Temporary = $false }
     }
 
@@ -169,6 +183,7 @@ function Get-InstallerFile {
             throw "$Label download produced no installer bytes."
         }
         Assert-InstallerHash -Path $downloadPath -ExpectedSha256 $ExpectedSha256 -Label $Label
+        Assert-MicrosoftSignedInstaller -Path $downloadPath -Label $Label
         [pscustomobject]@{ Path = $downloadPath; Temporary = $true }
     }
     catch {
@@ -318,10 +333,24 @@ function Get-SafeAppPoolIdentity {
     throw "Application pool '$AppPoolName' uses unsupported identity type '$identityType'."
 }
 
+function Assert-AppPoolOwnership {
+    if (-not (Test-Path -LiteralPath "IIS:\AppPools\$AppPoolName")) { return }
+
+    $otherSites = @(Get-Website | Where-Object {
+        [string]$_.Name -ne $SiteName -and [string]$_.applicationPool -eq $AppPoolName
+    })
+    if ($otherSites.Count -gt 0) {
+        $names = @($otherSites | ForEach-Object { [string]$_.Name }) -join ', '
+        throw "Application pool '$AppPoolName' is shared by other IIS site(s): $names. Monitor bootstrap will not mutate a shared application pool."
+    }
+}
+
 function Ensure-IisTopology {
     param([string]$ApprovedThumbprint)
 
     Import-Module WebAdministration -ErrorAction Stop
+    Assert-AppPoolOwnership
+
     New-Item -ItemType Directory -Path $ReleaseRoot -Force | Out-Null
     New-Item -ItemType Directory -Path $StateRoot -Force | Out-Null
     New-Item -ItemType Directory -Path $BootstrapSiteRoot -Force | Out-Null
@@ -434,11 +463,11 @@ $plan = [ordered]@{
     stateRoot = $StateRoot
     bootstrapSiteRoot = $BootstrapSiteRoot
     actions = @(
-        'Install PowerShell 7 when missing using a SHA-256 pinned official MSI (or an operator-supplied offline MSI)',
+        'Install PowerShell 7 when missing using a SHA-256 pinned, Microsoft-signed official MSI (or an operator-supplied offline MSI)',
         'Install missing IIS server roles/features including WebAdministration scripting tools',
-        'Install or repair the .NET 8 Hosting Bundle after IIS so ASP.NET Core Runtime 8 and ANCM v2 are present',
+        'Install or repair a Microsoft-signed .NET 8 Hosting Bundle after IIS so ASP.NET Core Runtime 8 and ANCM v2 are present',
         'Use only the explicitly approved certificate thumbprint; optionally import a supplied PFX containing that exact certificate',
-        'Create/validate the Monitor No Managed Code application pool and refuse system/shared identities',
+        'Create/validate a dedicated Monitor No Managed Code application pool; refuse privileged identities and pools shared with other IIS sites',
         'Create/validate only the exact Monitor IIS site and HTTPS host binding',
         'Grant Modify only on stable App_Data and Read/Execute on release/bootstrap roots',
         'Run the existing authoritative Test-IisProductionPrerequisites.ps1 after setup'
