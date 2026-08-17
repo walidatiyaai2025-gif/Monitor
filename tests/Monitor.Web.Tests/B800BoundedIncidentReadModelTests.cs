@@ -13,7 +13,7 @@ public sealed class B800BoundedIncidentReadModelTests
     [Fact]
     public void DefaultLimit_MatchesExistingIncidentScalePolicy()
     {
-        Assert.Equal(new PerformanceScaleOptions().IncidentMaxPageSize, BoundedIncidentReadModel.DefaultLimit);
+        Assert.Equal(BoundedIncidentReadModel.DefaultLimit, new PerformanceScaleOptions().IncidentMaxPageSize);
         Assert.Equal(100, BoundedIncidentReadModel.DefaultLimit);
     }
 
