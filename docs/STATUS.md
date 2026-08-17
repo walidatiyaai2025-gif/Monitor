@@ -9,6 +9,7 @@
 **Production acceptance guide:** `docs/PRODUCTION_SINGLENODE_ACCEPTANCE.md`  
 **Active external release gate:** #116 / P0.5 First Production SingleNode  
 **Repository cutover/evidence/finalization/session/release workflow:** COMPLETE through selected-product-hash hardening PR #257, locked-session sidecar binding PR #259 and exact Acceptance Control Toolkit provenance PR #262; selected RC.61 durable publication remains pending manual dispatch under #162. Exact cutover toolkit source is `b422eaaee53d931a62a43b3c36a53b68cd4f3e27`. Read-only operator preflight #266 / PR #267 is COMPLETE, squash-merged as `43aaa6071fd0c577c792d427ad490717f28acbac`; exact head `cdaff693810534db52975976309b726a0a8d409c` passed CI #1843, Real SQL #121 and Windows production-candidate #203, with post-merge main CI #1844 Green. Final Step 0 operator handoff #270 / PR #271 is also COMPLETE, squash-merged as `479f9b557948b56fc5ec5692efb67fd6f1f4a921` after CI #1854 and Windows production-candidate #205 Green; post-merge main CI #1855 Green. These changes do not dispatch or publish RC.61.  
+**Latest RC.61 read-only state check:** source run `31667721306` remains successful; artifact `9168574442` remains present/unexpired with exact outer digest `sha256:1c499b9eb0bfc4245716c14718381b71352df8392aafe430cc415b375b93f382` and expiry `2026-09-12T04:41:34Z`; promotion/verifier still have zero runs and tag/release `v0.1.0-rc.61` remain absent. The connected agent surface has no workflow-dispatch action, so manual Step 1 remains an external operator action.  
 **Remaining dependency:** `#162 durable RC.61 publication + independent verification -> #116 real trusted-IIS 15/15 acceptance -> #111 closure`; **no #116 production mutation while #162 is OPEN**.  
 **Production target:** actual Windows/IIS trusted-HTTPS SingleNode acceptance.
 
@@ -98,6 +99,29 @@ Legacy issues #87/#91/#93 are closed completed. Historical PRs #88/#92/#94/#104 
 
 This baseline correction is historical reconciliation rather than new task accounting. It does not change #116, does not claim production acceptance and does not replace RC.61.
 
+## BATCH-800 — Full functional operator wiring — IN PROGRESS
+
+**Umbrella:** #287 — OPEN  
+**Current PR:** #288 — DRAFT / partial slice  
+**Task range:** B800-001..100  
+**Ledger:** `docs/BATCH_800.md`
+
+BATCH-800 converts visible-route completeness into traceable functional contracts: `UI -> controller -> authorization/antiforgery -> service/read model -> cached/persisted evidence -> explicit state -> regression evidence`. It remains subordinate to the P0 production boundary and cannot publish RC.61 or satisfy #162/#116/#111.
+
+PR #288 currently implements evidence-backed slices only:
+- B300 server identity/version family/support/edition/uptime and composite runtime-pressure projection on Server Details, including explicit fresh/stale/unavailable classification;
+- cross-page consistency and safe server drill-down contracts for existing database/backup/Agent/storage evidence;
+- assembly-wide POST workflow safety and Razor POST-to-endpoint regression matrices (B800-021/022), without changing runtime routes;
+- bounded optional Memory evidence and deterministic recommendations with no automatic tuning;
+- top-12 non-benign cumulative wait evidence and pure cached Performance intelligence;
+- top-12 logical-file cumulative I/O evidence and Storage intelligence without `physical_name` or filesystem paths;
+- max-50 SQL Agent job-summary history rows plus run-history reliability, with schedule lateness explicitly excluded until schedule evidence exists;
+- max-50 user-database logical name/state rows with non-online rows prioritized and exact B300 database-state classification/actionable/worst-observed projection.
+
+Explicitly **not** claimed by this PR: Agent schedule lateness, policy-backed backup RPO compliance, TempDB growth/contention, transaction-log growth/RPO, HA readiness, privacy-safe query regression, browser/DOM automation, autonomous remediation or AI SQL execution. Missing evidence stays missing rather than becoming synthetic zero/healthy state.
+
+Pre-canonical validation includes wait head CI #2029 + Real SQL #161 Green; Storage/I/O head CI #2046 + Real SQL #169 + Windows #265 Green; database-state source head `895297809d5dcb656cb3e6bc064aba96d02e58b1` passed CI #2120 and Real SQL #205. These are chronology only: **Ready/merge requires CI + applicable Real SQL + Windows production-candidate Green on one final canonical-reconciled head**, no unresolved review threads and branch current with `main`. #287 remains OPEN after #288 merges.
+
 ## BATCH-700 — Full visible portal/UI completion — COMPLETE
 
 **Parent:** #220 — CLOSED / COMPLETED  
@@ -164,6 +188,7 @@ B600 delivered deterministic fail-closed repository orchestration for evidence f
 - BATCH-500: B500-001..100 COMPLETE.
 - BATCH-600: B600-001..100 COMPLETE.
 - BATCH-700: UI700-001..050 COMPLETE; PR #240 squash-merged as `fd33e79c6d19d7f9852417b9c35a11f91f21714c` after exact final head `0834db6b5d518fe5c52eec9b47c03e467929aa89` passed CI #1637, Real SQL #91 and production-candidate #142.
+- BATCH-800: IN PROGRESS under #287 / PR #288; partial evidence-backed slice only, excluded from completed-task totals until its own task gates close.
 - Total completed hardening/UI task IDs B100+B200+B300+B400+B500+B600+B700: **660**. PR #156 remains baseline reconciliation, not new task accounting.
 
 ## Stable guardrails
@@ -194,13 +219,13 @@ B600 delivered deterministic fail-closed repository orchestration for evidence f
 - Dedicated regression coverage and `docs/IIS_FRESH_HOST_BOOTSTRAP.md` / `docs/work/P0-053.md` document the fail-closed boundary.
 - Exact-head CI #1957, Real SQL #138 and Windows production-candidate #228 passed Green; post-merge main CI #1958 passed. This work did not publish RC.61, mutate real IIS/SQL or satisfy #162/#116/#111.
 
-## Issue #285 / PR #286 — Clean IIS no-demo staging + POST error re-execution — IN VALIDATION
+## Issue #285 / PR #286 — Clean IIS no-demo staging + POST error re-execution — COMPLETE
 
-- Base and production configuration now default `DemoData:Enabled=false`; Development explicitly opts into the DA-SQL01..04 sample estate.
-- A clean persistent store now renders a truthful zero-registration dashboard and keeps registered real SQL targets/cached snapshots authoritative when present.
+- Base and production configuration default `DemoData:Enabled=false`; Development explicitly opts into the DA-SQL01..04 sample estate.
+- A clean persistent store renders a truthful zero-registration dashboard and keeps registered real SQL targets/cached snapshots authoritative when present.
 - `/error` and `/error/status/{statusCode}` are verb-agnostic so re-executed POST failures reach the intended error surface instead of being masked by HTTP 405.
 - `docs/IIS_CLEAN_STAGING.md` documents the disposable staging reset boundary: removing `App_Data` deletes local registrations, protected SQL connection secrets, Data Protection keys, audit/history/incidents and local operational backups; this is not a production migration procedure.
-- Implementation head `4ad760d48be8a5bd3066da928f1859d7ecdfe6e7` passed CI #1974 / run `32008790112` and Windows production-candidate #232 / run `32008790126` Green. Pre-canonical-reconciliation head `5aad3173b2c1f7116324ac98ee015e686ae56c93` passed CI #1983 and Windows production-candidate #234 Green.
-- PR #286 remains repository/staging only and cannot publish or mutate selected RC.61/tag/release state, real production IIS/SQL, #116 acceptance or the strict `#162 -> #116 -> #111` dependency.
+- Final PR head `ff14f16006b1d5c953ba4c507f196a3393660e42` passed CI #2085, Real SQL #188 and Windows production-candidate #284 Green. PR #286 squash-merged as `74b804e8b681a77b9e619490610af556a4b1ae3e`; post-merge main CI #2095 passed Green and Issue #285 closed completed.
+- This remains repository/staging behavior only and did not publish or mutate selected RC.61/tag/release state, real production IIS/SQL, #116 acceptance or the strict `#162 -> #116 -> #111` dependency.
 
-**Overall:** 🟢 verified foundation · 🟢 P0.1–P0.4 COMPLETE · 🟢 P0.5 repository cutover/evidence/session/finalization/release/promotion/workflow-supply-chain/native-Node-24/durable-release hardening through PR #219 · 🟢 #256 selected-product-hash session hardening COMPLETE via PR #257 · 🟢 #258/#259 locked-session sidecar binding COMPLETE · 🟢 #261/#262 Acceptance Control Toolkit provenance COMPLETE with exact toolkit source `b422eaaee53d931a62a43b3c36a53b68cd4f3e27` · 🟢 #266/#267 RC.61 read-only promotion preflight COMPLETE · 🟢 #270/#271 Step 0 operator handoff COMPLETE · 🟢 #276/PR #279 IIS bootstrap integration COMPLETE · 🟢 #281/PR #283 fresh-host/PowerShell 7 hardening COMPLETE · 🟡 #285/PR #286 clean IIS no-demo/POST-error fix in final validation · 🟡 selected RC.61 durable publication + separate verification pending manual #162 · ⛔ #116 production mutation blocked while #162 is OPEN · 🟡 external IIS/HTTPS 15-gate acceptance pending after #162 · 🔴 production acceptance not yet granted
+**Overall:** 🟢 verified foundation · 🟢 P0.1–P0.4 COMPLETE · 🟢 P0.5 repository cutover/evidence/session/finalization/release/promotion/workflow-supply-chain/native-Node-24/durable-release hardening through PR #219 · 🟢 #256 selected-product-hash session hardening COMPLETE via PR #257 · 🟢 #258/#259 locked-session sidecar binding COMPLETE · 🟢 #261/#262 Acceptance Control Toolkit provenance COMPLETE with exact toolkit source `b422eaaee53d931a62a43b3c36a53b68cd4f3e27` · 🟢 #266/#267 RC.61 read-only promotion preflight COMPLETE · 🟢 #270/#271 Step 0 operator handoff COMPLETE · 🟢 #276/PR #279 IIS bootstrap integration COMPLETE · 🟢 #281/PR #283 fresh-host/PowerShell 7 hardening COMPLETE · 🟢 #285/PR #286 clean IIS no-demo/POST-error fix COMPLETE · 🟡 #287/PR #288 BATCH-800 functional wiring partial slice in canonical/final-head validation · 🟡 selected RC.61 durable publication + separate verification pending manual #162 · ⛔ #116 production mutation blocked while #162 is OPEN · 🟡 external IIS/HTTPS 15-gate acceptance pending after #162 · 🔴 production acceptance not yet granted
