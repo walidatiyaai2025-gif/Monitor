@@ -10,6 +10,7 @@ public enum EnterpriseDownloadSubject
     FleetDecisionSupport,
     MaintenanceDecisionSupport,
     ServerIntelligence,
+    DatabaseHealth,
     Audit,
     Manifest,
     Diagnostics
