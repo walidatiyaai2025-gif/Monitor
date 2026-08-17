@@ -194,7 +194,6 @@ public sealed class MonitorReadService(
                 item.Severity.ToString(),
                 item.RegistrationId.ToString("D"),
                 item.Title,
-                item.RegistrationId.ToString("D"),
                 $"{Math.Max(0, (DateTimeOffset.UtcNow - item.LastSeenUtc).TotalMinutes):0}m",
                 item.Status.ToString()))
             .ToArray();
