@@ -13,7 +13,6 @@ public sealed record RecommendationHubViewModel(
     int Warning,
     FindingSeverity? Severity,
     string? RuleId);
-public sealed record ReportCenterViewModel(IReadOnlyList<ServerCard> Servers, int TotalServers);
 
 [Authorize(Policy = MonitorPolicies.Read)]
 public sealed class PortalController(
