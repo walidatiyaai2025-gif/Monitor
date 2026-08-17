@@ -30,7 +30,8 @@ public sealed class P05Rc61PromotionOperatorPreflightTests
 
         Assert.Contains("MutatedGitHubState = $false", script, StringComparison.Ordinal);
         Assert.DoesNotContain("gh release create", script, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("gh workflow run promote-existing-candidate.yml'", script, StringComparison.Ordinal);
+        Assert.DoesNotContain("Invoke-Gh -Arguments @('workflow'", script, StringComparison.Ordinal);
+        Assert.DoesNotContain("& gh workflow run", script, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
