@@ -17,7 +17,8 @@ public sealed record ServerHealthSnapshot(
     StorageHealthSnapshot? Storage = null,
     BlockingHealthSnapshot? Blocking = null,
     PerformanceHealthSnapshot? Performance = null,
-    TempDbHealthSnapshot? TempDb = null);
+    TempDbHealthSnapshot? TempDb = null,
+    TransactionLogHealthSnapshot? TransactionLogs = null);
 
 public sealed record MemoryHealthSnapshot(
     long TotalPhysicalMemoryKb,
@@ -96,6 +97,19 @@ public sealed record TempDbHealthSnapshot(
     int LogicalCpuCount,
     int TotalDataFiles,
     IReadOnlyList<TempDbFileSnapshot>? DataFiles = null,
+    bool IsTruncated = false);
+
+public sealed record TransactionLogDatabaseSnapshot(
+    string DatabaseName,
+    string RecoveryModel,
+    string LogReuseWait,
+    long TotalLogBytes,
+    DateTimeOffset? LastFullBackupAtUtc,
+    DateTimeOffset? LastLogBackupAtUtc);
+
+public sealed record TransactionLogHealthSnapshot(
+    int TotalUserDatabases,
+    IReadOnlyList<TransactionLogDatabaseSnapshot>? Databases = null,
     bool IsTruncated = false);
 
 public enum SnapshotCollectionFailure
