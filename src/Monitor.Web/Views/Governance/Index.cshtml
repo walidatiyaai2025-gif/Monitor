@@ -8,14 +8,14 @@
 
 @if (TempData["GovernanceStatus"] is string status)
 {
-    <div class="status-banner governance-receipt" role="status" aria-live="polite"><strong>Retention workflow.</strong> @status</div>
+    <div class="status-banner governance-receipt" role="status" aria-live="polite"><strong>Prune receipt recorded.</strong> @status</div>
 }
 
 <section class="governance-flow" aria-label="Retention governance workflow">
     <article class="glass-panel governance-step state-healthy"><span>1</span><div><strong>Dry run</strong><p>Compute bounded candidates from Monitor-owned metadata and audit state only.</p></div></article>
     <article class="glass-panel governance-step state-warning"><span>2</span><div><strong>Review impact</strong><p>Inspect candidate kind, key and reason. Candidate display is capped to the first 100 rows.</p></div></article>
-    <article class="glass-panel governance-step state-critical"><span>3</span><div><strong>Apply pruning</strong><p>Administrator POST with antiforgery and typed PRUNE confirmation. This mutates control-plane retention state and must be deliberate.</p></div></article>
-    <article class="glass-panel governance-step state-healthy"><span>4</span><div><strong>Audit receipt</strong><p>Applied work returns a bounded prune-receipt count; rejected confirmation is also auditable.</p></div></article>
+    <article class="glass-panel governance-step state-critical"><span>3</span><div><strong>Apply pruning</strong><p>Administrator POST with antiforgery. This mutates control-plane retention state and must be deliberate.</p></div></article>
+    <article class="glass-panel governance-step state-healthy"><span>4</span><div><strong>Audit receipt</strong><p>Applied work returns a bounded prune-receipt count and remains auditable.</p></div></article>
 </section>
 
 <section class="health-command-summary" aria-label="Retention candidate summary">
@@ -44,9 +44,6 @@ else
 
     <section class="glass-panel governance-apply" aria-labelledby="governance-apply-title">
         <div><span class="eyebrow">MUTATING ACTION</span><h3 id="governance-apply-title">Apply the reviewed retention plan</h3><p id="governance-apply-warning">This action prunes the current bounded candidate set from Monitor-owned control-plane state. It does not touch a monitored SQL target, but it is still a destructive metadata-retention operation. Re-run the dry run after any unexpected change before applying.</p></div>
-        <form asp-action="Apply" method="post" aria-describedby="governance-apply-warning" autocomplete="off">
-            <label>Type PRUNE to confirm<input name="confirmation" maxlength="5" placeholder="type PRUNE" required /></label>
-            <button class="button primary danger-button" type="submit">Apply audited pruning</button>
-        </form>
+        <form asp-action="Apply" method="post" aria-describedby="governance-apply-warning"><button class="button primary danger-button" type="submit">Apply audited pruning</button></form>
     </section>
 }
