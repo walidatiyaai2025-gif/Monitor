@@ -43,6 +43,13 @@
         </article>
 
         <article class="glass-panel report-card">
+            <div class="panel-heading"><div><span class="eyebrow">SQL AGENT</span><h3>SQL Agent health summary</h3></div><span class="report-format">CSV · v2</span></div>
+            <p>Estate-wide cached aggregate job outcomes, anonymous top reliability risk and current Agent activity counts. Job names and owners are excluded, and schedule lateness remains NotEvaluated because canonical time-zone and expected-run semantics are not collected.</p>
+            <dl class="report-metadata"><div><dt>Access</dt><dd>Viewer+</dd></div><div><dt>Source</dt><dd>Registration + snapshot cache</dd></div><div><dt>Schedule</dt><dd>Not evaluated</dd></div></dl>
+            <a class="secondary-button full-button" href="/reports/sql-agent-health.csv" aria-label="Download bounded cached SQL Agent health summary CSV version 2">Download SQL Agent health CSV</a>
+        </article>
+
+        <article class="glass-panel report-card">
             <div class="panel-heading"><div><span class="eyebrow">SERVER INTELLIGENCE</span><h3>Cached server intelligence</h3></div><span class="report-format">CSV · v2 · contextual</span></div>
             <p>Exports the same B300 estate identity and composite runtime-pressure projection shown on Server Details. Missing snapshot or pressure evidence remains explicitly Unavailable rather than becoming zero or healthy.</p>
             <dl class="report-metadata"><div><dt>Access</dt><dd>Viewer+</dd></div><div><dt>Source</dt><dd>Server Details cache</dd></div><div><dt>Execution</dt><dd>Read-only</dd></div></dl>
@@ -105,4 +112,4 @@
     }
 </section>
 
-<div class="data-banner"><strong>DISCOVERABILITY</strong><span>All global export and diagnostics entry points are listed here. Backup health is an estate-wide cached summary; server intelligence, database health, memory health and history exports remain contextual by design: choose the relevant cached evidence surface, then use its selected server workflow.</span></div>
+<div class="data-banner"><strong>DISCOVERABILITY</strong><span>All global export and diagnostics entry points are listed here. Backup health and SQL Agent health are estate-wide cached summaries; server intelligence, database health, memory health and history exports remain contextual by design: choose the relevant cached evidence surface, then use its selected server workflow.</span></div>
