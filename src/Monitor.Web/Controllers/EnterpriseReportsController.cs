@@ -86,6 +86,12 @@ public sealed class EnterpriseReportsController : Controller
         return Download(DatabaseHealthSummaryExport.Build(model), "text/csv; charset=utf-8", EnterpriseDownloadSubject.DatabaseHealth, "csv");
     }
 
+    [HttpGet("/reports/backup-health.csv")]
+    public IActionResult BackupHealth()
+    {
+        return Download(_reports.BackupHealth(), "text/csv; charset=utf-8", EnterpriseDownloadSubject.BackupHealth, "csv");
+    }
+
     [HttpGet("/reports/audit.csv")]
     [Authorize(Policy = MonitorPolicies.Manage)]
     public IActionResult Audit()
