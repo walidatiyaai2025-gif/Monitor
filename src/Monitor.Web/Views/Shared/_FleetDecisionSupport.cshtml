@@ -2,7 +2,25 @@
 @model FleetDecisionSupportSnapshot
 
 <section class="glass-panel table-panel" aria-label="Fleet correlation decision support">
-    <div class="panel-heading"><div><span class="eyebrow">CORRELATION · DECISION SUPPORT</span><h3>Open-incident clusters</h3></div><span class="snapshot-note">@Model.CorrelationWindow.TotalMinutes.ToString("0")-minute window · max @FleetDecisionSupport.MaxItems</span></div>
+    <div class="panel-heading"><div><span class="eyebrow">CORRELATION · DECISION SUPPORT</span><h3>Open-incident clusters</h3></div><span class="snapshot-note">@Model.CorrelationWindow.TotalMinutes.ToString("0")-minute window · top @FleetDecisionSupport.MaxItems detail</span></div>
+    @if (Model.CorrelationSummary is { } correlationSummary)
+    {
+        <div class="fleet-risk-links" aria-label="Full bounded correlation coverage">
+            <span><small>Evaluated</small><strong>@correlationSummary.EvaluatedIncidents</strong></span>
+            <span><small>Clusters</small><strong>@correlationSummary.TotalClusters</strong></span>
+            <span><small>Critical</small><strong>@correlationSummary.CriticalClusters</strong></span>
+            <span><small>Warning</small><strong>@correlationSummary.WarningClusters</strong></span>
+            <span><small>Info</small><strong>@correlationSummary.InfoClusters</strong></span>
+            <span><small>Multi-server</small><strong>@correlationSummary.MultiServerClusters</strong></span>
+            <span><small>Max servers</small><strong>@correlationSummary.MaxAffectedServers</strong></span>
+            <span><small>Highest score</small><strong>@correlationSummary.HighestScore.ToString("0.##")</strong></span>
+        </div>
+        <p class="server-mini-note">Correlation coverage above evaluates all @correlationSummary.EvaluatedIncidents incidents admitted by the complete bounded Fleet decision population. The table below is a deterministic top-@FleetDecisionSupport.MaxItems cluster detail view only.</p>
+    }
+    else if (Model.InputIncidents > Batch400FleetCorrelation.MaxClusterLimit)
+    {
+        <p class="server-mini-note state-warning">Full correlation coverage is not evaluated because the supplied decision population exceeds the B400 correlation coverage bound of @Batch400FleetCorrelation.MaxClusterLimit incidents. Top-@FleetDecisionSupport.MaxItems cluster detail remains visible without implying complete aggregate coverage.</p>
+    }
     <div class="responsive-table" role="region" aria-label="Open incident correlations" tabindex="0">
         <div class="table-head health-detail-grid health-detail-grid-six" role="row"><span>Bucket</span><span>Rule</span><span>Servers</span><span>Environment</span><span>Severity</span><span>Score</span></div>
         @foreach (var cluster in Model.Correlations)
