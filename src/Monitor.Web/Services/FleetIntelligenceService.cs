@@ -27,7 +27,10 @@ public sealed record FleetIntelligenceSnapshot(
     FleetAdvancedEvidenceSummary? Advanced = null,
     FleetDecisionSupportSnapshot? DecisionSupport = null,
     bool IncidentEvidenceComplete = true,
-    int IncidentEvidenceLimit = BoundedIncidentReadModel.DefaultLimit);
+    int IncidentEvidenceLimit = BoundedIncidentReadModel.DefaultLimit,
+    bool ServerPolicyEvidenceComplete = true,
+    bool IncidentPolicyEvidenceComplete = true,
+    int OperatorPolicyUnavailable = 0);
 
 public interface IFleetIntelligenceService
 {
@@ -43,49 +46,51 @@ public sealed class FleetIntelligenceService(
 {
     public FleetIntelligenceSnapshot Read()
     {
-        var now = timeProvider.GetUtcNow();
-        var servers = registrations.GetAll()
+        var operatorPolicy = new OperatorPolicyReadService(operatorMetadata, timeProvider);
+        var enabledRegistrations = registrations.GetAll()
             .Where(item => item.IsEnabled)
             .OrderBy(item => item.Id)
-            .Select(registration =>
-            {
-                var metadata = operatorMetadata.GetServer(registration.Id);
-                var snapshot = cache.Peek(registration.Id);
-                return new ServerProjection(
-                    registration.Id,
-                    metadata.Environment.ToString(),
-                    metadata.Group ?? "Unassigned",
-                    metadata.Tags,
-                    snapshot,
-                    EnterpriseOperatorPolicy.IsMaintenanceActive(metadata, now),
-                    EnterpriseOperatorPolicy.IsAlertSuppressed(metadata, now));
-            })
             .ToArray();
+        var serverPolicies = operatorPolicy.GetServers(enabledRegistrations.Select(item => item.Id));
+        var servers = enabledRegistrations
+            .Select(registration => new ServerProjection(
+                registration.Id,
+                serverPolicies[registration.Id],
+                cache.Peek(registration.Id)))
+            .ToArray();
+        var readableServers = servers.Where(item => item.Policy.PolicyReadable).ToArray();
+        var serverPolicyEvidenceComplete = readableServers.Length == servers.Length;
 
-        var byEnvironment = Bucket(servers.Select(item => (item.Environment, item)));
-        var byGroup = Bucket(servers.Select(item => (item.Group, item)));
-        var byTag = Bucket(servers.SelectMany(item => item.Tags.Length == 0
+        var byEnvironment = Bucket(readableServers.Select(item => (item.Policy.Environment.ToString(), item)));
+        var byGroup = Bucket(readableServers.Select(item => (item.Policy.Group ?? "Unassigned", item)));
+        var byTag = Bucket(readableServers.SelectMany(item => item.Policy.Tags.Count == 0
             ? [(Key: "Untagged", Item: item)]
-            : item.Tags.Select(tag => (Key: tag, Item: item))));
+            : item.Policy.Tags.Select(tag => (Key: tag, Item: item))));
 
         var incidentRead = BoundedIncidentReadModel.ActiveForRegistrations(
             incidents,
             servers.Select(item => item.Id));
+        IReadOnlyDictionary<string, IncidentOperatorPolicyState> incidentPolicies = incidentRead.IsComplete
+            ? operatorPolicy.GetIncidents(incidentRead.Incidents)
+            : new Dictionary<string, IncidentOperatorPolicyState>(StringComparer.Ordinal);
         var incidentRows = incidentRead.Incidents
             .Select(incident =>
             {
                 var server = servers.FirstOrDefault(item => item.Id == incident.RegistrationId);
-                return (Incident: incident, Server: server, Suppressed: server?.Suppressed ?? false);
+                incidentPolicies.TryGetValue(incident.Id, out var policy);
+                return (Incident: incident, Server: server, Policy: policy);
             })
             .ToArray();
-        var hotspots = incidentRead.IsComplete
+        var incidentPolicyEvidenceComplete = incidentRead.IsComplete
+            && incidentRows.All(item => item.Server?.Policy.PolicyReadable == true && item.Policy?.PolicyReadable == true);
+        var hotspots = incidentRead.IsComplete && incidentPolicyEvidenceComplete
             ? incidentRows
                 .GroupBy(item => item.Incident.RuleId, StringComparer.Ordinal)
                 .Select(group => new FleetRuleHotspot(
                     group.Key,
                     group.Count(),
                     group.Count(item => item.Incident.Severity == FindingSeverity.Critical),
-                    group.Count(item => item.Suppressed)))
+                    group.Count(item => item.Policy!.AlertSuppressed)))
                 .OrderByDescending(item => item.Critical)
                 .ThenByDescending(item => item.Open)
                 .ThenBy(item => item.RuleId, StringComparer.Ordinal)
@@ -108,20 +113,20 @@ public sealed class FleetIntelligenceService(
             servers.Sum(item => item.Snapshot?.Snapshot.Ha?.DatabaseReplicas?.Count(database => database.IsSuspended == true) ?? 0),
             servers.Count(item => item.Snapshot?.Freshness == SnapshotFreshness.Stale && HasAdvancedEvidence(item.Snapshot.Snapshot)));
 
-        var decisionSupport = incidentRead.IsComplete
-            ? FleetDecisionSupport.Build(incidentRows
-                .Where(item => item.Server is not null)
-                .Select(item => new FleetDecisionIncident(
-                    item.Incident.Id,
-                    item.Incident.RegistrationId,
-                    item.Incident.RuleId,
-                    item.Incident.Severity,
-                    item.Incident.LastSeenUtc,
-                    item.Server!.Environment,
-                    item.Server.Suppressed,
-                    item.Server.Maintenance,
-                    ReadAssignee(item.Incident.Id))))
+        var decisionSupport = incidentRead.IsComplete && incidentPolicyEvidenceComplete
+            ? FleetDecisionSupport.Build(incidentRows.Select(item => new FleetDecisionIncident(
+                item.Incident.Id,
+                item.Incident.RegistrationId,
+                item.Incident.RuleId,
+                item.Incident.Severity,
+                item.Incident.LastSeenUtc,
+                item.Server!.Policy.Environment.ToString(),
+                item.Policy!.AlertSuppressed,
+                item.Server.Policy.MaintenanceActive,
+                item.Policy.Assignee)))
             : null;
+        var operatorPolicyUnavailable = servers.Count(item => !item.Policy.PolicyReadable)
+            + incidentRows.Count(item => incidentRead.IsComplete && item.Policy?.PolicyReadable != true);
 
         return new(
             byEnvironment,
@@ -130,30 +135,17 @@ public sealed class FleetIntelligenceService(
             servers.Count(item => item.Snapshot?.Freshness == SnapshotFreshness.Fresh),
             servers.Count(item => item.Snapshot?.Freshness == SnapshotFreshness.Stale),
             servers.Count(item => item.Snapshot is null),
-            servers.Count(item => item.Maintenance),
-            servers.Count(item => item.Suppressed),
+            readableServers.Count(item => item.Policy.MaintenanceActive),
+            readableServers.Count(item => item.Policy.AlertSuppressed),
             hotspots,
             risks,
             advanced,
             decisionSupport,
             incidentRead.IsComplete,
-            incidentRead.Limit);
-    }
-
-    private string? ReadAssignee(string incidentId)
-    {
-        try
-        {
-            return operatorMetadata.GetIncident(incidentId).Assignee;
-        }
-        catch (InvalidDataException)
-        {
-            return null;
-        }
-        catch (SharedStateStoreUnavailableException)
-        {
-            return null;
-        }
+            incidentRead.Limit,
+            serverPolicyEvidenceComplete,
+            incidentPolicyEvidenceComplete,
+            operatorPolicyUnavailable);
     }
 
     private static bool HasAdvancedEvidence(ServerHealthSnapshot snapshot) =>
@@ -167,17 +159,13 @@ public sealed class FleetIntelligenceService(
                 group.Count(item => item.Item.Snapshot?.Freshness == SnapshotFreshness.Fresh),
                 group.Count(item => item.Item.Snapshot?.Freshness == SnapshotFreshness.Stale),
                 group.Count(item => item.Item.Snapshot is null),
-                group.Count(item => item.Item.Maintenance),
-                group.Count(item => item.Item.Suppressed)))
+                group.Count(item => item.Item.Policy.MaintenanceActive),
+                group.Count(item => item.Item.Policy.AlertSuppressed)))
             .OrderBy(item => item.Key, StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
     private sealed record ServerProjection(
         Guid Id,
-        string Environment,
-        string Group,
-        string[] Tags,
-        SnapshotCacheResult? Snapshot,
-        bool Maintenance,
-        bool Suppressed);
+        ServerOperatorPolicyState Policy,
+        SnapshotCacheResult? Snapshot);
 }
