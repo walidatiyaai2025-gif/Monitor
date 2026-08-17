@@ -9,6 +9,7 @@ namespace Monitor.Web.Controllers;
 public sealed class EnterpriseReportsController : Controller
 {
     private readonly IEnterpriseReportingService _reports;
+    private readonly IMonitorReadService _monitoring;
     private readonly TimeProvider _timeProvider;
 
     public EnterpriseReportsController(
@@ -18,9 +19,11 @@ public sealed class EnterpriseReportsController : Controller
         IHealthIncidentRepository incidents,
         ISnapshotHistoryStore history,
         IAuditStore audit,
+        IMonitorReadService monitoring,
         TimeProvider timeProvider)
     {
         _reports = new EnterpriseReportingService(registrations, cache, operatorMetadata, incidents, history, audit, timeProvider);
+        _monitoring = monitoring;
         _timeProvider = timeProvider;
     }
 
@@ -63,6 +66,15 @@ public sealed class EnterpriseReportsController : Controller
         var bytes = _reports.MaintenanceDecision(registrationId, operation);
         if (bytes is null) return NotFound();
         return Download(bytes, "text/csv; charset=utf-8", EnterpriseDownloadSubject.MaintenanceDecisionSupport, "csv");
+    }
+
+    [HttpGet("/reports/server-intelligence/{registrationId:guid}.csv")]
+    public async Task<IActionResult> ServerIntelligence(Guid registrationId, CancellationToken cancellationToken)
+    {
+        if (registrationId == Guid.Empty) return NotFound();
+        var model = await _monitoring.GetServerAsync(registrationId.ToString("D"), cancellationToken);
+        if (model is null) return NotFound();
+        return Download(ServerIntelligenceExport.Build(model), "text/csv; charset=utf-8", EnterpriseDownloadSubject.ServerIntelligence, "csv");
     }
 
     [HttpGet("/reports/audit.csv")]
