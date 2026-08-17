@@ -40,6 +40,19 @@ function Invoke-GhJson {
     return $text | ConvertFrom-Json
 }
 
+function Test-GitHubResourceExists {
+    param([Parameter(Mandatory = $true)][string]$ApiPath)
+
+    $output = & gh api $ApiPath 2>&1
+    $exitCode = $LASTEXITCODE
+    if ($exitCode -eq 0) { return $true }
+
+    $message = $output -join [Environment]::NewLine
+    if ($message -match '(?i)(HTTP\s+404|Not Found)') { return $false }
+
+    throw "GitHub resource probe failed for '$ApiPath'; refusing to treat the error as absence: $message"
+}
+
 Invoke-Gh -Arguments @('auth', 'status') | Out-Null
 $repo = Invoke-GhJson -Arguments @('repo', 'view', $Repository, '--json', 'nameWithOwner,defaultBranchRef')
 if ([string]$repo.nameWithOwner -cne $expectedRepository -or [string]$repo.defaultBranchRef.name -cne 'main') {
@@ -61,9 +74,8 @@ if ([string]$artifact.workflow_run.id -cne $sourceRunId -or [string]$artifact.wo
 if ([string]$artifact.workflow_run.repository_id -cne $expectedRepositoryId -or [string]$artifact.workflow_run.head_repository_id -cne $expectedRepositoryId) { throw 'Selected artifact repository provenance drifted.' }
 if ([long]$artifact.size_in_bytes -le 0) { throw 'Selected artifact has invalid size.' }
 
-$releaseExists = $false
-& gh api "repos/$Repository/releases/tags/$releaseTag" *> $null
-if ($LASTEXITCODE -eq 0) { $releaseExists = $true }
+$releaseExists = Test-GitHubResourceExists -ApiPath "repos/$Repository/releases/tags/$releaseTag"
+$tagExists = Test-GitHubResourceExists -ApiPath "repos/$Repository/git/ref/tags/$releaseTag"
 
 $promotionCommand = @(
     'gh workflow run promote-existing-candidate.yml',
@@ -90,8 +102,15 @@ $verificationCommand = @(
     "-f expected_product_sha256=$productSha256"
 ) -join ' '
 
+$state = if ($releaseExists -or $tagExists) {
+    'DURABLE_STATE_EXISTS_VERIFY_OR_INVESTIGATE'
+}
+else {
+    'READY_FOR_EXPLICIT_MANUAL_PROMOTION'
+}
+
 [pscustomobject]@{
-    Status = if ($releaseExists) { 'RELEASE_ALREADY_EXISTS_VERIFY_ONLY' } else { 'READY_FOR_EXPLICIT_MANUAL_PROMOTION' }
+    Status = $state
     Repository = $Repository
     Version = $version
     SourceRunId = $sourceRunId
@@ -102,6 +121,8 @@ $verificationCommand = @(
     SourceCommit = $sourceCommit
     TestedMergeCommit = $testedMergeCommit
     ReleaseTag = $releaseTag
+    TagExists = $tagExists
+    ReleaseExists = $releaseExists
     PromotionCommand = $promotionCommand
     IndependentVerificationCommand = $verificationCommand
     MutatedGitHubState = $false
