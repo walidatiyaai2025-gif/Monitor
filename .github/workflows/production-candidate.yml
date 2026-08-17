@@ -28,6 +28,8 @@ on:
       - 'scripts/Accept-ProductionSingleNode.ps1'
       - 'scripts/Test-IisProductionPrerequisites.ps1'
       - 'scripts/Deploy-ProductionSingleNode.ps1'
+      - 'scripts/Bootstrap-IisProductionSingleNode.ps1'
+      - 'scripts/Install-ProductionSingleNode.ps1'
       - 'scripts/Export-ProductionAcceptanceToolkit.ps1'
       - 'scripts/Test-ProductionAcceptanceToolkit.ps1'
       - 'scripts/Test-ProductionAcceptanceToolingSidecar.ps1'
@@ -44,6 +46,7 @@ on:
       - 'tests/Monitor.Web.Tests/P05ProductionCandidateTests.cs'
       - 'tests/Monitor.Web.Tests/P05WorkflowSupplyChainTests.cs'
       - 'tests/Monitor.Web.Tests/P05IisDeploymentAutomationTests.cs'
+      - 'tests/Monitor.Web.Tests/P05IisBootstrapInstallerTests.cs'
       - 'tests/Monitor.Web.Tests/P05ProductionAcceptanceSessionTests.cs'
       - 'tests/Monitor.Web.Tests/P05ProductionAcceptanceEvidencePackTests.cs'
       - 'tests/Monitor.Web.Tests/P05ProductionAcceptanceGateRecorderTests.cs'
@@ -100,6 +103,8 @@ jobs:
             'scripts/Accept-ProductionSingleNode.ps1',
             'scripts/Test-IisProductionPrerequisites.ps1',
             'scripts/Deploy-ProductionSingleNode.ps1',
+            'scripts/Bootstrap-IisProductionSingleNode.ps1',
+            'scripts/Install-ProductionSingleNode.ps1',
             'scripts/Export-ProductionAcceptanceToolkit.ps1',
             'scripts/Test-ProductionAcceptanceToolkit.ps1',
             'scripts/Test-ProductionAcceptanceToolingSidecar.ps1',
@@ -375,6 +380,8 @@ jobs:
           Copy-Item scripts/Accept-ProductionSingleNode.ps1 "$ops/scripts/" -Force
           Copy-Item scripts/Test-IisProductionPrerequisites.ps1 "$ops/scripts/" -Force
           Copy-Item scripts/Deploy-ProductionSingleNode.ps1 "$ops/scripts/" -Force
+          Copy-Item scripts/Bootstrap-IisProductionSingleNode.ps1 "$ops/scripts/" -Force
+          Copy-Item scripts/Install-ProductionSingleNode.ps1 "$ops/scripts/" -Force
           Copy-Item "$env:MONITOR_PACKAGED_TOOLKIT_ROOT/New-ProductionAcceptanceSession.ps1" "$ops/scripts/" -Force
           Copy-Item "$env:MONITOR_PACKAGED_TOOLKIT_ROOT/New-ProductionAcceptanceEvidencePack.ps1" "$ops/scripts/" -Force
           Copy-Item "$env:MONITOR_PACKAGED_TOOLKIT_ROOT/Test-ProductionAcceptanceSessionBinding.ps1" "$ops/scripts/" -Force
