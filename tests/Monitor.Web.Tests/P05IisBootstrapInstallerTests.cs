@@ -80,14 +80,14 @@ public sealed class P05IisBootstrapInstallerTests
         Assert.Contains("builds.dotnet.microsoft.com", script, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("[switch]$AllowIisServiceRestart", script, StringComparison.Ordinal);
         Assert.Contains("Restart-IisServicesAfterHostingBundle", script, StringComparison.Ordinal);
-        Assert.Contains("stop', 'was', '/y'", script, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("start', 'w3svc'", script, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("& net.exe stop was /y", script, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("& net.exe start w3svc", script, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("RebootRequired", script, StringComparison.Ordinal);
         Assert.Contains("reboot before deployment", script, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("O=Microsoft Corporation", script, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("valid Microsoft Authenticode signature", script, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Refusing", script, StringComparison.OrdinalIgnoreCase);
 
-        var pfxGuard = script.IndexOf("if (-not (Test-Path -LiteralPath $certPath))", StringComparison.Ordinal);
+        var pfxGuard = script.IndexOf("if (-not (Test-Path -LiteralPath $storePath))", StringComparison.Ordinal);
         var pfxImport = script.IndexOf("Import-PfxCertificate", StringComparison.Ordinal);
         Assert.True(pfxGuard >= 0 && pfxImport > pfxGuard,
             "PFX import must remain conditional so reruns reuse an already-installed matching machine certificate.");
