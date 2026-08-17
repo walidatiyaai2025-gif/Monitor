@@ -37,7 +37,19 @@ public sealed record MemoryHealthSnapshot(
 public sealed record DatabaseHealthDetailSnapshot(int Restoring, int Recovering, int RecoveryPending, int Suspect, int Emergency, int OfflineOrOther);
 public sealed record BackupHealthSnapshot(int BackedUpLast24Hours, int MissingFullBackupLast24Hours, DateTimeOffset? LastFullBackupAtUtc);
 public sealed record SqlAgentHealthSnapshot(int TotalJobs, int EnabledJobs, int FailedLastRun);
-public sealed record StorageHealthSnapshot(long TotalAllocatedBytes, long DataAllocatedBytes, long LogAllocatedBytes);
+public sealed record IoFileSnapshot(
+    string FileKey,
+    long Reads,
+    long Writes,
+    long ReadStallMs,
+    long WriteStallMs,
+    long BytesRead,
+    long BytesWritten);
+public sealed record StorageHealthSnapshot(
+    long TotalAllocatedBytes,
+    long DataAllocatedBytes,
+    long LogAllocatedBytes,
+    IReadOnlyList<IoFileSnapshot>? IoFiles = null);
 public sealed record BlockingHealthSnapshot(int BlockedRequests, long MaxWaitMilliseconds);
 public sealed record WaitStatSnapshot(string WaitType, long WaitTimeMs, long SignalWaitTimeMs, long WaitingTasks);
 public sealed record PerformanceHealthSnapshot(
