@@ -29,7 +29,7 @@ public static class MemoryIntelligenceProjection
         var targetAttainment = memory.TotalServerMemoryKb.HasValue && memory.TargetServerMemoryKb is > 0
             ? (int?)Math.Clamp((int)Math.Round(memory.TotalServerMemoryKb.Value * 100d / memory.TargetServerMemoryKb.Value), 0, 1000)
             : null;
-        var osHeadroomMb = memory.AvailablePhysicalMemoryKb >= 0
+        long? osHeadroomMb = memory.AvailablePhysicalMemoryKb >= 0
             ? memory.AvailablePhysicalMemoryKb / 1024
             : null;
         var topClerk = !string.IsNullOrWhiteSpace(memory.TopMemoryClerkType) && memory.TopMemoryClerkKb.HasValue
