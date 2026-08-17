@@ -84,6 +84,7 @@ public interface IEnterpriseReportingService
     byte[] History(Guid registrationId, TimeSpan window);
     byte[] FleetDecisionSupport();
     byte[]? MaintenanceDecision(Guid registrationId, string? operation);
+    byte[] BackupHealth();
     byte[] Audit();
     byte[] Manifest();
 }
@@ -200,6 +201,37 @@ public sealed class EnterpriseReportingService(
         var evidence = Monitor.Web.Services.MaintenanceDecisionSupport.BuildEvidence(selectedOperation, policy, incidentRead);
         var result = Monitor.Web.Services.MaintenanceDecisionSupport.Evaluate(evidence);
         return MaintenanceDecisionSupportExport.Build(policy, incidentRead, result);
+    }
+
+    public byte[] BackupHealth()
+    {
+        var rows = registrations.GetAll()
+            .Where(registration => registration.IsEnabled)
+            .OrderBy(registration => registration.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(registration => registration.Id)
+            .Select(registration =>
+            {
+                SnapshotCacheEntry? cached;
+                try
+                {
+                    cached = cache.Peek(registration.Id);
+                }
+                catch (SnapshotCollectionException)
+                {
+                    cached = null;
+                }
+
+                var backups = cached?.Snapshot.Backups;
+                return new BackupHealthSummaryExportRow(
+                    registration.DisplayName,
+                    cached?.Freshness.ToString() ?? "Unavailable",
+                    cached?.Snapshot.CollectedAtUtc,
+                    backups?.BackedUpLast24Hours,
+                    backups?.MissingFullBackupLast24Hours,
+                    backups?.LastFullBackupAtUtc);
+            });
+
+        return BackupHealthSummaryExport.Build(rows);
     }
 
     public byte[] Audit()
