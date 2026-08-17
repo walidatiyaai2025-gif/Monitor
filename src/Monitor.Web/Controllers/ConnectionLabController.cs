@@ -318,34 +318,6 @@ public sealed class ConnectionLabController(
             localOwned);
     }
 
-    private bool IsDuplicate(SqlServerEndpoint endpoint) => registrations.GetAll().Any(item =>
-        item.Endpoint.Host.Equals(endpoint.Host, StringComparison.OrdinalIgnoreCase) &&
-        item.Endpoint.Port == endpoint.Port &&
-        string.Equals(item.Endpoint.InstanceName, endpoint.InstanceName, StringComparison.OrdinalIgnoreCase));
-
-    private static ConnectionLabRegistrationSummary ToSummary(ServerRegistration registration)
-    {
-        var endpoint = registration.Endpoint;
-        var target = endpoint.Port.HasValue
-            ? $"{endpoint.Host},{endpoint.Port.Value}"
-            : endpoint.InstanceName is null
-                ? endpoint.Host
-                : $"{endpoint.Host}\\{endpoint.InstanceName}";
-        var localOwned = registration.SecretReference?.Value.StartsWith("local:v1:", StringComparison.Ordinal) == true;
-
-        return new ConnectionLabRegistrationSummary(
-            registration.Id,
-            registration.DisplayName,
-            target,
-            registration.AuthenticationMode,
-            registration.SecretReference is not null,
-            registration.IsEnabled,
-            endpoint.Encrypt,
-            endpoint.TrustServerCertificate,
-            registration.CreatedAtUtc,
-            localOwned);
-    }
-
     private void ValidateInput(ConnectionLabRegistrationInput input)
     {
         if (!Enum.IsDefined(input.AuthenticationMode))
