@@ -27,18 +27,22 @@
     </div>
 
     <section class="panel panel-pad" aria-labelledby="maintenance-target-heading">
-        <div class="panel-heading"><div><p class="eyebrow">TARGET</p><h2 id="maintenance-target-heading">@Model.Registration.DisplayName</h2></div><span class="status-chip">@Model.Metadata.Environment</span></div>
+        <div class="panel-heading"><div><p class="eyebrow">TARGET</p><h2 id="maintenance-target-heading">@Model.Registration.DisplayName</h2></div><span class="status-chip">@(Model.Policy.PolicyReadable ? Model.Policy.Environment.ToString() : "POLICY UNAVAILABLE")</span></div>
         <dl class="definition-grid">
             <div><dt>Server ID</dt><dd>@Model.Registration.Id.ToString("D")</dd></div>
-            <div><dt>Configured maintenance window</dt><dd>@(Model.MaintenanceWindowActive ? "ACTIVE" : "Not active")</dd></div>
+            <div><dt>Configured maintenance window</dt><dd>@(Model.MaintenanceWindowActive.HasValue ? (Model.MaintenanceWindowActive.Value ? "ACTIVE" : "Not active") : "Not evaluated")</dd></div>
             <div><dt>Open critical incidents</dt><dd>@(Model.ActiveCriticalIncidents.HasValue ? Model.ActiveCriticalIncidents.Value.ToString() : "Not evaluated")</dd></div>
             <div><dt>Operation selected</dt><dd>@Model.Operation</dd></div>
         </dl>
+        @if (!Model.Policy.PolicyReadable)
+        {
+            <div class="data-banner"><strong>OPERATOR POLICY EVIDENCE UNAVAILABLE</strong><span>Environment class and configured maintenance-window state could not be read. Maintenance readiness remains NotEvaluated rather than treating unavailable metadata as non-production or an inactive window.</span></div>
+        }
         @if (!Model.IncidentEvidenceComplete)
         {
             <div class="data-banner"><strong>INCIDENT EVIDENCE INCOMPLETE</strong><span>Active incidents for this server exceeded the bounded decision-read limit of @Model.IncidentEvidenceLimit. Critical-incident count is not inferred from the retained subset, so maintenance readiness remains NotEvaluated.</span></div>
         }
-        @if (Model.Metadata.MaintenanceWindow is { } window)
+        @if (Model.Policy.Metadata?.MaintenanceWindow is { } window)
         {
             <p class="meta-line">Configured window: @window.StartsAtUtc.ToString("u") → @window.EndsAtUtc.ToString("u") · @window.Reason</p>
         }
