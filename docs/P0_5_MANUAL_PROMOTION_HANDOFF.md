@@ -4,6 +4,16 @@
 **State:** ready for explicit manual dispatch; not yet published  
 **Issue:** #162
 
+## Read-only operator preflight
+
+Before manual dispatch, run the repository preflight from a trusted checkout with authenticated GitHub CLI:
+
+```powershell
+pwsh ./scripts/Test-Rc61DurablePromotionPreflight.ps1
+```
+
+The preflight performs read-only repository/source-run/artifact checks, fails closed on RC.61 identity or provenance drift, reports whether the durable release already exists, and emits the exact approved promotion command plus the separate independent-verification command. It does **not** dispatch either workflow, create or mutate a tag/release, rebuild/repackage RC.61, deploy IIS, execute SQL, mark any external gate PASS, or close #162/#116/#111.
+
 ## Promotion inputs
 
 Run `.github/workflows/promote-existing-candidate.yml` from `main` with:
