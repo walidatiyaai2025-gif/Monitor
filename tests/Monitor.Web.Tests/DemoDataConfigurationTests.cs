@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Configuration;
+using Monitor.Web.Models;
 using Monitor.Web.Services;
 using Xunit;
 
