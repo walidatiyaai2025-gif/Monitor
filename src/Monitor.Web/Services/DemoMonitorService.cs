@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using Monitor.Web.Models;
 
 namespace Monitor.Web.Services;
@@ -10,7 +11,7 @@ public interface IDemoMonitorService
     IReadOnlyList<IncidentRow> GetIncidents();
 }
 
-public sealed class DemoMonitorService : IDemoMonitorService
+public sealed class DemoMonitorService(IConfiguration? configuration = null) : IDemoMonitorService
 {
     private static readonly IReadOnlyList<ServerCard> Servers =
     [
@@ -28,31 +29,57 @@ public sealed class DemoMonitorService : IDemoMonitorService
         new("INC-00031", "Warning", "DA-SQL02", "SQL Agent job failed on last execution", "2 hr", "Acknowledged")
     ];
 
-    public DashboardViewModel GetDashboard() => new()
-    {
-        Servers = Servers,
-        Incidents = Incidents,
-        Metrics =
-        [
-            new("Estate health", "75%", "3 of 4 instances reachable", HealthState.Warning),
-            new("Backup SLA", "97%", "1 database outside policy", HealthState.Warning),
-            new("Jobs", "125 / 138", "1 failed · 12 unavailable", HealthState.Warning),
-            new("Blocking", "1", "Active blocking chain", HealthState.Critical)
-        ],
-        Activity =
-        [
-            new("09:55:42", "DA-SQL01 health snapshot collected", HealthState.Healthy),
-            new("09:55:42", "34 databases checked from cached snapshot", HealthState.Healthy),
-            new("09:55:43", "DA-SQL02 memory warning remains active", HealthState.Warning),
-            new("09:55:44", "DA-SQL03 backup incident correlated", HealthState.Critical),
-            new("09:55:44", "INC-00034 surfaced to Command Center", HealthState.Critical)
-        ]
-    };
+    // DI supplies IConfiguration in the running app. Direct construction remains demo-enabled
+    // for focused unit/UI tests that intentionally exercise the sample estate.
+    private bool Enabled => configuration is null || configuration.GetValue("DemoData:Enabled", false);
 
-    public IReadOnlyList<ServerCard> GetServers() => Servers;
+    public DashboardViewModel GetDashboard()
+    {
+        if (!Enabled)
+        {
+            return new DashboardViewModel
+            {
+                Servers = [],
+                Incidents = [],
+                Metrics =
+                [
+                    new("Registered servers", "0", "No SQL Server targets are registered yet", HealthState.Unknown)
+                ],
+                Activity =
+                [
+                    new("Now", "No SQL Server targets are registered. Add a target in Connection Lab.", HealthState.Unknown)
+                ]
+            };
+        }
+
+        return new DashboardViewModel
+        {
+            Servers = Servers,
+            Incidents = Incidents,
+            Metrics =
+            [
+                new("Estate health", "75%", "3 of 4 instances reachable", HealthState.Warning),
+                new("Backup SLA", "97%", "1 database outside policy", HealthState.Warning),
+                new("Jobs", "125 / 138", "1 failed · 12 unavailable", HealthState.Warning),
+                new("Blocking", "1", "Active blocking chain", HealthState.Critical)
+            ],
+            Activity =
+            [
+                new("09:55:42", "DA-SQL01 health snapshot collected", HealthState.Healthy),
+                new("09:55:42", "34 databases checked from cached snapshot", HealthState.Healthy),
+                new("09:55:43", "DA-SQL02 memory warning remains active", HealthState.Warning),
+                new("09:55:44", "DA-SQL03 backup incident correlated", HealthState.Critical),
+                new("09:55:44", "INC-00034 surfaced to Command Center", HealthState.Critical)
+            ]
+        };
+    }
+
+    public IReadOnlyList<ServerCard> GetServers() => Enabled ? Servers : [];
 
     public ServerDetailsViewModel? GetServer(string id)
     {
+        if (!Enabled) return null;
+
         var server = Servers.FirstOrDefault(item => item.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
         if (server is null)
         {
@@ -72,5 +99,5 @@ public sealed class DemoMonitorService : IDemoMonitorService
         };
     }
 
-    public IReadOnlyList<IncidentRow> GetIncidents() => Incidents;
+    public IReadOnlyList<IncidentRow> GetIncidents() => Enabled ? Incidents : [];
 }
