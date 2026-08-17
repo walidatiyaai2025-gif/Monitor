@@ -7,12 +7,14 @@ public sealed class P05ProductionAcceptanceFinalizationTests
     private static readonly string RepoRoot = FindRepoRoot();
 
     [Fact]
-    public void Finalizer_RequiresExplicitHumanAcknowledgementAndSafeOperatorIdentity()
+    public void Finalizer_RequiresExplicitHumanAcknowledgementSafeIdentityAndSessionAnchor()
     {
         var text = Read("scripts/Complete-ProductionAcceptance.ps1");
         Assert.Contains("[switch]$AcknowledgeFinalAcceptance", text, StringComparison.Ordinal);
         Assert.Contains("requires explicit -AcknowledgeFinalAcceptance", text, StringComparison.Ordinal);
         Assert.Contains("AcceptedBy must be a non-placeholder bounded single-line operator identity", text, StringComparison.Ordinal);
+        Assert.Contains("ExpectedSessionManifestSha256", text, StringComparison.Ordinal);
+        Assert.Contains("Test-ProductionAcceptanceSessionBinding.ps1", text, StringComparison.Ordinal);
         Assert.Contains("SqlException", text, StringComparison.Ordinal);
         Assert.Contains("secret-like", text, StringComparison.OrdinalIgnoreCase);
     }
@@ -28,17 +30,20 @@ public sealed class P05ProductionAcceptanceFinalizationTests
     }
 
     [Fact]
-    public void Finalizer_ProspectivelyValidatesBeforeAuthoritativeCommitAndDetectsConcurrentMutation()
+    public void Finalizer_ProspectivelyValidatesRechecksSessionBindingThenCommitsAuthoritatively()
     {
         var text = Read("scripts/Complete-ProductionAcceptance.ps1");
         var prospectiveValidation = text.IndexOf("-EvidencePath $prospectivePath", StringComparison.Ordinal);
         var concurrencyCheck = text.IndexOf("Evidence pack changed during finalization", StringComparison.Ordinal);
+        var bindingRecheck = text.LastIndexOf("-ExpectedSessionManifestSha256 $ExpectedSessionManifestSha256 | Out-Null", StringComparison.Ordinal);
         var authoritativeMove = text.IndexOf("Move-Item -LiteralPath $prospectivePath -Destination $resolvedPackPath -Force", StringComparison.Ordinal);
 
         Assert.True(prospectiveValidation >= 0);
         Assert.True(concurrencyCheck > prospectiveValidation);
-        Assert.True(authoritativeMove > concurrencyCheck);
+        Assert.True(bindingRecheck > concurrencyCheck);
+        Assert.True(authoritativeMove > bindingRecheck);
         Assert.Contains("Get-FileHash -LiteralPath $resolvedPackPath -Algorithm SHA256", text, StringComparison.Ordinal);
+        Assert.Contains("-ExpectedSessionManifestSha256 $ExpectedSessionManifestSha256", text, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -48,6 +53,7 @@ public sealed class P05ProductionAcceptanceFinalizationTests
         Assert.Contains("Write-AtomicText -Path $resolvedPackPath -Text $originalRaw", text, StringComparison.Ordinal);
         Assert.Contains("Remove-Item -LiteralPath $closureSummaryPath", text, StringComparison.Ordinal);
         Assert.Contains("Test-ProductionAcceptanceEvidence.ps1", text, StringComparison.Ordinal);
+        Assert.Contains("locked session binding", text, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("original unaccepted pack", text, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -63,15 +69,17 @@ public sealed class P05ProductionAcceptanceFinalizationTests
     }
 
     [Fact]
-    public void WindowsCandidate_ParsesExecutesAndBundlesFinalizerWithNegativeCases()
+    public void WindowsCandidate_ExecutesSessionBoundFinalizerWithDriftNegativeCases()
     {
-        var text = Read(".github/workflows/production-candidate.yml");
-        Assert.Contains("scripts/Complete-ProductionAcceptance.ps1", text, StringComparison.Ordinal);
-        Assert.Contains("Exercise final operator acceptance finalizer", text, StringComparison.Ordinal);
-        Assert.Contains("finalizer without acknowledgement unexpectedly passed", text, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("finalizer before all gates unexpectedly passed", text, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("unsafe finalizer summary path unexpectedly passed", text, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("second finalization unexpectedly passed", text, StringComparison.OrdinalIgnoreCase);
+        var workflow = Read(".github/workflows/production-candidate.yml");
+        var runtime = Read("scripts/Test-ProductionAcceptanceSessionChain.ps1");
+        Assert.Contains("scripts/Test-ProductionAcceptanceSessionChain.ps1 -Mode Finalizer", workflow, StringComparison.Ordinal);
+        Assert.Contains("finalizer without acknowledgement unexpectedly passed", runtime, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("finalizer before all gates unexpectedly passed", runtime, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("unsafe finalizer summary path unexpectedly passed", runtime, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("wrong expected session-manifest hash unexpectedly passed", runtime, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("candidate identity drifted from the locked session", runtime, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("second finalization unexpectedly passed", runtime, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

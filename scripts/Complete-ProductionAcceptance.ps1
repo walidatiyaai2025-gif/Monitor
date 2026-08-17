@@ -4,6 +4,10 @@ param(
     [string]$EvidencePath,
 
     [Parameter(Mandatory = $true)]
+    [ValidatePattern('^[a-fA-F0-9]{64}$')]
+    [string]$ExpectedSessionManifestSha256,
+
+    [Parameter(Mandatory = $true)]
     [string]$AcceptedBy,
 
     [string]$ClosureSummaryFile = 'p0-5-closure-summary.json',
@@ -87,6 +91,14 @@ if (-not (Test-Path -LiteralPath $EvidencePath -PathType Leaf)) {
 Assert-SafeOperatorIdentity -Value $AcceptedBy
 
 $resolvedPackPath = (Resolve-Path -LiteralPath $EvidencePath).Path
+$bindingVerifierPath = Join-Path $PSScriptRoot 'Test-ProductionAcceptanceSessionBinding.ps1'
+if (-not (Test-Path -LiteralPath $bindingVerifierPath -PathType Leaf)) {
+    throw 'Test-ProductionAcceptanceSessionBinding.ps1 must be present beside the finalizer.'
+}
+& $bindingVerifierPath `
+    -EvidencePath $resolvedPackPath `
+    -ExpectedSessionManifestSha256 $ExpectedSessionManifestSha256 | Out-Null
+
 $evidenceRoot = Split-Path -Parent $resolvedPackPath
 $closureSummaryPath = Resolve-SafeRelativeOutputPath -Root $evidenceRoot -RelativePath $ClosureSummaryFile -EvidencePackPath $resolvedPackPath
 if (Test-Path -LiteralPath $closureSummaryPath) {
@@ -131,7 +143,8 @@ try {
     [IO.File]::WriteAllText($prospectivePath, $prospectiveJson, [Text.UTF8Encoding]::new($false))
 
     # Validate the exact prospective accepted record against all 15 real gates and SHA-bound evidence
-    # before mutating the authoritative evidence pack.
+    # before mutating the authoritative evidence pack. The prospective copy is not itself the canonical
+    # session path, so the authoritative locked-session binding is checked immediately before commit.
     & $validatorPath `
         -EvidencePath $prospectivePath `
         -EvidenceRoot $evidenceRoot `
@@ -142,6 +155,10 @@ try {
         throw 'Evidence pack changed during finalization. No final acceptance metadata was committed; restart finalization from the current pack.'
     }
 
+    & $bindingVerifierPath `
+        -EvidencePath $resolvedPackPath `
+        -ExpectedSessionManifestSha256 $ExpectedSessionManifestSha256 | Out-Null
+
     # Atomic authoritative commit: the only semantic changes are acceptedBy and acceptedAtUtc.
     Move-Item -LiteralPath $prospectivePath -Destination $resolvedPackPath -Force
     $authoritativeCommitted = $true
@@ -150,18 +167,19 @@ try {
         $summary = & $validatorPath `
             -EvidencePath $resolvedPackPath `
             -EvidenceRoot $evidenceRoot `
-            -ClosureSummaryPath $closureSummaryPath
+            -ClosureSummaryPath $closureSummaryPath `
+            -ExpectedSessionManifestSha256 $ExpectedSessionManifestSha256
     }
     catch {
-        # Evidence may have changed after prospective validation. Fail closed by restoring the
-        # original unaccepted pack and removing any partial closure summary.
+        # Evidence or its locked session binding may have changed after prospective validation.
+        # Fail closed by restoring the original unaccepted pack and removing any partial closure summary.
         Write-AtomicText -Path $resolvedPackPath -Text $originalRaw
         $authoritativeCommitted = $false
         Remove-Item -LiteralPath $closureSummaryPath -Force -ErrorAction SilentlyContinue
         throw
     }
 
-    Write-Host 'Final operator acceptance metadata recorded after prospective and authoritative 15/15 validation. Review the closure summary before separately closing #116.'
+    Write-Host 'Final operator acceptance metadata recorded after locked-session binding plus prospective and authoritative 15/15 validation. Review the closure summary before separately closing #116.'
     $summary
 }
 finally {

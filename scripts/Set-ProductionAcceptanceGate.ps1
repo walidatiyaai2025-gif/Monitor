@@ -4,6 +4,10 @@ param(
     [string]$EvidencePath,
 
     [Parameter(Mandatory = $true)]
+    [ValidatePattern('^[a-fA-F0-9]{64}$')]
+    [string]$ExpectedSessionManifestSha256,
+
+    [Parameter(Mandatory = $true)]
     [ValidateSet(
         'artifactChecksumVerified',
         'iisPreflightPassed',
@@ -133,6 +137,14 @@ if (-not (Test-Path -LiteralPath $EvidencePath -PathType Leaf)) {
 }
 
 $resolvedPackPath = (Resolve-Path -LiteralPath $EvidencePath).Path
+$bindingVerifierPath = Join-Path $PSScriptRoot 'Test-ProductionAcceptanceSessionBinding.ps1'
+if (-not (Test-Path -LiteralPath $bindingVerifierPath -PathType Leaf)) {
+    throw 'Test-ProductionAcceptanceSessionBinding.ps1 must be present beside the gate recorder.'
+}
+$sessionBinding = & $bindingVerifierPath `
+    -EvidencePath $resolvedPackPath `
+    -ExpectedSessionManifestSha256 $ExpectedSessionManifestSha256
+
 $evidenceRoot = Split-Path -Parent $resolvedPackPath
 $rootFull = [IO.Path]::GetFullPath($evidenceRoot).TrimEnd('\', '/')
 $rootPrefix = $rootFull + [IO.Path]::DirectorySeparatorChar
@@ -202,7 +214,9 @@ $result = [pscustomobject]@{
     EvidenceSha256 = $evidenceHash
     ReplacedExistingPass = $wasPassed
     EvidencePack = $resolvedPackPath
+    SessionManifestSha256 = $sessionBinding.SessionManifestSha256
+    SelectedProductSha256 = $sessionBinding.SelectedProductSha256
 }
 
-Write-Host "Recorded explicit operator PASS for '$GateName' with SHA-256-bound evidence. Final P0.5 closure still requires all 15 gates plus Test-ProductionAcceptanceEvidence.ps1."
+Write-Host "Recorded explicit operator PASS for '$GateName' with SHA-256-bound evidence inside the locked acceptance session. Final P0.5 closure still requires all 15 gates plus Test-ProductionAcceptanceEvidence.ps1."
 $result
