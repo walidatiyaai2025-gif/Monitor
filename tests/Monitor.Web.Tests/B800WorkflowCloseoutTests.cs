@@ -97,7 +97,9 @@ public sealed class B800WorkflowCloseoutTests
         {
             var source = File.ReadAllText(Path.Combine(Root, relative));
             Assert.DoesNotContain("SqlConnection", source, StringComparison.OrdinalIgnoreCase);
-            Assert.DoesNotContain("SELECT ", source, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("SqlCommand", source, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("ISqlSnapshotQuery", source, StringComparison.Ordinal);
+            Assert.DoesNotContain("ISqlServerSnapshotCollector", source, StringComparison.Ordinal);
         }
     }
 
