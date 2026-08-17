@@ -104,5 +104,5 @@ else
 
     <partial name="_TransactionLogHaDiagnostics" model="Model" />
 
-    <div class="data-banner"><strong>COLLECTION BOUNDARY</strong><span>Database state and transaction-log detail retain at most 50 user-database rows/server; HA retains at most 16 replicas and 64 database-replica rows/server, while the diagnostic tables display only the first 12 retained log/HA rows per server. No table data, physical paths, HADR endpoint URLs, SQL text, query plans or session/login identity are rendered. GET navigation reads cache only; transaction-log growth/composite scoring and HA quorum/RPO/RTO/failover readiness remain not evaluated.</span></div>
+    <div class="data-banner"><strong>COLLECTION BOUNDARY</strong><span>Up to 50 user databases are retained per server for bounded database-state and transaction-log detail, with non-online/risk evidence prioritized. HA retains at most 16 replicas and 64 database-replica rows/server, while the diagnostic tables display only the first 12 retained log/HA rows per server. No table data, physical paths, HADR endpoint URLs, SQL text, query plans or session/login identity are rendered. GET navigation reads cache only; transaction-log growth/composite scoring and HA quorum/RPO/RTO/failover readiness remain not evaluated.</span></div>
 }
