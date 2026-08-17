@@ -62,6 +62,18 @@ public sealed class DatabaseStateProjectionTests
         Assert.DoesNotContain("SELECT ", view, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void DatabaseHealthView_DoesNotPresentMissingPerDatabaseEvidenceAsHealthy()
+    {
+        var root = FindRoot();
+        var view = File.ReadAllText(Path.Combine(root, "src/Monitor.Web/Views/Operations/DatabaseHealth.cshtml"));
+
+        Assert.Contains("var perDatabaseUnavailable = projections.Count", view, StringComparison.Ordinal);
+        Assert.Contains("actionableObserved > 0 ? \"critical\" : perDatabaseUnavailable > 0 ? \"warning\" : \"healthy\"", view, StringComparison.Ordinal);
+        Assert.Contains("server(s) lack retained per-database evidence", view, StringComparison.Ordinal);
+        Assert.Contains("restoring + recovering > 0 || unavailable > 0 ? \"warning\" : \"healthy\"", view, StringComparison.Ordinal);
+    }
+
     private static string FindRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
