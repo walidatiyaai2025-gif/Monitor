@@ -300,6 +300,7 @@ public sealed class TelemetryHealthIncidentRepository(IHealthIncidentRepository 
     }
 
     public IReadOnlyList<HealthIncident> GetAll() => inner.GetAll();
+    public IncidentRepositoryReadResult Read(IncidentRepositoryQuery query) => inner.Read(query);
     public HealthIncident? GetById(string id) => inner.GetById(id);
 
     public bool TrySetStatus(string id, IncidentStatus expected, IncidentStatus next)
@@ -312,7 +313,7 @@ public sealed class TelemetryHealthIncidentRepository(IHealthIncidentRepository 
 
     private void Observe()
     {
-        var active = inner.GetAll().Count(item => item.Status != IncidentStatus.Resolved);
+        var active = inner.Read(new IncidentRepositoryQuery(ExcludeResolved: true, Limit: 1)).TotalMatched;
         telemetry.IncidentObserved(active);
     }
 }

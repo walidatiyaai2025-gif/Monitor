@@ -300,7 +300,7 @@ public sealed class FileSnapshotHistoryStore : ISnapshotHistoryStore
     private sealed record HistoryEnvelope(int Version, SnapshotHistoryPoint[]? Points);
 }
 
-public sealed class FileHealthIncidentRepository : IHealthIncidentRepository
+public sealed partial class FileHealthIncidentRepository : IHealthIncidentRepository
 {
     private const int CurrentFormatVersion = 1;
     private const int MaxRuleIdLength = 80;

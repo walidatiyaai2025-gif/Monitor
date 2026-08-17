@@ -490,7 +490,7 @@ public sealed class SharedSnapshotHistoryStore : ISnapshotHistoryStore
     private sealed record HistoryEnvelope(int Version, Guid RegistrationId, SnapshotHistoryPoint[]? Points);
 }
 
-public sealed class SharedHealthIncidentRepository : IHealthIncidentRepository
+public sealed partial class SharedHealthIncidentRepository : IHealthIncidentRepository
 {
     private const string DocumentKey = "monitor:incidents:v1";
     private const int FormatVersion = 1;
