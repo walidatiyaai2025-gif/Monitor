@@ -12,6 +12,13 @@ public sealed class B800MaintenanceDecisionSupportTests
     public void NormalizeOperation_AcceptsSupportedForms(string input, MaintenanceOperation expected) =>
         Assert.Equal(expected, MaintenanceDecisionSupport.NormalizeOperation(input));
 
+    [Theory]
+    [InlineData("2")]
+    [InlineData("999")]
+    [InlineData("not-an-operation")]
+    public void NormalizeOperation_RejectsUnsupportedOrNumericForms(string input) =>
+        Assert.Equal(MaintenanceOperation.Unknown, MaintenanceDecisionSupport.NormalizeOperation(input));
+
     [Fact]
     public void ProductionConfiguration_IsNotEvaluatedWhenGovernedInputsAreMissing()
     {
