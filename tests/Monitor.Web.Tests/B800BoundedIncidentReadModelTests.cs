@@ -32,7 +32,7 @@ public sealed class B800BoundedIncidentReadModelTests
         Assert.True(result.IsComplete);
         Assert.False(result.IsTruncated);
         Assert.Equal(10, result.Limit);
-        Assert.Equal(["a", "b"], result.Incidents.Select(item => item.Id).ToArray());
+        Assert.Equal(new[] { "a", "b" }, result.Incidents.Select(item => item.Id).ToArray());
     }
 
     [Fact]
@@ -49,7 +49,7 @@ public sealed class B800BoundedIncidentReadModelTests
         Assert.False(result.IsComplete);
         Assert.True(result.IsTruncated);
         Assert.Equal(2, result.Incidents.Count);
-        Assert.Equal(["1", "2"], result.Incidents.Select(item => item.Id).ToArray());
+        Assert.Equal(new[] { "1", "2" }, result.Incidents.Select(item => item.Id).ToArray());
     }
 
     [Fact]
