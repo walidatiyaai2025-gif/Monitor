@@ -39,6 +39,11 @@ public sealed class B800FleetDecisionSupportSurfaceTests
         Assert.Contains("ROUTING · RECOMMENDATION ONLY", view, StringComparison.Ordinal);
         Assert.Contains("No notification is sent", view, StringComparison.Ordinal);
         Assert.Contains("no sender, pager or mutation action", view, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Routing coverage above evaluates all", view, StringComparison.Ordinal);
+        Assert.Contains("complete bounded Fleet decision population", view, StringComparison.Ordinal);
+        Assert.Contains("top-@FleetDecisionSupport.MaxItems detail view only", view, StringComparison.Ordinal);
+        Assert.Contains("Evaluated", view, StringComparison.Ordinal);
+        Assert.Contains("Unassigned", view, StringComparison.Ordinal);
         Assert.Contains("_FleetDecisionSupport", fleet, StringComparison.Ordinal);
         Assert.Contains("Fleet decision support not evaluated", fleet, StringComparison.Ordinal);
         Assert.Contains("partial incident set", fleet, StringComparison.Ordinal);
@@ -69,6 +74,9 @@ public sealed class B800FleetDecisionSupportSurfaceTests
         Assert.Contains("Batch400FleetCorrelation.ClampWindow(TimeSpan.Zero)", contract, StringComparison.Ordinal);
         Assert.Contains("Batch400FleetCorrelation.SeverityWeight", contract, StringComparison.Ordinal);
         Assert.Contains("Batch300AlertRouting.Decide", contract, StringComparison.Ordinal);
+        Assert.Contains("FleetRoutingSummary", contract, StringComparison.Ordinal);
+        Assert.Contains("routingDecisions.Length", contract, StringComparison.Ordinal);
+        Assert.Contains("routingDecisions.Take(MaxItems)", contract, StringComparison.Ordinal);
         Assert.Contains("SuggestedRoute", contract, StringComparison.Ordinal);
         Assert.Contains("Batch300FleetRisk.Summarize", fleet, StringComparison.Ordinal);
         Assert.Contains("timeProvider.GetUtcNow()", fleet, StringComparison.Ordinal);

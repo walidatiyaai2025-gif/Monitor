@@ -224,7 +224,7 @@ BATCH-700 does **not** change production priority or acceptance truth: monitored
 ## BATCH-800 — Full functional operator wiring — IN PROGRESS
 
 **Umbrella:** Issue #287 — OPEN  
-**Current PR:** #310 — DRAFT / B800-078 bounded Fleet incident-risk slice  
+**Current PR:** #311 — DRAFT / B800-079 full bounded Fleet routing-coverage slice  
 **Task range:** B800-001..100  
 **Execution ledger:** `docs/BATCH_800.md`
 
@@ -232,7 +232,7 @@ BATCH-800 closes the gap between a visible route and a functionally wired operat
 
 `UI control / route -> controller endpoint -> authorization + antiforgery boundary -> service/read model -> persisted or cached evidence -> explicit success/error/unavailable state -> regression evidence`
 
-Incremental focused slices have advanced the batch beyond the historical #288 partial branch. Current `main` contains the evidence-backed server/diagnostic/workflow slices plus B800-071 fleet decision support, B800-072 maintenance safety decision support, B800-073 bounded incident decision evidence, B800-074 repository-bounded incident operator reads, B800-075 persisted/decorated native incident reads, B800-076 Fleet operator-policy availability and B800-077 Maintenance operator-policy availability; PR #310 carries B800-078 bounded Fleet incident risk.
+Incremental focused slices have advanced the batch beyond the historical #288 partial branch. Current `main` contains the evidence-backed server/diagnostic/workflow slices plus B800-071 fleet decision support, B800-072 maintenance safety decision support, B800-073 bounded incident decision evidence, B800-074 repository-bounded incident operator reads, B800-075 persisted/decorated native incident reads, B800-076 Fleet operator-policy availability, B800-077 Maintenance operator-policy availability and B800-078 bounded Fleet incident risk; PR #311 carries B800-079 full bounded Fleet routing coverage.
 
 Current evidence-backed state:
 
@@ -246,16 +246,18 @@ Current evidence-backed state:
 - B800-076 is merged through PR #308 as `a5799ea01ff3dc388a3a904206e72c18418d774f`. Exact final reconciled head `62cfd95f974a45f33b63d52a5a86a17e9d39aaf6` passed CI `32053753000`, Real SQL `32053753184`, and Windows production-candidate `32053753230`;
 - B800-076 reuses existing `PolicyReadable` states so Fleet keeps registration/cache/risk/advanced evidence visible while unreadable policy-dependent environment/group/tag buckets, maintenance/suppression totals, rule hot-spots, B300 routing and B400 correlation are withheld rather than fabricated;
 - B800-077 is merged through PR #309 as `66adf070f446a49a7df8bf4bbdb62620a323f473`; Maintenance routes through `IOperatorPolicyReadService`, unknown environment/window remains nullable `NotEvaluated` evidence, and configured-window observation never becomes approval evidence;
-- B800-078 reuses `Batch300FleetRisk` on the visible Fleet surface, but only from the same complete bounded active-incident population and readable required policy evidence used by existing decision support;
-- B800-078 reuses B400 severity weights and B300 suppression/maintenance weighting, withholds the score when incident evidence is partial or required policy metadata is unavailable, and treats a complete empty active-incident population as valid `0 / Healthy` evidence;
-- the B800-078 panel is read-only and exposes score/level/actionable/suppressed/top safe rule keys with no sender, notification, mutation or remediation;
-- B800-078 implementation head `5ea5f097d2508afff4fc0fd3677d32f67c0fb55c` passed CI `32058330149` / #2523 and Windows production-candidate `32058330150` / #430; Real SQL was not selected because no monitored-SQL query/collector/permission path changed.
+- B800-078 is merged through PR #310 as `2dbf248e1af51878c61bbeb14313ca17d19e85a4`; exact final reconciled head `d7e94c23c5189273bd905c206ff178b07d5237cf` passed CI `32059355185` / #2535, Real SQL `32059355193` / #319 and Windows production-candidate `32059355317` / #436;
+- B800-078 reuses `Batch300FleetRisk` on the visible Fleet surface only from the complete bounded active-incident population plus readable required policy evidence, withholds the score when evidence is partial/unreadable, and remains non-executing decision support;
+- B800-079 evaluates existing deterministic B300 routing across every valid incident admitted by the complete bounded Fleet decision population and exposes a full `FleetRoutingSummary` rather than allowing the top-20 row cap to masquerade as routing coverage;
+- B800-079 route buckets `Page`, `Notify`, `Queue`, `None` are exhaustive for `EvaluatedIncidents`; suppression/maintenance/unassigned are separate overlapping coverage facts;
+- B800-079 retains deterministic top-20 row detail and explicitly does not claim global/unbounded incident coverage;
+- B800-079 implementation head `38d0bf73844675bc0bbb039d7c8a02f90f9c6df5` passed CI `32060063245` / #2543 and Windows production-candidate `32060063147` / #437; Real SQL was not selected because no monitored-SQL query/collector/permission path changed.
 
 Safety/truth boundaries remain mandatory: monitored GETs never collect SQL; missing, truncated or unreadable decision evidence is never converted to zero/healthy/default except that an explicitly complete empty incident population may truthfully summarize as zero; wait/I/O counters are cumulative since SQL Server start rather than interval history; `AgentReliabilityProjection` keeps `ScheduleLatenessEvaluated=false` until canonical time-zone + recurrence/expected-run semantics exist; backup RPO compliance is not claimed without policy; TempDB, transaction-log, HA readiness and privacy-safe query regression remain pending; no SQL text/query plans/client identity/table data/physical paths are collected; no autonomous remediation or AI-generated SQL execution is introduced.
 
-Least privilege remains read-only: SQL Server 2022+ uses `VIEW SERVER PERFORMANCE STATE` (older supported versions `VIEW SERVER STATE`) plus `VIEW ANY DEFINITION` and existing narrow metadata grants; Agent history/activity adds only read-only `SELECT` on `msdb.dbo.sysjobhistory` and `msdb.dbo.sysjobactivity`, with no SQLAgent execution/operator role. B800-071/072/073/074/075/076/077/078 add no monitored-SQL permission or query path.
+Least privilege remains read-only: SQL Server 2022+ uses `VIEW SERVER PERFORMANCE STATE` (older supported versions `VIEW SERVER STATE`) plus `VIEW ANY DEFINITION` and existing narrow metadata grants; Agent history/activity adds only read-only `SELECT` on `msdb.dbo.sysjobhistory` and `msdb.dbo.sysjobactivity`, with no SQLAgent execution/operator role. B800-071/072/073/074/075/076/077/078/079 add no monitored-SQL permission or query path.
 
-PR #310 becomes eligible for Ready/merge only after `BATCH_800`, `FEATURE_CATALOG`, `STATUS` and this plan are reconciled on one exact head, every repository-selected required workflow is Green on that same head, review threads are resolved, the branch is current with `main`, and the effective diff remains bounded to B800-078 plus canonical reconciliation. Real SQL is required only if repository path policy selects it. Merging #310 closes only B800-078; #287 remains OPEN for B800-079+.
+PR #311 becomes eligible for Ready/merge only after `BATCH_800`, `FEATURE_CATALOG`, `STATUS` and this plan are reconciled on one exact head, every repository-selected required workflow is Green on that same head, review threads are resolved, the branch is current with `main`, and the effective diff remains bounded to B800-079 plus canonical reconciliation. Real SQL is required only if repository path policy selects it. Merging #311 closes only B800-079; #287 remains OPEN for B800-080+.
 
 BATCH-800 does not publish/supersede selected RC.61, mutate real production IIS/SQL, satisfy #162/#116/#111, or change the strict production dependency.
 
@@ -282,7 +284,7 @@ BATCH-800 does not publish/supersede selected RC.61, mutate real production IIS/
 - BATCH-500 — B500-001..100 COMPLETE.
 - BATCH-600 — B600-001..100 COMPLETE.
 - `docs/BATCH_700.md` — UI700-001..050 COMPLETE; PR #240 squash-merged as `fd33e79c6d19d7f9852417b9c35a11f91f21714c` after exact final head `0834db6b5d518fe5c52eec9b47c03e467929aa89` passed CI #1637, Real SQL #91 and production-candidate #142.
-- `docs/BATCH_800.md` — B800-001..100 IN PROGRESS under #287; incremental focused slices are merged through B800-077 on `main`, with PR #310 carrying B800-078. The batch is not counted as complete.
+- `docs/BATCH_800.md` — B800-001..100 IN PROGRESS under #287; incremental focused slices are merged through B800-078 on `main`, with PR #311 carrying B800-079. The batch is not counted as complete.
 
 The BATCH-200 reconciliation selectively restored retention governance, enterprise security hardening and bounded scale primitives plus mapped B200-051..090 regression coverage and an additional audit-pagination regression on RC.61-era current main. Legacy issues #87/#91/#93 are closed completed, while stale PRs #88/#92/#94/#104 are closed unmerged as superseded. This was baseline correction rather than feature expansion or new task accounting; it preserves `IServerTargetLifecycleService`, BATCH-300 and all P0 production/release boundaries and does not change #116 or selected RC.61.
 
@@ -305,6 +307,7 @@ Historical feature breadth remains available, but it does not outrank the remain
 - B800-076 reuses existing operator-policy availability states; unreadable Fleet policy metadata must stay explicit and decision support must fail closed instead of inventing environment, suppression, maintenance or assignment facts.
 - B800-077 applies the same availability rule to Maintenance; unknown environment/window policy must remain nullable `NotEvaluated` evidence and cannot be converted to non-production or an inactive window.
 - B800-078 reuses existing deterministic Fleet risk logic only from complete bounded active incidents plus readable required policy evidence; truncation/unavailable policy withholds the score and the surface remains non-executing decision support.
+- B800-079 full routing aggregate may summarize only the complete bounded Fleet decision population; detail remains deterministic top-20, aggregate must not be described as unbounded/global coverage, and all routing output remains non-executing recommendation support.
 
 ## Definition of done
 

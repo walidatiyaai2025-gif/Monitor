@@ -26,6 +26,20 @@
 
 <section class="glass-panel table-panel" style="margin-top:14px" aria-label="Fleet routing decision support">
     <div class="panel-heading"><div><span class="eyebrow">ROUTING · RECOMMENDATION ONLY</span><h3>Suggested incident routes</h3></div><span class="snapshot-note">No notification is sent</span></div>
+    @if (Model.RoutingSummary is { } routingSummary)
+    {
+        <div class="fleet-risk-links" aria-label="Full bounded routing coverage">
+            <span><small>Evaluated</small><strong>@routingSummary.EvaluatedIncidents</strong></span>
+            <span><small>Page</small><strong>@routingSummary.Page</strong></span>
+            <span><small>Notify</small><strong>@routingSummary.Notify</strong></span>
+            <span><small>Queue</small><strong>@routingSummary.Queue</strong></span>
+            <span><small>No route</small><strong>@routingSummary.None</strong></span>
+            <span><small>Suppressed</small><strong>@routingSummary.Suppressed</strong></span>
+            <span><small>Maintenance</small><strong>@routingSummary.InMaintenance</strong></span>
+            <span><small>Unassigned</small><strong>@routingSummary.Unassigned</strong></span>
+        </div>
+        <p class="server-mini-note">Routing coverage above evaluates all @routingSummary.EvaluatedIncidents incidents admitted by the complete bounded Fleet decision population. The table below is a deterministic top-@FleetDecisionSupport.MaxItems detail view only.</p>
+    }
     <div class="responsive-table" role="region" aria-label="Suggested incident routing" tabindex="0">
         <div class="table-head health-detail-grid" role="row"><span>Incident</span><span>Rule / environment</span><span>Severity</span><span>Suggested route</span><span>Tier / cooldown</span><span>Owner</span><span>Reason</span></div>
         @foreach (var item in Model.RoutingSuggestions)
