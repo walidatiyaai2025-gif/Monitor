@@ -35,4 +35,9 @@
     </section>
 }
 
+@if (Model.DecisionSupport is { } decisionSupport)
+{
+    <partial name="_FleetDecisionSupport" model="decisionSupport" />
+}
+
 <section class="glass-panel table-panel"><div class="panel-heading"><div><span class="eyebrow">RULE HOT-SPOTS</span><h3>Open incident concentration</h3></div><span class="snapshot-note">Top 20 deterministic rules</span></div><div class="responsive-table" role="region" aria-label="Rule hot spots" tabindex="0"><div class="table-head fleet-hotspot-grid" role="row"><span>Rule</span><span>Open</span><span>Critical</span><span>Suppressed</span><span>Incidents</span></div>@foreach (var hotspot in Model.RuleHotspots) { <div class="table-row fleet-hotspot-grid" role="row"><strong>@hotspot.RuleId</strong><span>@hotspot.Open</span><span>@hotspot.Critical</span><span>@hotspot.Suppressed</span><a class="secondary-button compact-button" asp-controller="Operations" asp-action="Alerts" asp-route-ruleId="@hotspot.RuleId">Review</a></div> }@if (Model.RuleHotspots.Count == 0) { <div class="incident-empty">No open incident hot-spots.</div> }</div></section>
