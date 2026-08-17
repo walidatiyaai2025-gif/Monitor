@@ -211,24 +211,28 @@ public sealed class EnterpriseReportingService(
             .ThenBy(registration => registration.Id)
             .Select(registration =>
             {
-                SnapshotCacheEntry? cached;
                 try
                 {
-                    cached = cache.Peek(registration.Id);
+                    var cached = cache.Peek(registration.Id);
+                    var backups = cached?.Snapshot.Backups;
+                    return new BackupHealthSummaryExportRow(
+                        registration.DisplayName,
+                        cached?.Freshness.ToString() ?? "Unavailable",
+                        cached?.Snapshot.CollectedAtUtc,
+                        backups?.BackedUpLast24Hours,
+                        backups?.MissingFullBackupLast24Hours,
+                        backups?.LastFullBackupAtUtc);
                 }
                 catch (SnapshotCollectionException)
                 {
-                    cached = null;
+                    return new BackupHealthSummaryExportRow(
+                        registration.DisplayName,
+                        "Unavailable",
+                        null,
+                        null,
+                        null,
+                        null);
                 }
-
-                var backups = cached?.Snapshot.Backups;
-                return new BackupHealthSummaryExportRow(
-                    registration.DisplayName,
-                    cached?.Freshness.ToString() ?? "Unavailable",
-                    cached?.Snapshot.CollectedAtUtc,
-                    backups?.BackedUpLast24Hours,
-                    backups?.MissingFullBackupLast24Hours,
-                    backups?.LastFullBackupAtUtc);
             });
 
         return BackupHealthSummaryExport.Build(rows);
