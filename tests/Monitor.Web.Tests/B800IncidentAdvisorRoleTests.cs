@@ -28,9 +28,14 @@ public sealed class B800IncidentAdvisorRoleTests
         var view = Read("src/Monitor.Web/Views/Operations/IncidentDetails.cshtml");
         Assert.Contains("var canOperate = User.IsInRole(MonitorRoles.Operator) || User.IsInRole(MonitorRoles.Administrator);", view, StringComparison.Ordinal);
 
-        var gatedActions = Slice(view, "@if (canOperate)\n    {", "    else\n    {");
+        // Keep this source-contract assertion platform-neutral: Git checkouts may use LF or CRLF.
+        var gatedActions = Slice(
+            view,
+            "@if (canOperate)",
+            "@if (canOperate && Model.Incident.Status != IncidentStatus.Resolved)");
         Assert.Contains("asp-action=\"AcknowledgeIncident\"", gatedActions, StringComparison.Ordinal);
         Assert.Contains("asp-action=\"RequestAdvisor\"", gatedActions, StringComparison.Ordinal);
+        Assert.Contains("Viewer access is read-only", gatedActions, StringComparison.Ordinal);
 
         Assert.Contains("@if (canOperate && Model.Incident.Status != IncidentStatus.Resolved)", view, StringComparison.Ordinal);
         Assert.Contains("asp-action=\"ResolveWithNote\"", view, StringComparison.Ordinal);
