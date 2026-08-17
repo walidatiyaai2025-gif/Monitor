@@ -24,12 +24,13 @@ public sealed class B800MaintenanceDecisionSupportSurfaceTests
     }
 
     [Fact]
-    public void Controller_UsesOwnedMetadataAndOpenIncidentsWithoutSnapshotOrSqlCollection()
+    public void Controller_UsesOwnedMetadataAndBoundedIncidentEvidenceWithoutSnapshotOrSqlCollection()
     {
         var source = Read("src/Monitor.Web/Controllers/MaintenanceDecisionSupportController.cs");
 
         Assert.Contains("operatorMetadata.GetServer(id)", source, StringComparison.Ordinal);
-        Assert.Contains("incident.Status != IncidentStatus.Resolved", source, StringComparison.Ordinal);
+        Assert.Contains("BoundedIncidentReadModel.ActiveForServer(incidents, id)", source, StringComparison.Ordinal);
+        Assert.Contains("incidentRead.IsComplete", source, StringComparison.Ordinal);
         Assert.Contains("FindingSeverity.Critical", source, StringComparison.Ordinal);
         Assert.Contains("IsMaintenanceActive", source, StringComparison.Ordinal);
         Assert.Contains("InApprovedWindow: null", source, StringComparison.Ordinal);
@@ -37,6 +38,7 @@ public sealed class B800MaintenanceDecisionSupportSurfaceTests
         Assert.Contains("HasRollbackPlan: null", source, StringComparison.Ordinal);
         Assert.Contains("ReplicaHealthy: null", source, StringComparison.Ordinal);
         Assert.Contains("RecentBackupAvailable: null", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("incidents.GetAll()", source, StringComparison.Ordinal);
         Assert.DoesNotContain("SqlConnection", source, StringComparison.Ordinal);
         Assert.DoesNotContain("SnapshotQuery", source, StringComparison.Ordinal);
         Assert.DoesNotContain("RefreshAsync", source, StringComparison.Ordinal);
@@ -52,6 +54,8 @@ public sealed class B800MaintenanceDecisionSupportSurfaceTests
         Assert.Contains("method=\"get\"", view, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("No action executed", view, StringComparison.Ordinal);
         Assert.Contains("not treated as approved-window evidence", view, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("INCIDENT EVIDENCE INCOMPLETE", view, StringComparison.Ordinal);
+        Assert.Contains("Not evaluated", view, StringComparison.Ordinal);
         Assert.Contains("MissingInputs", view, StringComparison.Ordinal);
         Assert.DoesNotContain("method=\"post\"", view, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("type=\"hidden\"", view, StringComparison.OrdinalIgnoreCase);
