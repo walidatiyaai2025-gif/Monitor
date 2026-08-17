@@ -25,7 +25,14 @@ public sealed record MemoryHealthSnapshot(
     int SqlProcessMemoryUtilizationPercent,
     bool IsPhysicalMemoryLow,
     bool IsVirtualMemoryLow,
-    string SystemMemoryState);
+    string SystemMemoryState,
+    long? MaxServerMemoryMb = null,
+    long? TotalServerMemoryKb = null,
+    long? TargetServerMemoryKb = null,
+    long? PageLifeExpectancySeconds = null,
+    long? MemoryGrantsPending = null,
+    string? TopMemoryClerkType = null,
+    long? TopMemoryClerkKb = null);
 
 public sealed record DatabaseHealthDetailSnapshot(int Restoring, int Recovering, int RecoveryPending, int Suspect, int Emergency, int OfflineOrOther);
 public sealed record BackupHealthSnapshot(int BackedUpLast24Hours, int MissingFullBackupLast24Hours, DateTimeOffset? LastFullBackupAtUtc);
