@@ -6,7 +6,7 @@ namespace Monitor.Web.Controllers;
 [AllowAnonymous]
 public sealed class ErrorController : Controller
 {
-    [HttpGet("/error")]
+    [Route("/error")]
     public IActionResult ServerError()
     {
         Response.StatusCode = StatusCodes.Status500InternalServerError;
@@ -20,7 +20,7 @@ public sealed class ErrorController : Controller
         return View();
     }
 
-    [HttpGet("/error/status/{statusCode:int}")]
+    [Route("/error/status/{statusCode:int}")]
     public IActionResult Status(int statusCode)
     {
         return statusCode switch
