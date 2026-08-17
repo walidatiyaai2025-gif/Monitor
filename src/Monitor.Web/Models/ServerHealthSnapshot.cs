@@ -16,7 +16,8 @@ public sealed record ServerHealthSnapshot(
     SqlAgentHealthSnapshot? Jobs = null,
     StorageHealthSnapshot? Storage = null,
     BlockingHealthSnapshot? Blocking = null,
-    PerformanceHealthSnapshot? Performance = null);
+    PerformanceHealthSnapshot? Performance = null,
+    TempDbHealthSnapshot? TempDb = null);
 
 public sealed record MemoryHealthSnapshot(
     long TotalPhysicalMemoryKb,
@@ -80,6 +81,22 @@ public sealed record PerformanceHealthSnapshot(
     int RunnableTasks,
     int PendingIoRequests,
     IReadOnlyList<WaitStatSnapshot>? Waits = null);
+
+public sealed record TempDbFileSnapshot(
+    int FileId,
+    string FileKey,
+    long SizeBytes,
+    long? UsedBytes,
+    long Reads,
+    long Writes,
+    long ReadStallMs,
+    long WriteStallMs);
+
+public sealed record TempDbHealthSnapshot(
+    int LogicalCpuCount,
+    int TotalDataFiles,
+    IReadOnlyList<TempDbFileSnapshot>? DataFiles = null,
+    bool IsTruncated = false);
 
 public enum SnapshotCollectionFailure
 {
