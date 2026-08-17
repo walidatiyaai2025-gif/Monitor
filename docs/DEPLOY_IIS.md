@@ -12,7 +12,97 @@ This is the preferred Windows deployment path for a single Monitor node behind I
 - Published Monitor output produced from a CI-verified commit.
 - A validated pre-cutover Monitor operational backup ID.
 
-The deployment automation deliberately does **not** create service identities, install certificates, or invent bindings. Those are security/infrastructure prerequisites that must be approved before application cutover.
+The existing read-only preflight and deployment script remain authoritative. For a new server, repository tooling now includes an idempotent bootstrap layer that can prepare these prerequisites only after explicit operator review and `-Apply`.
+
+## Optional idempotent IIS/bootstrap installer
+
+`scripts/Bootstrap-IisProductionSingleNode.ps1` is **PLAN ONLY by default**. It checks the required Windows Server IIS features, WebAdministration support, .NET 8 ASP.NET Core Runtime/ANCM, app pool, site, HTTPS binding, machine certificate and filesystem/ACL baseline. It creates or installs missing approved prerequisites only when the operator repeats the reviewed command with `-Apply`.
+
+This repository bootstrap is not permission to start production cutover. The governing dependency remains `#162 durable RC publication + independent verification -> #116 real trusted-IIS acceptance`. Do not run an Apply operation against the real production target while #162 is open.
+
+### Dry-run using an existing machine certificate
+
+```powershell
+.\scripts\Bootstrap-IisProductionSingleNode.ps1 `
+  -HostName 'monitor.example.internal' `
+  -CertificateThumbprint '<approved-machine-cert-thumbprint>'
+```
+
+No IIS, Windows feature, runtime, certificate, filesystem or ACL change is made without `-Apply`.
+
+### Online Hosting Bundle mode
+
+When the .NET 8 ASP.NET Core Runtime or ANCM is missing, Online mode requires an explicit HTTPS Microsoft download URL. The downloaded executable must carry a valid Microsoft Authenticode signature; an independently approved SHA-256 can also be pinned with `-HostingBundleSha256`.
+
+```powershell
+.\scripts\Bootstrap-IisProductionSingleNode.ps1 `
+  -HostName 'monitor.example.internal' `
+  -CertificateThumbprint '<approved-machine-cert-thumbprint>' `
+  -HostingBundleMode Online `
+  -HostingBundleDownloadUrl 'https://download.visualstudio.microsoft.com/<approved-hosting-bundle-path>' `
+  -HostingBundleSha256 '<64-hex-approved-installer-sha256>'
+```
+
+Review the PLAN ONLY output first, then repeat the same approved command with `-Apply` if the #162/#116 operating boundary allows the real server mutation.
+
+### Offline Hosting Bundle mode
+
+Offline mode performs no Internet download. Supply the approved local Hosting Bundle installer; SHA-256 pinning is supported and recommended.
+
+```powershell
+.\scripts\Bootstrap-IisProductionSingleNode.ps1 `
+  -HostName 'monitor.example.internal' `
+  -CertificateThumbprint '<approved-machine-cert-thumbprint>' `
+  -HostingBundleMode Offline `
+  -HostingBundleInstallerPath 'C:\Deploy\Prereqs\dotnet-hosting-8-approved.exe' `
+  -HostingBundleSha256 '<64-hex-approved-installer-sha256>'
+```
+
+### Explicit PFX certificate
+
+The bootstrap can import an explicitly supplied PFX into `Cert:\LocalMachine\My`. The password parameter is a `SecureString`; never store or pass a plaintext password in Git, scripts, documentation, command history or logs.
+
+```powershell
+$pfxPassword = Read-Host 'PFX password' -AsSecureString
+.\scripts\Bootstrap-IisProductionSingleNode.ps1 `
+  -HostName 'monitor.example.internal' `
+  -CertificatePfxPath 'C:\Deploy\Certificates\monitor-production.pfx' `
+  -CertificatePfxPassword $pfxPassword
+```
+
+An independently supplied `-CertificateThumbprint` can be provided together with the PFX; when both are supplied the PFX leaf certificate must match that approved thumbprint or bootstrap fails closed.
+
+### Single bootstrap + deploy entrypoint
+
+`scripts/Install-ProductionSingleNode.ps1` provides one operator entrypoint while preserving the existing implementation boundaries. Its order is fixed:
+
+1. `Bootstrap-IisProductionSingleNode.ps1`
+2. `Test-IisProductionPrerequisites.ps1`
+3. `Deploy-ProductionSingleNode.ps1`
+
+PlanOnly example:
+
+```powershell
+.\scripts\Install-ProductionSingleNode.ps1 `
+  -ArtifactPath 'C:\Deploy\Monitor\Monitor-<version>-win-x64.zip' `
+  -ChecksumPath 'C:\Deploy\Monitor\Monitor-<version>-win-x64.zip.sha256' `
+  -ReleaseVersion '<version>' `
+  -ProductionConfigPath 'C:\Deploy\Monitor\approved\appsettings.Production.json' `
+  -OperationalBackupId '<validated-pre-cutover-backup-id>' `
+  -HostName 'monitor.example.internal' `
+  -CertificateThumbprint '<approved-machine-cert-thumbprint>'
+```
+
+If bootstrap changes are required, PlanOnly stops before authoritative preflight/deployment and reports the missing prerequisites. After #162 is actually complete and the production operation is approved, an Apply invocation additionally requires `-AcknowledgeDurableReleasePrerequisite`:
+
+```powershell
+# Same reviewed inputs, only after #162 is actually closed with durable verification evidence.
+.\scripts\Install-ProductionSingleNode.ps1 ... `
+  -AcknowledgeDurableReleasePrerequisite `
+  -Apply
+```
+
+`-AcknowledgeDurableReleasePrerequisite` does not itself verify or satisfy #162. It is only an explicit operator acknowledgement and cannot manufacture #116 acceptance evidence. The existing deployment script continues to own package SHA-256 validation, immutable release staging, stable external `App_Data`, HTTPS acceptance and automatic physical-path rollback.
 
 ## Preferred operator-safe deployment flow
 
