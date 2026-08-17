@@ -1,3 +1,4 @@
+@using Monitor.Web.Services
 @model HealthModulePageViewModel
 @{
     ViewData["Title"] = Model.Title;
@@ -6,10 +7,28 @@
     var covered = observed.Sum(server => server.Backups!.BackedUpLast24Hours);
     var unavailable = Model.Servers.Count(server => server.Backups is null || server.Source == ServerDataSource.RegisteredUnavailable);
     var latestFull = observed.Select(server => server.Backups!.LastFullBackupAtUtc).Where(value => value.HasValue).Select(value => value!.Value).OrderByDescending(value => value).FirstOrDefault();
-    var canManage = User.IsInRole(Monitor.Web.Services.MonitorRoles.Administrator);
+    var canManage = User.IsInRole(MonitorRoles.Administrator);
+    var backupPolicy = ViewData["BackupPolicy"] as BackupPolicyOptions ?? new BackupPolicyOptions();
+    var policyConfigured = backupPolicy.IsConfigured;
 }
 
 <partial name="_PortalPageHeader" model="@(new PortalPageHeaderViewModel(Model.Title, Model.Description + " This page never starts backup collection.", "CACHED BACKUP COVERAGE", "View servers", Url.Action("Servers", "Operations")))" />
+
+<section class="health-command-summary" aria-label="Backup RPO policy">
+    <article class="health-command-card hero state-@(policyConfigured ? "warning" : "offline")"><div><small>BACKUP RPO POLICY</small><strong>@(policyConfigured ? "Configured" : "Not configured")</strong><span>@(policyConfigured ? "Explicit operator policy; compliance is not evaluated from the current snapshot." : "Monitor does not assume Full or Log RPO values.")</span></div></article>
+    <article class="health-command-card state-@(policyConfigured ? "warning" : "offline")"><small>FULL RPO</small><strong>@(policyConfigured ? $"{backupPolicy.FullRpoMinutes} min" : "Not configured")</strong><span>Must be supplied explicitly when BackupPolicy is enabled</span></article>
+    <article class="health-command-card state-@(policyConfigured ? "warning" : "offline")"><small>LOG RPO</small><strong>@(policyConfigured ? $"{backupPolicy.LogRpoMinutes} min" : "Not configured")</strong><span>Used only after per-database recovery-model/log evidence exists</span></article>
+    <article class="health-command-card state-warning"><small>B300 COMPLIANCE</small><strong>Not evaluated</strong><span>Recovery model and last log-backup evidence are not collected per database.</span></article>
+</section>
+
+@if (policyConfigured)
+{
+    <div class="data-banner"><strong>POLICY CONFIGURED · EVIDENCE INCOMPLETE</strong><span>Full RPO = @backupPolicy.FullRpoMinutes minutes and Log RPO = @backupPolicy.LogRpoMinutes minutes. These values are explicit configuration only. Monitor will not call the B300 backup-compliance classifier until the cached evidence contract includes per-database recovery model, full-backup time and log-backup time.</span></div>
+}
+else
+{
+    <div class="data-banner"><strong>RPO POLICY NOT CONFIGURED</strong><span>Monitor does not invent backup RPO values. Set BackupPolicy:Enabled=true with explicit positive FullRpoMinutes and LogRpoMinutes before policy evaluation can be considered.</span></div>
+}
 
 @if (Model.Servers.Count == 0)
 {
@@ -42,5 +61,5 @@ else
             }
         </div>
     </section>
-    <div class="data-banner"><strong>INTERPRETATION BOUNDARY</strong><span>Missing full-backup evidence is not the same as backup failure. This screen shows only cached full-backup coverage returned by the collector. It does not claim B300 RPO compliance because recovery-model/log-backup policy evidence is not collected here.</span></div>
+    <div class="data-banner"><strong>INTERPRETATION BOUNDARY</strong><span>Missing full-backup evidence is not the same as backup failure. This screen shows only cached full-backup coverage returned by the collector. Even when an RPO policy is configured, it does not claim B300 RPO compliance because per-database recovery-model and log-backup evidence are not collected here.</span></div>
 }
