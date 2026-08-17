@@ -55,7 +55,7 @@ public sealed class B800FleetDecisionSupportTests
         var items = Enumerable.Range(1, 35)
             .Select(index => I(
                 $"INC-{index:00}",
-                Guid.Parse($"00000000-0000-0000-0000-{index:000000000000}"),
+                $"00000000-0000-0000-0000-{index:000000000000}",
                 $"RULE-{index % 3}",
                 index % 2 == 0 ? FindingSeverity.Critical : FindingSeverity.Warning,
                 at.AddSeconds(index),
