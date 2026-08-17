@@ -179,7 +179,7 @@ public sealed class OperationsController : Controller
     public async Task<IActionResult> Blocking(CancellationToken cancellationToken) => View(new HealthModulePageViewModel("Blocking", "Bounded blocking counts without SQL text, plans or client identity.", await _readService.GetHealthModulesAsync(cancellationToken)));
 
     [HttpGet("/memory-health")]
-    public async Task<IActionResult> MemoryHealth(CancellationToken cancellationToken) => View(await _readService.GetServersAsync(cancellationToken));
+    public async Task<IActionResult> MemoryHealth(CancellationToken cancellationToken) => View(new HealthModulePageViewModel("Memory Health", "Cached SQL/OS memory evidence and bounded configuration/counter diagnostics. GET navigation never starts monitored-SQL collection.", await _readService.GetHealthModulesAsync(cancellationToken)));
 
     [HttpGet("/alerts")]
     public async Task<IActionResult> Alerts(IncidentStatus? status, FindingSeverity? severity, string? ruleId, int offset = 0, int limit = 50, CancellationToken cancellationToken = default)
