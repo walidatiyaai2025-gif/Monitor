@@ -96,7 +96,8 @@ public sealed class B800TempDbSnapshotTests
         Assert.DoesNotContain("TempDbSnapshotQuery", peekBody, StringComparison.Ordinal);
         Assert.DoesNotContain("SqlConnection", peekBody, StringComparison.Ordinal);
         Assert.Contains("snapshot = await TryEnrichTempDbAsync(registration, snapshot);", cache, StringComparison.Ordinal);
-        Assert.Contains("IConnectionSecretStore? secretStore = null", cache, StringComparison.Ordinal);
+        Assert.Contains("IServiceProvider? services = null", cache, StringComparison.Ordinal);
+        Assert.Contains("GetService(typeof(IConnectionSecretStore))", cache, StringComparison.Ordinal);
     }
 
     private static string FindRoot()
