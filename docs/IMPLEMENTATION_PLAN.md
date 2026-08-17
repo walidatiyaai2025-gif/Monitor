@@ -9,7 +9,7 @@ This is the canonical execution plan. Update it in the same PR as material imple
 **Real SQL evidence:** `docs/REAL_SQL_ACCEPTANCE.md`  
 **Production acceptance guide:** `docs/PRODUCTION_SINGLENODE_ACCEPTANCE.md`  
 **Active release gate:** Issue #116 / P0.5 First Production SingleNode  
-**Repository cutover/evidence/session/finalization/release/durable-tag/workflow-supply-chain/native-Node-24/durable-release tooling:** COMPLETE through PR #219 plus selected-product-hash acceptance-session hardening PR #257; locked-session gate/finalization chain-of-custody hardening tracked under #258 / PR #259.  
+**Repository cutover/evidence/session/finalization/release/durable-tag/workflow-supply-chain/native-Node-24/durable-release tooling:** COMPLETE through selected-product-hash acceptance-session hardening PR #257, locked-session sidecar binding PR #259 and clean exact-commit Acceptance Control Toolkit provenance PR #262. Exact cutover toolkit source is `b422eaaee53d931a62a43b3c36a53b68cd4f3e27`; selected RC.61 durable publication remains pending manual #162.  
 **Live selected candidate/evidence ledger:** Issue #116 — RC.61  
 **Project rule:** until P0.5 is accepted on the real environment, production-slice blockers outrank unrelated feature expansion.
 
@@ -27,7 +27,7 @@ Production-visible values must come from collected evidence. Missing, stale, per
 | 2 | P0.2 | #113 | First real snapshot + truthful read-model mapping | COMPLETE — PR #121 / final CI `31478470867` |
 | 3 | P0.3 | #114 | Server Details v0.1 trusted evidence surface | COMPLETE — PR #122 / final CI `31479311552` |
 | 4 | P0.4 | #115 | Real SQL end-to-end acceptance under success/failure cases | COMPLETE — PR #124; normal `31481874425`; Real SQL `31481874501` |
-| 5 | P0.5 | #116 | First trusted-HTTPS IIS SingleNode production release | **ACTIVE — repository workflow complete through durable candidate-promotion and selected-product-hash hardening; locked-session evidence chain #258, RC.61 publication #162 and external IIS acceptance remain separately tracked** |
+| 5 | P0.5 | #116 | First trusted-HTTPS IIS SingleNode production release | **ACTIVE — repository workflow, selected-product-hash binding, locked-session sidecar binding #258/#259 and Acceptance Control Toolkit provenance #261/#262 complete; RC.61 publication #162 and external IIS acceptance remain separately open** |
 
 ### Resolved production gates
 
@@ -49,7 +49,8 @@ The repository contains the complete operator cutover, evidence and release work
 - PR #148 / Issue #147 — explicit fail-closed final operator acceptance finalizer `Complete-ProductionAcceptance.ps1`; complete and merged `e15a9654fbe744e426c95d5965a5faba60868e14`.
 - PR #151 / Issue #150 — immutable candidate-bound acceptance-session initializer `New-ProductionAcceptanceSession.ps1`; complete and merged `9a76abe61422502c4889b04ce8b6a59f18ac04f4`.
 - PR #257 / Issue #256 — selected-product-hash acceptance-session hardening **COMPLETE**, squash-merged `41410491df19699be6329e26e99a9328965782bc`. `New-ProductionAcceptanceSession.ps1` requires an independently selected 64-hex product SHA-256, rejects a mutually consistent but substituted ZIP + checksum pair before workspace creation, rechecks the selected hash after copy and binds manifest/evidence to it. Exact final head `70d1a8fb6814de1ec23dcff6b9942b945333c052` passed CI #1696, Real SQL #94 and Windows production-candidate #151 Green. This cannot publish RC.61 or satisfy any external gate.
-- Issue #258 / PR #259 — locked-session gate/finalization chain-of-custody hardening: preserve the initializer-returned session-manifest SHA-256 outside mutable session files; authenticate the manifest + lock, canonical paths, actual candidate ZIP/checksum and evidence-pack candidate/environment identity before any gate PASS; require the same anchor through finalization and independent production review; exercise the real Session → Recorder → Finalizer → Validator chain on Windows with pack/manifest/candidate drift negatives. Exact final-head evidence is tracked on #258. This cannot manufacture any external production PASS.
+- Issue #258 / PR #259 — locked-session gate/finalization chain-of-custody hardening **COMPLETE**: preserve the initializer-returned session-manifest SHA-256 outside mutable session files; authenticate the manifest + lock, canonical paths, actual candidate ZIP/checksum and evidence-pack candidate/environment identity before any gate PASS; bind exactly six acceptance-control sidecar files while leaving RC.61 product/deployment bytes unchanged; require the same anchor through finalization and independent production review; exercise the real Session → Recorder → Finalizer → Validator chain on Windows with pack/manifest/candidate drift negatives. Exact source `8d79361cccf98acfc0a1753d16de943458887389` passed CI #1751, Real SQL #112 and Windows production-candidate #170 Green; PR #259 squash-merged as `c22c4e5e4f59576cbb41b8fc46886474f8749ebb`. This cannot manufacture any external production PASS.
+- Issue #261 / PR #262 — Acceptance Control Toolkit provenance **COMPLETE**: export requires a clean checkout of independently supplied exact commit `b422eaaee53d931a62a43b3c36a53b68cd4f3e27`; deterministic `toolkit-manifest.json` + canonical SHA-256 lock bind the exact six files; an independent verifier re-checks commit/manifest/lock/file set and file hashes; each production acceptance session binds the toolkit-manifest SHA plus six current file hashes before Gate/Finalizer/Reviewer operations. CI #1786 / `31992503009` passed 984/984 and Windows production-candidate #186 / `31992502977` passed end-to-end; PR #262 squash-merged as `a448eb715af9b3a2fcfe89ce92807b71fc7e1127`. Moving refs such as `main` or `latest` are not accepted as cutover toolkit identity.
 - PR #155 / Issue #154 — tagged/manual release-package parity; **COMPLETE**, squash-merged `8d8ae2c5f35e8a1d774c5a9480f582e432e5dc03`. `production-candidate.yml` is reusable through `workflow_call`; `release.yml` delegates to that exact Windows workflow; explicit candidate versions are syntax-bounded; manifest schema 2 records fixed P0.4 run IDs under `prerequisiteEvidence.p04` and leaves candidate-specific CI authoritative on #116.
 - PR #160 / Issue #159 — durable tagged GitHub Release assets; **COMPLETE**, squash-merged `a14110181932bcd6e14b99e5b6984974a5b477f8`. Real pushed version tags publish only the already-verified same-run ZIP + `.sha256` after checksum re-verification; package construction remains solely in `production-candidate.yml`; publication is tag-only, has job-scoped `contents: write`, never rebuilds/repackages, never clobbers an existing release, and accepts a rerun only when existing release assets exactly match the verified product/checksum. Final exact-head normal CI `31677055397` was Green 809/809, Real SQL `31677055241` Green 8/8, and Windows production-candidate `31677055305` Green 809/809.
 - PR #163 / Issue #162 — exact existing-candidate durable-promotion implementation **COMPLETE** and merged `43d8a193205495f155bb8866532a4e99ed93b655`; handoff PR #164 merged `930c057f431a36ab2b603d3dc39e70e8c31c744e`. Actual RC.61 publication remains pending manual dispatch and independent asset/hash verification on #162.
@@ -111,7 +112,7 @@ Repository candidate evidence is **not** production acceptance. It does not repl
 9. never deploys/recycles IIS, executes SQL, records a gate PASS, finalizes acceptance, calls GitHub or closes #116/#111;
 10. is parsed, executed and packaged by the Windows production-candidate gate with positive and negative runtime cases, including rejection of a valid substituted ZIP + matching checksum pair whose bytes differ from the independently selected hash.
 
-### Locked-session evidence chain contract — #258 / PR #259
+### Locked-session evidence chain contract — #258 / PR #259 COMPLETE
 
 `Test-ProductionAcceptanceSessionBinding.ps1` and the session-bound recorder/finalizer close the post-initialization chain-of-custody gap without creating production evidence:
 
@@ -125,6 +126,21 @@ Repository candidate evidence is **not** production acceptance. It does not repl
 8. `Test-ProductionAcceptanceEvidence.ps1` retains low-level standalone schema/evidence validation, but production finalization/review supplies the expected manifest SHA and emits `sessionManifestSha256` + `selectedProductSha256` in closure summaries;
 9. Windows production-candidate runtime exercises Session → Recorder → Finalizer → Validator and rejects wrong manifest anchors, pack candidate drift, manifest drift, candidate-byte drift, unsafe evidence and invalid finalization;
 10. this chain is repository safety only: it never proves trusted IIS, real SQL operations, recycle durability, backup/rollback or any of the 15 external gates.
+
+### Acceptance Control Toolkit provenance contract — #261 / PR #262 COMPLETE
+
+The post-RC.61 acceptance-control sidecar is immutable and independently attributable without rebuilding or repackaging RC.61:
+
+1. `Export-ProductionAcceptanceToolkit.ps1` requires an independently supplied exact 40-hex tooling commit and verifies Git `HEAD` equals it;
+2. tracked checkout state must be clean, all six approved scripts must be tracked/present, and export goes only to a fresh directory outside the source checkout;
+3. deterministic `toolkit-manifest.json` records the exact tooling commit, exact six filenames and each SHA-256, with canonical `toolkit-manifest.sha256`;
+4. `Test-ProductionAcceptanceToolkit.ps1` independently requires both expected tooling commit and expected toolkit-manifest SHA-256, validates the exact root set and rejects missing/extra/modified/commit-drift cases;
+5. `New-ProductionAcceptanceSession.ps1` verifies the exported toolkit and binds `operatorToolingCommit`, `operatorToolkitManifestSha256` and all six file hashes into the immutable session manifest;
+6. `Test-ProductionAcceptanceSessionBinding.ps1` re-verifies toolkit manifest hash/lock, exact commit/file-set entries and all six current file hashes before Gate/Finalizer/Reviewer operations;
+7. Windows provenance runtime covers clean export/verify plus wrong commit, dirty tracked checkout, manifest tamper, extra file, modified file and missing file negatives;
+8. exact approved cutover tooling identity is `b422eaaee53d931a62a43b3c36a53b68cd4f3e27`; `main`, `latest` or any moving branch ref is not a substitute;
+9. PR #262 exact head passed CI #1786 / `31992503009` with 984/984 and Windows production-candidate #186 / `31992502977` end-to-end before squash merge `a448eb715af9b3a2fcfe89ce92807b71fc7e1127`;
+10. toolkit provenance is repository safety only and cannot create a release, deploy IIS, execute SQL, mark an external gate PASS or close #162/#116/#111.
 
 ### Release-package parity contract — COMPLETE
 
@@ -164,7 +180,7 @@ A real version tag remains recoverable after GitHub Actions artifact retention e
 | P0-046 | Run health smoke on deployed HTTPS endpoint | CI HTTPS VERIFIED; acceptance tooling READY; **IIS endpoint pending external** |
 | P0-047 | Prove target remains read-only/least-privilege from deployed application identity | P0.4 prerequisite VERIFIED; **external deployment evidence pending** |
 | P0-048 | Create/validate backup and rehearse rollback/recovery | code/unit/tooling VERIFIED; **production rehearsal pending external** |
-| P0-049 | Versioned artifact/checksum + deterministic session/evidence/finalization/release workflow | **REPOSITORY HARDENED — RC.61 selected; durable tagged GitHub Release tooling and exact-candidate promotion implementation/hardening verified through PR #219; selected-product-hash session binding COMPLETE via #256/#257; locked-session gate/finalization chain tracked under #258/#259; actual RC.61 publication pending manual #162** |
+| P0-049 | Versioned artifact/checksum + deterministic session/evidence/finalization/release workflow | **REPOSITORY HARDENED — RC.61 selected; durable tagged GitHub Release tooling and exact-candidate promotion implementation/hardening verified through PR #219; selected-product-hash session binding COMPLETE via #256/#257; locked-session sidecar binding COMPLETE via #258/#259; Acceptance Control Toolkit provenance COMPLETE via #261/#262 with exact toolkit source `b422eaaee53d931a62a43b3c36a53b68cd4f3e27`; actual RC.61 publication pending manual #162** |
 | P0-050 | Final real-environment 15/15 acceptance and #111 closure | **PENDING EXTERNAL** |
 
 ### Immediate next actions
@@ -172,7 +188,7 @@ A real version tag remains recoverable after GitHub Actions artifact retention e
 1. Preserve RC.61 and product SHA-256 from #116 unless #116 explicitly selects another equivalently verified candidate.
 2. Complete the manual exact-existing-candidate durable publication workflow on #162 and independently verify tag/assets/hash without rebuilding RC.61.
 3. On the intended Windows/IIS host, create/validate the pre-cutover operational backup.
-4. Start the real cutover by creating one fresh immutable candidate-bound acceptance session with the independently selected RC.61 product SHA-256; verify the copied candidate still matches that selected hash, preserve the initializer-returned session manifest SHA-256 outside mutable session files, verify `session-manifest.sha256`, `PreparedFailClosed` and 0/15 before any production mutation.
+4. Export and independently verify the Acceptance Control Toolkit from clean exact source `b422eaaee53d931a62a43b3c36a53b68cd4f3e27`; preserve its toolkit-manifest SHA-256 independently. Then create one fresh immutable candidate-bound acceptance session with the independently selected RC.61 product SHA-256, exact tooling commit and expected toolkit-manifest SHA; verify the copied candidate and all six sidecar files still match their locked identities, preserve the initializer-returned session manifest SHA-256 outside mutable session files, verify `session-manifest.sha256`, `PreparedFailClosed` and 0/15 before any production mutation.
 5. Run packaged IIS preflight, review PLAN ONLY deploy output, then cut over with explicit `-Apply`.
 6. Prove trusted HTTPS health/authentication and the approved least-privilege monitored SQL path.
 7. Recycle IIS and prove registration, protected credential and operational-state durability.
@@ -194,7 +210,7 @@ Completed sequence:
 1. **#221 / PR #236 — Foundation:** safe 403/404/500 surfaces, production error wiring, reusable page/state components, boundary-aware navigation and keyboard/mobile shell. Merged `59a931cc031e19f162edfadc278dc8b9c6c842e3`; exact-head CI/Real-SQL/Windows Green.
 2. **#222 / PR #237 — Health:** dedicated Database, Backup, SQL Agent, Storage, Blocking and Performance pages, consistent source states and server drill-down. Merged `308a2f31a42500ce7354b1af2c2369d59be57455`; exact-head CI/Windows Green.
 3. **#223 / PR #238 — Audit/History:** bounded filters/paging, semantic outcomes, history window/page controls, evidence-only summaries and missing-evidence states. Merged `3864b4f8acc14d6e0bd259bfb1ab52d9fec07be1`; synchronized exact-head CI/Windows Green.
-4. **#224 / PR #239 — Recommendations/Reports:** bounded recommendation filters, ordered risk guidance, evidence links, report format/version/access metadata, Administrator diagnostics separation and contextual history export. Merged `cab4b9492eb65a6ec7340add016dd12bb99eb13f`; synchronized exact-head CI/Windows Green.
+4. **#224 / PR #239 — Recommendations/Reports:** bounded recommendation filters, ordered risk guidance, evidence links, report metadata/discoverability, task-oriented Enterprise/Admin workflows and an executable visible-route contract smoke. Merged `cab4b9492eb65a6ec7340add016dd12bb99eb13f`; synchronized exact-head CI/Windows Green.
 5. **#225 / PR #240 — Enterprise/Admin/final:** actionable Readiness, task-oriented Help, Governance dry-run/apply/receipt workflow, Observability source/readiness hierarchy, grouped Settings, reinforced Connection Lab states, Fleet drill-down, role regression, explicit 390px/reduced-motion/focus contracts and CI visible-route smoke. PR #240 squash-merged as `fd33e79c6d19d7f9852417b9c35a11f91f21714c`. Exact final head `0834db6b5d518fe5c52eec9b47c03e467929aa89` passed `ci` #1637, `real-sql-acceptance` #91 and `production-candidate` #142 before merge.
 
 BATCH-700 has no browser/Playwright screenshot harness, so responsive/visual acceptance is represented honestly by source contracts, route/view smoke and the existing build/test/Windows gates rather than by a claimed browser screenshot run.
