@@ -11,11 +11,12 @@ public sealed partial class B800RazorPostWiringTests
     private static readonly string Root = FindRoot();
 
     [Fact]
-    public void RazorPostForms_WithTagHelperActions_ResolveToHttpPostControllerActions()
+    public void RazorPostForms_WithLiteralTagHelperActions_ResolveToHttpPostControllerActions()
     {
         var viewsRoot = Path.Combine(Root, "src", "Monitor.Web", "Views");
         var assembly = typeof(OperationsController).Assembly;
         var checkedForms = 0;
+        var dynamicForms = 0;
         var unresolved = new List<string>();
 
         foreach (var path in Directory.EnumerateFiles(viewsRoot, "*.cshtml", SearchOption.AllDirectories))
@@ -28,6 +29,13 @@ public sealed partial class B800RazorPostWiringTests
             foreach (Match match in PostFormRegex().Matches(source))
             {
                 var form = match.Value;
+                if (form.Contains("asp-action=\"@(", StringComparison.Ordinal) ||
+                    form.Contains("asp-action='@(", StringComparison.Ordinal))
+                {
+                    dynamicForms++;
+                    continue;
+                }
+
                 var actionMatch = AspActionRegex().Match(form);
                 if (!actionMatch.Success) continue;
 
@@ -57,8 +65,24 @@ public sealed partial class B800RazorPostWiringTests
             }
         }
 
-        Assert.True(checkedForms >= 10, $"Expected a meaningful visible POST-form surface, but only {checkedForms} tag-helper forms were discovered.");
+        Assert.True(checkedForms >= 10, $"Expected a meaningful visible literal POST-form surface, but only {checkedForms} tag-helper forms were verified.");
+        Assert.True(dynamicForms >= 1, "Expected at least one explicitly covered dynamic Razor POST action.");
         Assert.True(unresolved.Count == 0, "Unresolved Razor POST wiring:\n" + string.Join("\n", unresolved));
+    }
+
+    [Fact]
+    public void ConnectionLab_DynamicEnableDisableForm_ResolvesBothBranchesToHttpPostActions()
+    {
+        var view = File.ReadAllText(Path.Combine(Root, "src", "Monitor.Web", "Views", "ConnectionLab", "Index.cshtml"));
+        Assert.Contains("asp-action=\"@(registration.IsEnabled ? \"Disable\" : \"Enable\")\"", view, StringComparison.Ordinal);
+
+        foreach (var actionName in new[] { nameof(ConnectionLabController.Enable), nameof(ConnectionLabController.Disable) })
+        {
+            var method = typeof(ConnectionLabController).GetMethod(actionName)
+                ?? throw new MissingMethodException(nameof(ConnectionLabController), actionName);
+            Assert.NotNull(method.GetCustomAttribute<HttpPostAttribute>());
+            Assert.NotNull(method.GetCustomAttribute<ValidateAntiForgeryTokenAttribute>());
+        }
     }
 
     [GeneratedRegex("<form\\b(?=[^>]*\\bmethod\\s*=\\s*[\"']post[\"'])[^>]*>", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
