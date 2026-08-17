@@ -82,7 +82,7 @@ public sealed class SqlServerSnapshotCollectorTests
     }
 
     [Fact]
-    public void Query_IsSingleLightweightStatementWithRequiredProjections()
+    public void Query_IsSingleBoundedStatementWithRequiredSafeProjections()
     {
         var sql = SqlSnapshotQuery.CommandText;
 
@@ -93,12 +93,23 @@ public sealed class SqlServerSnapshotCollectorTests
         Assert.Contains("DatabaseOnline", sql, StringComparison.Ordinal);
         Assert.Contains("sys.dm_os_sys_memory", sql, StringComparison.Ordinal);
         Assert.Contains("sys.dm_os_process_memory", sql, StringComparison.Ordinal);
+        Assert.Contains("sys.configurations", sql, StringComparison.Ordinal);
+        Assert.Contains("sys.dm_os_performance_counters", sql, StringComparison.Ordinal);
+        Assert.Contains("sys.dm_os_memory_clerks", sql, StringComparison.Ordinal);
+        Assert.Contains("max server memory (MB)", sql, StringComparison.Ordinal);
+        Assert.Contains("Total Server Memory (KB)", sql, StringComparison.Ordinal);
+        Assert.Contains("Target Server Memory (KB)", sql, StringComparison.Ordinal);
+        Assert.Contains("Page life expectancy", sql, StringComparison.Ordinal);
+        Assert.Contains("Memory Grants Pending", sql, StringComparison.Ordinal);
         Assert.Contains("msdb.dbo.backupset", sql, StringComparison.Ordinal);
         Assert.Contains("msdb.dbo.sysjobs", sql, StringComparison.Ordinal);
         Assert.Contains("sys.master_files", sql, StringComparison.Ordinal);
         Assert.Contains("sys.dm_exec_requests", sql, StringComparison.Ordinal);
         Assert.Contains("sys.dm_os_schedulers", sql, StringComparison.Ordinal);
         Assert.Contains("sys.dm_io_pending_io_requests", sql, StringComparison.Ordinal);
+        Assert.DoesNotContain("sys.dm_exec_sql_text", sql, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("sys.dm_exec_query_plan", sql, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("command_text", sql, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -106,7 +117,9 @@ public sealed class SqlServerSnapshotCollectorTests
     {
         var row = new SqlSnapshotRow(
             "SQL01", "17", "Enterprise", null, 10, 2, 2,
-            new SqlMemoryRow(32_000_000, 8_000_000, 12_000_000, 92, true, false, "Available physical memory is low"));
+            new SqlMemoryRow(
+                32_000_000, 8_000_000, 12_000_000, 92, true, false, "Available physical memory is low",
+                24_576, 18_000_000, 20_000_000, 4_500, 2, "MEMORYCLERK_SQLBUFFERPOOL", 9_000_000));
         var collector = new SqlServerSnapshotCollector(
             new FakeSecretStore(new SqlLoginSecret("user", "password")),
             new FakeQuery(row),
@@ -118,6 +131,13 @@ public sealed class SqlServerSnapshotCollectorTests
         Assert.Equal(32_000_000, snapshot.Memory.TotalPhysicalMemoryKb);
         Assert.Equal(92, snapshot.Memory.SqlProcessMemoryUtilizationPercent);
         Assert.True(snapshot.Memory.IsPhysicalMemoryLow);
+        Assert.Equal(24_576, snapshot.Memory.MaxServerMemoryMb);
+        Assert.Equal(18_000_000, snapshot.Memory.TotalServerMemoryKb);
+        Assert.Equal(20_000_000, snapshot.Memory.TargetServerMemoryKb);
+        Assert.Equal(4_500, snapshot.Memory.PageLifeExpectancySeconds);
+        Assert.Equal(2, snapshot.Memory.MemoryGrantsPending);
+        Assert.Equal("MEMORYCLERK_SQLBUFFERPOOL", snapshot.Memory.TopMemoryClerkType);
+        Assert.Equal(9_000_000, snapshot.Memory.TopMemoryClerkKb);
     }
 
     [Fact]
@@ -136,6 +156,23 @@ public sealed class SqlServerSnapshotCollectorTests
 
         Assert.Equal(SnapshotCollectionFailure.Failed, exception.Failure);
         Assert.Equal("Snapshot collection failed.", exception.Message);
+    }
+
+    [Fact]
+    public async Task IncompleteMemoryClerkEvidence_FailsSafely()
+    {
+        var row = new SqlSnapshotRow(
+            "SQL01", "17", "Enterprise", null, 10, 2, 2,
+            new SqlMemoryRow(100, 50, 40, 50, false, false, "Available", TopMemoryClerkType: "MEMORYCLERK_SQLBUFFERPOOL"));
+        var collector = new SqlServerSnapshotCollector(
+            new FakeSecretStore(new SqlLoginSecret("user", "password")),
+            new FakeQuery(row),
+            new FixedTimeProvider(CollectedAt));
+
+        var exception = await Assert.ThrowsAsync<SnapshotCollectionException>(
+            () => collector.CollectAsync(SqlLoginRegistration()));
+
+        Assert.Equal(SnapshotCollectionFailure.Failed, exception.Failure);
     }
 
     [Fact]
