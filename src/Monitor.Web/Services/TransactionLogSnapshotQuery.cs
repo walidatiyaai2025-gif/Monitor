@@ -6,15 +6,18 @@ using Monitor.Web.Models;
 namespace Monitor.Web.Services;
 
 internal sealed record SqlTransactionLogDatabaseRow(
-    string DatabaseName,
+    string DatabaseKey,
     string RecoveryModel,
-    string LogReuseWait,
-    long TotalLogBytes,
-    long? FullBackupAgeSeconds,
-    long? LogBackupAgeSeconds);
+    long? TotalLogSizeBytes,
+    long? ActiveLogSizeBytes,
+    long? TotalVlfCount,
+    long? ActiveVlfCount,
+    string? ReuseWait,
+    long? LogBackupAgeSeconds,
+    bool HasDetailedStats);
 
 internal sealed record SqlTransactionLogRow(
-    int TotalUserDatabases,
+    int TotalDatabases,
     IReadOnlyList<SqlTransactionLogDatabaseRow>? Databases = null);
 
 internal static class TransactionLogEvidenceMapper
@@ -23,34 +26,51 @@ internal static class TransactionLogEvidenceMapper
     {
         ArgumentNullException.ThrowIfNull(row);
         var databases = row.Databases ?? [];
-        var expectedRows = Math.Min(row.TotalUserDatabases, TransactionLogSnapshotQuery.MaxDatabases);
-        if (row.TotalUserDatabases < 0 ||
+        var expectedRows = Math.Min(row.TotalDatabases, TransactionLogSnapshotQuery.MaxDatabases);
+        if (row.TotalDatabases < 0 ||
             databases.Count != expectedRows ||
-            databases.Select(database => database.DatabaseName).Distinct(StringComparer.OrdinalIgnoreCase).Count() != databases.Count ||
-            databases.Any(database =>
-                string.IsNullOrWhiteSpace(database.DatabaseName) ||
-                database.DatabaseName.Length > 128 ||
-                string.IsNullOrWhiteSpace(database.RecoveryModel) ||
-                database.RecoveryModel.Length > 60 ||
-                string.IsNullOrWhiteSpace(database.LogReuseWait) ||
-                database.LogReuseWait.Length > 60 ||
-                database.TotalLogBytes <= 0 ||
-                database.FullBackupAgeSeconds is < 0 ||
-                database.LogBackupAgeSeconds is < 0))
+            databases.Select(database => database.DatabaseKey).Distinct(StringComparer.Ordinal).Count() != databases.Count ||
+            databases.Any(IsInvalid))
         {
             throw new InvalidDataException("Invalid transaction-log evidence row.");
         }
 
         return new TransactionLogHealthSnapshot(
-            row.TotalUserDatabases,
+            row.TotalDatabases,
             databases.Select(database => new TransactionLogDatabaseSnapshot(
-                database.DatabaseName,
+                database.DatabaseKey,
                 database.RecoveryModel,
-                database.LogReuseWait,
-                database.TotalLogBytes,
-                database.FullBackupAgeSeconds,
-                database.LogBackupAgeSeconds)).ToArray(),
-            row.TotalUserDatabases > TransactionLogSnapshotQuery.MaxDatabases);
+                database.TotalLogSizeBytes,
+                database.ActiveLogSizeBytes,
+                database.TotalVlfCount,
+                database.ActiveVlfCount,
+                database.ReuseWait,
+                database.LogBackupAgeSeconds,
+                database.HasDetailedStats)).ToArray(),
+            row.TotalDatabases > TransactionLogSnapshotQuery.MaxDatabases);
+    }
+
+    private static bool IsInvalid(SqlTransactionLogDatabaseRow database)
+    {
+        var hasAllDetailedStats = database.TotalLogSizeBytes.HasValue &&
+                                  database.ActiveLogSizeBytes.HasValue &&
+                                  database.TotalVlfCount.HasValue &&
+                                  database.ActiveVlfCount.HasValue &&
+                                  !string.IsNullOrWhiteSpace(database.ReuseWait);
+
+        return string.IsNullOrWhiteSpace(database.DatabaseKey) ||
+               database.DatabaseKey.Length > 128 ||
+               string.IsNullOrWhiteSpace(database.RecoveryModel) ||
+               database.RecoveryModel.Length > 60 ||
+               database.TotalLogSizeBytes is <= 0 ||
+               database.ActiveLogSizeBytes is < 0 ||
+               (database.TotalLogSizeBytes.HasValue && database.ActiveLogSizeBytes > database.TotalLogSizeBytes) ||
+               database.TotalVlfCount is <= 0 ||
+               database.ActiveVlfCount is < 0 ||
+               (database.TotalVlfCount.HasValue && database.ActiveVlfCount > database.TotalVlfCount) ||
+               (database.ReuseWait?.Length ?? 0) > 60 ||
+               database.LogBackupAgeSeconds is < 0 ||
+               database.HasDetailedStats != hasAllDetailedStats;
     }
 }
 
@@ -59,32 +79,40 @@ internal sealed class TransactionLogSnapshotQuery(PerformanceScaleOptions? perfo
     internal const int MaxDatabases = 50;
     internal const string CommandText = """
         SELECT
-            (SELECT COUNT(*) FROM sys.databases WHERE database_id > 4) AS TotalUserDatabases,
+            (SELECT COUNT(*) FROM sys.databases WHERE database_id > 4 AND state = 0) AS TotalDatabases,
             (SELECT TOP (50)
-                  CONVERT(nvarchar(128), d.name) AS DatabaseName,
-                  CONVERT(nvarchar(60), d.recovery_model_desc) AS RecoveryModel,
-                  CONVERT(nvarchar(60), d.log_reuse_wait_desc) AS LogReuseWait,
-                  CONVERT(bigint, COALESCE(log_size.TotalLogBytes, 0)) AS TotalLogBytes,
-                  CASE WHEN backups.LastFullBackupLocal IS NULL THEN NULL
-                       ELSE CONVERT(bigint, DATEDIFF_BIG(SECOND, backups.LastFullBackupLocal, GETDATE())) END AS FullBackupAgeSeconds,
-                  CASE WHEN backups.LastLogBackupLocal IS NULL THEN NULL
-                       ELSE CONVERT(bigint, DATEDIFF_BIG(SECOND, backups.LastLogBackupLocal, GETDATE())) END AS LogBackupAgeSeconds
+                  CONVERT(nvarchar(128), d.name) AS DatabaseKey,
+                  CONVERT(nvarchar(60), COALESCE(ls.recovery_model, d.recovery_model_desc)) AS RecoveryModel,
+                  TRY_CONVERT(bigint, ROUND(ls.total_log_size_mb * 1048576.0, 0)) AS TotalLogSizeBytes,
+                  TRY_CONVERT(bigint, ROUND(ls.active_log_size_mb * 1048576.0, 0)) AS ActiveLogSizeBytes,
+                  CONVERT(bigint, ls.total_vlf_count) AS TotalVlfCount,
+                  CONVERT(bigint, ls.active_vlf_count) AS ActiveVlfCount,
+                  CONVERT(nvarchar(60), ls.log_truncation_holdup_reason) AS ReuseWait,
+                  CASE
+                      WHEN ls.log_backup_time IS NULL THEN NULL
+                      WHEN ls.log_backup_time > SYSDATETIME() THEN CONVERT(bigint, 0)
+                      ELSE CONVERT(bigint, DATEDIFF_BIG(SECOND, ls.log_backup_time, SYSDATETIME()))
+                  END AS LogBackupAgeSeconds,
+                  CONVERT(bit, CASE
+                      WHEN ls.total_log_size_mb IS NOT NULL
+                       AND ls.active_log_size_mb IS NOT NULL
+                       AND ls.total_vlf_count IS NOT NULL
+                       AND ls.active_vlf_count IS NOT NULL
+                       AND ls.log_truncation_holdup_reason IS NOT NULL
+                      THEN 1 ELSE 0 END) AS HasDetailedStats
               FROM sys.databases AS d
-              OUTER APPLY (
-                  SELECT SUM(CONVERT(bigint, mf.size)) * 8192 AS TotalLogBytes
-                  FROM sys.master_files AS mf
-                  WHERE mf.database_id = d.database_id AND mf.type = 1
-              ) AS log_size
-              OUTER APPLY (
-                  SELECT
-                      MAX(CASE WHEN b.type = 'D' AND b.is_copy_only = 0 THEN b.backup_finish_date END) AS LastFullBackupLocal,
-                      MAX(CASE WHEN b.type = 'L' THEN b.backup_finish_date END) AS LastLogBackupLocal
-                  FROM msdb.dbo.backupset AS b
-                  WHERE b.database_name = d.name
-              ) AS backups
-              WHERE d.database_id > 4
-              ORDER BY CASE WHEN d.log_reuse_wait_desc IN (N'NOTHING', N'CHECKPOINT') THEN 1 ELSE 0 END ASC,
-                       CASE WHEN d.recovery_model_desc IN (N'FULL', N'BULK_LOGGED') THEN 0 ELSE 1 END ASC,
+              CROSS APPLY sys.dm_db_log_stats(d.database_id) AS ls
+              WHERE d.database_id > 4 AND d.state = 0
+              ORDER BY CASE
+                           WHEN ls.log_truncation_holdup_reason IS NULL THEN 2
+                           WHEN ls.log_truncation_holdup_reason IN (N'NOTHING', N'CHECKPOINT') THEN 1
+                           ELSE 0
+                       END ASC,
+                       CASE
+                           WHEN ls.total_log_size_mb > 0 AND ls.active_log_size_mb IS NOT NULL
+                           THEN ls.active_log_size_mb / ls.total_log_size_mb
+                           ELSE -1
+                       END DESC,
                        d.name ASC
               FOR JSON PATH) AS TransactionLogsJson;
         """;
