@@ -57,7 +57,7 @@
                     <td><strong>@row.Registration.DisplayName</strong><div class="meta-line">@row.Registration.Id.ToString("D")</div></td>
                     <td><span class="status-chip">@row.Metadata.Environment</span></td>
                     <td><div>@(row.Metadata.Group ?? "—")</div><div class="meta-line">@(row.Metadata.Tags.Length == 0 ? "No tags" : string.Join(", ", row.Metadata.Tags))</div></td>
-                    <td><span class="status-chip">@(row.MaintenanceActive ? "ACTIVE" : "Inactive")</span>@if (maintenance is not null) { <div>@maintenance.StartsAtUtc.ToString("u") → @maintenance.EndsAtUtc.ToString("u")</div><div class="meta-line">@maintenance.Reason</div> }</td>
+                    <td><span class="status-chip">@(row.MaintenanceActive ? "ACTIVE" : "Inactive")</span>@if (maintenance is not null) { <div>@maintenance.StartsAtUtc.ToString("u") → @maintenance.EndsAtUtc.ToString("u")</div><div class="meta-line">@maintenance.Reason</div> }<div class="meta-line" style="margin-top:6px"><a asp-controller="MaintenanceDecisionSupport" asp-action="Index" asp-route-id="@row.Registration.Id">Maintenance decision support →</a></div></td>
                     <td><span class="status-chip">@(row.AlertSuppressed ? "SUPPRESSED" : "Actionable")</span>@if (suppression is not null) { <div>@suppression.StartsAtUtc.ToString("u") → @suppression.EndsAtUtc.ToString("u")</div><div class="meta-line">@suppression.Reason</div> }</td>
                     @if (canManage)
                     {

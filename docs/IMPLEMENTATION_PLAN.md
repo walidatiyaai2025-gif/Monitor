@@ -224,7 +224,7 @@ BATCH-700 does **not** change production priority or acceptance truth: monitored
 ## BATCH-800 — Full functional operator wiring — IN PROGRESS
 
 **Umbrella:** Issue #287 — OPEN  
-**Current PR:** #288 — DRAFT / partial evidence-backed slice  
+**Current PR:** #304 — DRAFT / B800-072 maintenance safety decision-support slice  
 **Task range:** B800-001..100  
 **Execution ledger:** `docs/BATCH_800.md`
 
@@ -232,21 +232,24 @@ BATCH-800 closes the gap between a visible route and a functionally wired operat
 
 `UI control / route -> controller endpoint -> authorization + antiforgery boundary -> service/read model -> persisted or cached evidence -> explicit success/error/unavailable state -> regression evidence`
 
-The current #288 slice keeps browser navigation cache/control-plane-only and implements only evidence that can be bounded and represented truthfully:
+Incremental focused slices have advanced the batch beyond the historical #288 partial branch. The current main branch already contains the evidence-backed server/diagnostic/workflow slices and B800-071 fleet decision support; PR #304 adds only B800-072 maintenance safety decision support.
 
-- B800-001..019 inventory, cached Server Details intelligence, cross-page consistency/drill-down/freshness contracts, role integration coverage and explicit non-browser acceptance boundary;
-- B800-021 assembly-wide protected POST workflow matrix and B800-022 Razor POST-form-to-real-endpoint wiring regression contract;
-- B800-031..038 bounded optional Memory diagnostics and deterministic decision support with no configuration writes;
-- B800-041..047 bounded top-12 cumulative non-benign wait evidence and cached Performance projection;
-- B800-051..061 bounded top-12 logical-file I/O evidence, SQL Agent max-50 summary run-history evidence and cached reliability projections, with physical paths/commands/recurrence definitions/proxies/credentials excluded;
-- B800-063 bounded max-50 current SQL Agent activity rows from the latest `sysjobactivity` session, carrying logical job name, server-local next scheduled run (`DateTimeKind.Unspecified`) and current running state only. This is evidence for current activity, **not** lateness: no UTC conversion, Late/On-time label, server time-zone identity, recurrence definition or expected-run policy is invented;
-- B800-069 bounded max-50 user-database logical name/state evidence with non-online states prioritized, allowing exact B300 classification/actionable/worst-observed projection without reconstructing detail from aggregate counts.
+Current evidence-backed state:
+
+- cached B300 server intelligence, exact per-database state projection, bounded memory/wait/logical-file-I/O/Agent history/activity evidence and policy-backed backup RPO metadata are present without inventing unsupported values;
+- protected POST/Razor wiring, bounded navigation, PRG/conflict behavior, incident/Advisor role controls, Connection Lab test-before-save, Settings backup/restore, typed `PRUNE` governance confirmation and Enterprise Read/Manage/Operate contracts are regression-owned;
+- B800-071 is merged through PR #303 as `3821d1a1ebd15039a3c93b1e77ff7bac210e0b08`; exact final head `5a18b5167cc24cd292ce7826fb144434762c7eae` passed CI #2393 and Windows production-candidate #393. Real SQL was not selected because that slice added no monitored-SQL query, collector or permission path;
+- B800-072 wraps the existing B400 maintenance-safety rules with nullable evidence gating. The GET-only `/enterprise/maintenance/{serverId}` surface is protected by `Monitor.Read`, reads only enabled registration/operator metadata/open critical incidents, and never executes maintenance;
+- configured maintenance-window activity is observational evidence only and is never promoted into independent approved-window proof;
+- approval, rollback-plan, approved-window, replica-readiness and policy-backed recent-backup evidence remain nullable. If the selected operation/environment requires an unavailable fact, the result is `NotEvaluated` and no B400 pass/fail decision is constructed;
+- low-risk non-production operations may be evaluated only when every relevant input is actually present; active critical incidents remain a real blocker;
+- B800-072 pre-canonical head `40b4ffe9402a498c8a4e1b78d9d2eee730bfd2a5` passed PR CI run `32026739461` and Windows production-candidate run `32026739447`. These are implementation evidence only because canonical reconciliation changes the source SHA; the final reconciled head must pass the exact-head gates again.
 
 Safety/truth boundaries remain mandatory: monitored GETs never collect SQL; missing evidence is never converted to zero/healthy; wait/I/O counters are cumulative since SQL Server start rather than interval history; `AgentReliabilityProjection` keeps `ScheduleLatenessEvaluated=false` until canonical time-zone + recurrence/expected-run semantics exist; backup RPO compliance is not claimed without policy; TempDB, transaction-log, HA readiness and privacy-safe query regression remain pending; no SQL text/query plans/client identity/table data/physical paths are collected; no autonomous remediation or AI-generated SQL execution is introduced.
 
-Least privilege remains read-only: SQL Server 2022+ uses `VIEW SERVER PERFORMANCE STATE` (older supported versions `VIEW SERVER STATE`) plus `VIEW ANY DEFINITION` and existing narrow metadata grants; Agent history/activity adds only read-only `SELECT` on `msdb.dbo.sysjobhistory` and `msdb.dbo.sysjobactivity`, with no SQLAgent execution/operator role.
+Least privilege remains read-only: SQL Server 2022+ uses `VIEW SERVER PERFORMANCE STATE` (older supported versions `VIEW SERVER STATE`) plus `VIEW ANY DEFINITION` and existing narrow metadata grants; Agent history/activity adds only read-only `SELECT` on `msdb.dbo.sysjobhistory` and `msdb.dbo.sysjobactivity`, with no SQLAgent execution/operator role. B800-071/072 add no monitored-SQL permission or query path.
 
-Pre-canonical chronology includes CI #2029 + Real SQL #161 Green for waits; CI #2046 + Real SQL #169 + Windows #265 Green for Storage/I/O; database-state source head `895297809d5dcb656cb3e6bc064aba96d02e58b1` passed CI #2120 + Real SQL #205. These are not final merge evidence. B800-063 and workflow-matrix diagnostics moved the branch after earlier validation. PR #288 becomes eligible for Ready/merge only after `BATCH_800`, `FEATURE_CATALOG`, `STATUS` and this plan are reconciled on one exact head, normal CI + applicable Real SQL + Windows production-candidate are all Green, review threads are resolved and the branch is current with `main`. Merging #288 closes only this partial slice; #287 remains OPEN for remaining tasks.
+PR #304 becomes eligible for Ready/merge only after `BATCH_800`, `FEATURE_CATALOG`, `STATUS` and this plan are reconciled on one exact head, normal CI and Windows production-candidate are Green on that same head, Real SQL is Green only if selected by repository path policy, review threads are resolved, the branch is current with `main`, and the effective diff remains bounded to B800-072 plus canonical reconciliation. Merging #304 closes only B800-072; #287 remains OPEN for B800-073+.
 
 BATCH-800 does not publish/supersede selected RC.61, mutate real production IIS/SQL, satisfy #162/#116/#111, or change the strict production dependency.
 
@@ -273,7 +276,7 @@ BATCH-800 does not publish/supersede selected RC.61, mutate real production IIS/
 - BATCH-500 — B500-001..100 COMPLETE.
 - BATCH-600 — B600-001..100 COMPLETE.
 - `docs/BATCH_700.md` — UI700-001..050 COMPLETE; PR #240 squash-merged as `fd33e79c6d19d7f9852417b9c35a11f91f21714c` after exact final head `0834db6b5d518fe5c52eec9b47c03e467929aa89` passed CI #1637, Real SQL #91 and production-candidate #142.
-- `docs/BATCH_800.md` — B800-001..100 IN PROGRESS under #287; PR #288 is a partial evidence-backed slice and is not counted as full-batch completion.
+- `docs/BATCH_800.md` — B800-001..100 IN PROGRESS under #287; incremental focused slices are merged through B800-071 on `main`, with PR #304 carrying B800-072. The batch is not counted as complete.
 
 The BATCH-200 reconciliation selectively restored retention governance, enterprise security hardening and bounded scale primitives plus mapped B200-051..090 regression coverage and an additional audit-pagination regression on RC.61-era current main. Legacy issues #87/#91/#93 are closed completed, while stale PRs #88/#92/#94/#104 are closed unmerged as superseded. This was baseline correction rather than feature expansion or new task accounting; it preserves `IServerTargetLifecycleService`, BATCH-300 and all P0 production/release boundaries and does not change #116 or selected RC.61.
 

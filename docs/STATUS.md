@@ -102,27 +102,26 @@ This baseline correction is historical reconciliation rather than new task accou
 ## BATCH-800 — Full functional operator wiring — IN PROGRESS
 
 **Umbrella:** #287 — OPEN  
-**Current PR:** #288 — DRAFT / merge-frozen partial slice  
+**Current PR:** #304 — DRAFT / B800-072 maintenance safety decision-support slice  
 **Task range:** B800-001..100  
 **Ledger:** `docs/BATCH_800.md`
 
 BATCH-800 converts visible-route completeness into traceable functional contracts: `UI -> controller -> authorization/antiforgery -> service/read model -> cached/persisted evidence -> explicit state -> regression evidence`. It remains subordinate to the P0 production boundary and cannot publish RC.61 or satisfy #162/#116/#111.
 
-PR #288 is frozen after the work already present through B800-029 plus diagnostic evidence already on the branch through B800-063 and B800-069. Current evidence-backed scope includes:
-- B300 server identity/version family/support/edition/uptime and composite runtime-pressure projection on Server Details, including explicit fresh/stale/unavailable classification;
-- cross-page consistency and safe server drill-down contracts for existing database/backup/Agent/storage evidence;
-- B800-021/022 assembly-wide POST safety + Razor POST-to-real-endpoint regression matrices;
-- B800-023 bounded GET filters/paging, B800-024 PRG/conflict outcome contracts, B800-025 incident/Advisor role-visible controls, B800-026 Connection Lab test-before-save/write-only-secret workflow, B800-027 Administrator Settings backup/restore with exact `RESTORE`, B800-028 fail-closed Governance typed `PRUNE` + rejection audit, and B800-029 Enterprise Read/Manage/Operate role wiring;
-- bounded optional Memory evidence and deterministic recommendations with no automatic tuning;
-- top-12 non-benign cumulative wait evidence and pure cached Performance intelligence;
-- top-12 logical-file cumulative I/O evidence and Storage intelligence without `physical_name` or filesystem paths;
-- max-50 SQL Agent job-summary history rows plus run-history reliability;
-- max-50 current Agent activity rows from the latest `sysjobactivity` session with logical job name, server-local next scheduled run and running state only; lateness remains explicitly not evaluated because canonical server time-zone identity and recurrence/expected-run policy are not present;
-- max-50 user-database logical name/state rows with non-online rows prioritized and exact B300 database-state classification/actionable/worst-observed projection.
+Incremental focused slices are already merged through B800-071. Current evidence-backed scope includes cached B300 server intelligence, exact per-database state projection, bounded memory/wait/logical-file-I/O/Agent evidence, workflow/navigation/role safety contracts, explicit backup RPO policy metadata, and the B800-071 fleet correlation/routing surface. Unsupported diagnostics remain explicit rather than inferred.
 
-Explicitly **not** claimed by this PR: Agent lateness/expected-run compliance, policy-backed backup RPO compliance, TempDB growth/contention, transaction-log growth/RPO, HA readiness, privacy-safe query regression, browser/DOM automation, autonomous remediation or AI SQL execution. Missing evidence stays missing rather than becoming synthetic zero/healthy state.
+B800-071 merged through PR #303 as `3821d1a1ebd15039a3c93b1e77ff7bac210e0b08`. Exact final head `5a18b5167cc24cd292ce7826fb144434762c7eae` passed CI #2393 and Windows production-candidate #393; Real SQL was not selected because the slice added no monitored-SQL query/collector/permission path. Fleet Intelligence now exposes bounded correlation clusters and B300 routing recommendations as `RECOMMENDATION ONLY`, with no sender, notification, incident mutation or remediation.
 
-Pre-canonical validation includes wait head CI #2029 + Real SQL #161 Green; Storage/I/O head CI #2046 + Real SQL #169 + Windows #265 Green; database-state source head `895297809d5dcb656cb3e6bc064aba96d02e58b1` passed CI #2120 and Real SQL #205. These are chronology only. **Ready/merge requires CI + applicable Real SQL + Windows production-candidate Green on one final post-freeze canonical-reconciled head**, no unresolved review threads and branch current with `main`. B800-030+, B800-064..068, B800-070+ continue in a subsequent PR. #287 remains OPEN after #288 merges.
+PR #304 carries B800-072 only plus canonical reconciliation:
+- wraps the existing `Batch400MaintenanceSafety` rules in a nullable `MaintenanceDecisionSupport` evidence contract;
+- exposes GET-only `/enterprise/maintenance/{serverId}` under `Monitor.Read` and links enabled servers from Enterprise Operations;
+- consumes only enabled registration, environment/configured-window metadata and the current open critical-incident count;
+- treats configured maintenance-window activity as observed context only, never as independently approved-window proof;
+- leaves approval, rollback-plan, approved-window, replica-health and policy-backed recent-backup evidence unavailable (`null`) until a governed source exists;
+- returns `NotEvaluated` rather than fabricating a pass/fail result whenever a selected operation/environment requires missing evidence;
+- contains no POST/execute path, monitored-SQL query, refresh, notification, failover, restore, patch, configuration, index/statistics or backup execution path.
+
+Pre-canonical B800-072 head `40b4ffe9402a498c8a4e1b78d9d2eee730bfd2a5` passed PR CI run `32026739461` and Windows production-candidate run `32026739447`. Real SQL was not selected because the slice adds no monitored-SQL path. Canonical reconciliation changes the source SHA, so **Ready/merge still requires CI and Windows production-candidate Green on one exact final reconciled head**, Real SQL only if selected by repository path policy, no unresolved review threads, branch current with `main`, and a diff bounded to B800-072 plus canonical reconciliation. #287 remains OPEN for B800-073+.
 
 ## BATCH-700 — Full visible portal/UI completion — COMPLETE
 
@@ -190,7 +189,7 @@ B600 delivered deterministic fail-closed repository orchestration for evidence f
 - BATCH-500: B500-001..100 COMPLETE.
 - BATCH-600: B600-001..100 COMPLETE.
 - BATCH-700: UI700-001..050 COMPLETE; PR #240 squash-merged as `fd33e79c6d19d7f9852417b9c35a11f91f21714c` after exact final head `0834db6b5d518fe5c52eec9b47c03e467929aa89` passed CI #1637, Real SQL #91 and production-candidate #142.
-- BATCH-800: IN PROGRESS under #287 / PR #288; merge-frozen partial evidence-backed slice only, excluded from completed-task totals until its own task gates close.
+- BATCH-800: IN PROGRESS under #287; incremental focused slices are merged through B800-071, with current PR #304 carrying B800-072. Excluded from completed-task totals until its own batch gates close.
 - Total completed hardening/UI task IDs B100+B200+B300+B400+B500+B600+B700: **660**. PR #156 remains baseline reconciliation, not new task accounting.
 
 ## Stable guardrails
@@ -230,4 +229,4 @@ B600 delivered deterministic fail-closed repository orchestration for evidence f
 - Final PR head `ff14f16006b1d5c953ba4c507f196a3393660e42` passed CI #2085, Real SQL #188 and Windows production-candidate #284 Green. PR #286 squash-merged as `74b804e8b681a77b9e619490610af556a4b1ae3e`; post-merge main CI #2095 passed Green and Issue #285 closed completed.
 - This remains repository/staging behavior only and did not publish or mutate selected RC.61/tag/release state, real production IIS/SQL, #116 acceptance or the strict `#162 -> #116 -> #111` dependency.
 
-**Overall:** 🟢 verified foundation · 🟢 P0.1–P0.4 COMPLETE · 🟢 P0.5 repository cutover/evidence/session/finalization/release/promotion/workflow-supply-chain/native-Node-24/durable-release hardening through PR #219 · 🟢 #256 selected-product-hash session hardening COMPLETE via PR #257 · 🟢 #258/#259 locked-session sidecar binding COMPLETE · 🟢 #261/#262 Acceptance Control Toolkit provenance COMPLETE with exact toolkit source `b422eaaee53d931a62a43b3c36a53b68cd4f3e27` · 🟢 #266/#267 RC.61 read-only promotion preflight COMPLETE · 🟢 #270/#271 Step 0 operator handoff COMPLETE · 🟢 #276/PR #279 IIS bootstrap integration COMPLETE · 🟢 #281/PR #283 fresh-host/PowerShell 7 hardening COMPLETE · 🟢 #285/PR #286 clean IIS no-demo/POST-error fix COMPLETE · 🟡 #287/PR #288 BATCH-800 merge-frozen partial functional wiring through B800-029 + bounded Agent activity/database-state evidence awaiting one exact-head validation set · 🟡 selected RC.61 durable publication + separate verification pending manual #162 · ⛔ #116 production mutation blocked while #162 is OPEN · 🟡 external IIS/HTTPS 15-gate acceptance pending after #162 · 🔴 production acceptance not yet granted
+**Overall:** 🟢 verified foundation · 🟢 P0.1–P0.4 COMPLETE · 🟢 P0.5 repository cutover/evidence/session/finalization/release/promotion/workflow-supply-chain/native-Node-24/durable-release hardening through PR #219 · 🟢 #256 selected-product-hash session hardening COMPLETE via PR #257 · 🟢 #258/#259 locked-session sidecar binding COMPLETE · 🟢 #261/#262 Acceptance Control Toolkit provenance COMPLETE with exact toolkit source `b422eaaee53d931a62a43b3c36a53b68cd4f3e27` · 🟢 #266/#267 RC.61 read-only promotion preflight COMPLETE · 🟢 #270/#271 Step 0 operator handoff COMPLETE · 🟢 #276/PR #279 IIS bootstrap integration COMPLETE · 🟢 #281/PR #283 fresh-host/PowerShell 7 hardening COMPLETE · 🟢 #285/PR #286 clean IIS no-demo/POST-error fix COMPLETE · 🟡 #287 BATCH-800 IN PROGRESS: focused slices merged through B800-071; PR #304 carries B800-072 maintenance decision support and awaits one exact final-head CI/Windows validation set after canonical reconciliation · 🟡 selected RC.61 durable publication + separate verification pending manual #162 · ⛔ #116 production mutation blocked while #162 is OPEN · 🟡 external IIS/HTTPS 15-gate acceptance pending after #162 · 🔴 production acceptance not yet granted
