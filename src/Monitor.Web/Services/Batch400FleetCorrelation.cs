@@ -8,6 +8,8 @@ public sealed record SignalCluster(string ClusterKey, DateTimeOffset BucketUtc, 
 
 public static class Batch400FleetCorrelation
 {
+    public const int MaxClusterLimit = 100;
+
     public static string NormalizeServerKey(string? value)
     {
         if (string.IsNullOrWhiteSpace(value)) return "UNKNOWN";
@@ -54,7 +56,7 @@ public static class Batch400FleetCorrelation
     public static IReadOnlyList<SignalCluster> Correlate(IEnumerable<FleetSignal> signals, TimeSpan window, int limit = 20)
     {
         var boundedWindow = ClampWindow(window);
-        var boundedLimit = Math.Clamp(limit, 1, 100);
+        var boundedLimit = Math.Clamp(limit, 1, MaxClusterLimit);
         return signals.GroupBy(item => CorrelationKey(item, boundedWindow), StringComparer.Ordinal).Select(group =>
         {
             var items = group.ToArray();

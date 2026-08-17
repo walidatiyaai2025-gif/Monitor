@@ -38,12 +38,23 @@ public sealed record FleetRoutingSummary(
     int InMaintenance,
     int Unassigned);
 
+public sealed record FleetCorrelationSummary(
+    int EvaluatedIncidents,
+    int TotalClusters,
+    int CriticalClusters,
+    int WarningClusters,
+    int InfoClusters,
+    int MultiServerClusters,
+    int MaxAffectedServers,
+    double HighestScore);
+
 public sealed record FleetDecisionSupportSnapshot(
     TimeSpan CorrelationWindow,
     int InputIncidents,
     IReadOnlyList<SignalCluster> Correlations,
     IReadOnlyList<FleetRoutingSuggestion> RoutingSuggestions,
-    FleetRoutingSummary? RoutingSummary = null);
+    FleetRoutingSummary? RoutingSummary = null,
+    FleetCorrelationSummary? CorrelationSummary = null);
 
 public static class FleetDecisionSupport
 {
@@ -65,8 +76,28 @@ public static class FleetDecisionSupport
             item.Environment,
             item.RuleId,
             ToB400Severity(item.Severity),
-            item.AtUtc));
-        var correlations = Batch400FleetCorrelation.Correlate(signals, window, MaxItems);
+            item.AtUtc)).ToArray();
+
+        FleetCorrelationSummary? correlationSummary = null;
+        IReadOnlyList<SignalCluster> correlations;
+        if (incidents.Length <= Batch400FleetCorrelation.MaxClusterLimit)
+        {
+            var allCorrelations = Batch400FleetCorrelation.Correlate(signals, window, Batch400FleetCorrelation.MaxClusterLimit);
+            correlationSummary = new FleetCorrelationSummary(
+                incidents.Length,
+                allCorrelations.Count,
+                allCorrelations.Count(item => item.Severity == B400Severity.Critical),
+                allCorrelations.Count(item => item.Severity == B400Severity.Warning),
+                allCorrelations.Count(item => item.Severity == B400Severity.Info),
+                allCorrelations.Count(item => item.AffectedServers > 1),
+                allCorrelations.Count == 0 ? 0 : allCorrelations.Max(item => item.AffectedServers),
+                allCorrelations.Count == 0 ? 0 : allCorrelations.Max(item => item.Score));
+            correlations = allCorrelations.Take(MaxItems).ToArray();
+        }
+        else
+        {
+            correlations = Batch400FleetCorrelation.Correlate(signals, window, MaxItems);
+        }
 
         var routingDecisions = incidents.Select(item =>
         {
@@ -107,7 +138,7 @@ public static class FleetDecisionSupport
             item.Incident.Suppressed,
             item.Incident.InMaintenance)).ToArray();
 
-        return new(window, incidents.Length, correlations, routing, routingSummary);
+        return new(window, incidents.Length, correlations, routing, routingSummary, correlationSummary);
     }
 
     private static B400Severity ToB400Severity(FindingSeverity severity) => severity switch

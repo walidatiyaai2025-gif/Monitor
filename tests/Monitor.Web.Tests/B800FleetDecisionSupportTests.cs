@@ -22,6 +22,16 @@ public sealed class B800FleetDecisionSupportTests
         Assert.Equal(2, cluster.AffectedServers);
         Assert.Equal(B400Severity.Critical, cluster.Severity);
         Assert.Contains("PRODUCTION", cluster.Environments);
+
+        var summary = Assert.IsType<FleetCorrelationSummary>(snapshot.CorrelationSummary);
+        Assert.Equal(2, summary.EvaluatedIncidents);
+        Assert.Equal(1, summary.TotalClusters);
+        Assert.Equal(1, summary.CriticalClusters);
+        Assert.Equal(0, summary.WarningClusters);
+        Assert.Equal(0, summary.InfoClusters);
+        Assert.Equal(1, summary.MultiServerClusters);
+        Assert.Equal(2, summary.MaxAffectedServers);
+        Assert.Equal(76d, summary.HighestScore);
     }
 
     [Fact]
@@ -89,6 +99,55 @@ public sealed class B800FleetDecisionSupportTests
     }
 
     [Fact]
+    public void Build_CorrelationSummaryCoversAllClustersWhileDetailRemainsTopTwenty()
+    {
+        var at = new DateTimeOffset(2026, 8, 17, 10, 0, 0, TimeSpan.Zero);
+        var items = Enumerable.Range(1, 35)
+            .Select(index => I(
+                $"INC-C-{index:00}",
+                $"10000000-0000-0000-0000-{index:000000000000}",
+                $"UNIQUE-RULE-{index:00}",
+                index % 2 == 0 ? FindingSeverity.Critical : FindingSeverity.Warning,
+                at,
+                "Production"))
+            .ToArray();
+
+        var snapshot = FleetDecisionSupport.Build(items);
+
+        var summary = Assert.IsType<FleetCorrelationSummary>(snapshot.CorrelationSummary);
+        Assert.Equal(35, summary.EvaluatedIncidents);
+        Assert.Equal(35, summary.TotalClusters);
+        Assert.Equal(17, summary.CriticalClusters);
+        Assert.Equal(18, summary.WarningClusters);
+        Assert.Equal(0, summary.InfoClusters);
+        Assert.Equal(0, summary.MultiServerClusters);
+        Assert.Equal(1, summary.MaxAffectedServers);
+        Assert.Equal(FleetDecisionSupport.MaxItems, snapshot.Correlations.Count);
+    }
+
+    [Fact]
+    public void Build_CorrelationSummaryFailsExplicitWhenInputExceedsB400CoverageBound()
+    {
+        var at = DateTimeOffset.UtcNow;
+        var items = Enumerable.Range(1, Batch400FleetCorrelation.MaxClusterLimit + 1)
+            .Select(index => I(
+                $"INC-X-{index:000}",
+                $"20000000-0000-0000-0000-{index:000000000000}",
+                $"RULE-X-{index:000}",
+                FindingSeverity.Warning,
+                at,
+                "Test"))
+            .ToArray();
+
+        var snapshot = FleetDecisionSupport.Build(items);
+
+        Assert.Equal(Batch400FleetCorrelation.MaxClusterLimit + 1, snapshot.InputIncidents);
+        Assert.Null(snapshot.CorrelationSummary);
+        Assert.Equal(FleetDecisionSupport.MaxItems, snapshot.Correlations.Count);
+        Assert.Equal(items.Length, Assert.IsType<FleetRoutingSummary>(snapshot.RoutingSummary).EvaluatedIncidents);
+    }
+
+    [Fact]
     public void Build_IsBoundedAndUsesOpaqueDedupKeys()
     {
         var at = DateTimeOffset.UtcNow;
@@ -106,6 +165,7 @@ public sealed class B800FleetDecisionSupportTests
 
         Assert.Equal(35, snapshot.InputIncidents);
         Assert.Equal(35, Assert.IsType<FleetRoutingSummary>(snapshot.RoutingSummary).EvaluatedIncidents);
+        Assert.NotNull(snapshot.CorrelationSummary);
         Assert.True(snapshot.RoutingSuggestions.Count <= FleetDecisionSupport.MaxItems);
         Assert.True(snapshot.Correlations.Count <= FleetDecisionSupport.MaxItems);
         Assert.All(snapshot.RoutingSuggestions, item =>
@@ -116,7 +176,7 @@ public sealed class B800FleetDecisionSupportTests
     }
 
     [Fact]
-    public void Build_DropsInvalidIncidentIdentityBeforeDecisionSupportAndRoutingSummary()
+    public void Build_DropsInvalidIncidentIdentityBeforeDecisionSupportAndCoverageSummaries()
     {
         var valid = I("INC-1", "11111111-1111-1111-1111-111111111111", "RULE", FindingSeverity.Warning, DateTimeOffset.UtcNow, "Test");
         var snapshot = FleetDecisionSupport.Build(
@@ -129,6 +189,7 @@ public sealed class B800FleetDecisionSupportTests
 
         Assert.Equal(1, snapshot.InputIncidents);
         Assert.Equal(1, Assert.IsType<FleetRoutingSummary>(snapshot.RoutingSummary).EvaluatedIncidents);
+        Assert.Equal(1, Assert.IsType<FleetCorrelationSummary>(snapshot.CorrelationSummary).EvaluatedIncidents);
         Assert.Single(snapshot.RoutingSuggestions);
         Assert.Single(snapshot.Correlations);
     }
