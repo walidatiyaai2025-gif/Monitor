@@ -29,20 +29,8 @@ public sealed class MaintenanceDecisionSupportController(
 
         var policy = operatorPolicy.GetServer(id);
         var incidentRead = BoundedIncidentReadModel.ActiveForServer(incidents, id);
-        int? activeCriticalIncidents = incidentRead.IsComplete
-            ? incidentRead.Incidents.Count(incident => incident.Severity == FindingSeverity.Critical)
-            : null;
         var selectedOperation = MaintenanceDecisionSupport.NormalizeOperation(operation);
-        var evidence = new MaintenanceDecisionEvidence(
-            selectedOperation,
-            IsProduction: policy.PolicyReadable ? policy.Environment == ServerEnvironmentClass.Production : null,
-            ObservedMaintenanceWindowActive: policy.PolicyReadable ? policy.MaintenanceActive : null,
-            InApprovedWindow: null,
-            HasApproval: null,
-            HasRollbackPlan: null,
-            ActiveCriticalIncidents: activeCriticalIncidents,
-            ReplicaHealthy: null,
-            RecentBackupAvailable: null);
+        var evidence = MaintenanceDecisionSupport.BuildEvidence(selectedOperation, policy, incidentRead);
         var result = MaintenanceDecisionSupport.Evaluate(evidence);
 
         return View(new MaintenanceDecisionSupportPageViewModel(
@@ -51,7 +39,7 @@ public sealed class MaintenanceDecisionSupportController(
             evidence.ObservedMaintenanceWindowActive,
             selectedOperation,
             result,
-            activeCriticalIncidents,
+            evidence.ActiveCriticalIncidents,
             incidentRead.IsComplete,
             incidentRead.Limit));
     }
