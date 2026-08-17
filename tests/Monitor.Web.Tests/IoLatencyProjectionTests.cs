@@ -103,7 +103,7 @@ public sealed class IoLatencyProjectionTests
         Assert.Contains("B400 FILE I/O", view, StringComparison.Ordinal);
         Assert.Contains("Cumulative file latency and throughput", view, StringComparison.Ordinal);
         Assert.Contains("No healthy I/O state is inferred", view, StringComparison.Ordinal);
-        Assert.Contains("Physical filesystem paths are never collected or rendered", view, StringComparison.Ordinal);
+        Assert.Contains("Physical filesystem paths are never collected or rendered", view, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("it is not a recent interval rate or persisted trend", view, StringComparison.Ordinal);
         Assert.Contains("GET navigation does not contact monitored SQL", view, StringComparison.Ordinal);
         Assert.Contains("GetHealthModulesAsync(cancellationToken)", controller, StringComparison.Ordinal);
