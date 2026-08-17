@@ -71,9 +71,9 @@ if ($actualCommit -ne $expectedCommit) {
     throw "Git HEAD '$actualCommit' does not equal independently supplied ExpectedToolingCommit '$expectedCommit'."
 }
 
-$dirtyTracked = Invoke-GitText -Arguments @('status', '--porcelain', '--untracked-files=no')
+$dirtyTracked = Invoke-GitText -Arguments @('status', '--porcelain=v1', '--untracked-files=no')
 if (-not [string]::IsNullOrWhiteSpace($dirtyTracked)) {
-    throw 'Acceptance Control Toolkit export requires a clean tracked Git checkout.'
+    throw 'Tracked Git checkout state must be clean before Acceptance Control Toolkit export.'
 }
 
 foreach ($fileName in $requiredFiles) {
