@@ -155,7 +155,7 @@ The release artifact no longer has a weaker construction path than the selected 
 3. `release.yml` resolves/validates the tag/manual version and delegates packaging to the reusable production-candidate workflow rather than running independent publish/zip/upload steps;
 4. tagged/manual releases inherit the same Release build warnings-as-errors, full tests, production PowerShell parser, immutable-session runtime, session-bound recorder/finalizer runtime, RID-specific win-x64 publish, secret-free baseline validation, HTTPS/auth smoke before/after restart, runtime-state removal, `_operations` staging, clean-package validation and SHA-256 artifact upload;
 5. release manifest schema 2 records fixed P0.4 run IDs as `prerequisiteEvidence.p04`, while candidate-specific run evidence remains authoritative on #116;
-6. regression tests fail if independent release packaging or the ambiguous `realSqlAcceptance` manifest field returns;
+6. regression tests fail if independent `dotnet publish`, packaging, `upload-artifact` in `release.yml`, the ambiguous `realSqlAcceptance` manifest field, `gh release upload`, or `--clobber` return;
 7. this is repository release-integrity evidence only and cannot satisfy a real IIS gate.
 
 ### Durable tagged release asset contract — #159 / PR #160 COMPLETE
@@ -224,7 +224,7 @@ BATCH-700 does **not** change production priority or acceptance truth: monitored
 ## BATCH-800 — Full functional operator wiring — IN PROGRESS
 
 **Umbrella:** Issue #287 — OPEN  
-**Current PR:** #306 — DRAFT / B800-074 repository-bounded incident query-contract slice  
+**Current PR:** #307 — DRAFT / B800-075 persisted incident read-specialization slice  
 **Task range:** B800-001..100  
 **Execution ledger:** `docs/BATCH_800.md`
 
@@ -232,7 +232,7 @@ BATCH-800 closes the gap between a visible route and a functionally wired operat
 
 `UI control / route -> controller endpoint -> authorization + antiforgery boundary -> service/read model -> persisted or cached evidence -> explicit success/error/unavailable state -> regression evidence`
 
-Incremental focused slices have advanced the batch beyond the historical #288 partial branch. Current `main` contains the evidence-backed server/diagnostic/workflow slices plus B800-071 fleet decision support, B800-072 maintenance safety decision support and B800-073 bounded incident decision evidence; PR #306 carries B800-074 repository-bounded incident operator reads.
+Incremental focused slices have advanced the batch beyond the historical #288 partial branch. Current `main` contains the evidence-backed server/diagnostic/workflow slices plus B800-071 fleet decision support, B800-072 maintenance safety decision support, B800-073 bounded incident decision evidence and B800-074 repository-bounded incident operator reads; PR #307 carries B800-075 persisted/decorated native incident reads.
 
 Current evidence-backed state:
 
@@ -241,18 +241,19 @@ Current evidence-backed state:
 - B800-071 is merged through PR #303 as `3821d1a1ebd15039a3c93b1e77ff7bac210e0b08`; exact final head `5a18b5167cc24cd292ce7826fb144434762c7eae` passed CI #2393 and Windows production-candidate #393. Real SQL was not selected because that slice added no monitored-SQL query, collector or permission path;
 - B800-072 is merged through PR #304 as `ce81b47ee4de09ced03e4ae275e639a93d1fecb9`. Exact final head `4b57a688150f974f8f3cd5b7255912b7e3328260` passed CI `32028002814`, Real SQL `32028002795`, and Windows production-candidate `32028002783`;
 - B800-073 is merged through PR #305 as `96e27b17de51e89f1e989fe2a9484f0226f2e53f`. Exact final reconciled head `443eccf16fb1fbcfde1cf5ff3f10864d487fd19b` passed CI `32030485150`, Real SQL `32030485078`, and Windows production-candidate `32030485093`;
-- B800-073 Fleet/Maintenance decision evidence remains bounded, registration-scoped and fail-explicit on overflow: Fleet withholds correlation/routing/hot-spots and Maintenance preserves missing Critical-count evidence as `NotEvaluated` instead of inferring zero;
-- B800-074 adds `IncidentRepositoryQuery` / `IncidentRepositoryReadResult`, deterministic status/severity/rule/server filtering, exact global summary, exact filtered match count, bounded page and `HasMore`;
-- Alerts `IncidentWorkflowService.Query` now calls `repository.Read(...)` instead of materializing `GetAll()` itself; B800-073 Fleet/Maintenance bounded reads use the same repository query contract;
-- InMemory overrides `Read(...)` natively. `GetAll()` remains intentionally available for explicit full-state workflows such as operational backup;
-- File/Shared/Telemetry remain source-compatible through the default interface fallback in B800-074. B800-075 is reserved for native persisted `Read(...)` specialization; because Shared incidents are one `monitor:incidents:v1` JSON document, no row-level SQL or physical-storage queryability claim is made;
-- B800-074 pre-canonical implementation head `8f5b695150b7d537af7d88fdfb11bc057cf473dd` passed CI `32031548141` and Windows production-candidate `32031548073`; Real SQL was not selected because no monitored-SQL query/collector/permission path changed.
+- B800-074 is merged through PR #306 as `7f388f04da3b1d681f1464f2ee77a361183e542d`. Exact final reconciled head `2b845173ae0a260b01a3b7fae9f95e28019b7d87` passed CI `32048271534`, Real SQL `32048271523`, and Windows production-candidate `32048271563`;
+- B800-074 gives Alerts/Fleet/Maintenance an exact repository query contract while preserving full-state `GetAll()` for explicit backup/export paths;
+- B800-075 gives File a native `Read(...)` over already-loaded `_items.Values` under its existing lock; no disk-indexed query is claimed;
+- B800-075 gives Shared a native `Read(...)` over the validated state deserialized from the existing one `monitor:incidents:v1` document; no row-level SQL/physical provider queryability is claimed and no schema/version changes;
+- B800-075 makes Telemetry forward `Read(...)` to its inner repository and derives active incident telemetry from bounded-query `TotalMatched`, so telemetry observation no longer calls `GetAll().Count(...)`;
+- B800-075 runtime regression proves File/Shared/Telemetry own the `Read` contract and the Telemetry path succeeds when `GetAll()` throws;
+- B800-075 pre-canonical implementation head `b811e226b62ee65b29377afe94a2d30f16d334a1` passed CI `32049330852` and Windows production-candidate `32049330212`; Real SQL was not selected because no monitored-SQL query/collector/permission path changed.
 
 Safety/truth boundaries remain mandatory: monitored GETs never collect SQL; missing or truncated evidence is never converted to zero/healthy; wait/I/O counters are cumulative since SQL Server start rather than interval history; `AgentReliabilityProjection` keeps `ScheduleLatenessEvaluated=false` until canonical time-zone + recurrence/expected-run semantics exist; backup RPO compliance is not claimed without policy; TempDB, transaction-log, HA readiness and privacy-safe query regression remain pending; no SQL text/query plans/client identity/table data/physical paths are collected; no autonomous remediation or AI-generated SQL execution is introduced.
 
-Least privilege remains read-only: SQL Server 2022+ uses `VIEW SERVER PERFORMANCE STATE` (older supported versions `VIEW SERVER STATE`) plus `VIEW ANY DEFINITION` and existing narrow metadata grants; Agent history/activity adds only read-only `SELECT` on `msdb.dbo.sysjobhistory` and `msdb.dbo.sysjobactivity`, with no SQLAgent execution/operator role. B800-071/072/073/074 add no monitored-SQL permission or query path.
+Least privilege remains read-only: SQL Server 2022+ uses `VIEW SERVER PERFORMANCE STATE` (older supported versions `VIEW SERVER STATE`) plus `VIEW ANY DEFINITION` and existing narrow metadata grants; Agent history/activity adds only read-only `SELECT` on `msdb.dbo.sysjobhistory` and `msdb.dbo.sysjobactivity`, with no SQLAgent execution/operator role. B800-071/072/073/074/075 add no monitored-SQL permission or query path.
 
-PR #306 becomes eligible for Ready/merge only after `BATCH_800`, `FEATURE_CATALOG`, `STATUS` and this plan are reconciled on one exact head, every repository-selected required workflow is Green on that same head, review threads are resolved, the branch is current with `main`, and the effective diff remains bounded to B800-074 plus canonical reconciliation. Real SQL is required only if repository path policy selects it. Merging #306 closes only B800-074; #287 remains OPEN for B800-075+.
+PR #307 becomes eligible for Ready/merge only after `BATCH_800`, `FEATURE_CATALOG`, `STATUS` and this plan are reconciled on one exact head, every repository-selected required workflow is Green on that same head, review threads are resolved, the branch is current with `main`, and the effective diff remains bounded to B800-075 plus canonical reconciliation. Real SQL is required only if repository path policy selects it. Merging #307 closes only B800-075; #287 remains OPEN for B800-076+.
 
 BATCH-800 does not publish/supersede selected RC.61, mutate real production IIS/SQL, satisfy #162/#116/#111, or change the strict production dependency.
 
@@ -279,7 +280,7 @@ BATCH-800 does not publish/supersede selected RC.61, mutate real production IIS/
 - BATCH-500 — B500-001..100 COMPLETE.
 - BATCH-600 — B600-001..100 COMPLETE.
 - `docs/BATCH_700.md` — UI700-001..050 COMPLETE; PR #240 squash-merged as `fd33e79c6d19d7f9852417b9c35a11f91f21714c` after exact final head `0834db6b5d518fe5c52eec9b47c03e467929aa89` passed CI #1637, Real SQL #91 and production-candidate #142.
-- `docs/BATCH_800.md` — B800-001..100 IN PROGRESS under #287; incremental focused slices are merged through B800-073 on `main`, with PR #306 carrying B800-074. The batch is not counted as complete.
+- `docs/BATCH_800.md` — B800-001..100 IN PROGRESS under #287; incremental focused slices are merged through B800-074 on `main`, with PR #307 carrying B800-075. The batch is not counted as complete.
 
 The BATCH-200 reconciliation selectively restored retention governance, enterprise security hardening and bounded scale primitives plus mapped B200-051..090 regression coverage and an additional audit-pagination regression on RC.61-era current main. Legacy issues #87/#91/#93 are closed completed, while stale PRs #88/#92/#94/#104 are closed unmerged as superseded. This was baseline correction rather than feature expansion or new task accounting; it preserves `IServerTargetLifecycleService`, BATCH-300 and all P0 production/release boundaries and does not change #116 or selected RC.61.
 
@@ -298,7 +299,7 @@ Historical feature breadth remains available, but it does not outrank the remain
 - Repository CI/synthetic evidence/session/finalizer/release-package/UI validation cannot close #116.
 - Release dependencies remain fail-closed: #162 must complete before #116 production mutation; #111 cannot close before #116 is accepted.
 - BATCH-800 may extend bounded snapshot or control-plane evidence only when the UI cannot be wired truthfully from existing state; unsupported or truncated dimensions must remain explicit rather than receiving placeholder values.
-- B800-074 bounds operator incident query contracts without claiming persisted-path optimization; B800-075 remains responsible for native File/Shared/Telemetry specialization while preserving the single-document SharedState truth.
+- B800-075 specializes persisted/decorated repository `Read(...)` paths without changing persistence schema or claiming disk/SharedState row indexing; `GetAll()` remains for explicit full-state backup/export workflows.
 
 ## Definition of done
 
