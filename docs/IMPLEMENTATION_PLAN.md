@@ -218,49 +218,12 @@ Completed sequence:
 
 BATCH-700 has no browser/Playwright screenshot harness, so responsive/visual acceptance is represented honestly by source contracts, route/view smoke and the existing build/test/Windows gates rather than by a claimed browser screenshot run.
 
-BATCH-700 does **not** change production priority or acceptance truth: monitored GETs remain cache/control-plane only; no autonomous remediation or SQL execution is added; #162 still governs durable RC.61 publication; #116/#111 still govern real IIS/HTTPS 15-gate production acceptance.
+## Issue #276 — Idempotent IIS bootstrap installer and deploy entrypoint — IN PROGRESS / PR #279
 
-## Verified foundation
-
-| Milestone | Scope | State |
-|---|---|---|
-| M0 | Visual foundation, secure development auth, shell, Command Center and CI/visual acceptance | VERIFIED |
-| M1 | Registration/secret boundary, Test Connection, collector, snapshot/cache, real UI, throttled refresh | VERIFIED |
-| M2 | Memory/database/backup/Agent/storage/blocking/performance health modules | VERIFIED |
-| M3 | Deterministic findings, incidents, recommendations and operator workflow | VERIFIED |
-| M4 | AI Advisor advisory-only boundary, guarded request/cache/timeout/circuit/audit | VERIFIED |
-| M5 | History, collection cycle, trends, scheduler, audit, RBAC, browser security | VERIFIED |
-| M6 | Real multi-server onboarding and estate UI | VERIFIED |
-| M7 | Durable registration/operational state/protected credentials/shared-state readiness/deployment safety | VERIFIED |
-| M8 | Zero-SQL monitored GETs and explicit protected refresh | VERIFIED |
-
-## Historical hardening batches
-
-- `docs/BATCH_100.md` — B100-001..100 COMPLETE.
-- `docs/BATCH_200.md` — B200-001..100 COMPLETE; current-main reconciliation **COMPLETE** through Issue #99 / PR #156, squash-merged `221e44a9f13ed02e994311addff94b0e7996e444`. Final exact-head normal CI `31669072593`, Real SQL `31669072572`, and Windows production-candidate `31669072625` are Green.
-- BATCH-300 — B300-001..100 COMPLETE; final reconciled CI `31465013971`.
-- `docs/BATCH_400.md` — B400-001..110 COMPLETE.
-- BATCH-500 — B500-001..100 COMPLETE.
-- BATCH-600 — B600-001..100 COMPLETE.
-- `docs/BATCH_700.md` — UI700-001..050 COMPLETE; PR #240 squash-merged as `fd33e79c6d19d7f9852417b9c35a11f91f21714c` after exact final head `0834db6b5d518fe5c52eec9b47c03e467929aa89` passed CI #1637, Real SQL #91 and production-candidate #142.
-
-The BATCH-200 reconciliation selectively restored retention governance, enterprise security hardening and bounded scale primitives plus mapped B200-051..090 regression coverage and an additional audit-pagination regression on RC.61-era current main. Legacy issues #87/#91/#93 are closed completed, while stale PRs #88/#92/#94/#104 are closed unmerged as superseded. This was baseline correction rather than feature expansion or new task accounting; it preserves `IServerTargetLifecycleService`, BATCH-300 and all P0 production/release boundaries and does not change #116 or selected RC.61.
-
-Historical feature breadth remains available, but it does not outrank the remaining P0.5 production acceptance gate.
-
-## Stable guardrails
-
-- Browser monitoring GETs remain cache/control-plane only and never initiate monitored SQL collection.
-- No browser connects directly to monitored SQL.
-- No autonomous remediation or AI-generated SQL execution.
-- Credentials/full connection strings/current secret references/raw provider errors/arbitrary SQL text remain outside UI, audit, telemetry, exports, diagnostics and production evidence.
-- Mutations require POST + antiforgery + named authorization.
-- Suppression does not rewrite incident evidence.
-- Maintenance changes scheduled collection behavior only; manual refresh remains explicit/audited.
-- MultiNode remains fail-closed and deferred until after stable SingleNode production acceptance.
-- Repository CI/synthetic evidence/session/finalizer/release-package/UI validation cannot close #116.
-- Release dependencies remain fail-closed: #162 must complete before #116 production mutation; #111 cannot close before #116 is accepted.
-
-## Definition of done
-
-The production plan is complete only when P0-001..050 are reconciled, P0.1..P0.5 are accepted in order, #162 Step 0/manual promotion/separate durable verification and tag/assets/product-hash checks are complete before #116 production mutation, the selected SingleNode release has actual trusted-HTTPS IIS/recycle/least-privilege/backup/rollback evidence, the real 15/15 evidence pack remains bound to the externally preserved session-manifest SHA-256 through recording/finalization/review, and the final required CI/acceptance gates are Green. BATCH-700 repository/UI completion is independent of that external production acceptance and cannot satisfy it.
+- Repository implementation landed concurrently on `main` in `ce498e1beeb7acf9b9950917132cda313be9778f` (`Bootstrap-IisProductionSingleNode.ps1`), `94e44caf3872c40710fc4ec04adb37fea2a62244` (`Install-ProductionSingleNode.ps1`) and `e7621fcb5dd94d0cc3a7baa91603c3beda11c1c8` (fail-closed regression coverage).
+- The bootstrap is idempotent and **PLAN ONLY by default**; explicit `-Apply` is required for Windows/IIS/runtime/certificate/filesystem/ACL mutation.
+- It supports operator-supplied Offline Hosting Bundle installation and constrained explicit Microsoft Online download with optional SHA-256 pin plus Authenticode verification; machine-certificate thumbprint and SecureString-protected PFX flows are fail-closed.
+- It creates or validates the low-privilege No Managed Code app pool, IIS site/HTTPS binding, stable release/state roots and least-privilege ACL baseline without embedding credentials.
+- The single install entrypoint preserves strict ordering `bootstrap -> Test-IisProductionPrerequisites.ps1 -> Deploy-ProductionSingleNode.ps1`; the existing preflight remains authoritative and the existing immutable release, external `App_Data`, package SHA-256, acceptance and physical-path rollback semantics are unchanged.
+- PR #279 is the repository follow-up that adds production-candidate parser/package integration, operator documentation and canonical tracking. Merge requires normal CI plus Windows production-candidate Green.
+- This work does **not** rebuild/repackage the selected RC.61 candidate, dispatch/publish #162, mutate a real IIS/SQL target, manufacture #116 evidence or change the strict `#162 -> #116 -> #111` dependency.
