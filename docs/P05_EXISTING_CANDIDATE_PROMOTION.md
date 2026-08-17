@@ -6,7 +6,7 @@ Selected candidate: `Monitor-0.1.0-rc.61-win-x64.zip`
 
 ## Current state
 
-Implementation is **COMPLETE** via PR #163, with subsequent fail-closed hardening in #202/#204 and independent-verification readiness in #216. The durable promotion itself remains **PENDING MANUAL DISPATCH**. Issue #162 must remain OPEN until the manual promotion workflow runs successfully **and a separate read-only `verify-durable-release` run independently verifies the resulting tag and two durable GitHub Release assets**.
+Implementation is **COMPLETE** via PR #163, with subsequent fail-closed hardening in #202/#204, independent-verification readiness in #216, and the read-only operator preflight in #266 / PR #267. The durable promotion itself remains **PENDING MANUAL DISPATCH**. Issue #162 must remain OPEN until the manual promotion workflow runs successfully **and a separate read-only `verify-durable-release` run independently verifies the resulting tag and two durable GitHub Release assets**.
 
 This is retention/recoverability hardening only; it does not rebuild the application, select a different candidate, deploy IIS, or satisfy any external production gate.
 
@@ -21,6 +21,31 @@ This is retention/recoverability hardening only; it does not rebuild the applica
 - product SHA-256: `d0a71f8a5611621ee388a1109dedc76e1a6e70357404cb62c9c7aa188f49c3d5`
 - release tag: `v0.1.0-rc.61`
 - observed Actions artifact expiry: `2026-09-12T04:41:34Z`
+
+## Step 0 — read-only fail-closed pre-dispatch verification
+
+Before the first durable publication attempt, use a trusted authenticated operator checkout and run:
+
+```powershell
+./scripts/Test-Rc61DurablePromotionPreflight.ps1 | Format-List
+```
+
+The preflight is pinned to `walidatiyaai2025-gif/Monitor` and the exact RC.61 identity above. It requires GitHub CLI authentication, verifies the repository default branch remains `main`, rechecks the selected successful source run, verifies the artifact ID/name/source run/head/repository IDs/positive size/non-expired state/outer digest, and probes the tag and release without mutating GitHub state.
+
+The durable-state probe is fail-closed: **only an actual 404 is treated as absence**. Authentication failures, network failures, permission failures, rate/API errors, malformed responses, or any other ambiguous probe result stop the operation rather than being interpreted as a missing tag/release.
+
+For a **first publication attempt**, require all of these output values before continuing:
+
+- `Status=READY_FOR_EXPLICIT_MANUAL_PROMOTION`
+- `MutatedGitHubState=False`
+- `TagExists=False`
+- `ReleaseExists=False`
+
+Also inspect the emitted `PromotionCommand` and `IndependentVerificationCommand`; they must contain the exact locked repository/version/run/artifact/digest/hash/source/tested-merge/tag values in this document.
+
+If the preflight reports `DURABLE_STATE_EXISTS_VERIFY_OR_INVESTIGATE`, the selected Actions artifact is expired, provenance or digest identity drifts, or any GitHub probe is ambiguous, **stop and investigate instead of dispatching a first publication attempt**. An existing durable state must be independently verified before deciding any next action; it is not permission to overwrite or recreate assets.
+
+A successful preflight is read-only preparation. It does not create the tag/release and does not satisfy #162, #116, or #111.
 
 ## Exact manual promotion inputs
 

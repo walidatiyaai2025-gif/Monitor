@@ -1,10 +1,10 @@
 # RC.61 Durable Promotion Inputs
 
-Implementation status: **COMPLETE** via PR #163 / merge `43d8a193205495f155bb8866532a4e99ed93b655`, with subsequent durable-release hardening through PR #219.  
+Implementation status: **COMPLETE** via PR #163 / merge `43d8a193205495f155bb8866532a4e99ed93b655`, with subsequent durable-release hardening through PR #219 and the read-only operator preflight through #266 / PR #267.  
 Execution status: **PENDING MANUAL DISPATCH** under Issue #162.  
 Current release lookup: `v0.1.0-rc.61` is not yet present.
 
-This file is the short operator handoff for the selected existing-candidate retention operation. It must stay aligned with the current hardened promotion and independent-verification workflows.
+This file is the short operator handoff for the selected existing-candidate retention operation. It must stay aligned with the current hardened preflight, promotion and independent-verification workflows.
 
 ## Selected candidate identity — do not substitute
 
@@ -16,6 +16,27 @@ This file is the short operator handoff for the selected existing-candidate rete
 - source head: `e28158da67b36dfc5dbf8f4c38b5c43d99c7c728`
 - tested merge: `158148d8bfd05f724014541bc7a0b1eab5dae1b5`
 - release tag: `v0.1.0-rc.61`
+
+## Step 0 — read-only fail-closed preflight
+
+From a trusted authenticated operator checkout, run:
+
+```powershell
+./scripts/Test-Rc61DurablePromotionPreflight.ps1 | Format-List
+```
+
+The helper is pinned to the exact repository and RC.61 identity above. It authenticates `gh`, requires the Monitor default branch to remain `main`, verifies the selected successful source run and exact artifact provenance/name/size/expiry/outer digest, and probes the durable tag/release without mutating GitHub state. Only an actual 404 is treated as resource absence; authentication, network, API or other ambiguous probe failures stop the preflight.
+
+Before a **first publication attempt**, require all of these output values:
+
+- `Status=READY_FOR_EXPLICIT_MANUAL_PROMOTION`
+- `MutatedGitHubState=False`
+- `TagExists=False`
+- `ReleaseExists=False`
+
+Also verify the emitted `PromotionCommand` and `IndependentVerificationCommand` contain the exact locked values in this handoff. If the helper reports `DURABLE_STATE_EXISTS_VERIFY_OR_INVESTIGATE`, the artifact is expired, provenance/digest identity drifts, or any GitHub probe is ambiguous, **stop and investigate; do not dispatch a first publication attempt**.
+
+The preflight itself is read-only and does not satisfy #162. A successful preflight authorizes only proceeding to the explicit manual workflow step below.
 
 ## Step 1 — manual durable promotion
 
