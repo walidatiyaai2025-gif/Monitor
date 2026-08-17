@@ -100,15 +100,18 @@ public sealed record TempDbHealthSnapshot(
     bool IsTruncated = false);
 
 public sealed record TransactionLogDatabaseSnapshot(
-    string DatabaseName,
+    string DatabaseKey,
     string RecoveryModel,
-    string LogReuseWait,
-    long TotalLogBytes,
-    DateTimeOffset? LastFullBackupAtUtc,
-    DateTimeOffset? LastLogBackupAtUtc);
+    long? TotalLogSizeBytes,
+    long? ActiveLogSizeBytes,
+    long? TotalVlfCount,
+    long? ActiveVlfCount,
+    string? ReuseWait,
+    long? LogBackupAgeSeconds,
+    bool HasDetailedStats);
 
 public sealed record TransactionLogHealthSnapshot(
-    int TotalUserDatabases,
+    int TotalDatabases,
     IReadOnlyList<TransactionLogDatabaseSnapshot>? Databases = null,
     bool IsTruncated = false);
 
