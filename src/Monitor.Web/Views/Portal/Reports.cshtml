@@ -50,6 +50,13 @@
         </article>
 
         <article class="glass-panel report-card">
+            <div class="panel-heading"><div><span class="eyebrow">MEMORY HEALTH</span><h3>Cached memory health summary</h3></div><span class="report-format">CSV · v2 · contextual</span></div>
+            <p>Exports the same bounded SQL/OS memory evidence and deterministic pressure classification used by Memory Health. Missing counters remain explicitly Unavailable; no recommendation or export triggers tuning.</p>
+            <dl class="report-metadata"><div><dt>Access</dt><dd>Viewer+</dd></div><div><dt>Source</dt><dd>Memory Health cache</dd></div><div><dt>Execution</dt><dd>Read-only</dd></div></dl>
+            <a class="secondary-button full-button" asp-controller="Operations" asp-action="MemoryHealth" aria-label="Open Memory Health before exporting a contextual cached memory summary">Choose server for memory export</a>
+        </article>
+
+        <article class="glass-panel report-card">
             <div class="panel-heading"><div><span class="eyebrow">HISTORY</span><h3>Server snapshot history</h3></div><span class="report-format">CSV · contextual</span></div>
             <p>History exports require a selected server registration and an approved 1h, 6h or 24h window. Choose a server first so the export remains explicitly scoped.</p>
             <dl class="report-metadata"><div><dt>Access</dt><dd>Viewer+</dd></div><div><dt>Windows</dt><dd>1h · 6h · 24h</dd></div><div><dt>Source</dt><dd>Stored aggregates</dd></div></dl>
@@ -91,4 +98,4 @@
     }
 </section>
 
-<div class="data-banner"><strong>DISCOVERABILITY</strong><span>All global export and diagnostics entry points are listed here. Server intelligence, database health and history exports remain contextual by design: open Servers, choose a server, then use the selected server workflow.</span></div>
+<div class="data-banner"><strong>DISCOVERABILITY</strong><span>All global export and diagnostics entry points are listed here. Server intelligence, database health, memory health and history exports remain contextual by design: choose the relevant cached evidence surface, then use its selected server workflow.</span></div>

@@ -38,13 +38,20 @@ else
             {
                 var memory = server.Memory;
                 var intelligence = MemoryIntelligenceProjection.Build(memory);
+                var hasMemoryExportContext = Guid.TryParse(server.Id, out var memoryExportRegistrationId) && memoryExportRegistrationId != Guid.Empty;
                 <div class="table-row health-detail-grid health-detail-grid-six" role="row">
                     <strong>@server.Name</strong>
                     <partial name="_HealthSourceBadge" model="server" />
                     <span class="state-@intelligence.State">@(memory is null ? "Not collected" : $"{memory.SqlProcessMemoryUtilizationPercent}%")</span>
                     <span>@(memory?.MaxServerMemoryMb is long maxMb ? $"{maxMb:N0} MB" : "Not collected")</span>
                     <span>@(memory?.PageLifeExpectancySeconds is long ple ? $"PLE {ple:N0}s" : "PLE Not collected") · @(memory?.MemoryGrantsPending is long grants ? $"grants {grants:N0}" : "grants Not collected")</span>
-                    <a class="secondary-button compact-button" asp-controller="Operations" asp-action="ServerDetails" asp-route-id="@server.Id">Server</a>
+                    <span class="report-actions">
+                        <a class="secondary-button compact-button" asp-controller="Operations" asp-action="ServerDetails" asp-route-id="@server.Id">Server</a>
+                        @if (hasMemoryExportContext)
+                        {
+                            <a class="secondary-button compact-button" asp-controller="EnterpriseReports" asp-action="MemoryHealth" asp-route-registrationId="@memoryExportRegistrationId" aria-label="Download cached memory health CSV for @server.Name">Memory CSV</a>
+                        }
+                    </span>
                 </div>
             }
         </div>
