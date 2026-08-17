@@ -32,7 +32,14 @@ internal sealed record SqlMemoryRow(
     int SqlProcessMemoryUtilizationPercent,
     bool IsPhysicalMemoryLow,
     bool IsVirtualMemoryLow,
-    string SystemMemoryState);
+    string SystemMemoryState,
+    long? MaxServerMemoryMb = null,
+    long? TotalServerMemoryKb = null,
+    long? TargetServerMemoryKb = null,
+    long? PageLifeExpectancySeconds = null,
+    long? MemoryGrantsPending = null,
+    string? TopMemoryClerkType = null,
+    long? TopMemoryClerkKb = null);
 
 internal interface ISqlSnapshotQuery
 {
@@ -94,12 +101,22 @@ internal sealed class SqlServerSnapshotCollector(
             if (row.Memory is not null)
             {
                 var value = row.Memory;
+                var hasClerkType = !string.IsNullOrWhiteSpace(value.TopMemoryClerkType);
+                var hasClerkSize = value.TopMemoryClerkKb.HasValue;
                 if (value.TotalPhysicalMemoryKb < 0 ||
                     value.AvailablePhysicalMemoryKb < 0 ||
                     value.AvailablePhysicalMemoryKb > value.TotalPhysicalMemoryKb ||
                     value.SqlProcessPhysicalMemoryKb < 0 ||
                     value.SqlProcessMemoryUtilizationPercent is < 0 or > 100 ||
-                    string.IsNullOrWhiteSpace(value.SystemMemoryState))
+                    string.IsNullOrWhiteSpace(value.SystemMemoryState) ||
+                    value.MaxServerMemoryMb is < 0 ||
+                    value.TotalServerMemoryKb is < 0 ||
+                    value.TargetServerMemoryKb is < 0 ||
+                    value.PageLifeExpectancySeconds is < 0 ||
+                    value.MemoryGrantsPending is < 0 ||
+                    value.TopMemoryClerkKb is < 0 ||
+                    hasClerkType != hasClerkSize ||
+                    (value.TopMemoryClerkType?.Length ?? 0) > 128)
                 {
                     throw new InvalidDataException("Invalid memory snapshot row.");
                 }
@@ -111,7 +128,14 @@ internal sealed class SqlServerSnapshotCollector(
                     value.SqlProcessMemoryUtilizationPercent,
                     value.IsPhysicalMemoryLow,
                     value.IsVirtualMemoryLow,
-                    value.SystemMemoryState);
+                    value.SystemMemoryState,
+                    value.MaxServerMemoryMb,
+                    value.TotalServerMemoryKb,
+                    value.TargetServerMemoryKb,
+                    value.PageLifeExpectancySeconds,
+                    value.MemoryGrantsPending,
+                    value.TopMemoryClerkType,
+                    value.TopMemoryClerkKb);
             }
 
             DatabaseHealthDetailSnapshot? databases = null;
@@ -234,6 +258,13 @@ internal sealed class SqlSnapshotQuery : ISqlSnapshotQuery
             ,(select COUNT_BIG(*) FROM sys.dm_exec_requests WHERE session_id <> @@SPID) AS ActiveRequests
             ,(select COALESCE(SUM(CONVERT(bigint, runnable_tasks_count)), 0) FROM sys.dm_os_schedulers WHERE status = 'VISIBLE ONLINE') AS RunnableTasks
             ,(select COUNT_BIG(*) FROM sys.dm_io_pending_io_requests) AS PendingIoRequests
+            ,(select TOP (1) CONVERT(bigint, value_in_use) FROM sys.configurations WHERE name = N'max server memory (MB)') AS MaxServerMemoryMb
+            ,(select TOP (1) CONVERT(bigint, cntr_value) FROM sys.dm_os_performance_counters WHERE counter_name = N'Total Server Memory (KB)' AND object_name LIKE N'%:Memory Manager%' AND instance_name = N'') AS TotalServerMemoryKb
+            ,(select TOP (1) CONVERT(bigint, cntr_value) FROM sys.dm_os_performance_counters WHERE counter_name = N'Target Server Memory (KB)' AND object_name LIKE N'%:Memory Manager%' AND instance_name = N'') AS TargetServerMemoryKb
+            ,(select TOP (1) CONVERT(bigint, cntr_value) FROM sys.dm_os_performance_counters WHERE counter_name = N'Page life expectancy' AND object_name LIKE N'%:Buffer Manager%' AND instance_name = N'') AS PageLifeExpectancySeconds
+            ,(select TOP (1) CONVERT(bigint, cntr_value) FROM sys.dm_os_performance_counters WHERE counter_name = N'Memory Grants Pending' AND object_name LIKE N'%:Memory Manager%' AND instance_name = N'') AS MemoryGrantsPending
+            ,(select TOP (1) mc.type FROM sys.dm_os_memory_clerks mc GROUP BY mc.type ORDER BY SUM(CONVERT(bigint, mc.pages_kb)) DESC, mc.type ASC) AS TopMemoryClerkType
+            ,(select TOP (1) SUM(CONVERT(bigint, mc.pages_kb)) FROM sys.dm_os_memory_clerks mc GROUP BY mc.type ORDER BY SUM(CONVERT(bigint, mc.pages_kb)) DESC, mc.type ASC) AS TopMemoryClerkKb
         FROM sys.databases AS d
         CROSS JOIN sys.dm_os_sys_info AS osi
         CROSS JOIN sys.dm_os_sys_memory AS osm
@@ -289,7 +320,14 @@ internal sealed class SqlSnapshotQuery : ISqlSnapshotQuery
                     reader.GetInt32(10),
                     reader.GetBoolean(11),
                     reader.GetBoolean(12),
-                    reader.GetString(13)),
+                    reader.GetString(13),
+                    reader.IsDBNull(34) ? null : reader.GetInt64(34),
+                    reader.IsDBNull(35) ? null : reader.GetInt64(35),
+                    reader.IsDBNull(36) ? null : reader.GetInt64(36),
+                    reader.IsDBNull(37) ? null : reader.GetInt64(37),
+                    reader.IsDBNull(38) ? null : reader.GetInt64(38),
+                    reader.IsDBNull(39) ? null : reader.GetString(39),
+                    reader.IsDBNull(40) ? null : reader.GetInt64(40)),
                 new SqlHealthModulesRow(
                     reader.GetInt64(14), reader.GetInt64(15), reader.GetInt64(16), reader.GetInt64(17), reader.GetInt64(18), reader.GetInt64(19),
                     reader.GetInt64(20), reader.GetInt64(21), reader.IsDBNull(22) ? null : new DateTimeOffset(DateTime.SpecifyKind(reader.GetDateTime(22), DateTimeKind.Utc)),
