@@ -1,6 +1,7 @@
 using System.Data;
 using System.Text.Json;
 using Microsoft.Data.SqlClient;
+using Monitor.Web.Models;
 
 namespace Monitor.Web.Services;
 
@@ -18,6 +19,48 @@ internal sealed record SqlTempDbRow(
     int LogicalCpuCount,
     int TotalDataFiles,
     IReadOnlyList<SqlTempDbFileRow>? DataFiles = null);
+
+internal static class TempDbEvidenceMapper
+{
+    public static TempDbHealthSnapshot Map(SqlTempDbRow row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        var files = row.DataFiles ?? [];
+        if (row.LogicalCpuCount <= 0 ||
+            row.TotalDataFiles <= 0 ||
+            files.Count > TempDbSnapshotQuery.MaxFiles ||
+            row.TotalDataFiles < files.Count ||
+            files.Select(file => file.FileId).Distinct().Count() != files.Count ||
+            files.Any(file =>
+                file.FileId <= 0 ||
+                string.IsNullOrWhiteSpace(file.FileKey) ||
+                file.FileKey.Length > 128 ||
+                file.SizeBytes <= 0 ||
+                file.UsedBytes is < 0 ||
+                file.UsedBytes > file.SizeBytes ||
+                file.Reads < 0 ||
+                file.Writes < 0 ||
+                file.ReadStallMs < 0 ||
+                file.WriteStallMs < 0))
+        {
+            throw new InvalidDataException("Invalid TempDB evidence row.");
+        }
+
+        return new TempDbHealthSnapshot(
+            row.LogicalCpuCount,
+            row.TotalDataFiles,
+            files.Select(file => new TempDbFileSnapshot(
+                file.FileId,
+                file.FileKey,
+                file.SizeBytes,
+                file.UsedBytes,
+                file.Reads,
+                file.Writes,
+                file.ReadStallMs,
+                file.WriteStallMs)).ToArray(),
+            row.TotalDataFiles > files.Count);
+    }
+}
 
 internal sealed class TempDbSnapshotQuery(PerformanceScaleOptions? performance = null)
 {
