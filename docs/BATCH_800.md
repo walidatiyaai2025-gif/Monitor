@@ -99,7 +99,7 @@ B300 estate identity and runtime-pressure helpers are wired from cached evidence
 - [x] B800-027 lock Administrator-only Settings operational backup/restore wiring, exact `RESTORE` confirmation, audit and safe feedback (`docs/work/B800-027.md`).
 - [x] B800-028 require exact typed `PRUNE` confirmation before Governance retention Apply, audit rejection and preserve dry-run-first behavior (`docs/work/B800-028.md`).
 - [x] B800-029 lock Enterprise Operations role wiring: Read for viewers, Manage for server metadata, Operate for incident collaboration (`docs/work/B800-029.md`).
-- [ ] B800-030 continue the remaining workflow closeout in the next B800 slice; do not extend PR #288 beyond its merge-frozen partial scope.
+- [x] B800-030 close the B800-021..029 workflow tranche with a consolidated named-policy / POST / antiforgery regression owner and dedicated evidence closeout (`docs/work/B800-030.md`).
 
 ### B800-031..050 — bounded snapshot expansion
 
@@ -255,6 +255,7 @@ Per-database state slice:
 - Database-state source head `895297809d5dcb656cb3e6bc064aba96d02e58b1`: CI #2120 and Real SQL #205 Green; later shared-branch commits supersede it as merge evidence.
 - B800-063 adds bounded current Agent activity/next-run metadata while deliberately keeping lateness unevaluated.
 - B800-023..029 add bounded navigation, PRG, role visibility, Connection Lab, Settings backup/restore, Governance destructive-confirmation and Enterprise role-wiring contracts without introducing new monitored-SQL or production mutation paths.
+- B800-030 follow-up pre-reconciliation head `ef3d0d34260e0a6f7574331d73aa53f375a7231a` passed CI #2256; final documentation head still requires exact-head CI before Ready/merge.
 - Canonical documentation must reflect the final merge-frozen #288 scope. Only CI, Real SQL and Windows production-candidate on the final exact head count for Ready/merge.
 
 ## PR #288 scope freeze / merge gate
