@@ -48,7 +48,8 @@ if (-not (Test-Path -LiteralPath $resolvedRoot -PathType Container)) {
 
 $actualNames = @(Get-ChildItem -LiteralPath $resolvedRoot -Force | ForEach-Object { $_.Name } | Sort-Object)
 $expectedNames = @($allowedRootFiles | Sort-Object)
-if ($actualNames.Count -ne $expectedNames.Count -or (Compare-Object -ReferenceObject $expectedNames -DifferenceObject $actualNames).Count -ne 0) {
+$rootNameDifferences = @(Compare-Object -ReferenceObject $expectedNames -DifferenceObject $actualNames)
+if ($actualNames.Count -ne $expectedNames.Count -or $rootNameDifferences.Count -ne 0) {
     throw 'Acceptance Control Toolkit root must contain exactly the six approved scripts plus toolkit-manifest.json and toolkit-manifest.sha256; missing or extra entries fail closed.'
 }
 foreach ($name in $actualNames) {
