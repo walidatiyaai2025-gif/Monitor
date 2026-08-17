@@ -1,0 +1,95 @@
+@using Monitor.Web.Controllers
+@using Monitor.Web.Services
+@model MaintenanceDecisionSupportPageViewModel
+@{
+    ViewData["Title"] = "Maintenance Decision Support";
+    var operations = Enum.GetValues<MaintenanceOperation>().Where(value => value != MaintenanceOperation.Unknown).ToArray();
+    var decision = Model.Result.Decision;
+    var statusClass = Model.Result.Status switch
+    {
+        MaintenanceDecisionSupportStatus.Ready => "healthy",
+        MaintenanceDecisionSupportStatus.Blocked => "critical",
+        _ => "warning"
+    };
+}
+
+<section class="page-shell" aria-labelledby="maintenance-decision-heading">
+    <div class="page-heading">
+        <div>
+            <p class="eyebrow">B400 · DECISION SUPPORT ONLY</p>
+            <h1 id="maintenance-decision-heading">Maintenance Decision Support</h1>
+            <p>Evaluate deterministic maintenance preconditions from evidence already owned by Monitor. This page never executes maintenance, failover, restore, patching, configuration changes, or monitored SQL collection.</p>
+        </div>
+        <div class="hero-actions">
+            <a class="button secondary" asp-controller="EnterpriseOperations" asp-action="Overview">Enterprise Operations</a>
+            <a class="button secondary" asp-controller="Operations" asp-action="ServerDetails" asp-route-id="@Model.Registration.Id">Server Details</a>
+        </div>
+    </div>
+
+    <section class="panel panel-pad" aria-labelledby="maintenance-target-heading">
+        <div class="panel-heading"><div><p class="eyebrow">TARGET</p><h2 id="maintenance-target-heading">@Model.Registration.DisplayName</h2></div><span class="status-chip">@Model.Metadata.Environment</span></div>
+        <dl class="definition-grid">
+            <div><dt>Server ID</dt><dd>@Model.Registration.Id.ToString("D")</dd></div>
+            <div><dt>Configured maintenance window</dt><dd>@(Model.MaintenanceWindowActive ? "ACTIVE" : "Not active")</dd></div>
+            <div><dt>Open critical incidents</dt><dd>@Model.ActiveCriticalIncidents</dd></div>
+            <div><dt>Operation selected</dt><dd>@Model.Operation</dd></div>
+        </dl>
+        @if (Model.Metadata.MaintenanceWindow is { } window)
+        {
+            <p class="meta-line">Configured window: @window.StartsAtUtc.ToString("u") → @window.EndsAtUtc.ToString("u") · @window.Reason</p>
+        }
+        <div class="data-banner"><strong>TRUTH BOUNDARY</strong><span>A configured maintenance window is an observed scheduling fact only. It is not treated as approved-window evidence. Approval, rollback-plan, replica-readiness and recent-backup evidence remain unavailable unless an explicit governed source exists.</span></div>
+    </section>
+
+    <section class="panel panel-pad" aria-labelledby="maintenance-operation-heading">
+        <div class="panel-heading"><div><p class="eyebrow">READ-ONLY EVALUATION</p><h2 id="maintenance-operation-heading">Choose an operation</h2></div><span class="status-chip">GET only</span></div>
+        <form method="get" action="/enterprise/maintenance/@Model.Registration.Id" class="inline-form" aria-label="Maintenance operation decision support">
+            <label>Operation
+                <select name="operation">
+                    <option value="">Select operation</option>
+                    @foreach (var operation in operations)
+                    {
+                        if (Model.Operation == operation) { <option value="@operation" selected>@operation</option> }
+                        else { <option value="@operation">@operation</option> }
+                    }
+                </select>
+            </label>
+            <button class="button primary" type="submit">Evaluate evidence</button>
+        </form>
+    </section>
+
+    <section class="panel panel-pad state-@statusClass" aria-labelledby="maintenance-result-heading">
+        <div class="panel-heading"><div><p class="eyebrow">RESULT</p><h2 id="maintenance-result-heading">@Model.Result.Status</h2></div><span class="status-chip">No action executed</span></div>
+        <p>@Model.Result.Message</p>
+
+        @if (Model.Result.Status == MaintenanceDecisionSupportStatus.NotEvaluated)
+        {
+            <p><strong>No B400 maintenance decision was generated.</strong> Required inputs are missing rather than defaulted to false/healthy.</p>
+            @if (Model.Result.MissingInputs.Count > 0)
+            {
+                <ul class="activity-list">
+                    @foreach (var input in Model.Result.MissingInputs) { <li><strong>@input</strong> · explicit governed evidence required</li> }
+                </ul>
+            }
+        }
+        else if (decision is not null)
+        {
+            <dl class="definition-grid">
+                <div><dt>Risk</dt><dd>@decision.Risk</dd></div>
+                <div><dt>Allowed by current evidence</dt><dd>@(decision.Allowed ? "YES" : "NO")</dd></div>
+                <div><dt>Approval required</dt><dd>@(decision.ApprovalRequired ? "YES" : "NO")</dd></div>
+                <div><dt>Rollback required</dt><dd>@(decision.RollbackRequired ? "YES" : "NO")</dd></div>
+                <div><dt>Approved window required</dt><dd>@(decision.WindowRequired ? "YES" : "NO")</dd></div>
+                <div><dt>Decision score</dt><dd>@decision.Score.ToString("0.##") / 100</dd></div>
+            </dl>
+            @if (decision.Blockers.Count > 0)
+            {
+                <div class="data-banner"><strong>BLOCKERS</strong><span>@string.Join(", ", decision.Blockers)</span></div>
+            }
+            else
+            {
+                <div class="data-banner"><strong>PRECONDITIONS</strong><span>The B400 inputs required for this operation are satisfied by the evidence supplied to this evaluation. This is decision support only; no maintenance command is available on this page.</span></div>
+            }
+        }
+    </section>
+</section>
