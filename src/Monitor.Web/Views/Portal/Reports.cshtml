@@ -1,4 +1,5 @@
 @using Monitor.Web.Services
+@model ReportCenterViewModel
 @{
     ViewData["Title"] = "Reports & Diagnostics";
     var canManage = User.IsInRole(MonitorRoles.Administrator);
@@ -39,7 +40,26 @@
             <div class="panel-heading"><div><span class="eyebrow">SERVER INTELLIGENCE</span><h3>Cached server intelligence</h3></div><span class="report-format">CSV · v2 · contextual</span></div>
             <p>Exports the same B300 estate identity and composite runtime-pressure projection shown on Server Details. Missing snapshot or pressure evidence remains explicitly Unavailable rather than becoming zero or healthy.</p>
             <dl class="report-metadata"><div><dt>Access</dt><dd>Viewer+</dd></div><div><dt>Source</dt><dd>Server Details cache</dd></div><div><dt>Execution</dt><dd>Read-only</dd></div></dl>
-            <a class="secondary-button full-button" asp-controller="Operations" asp-action="Servers" aria-label="Choose a server before exporting cached server intelligence">Choose server for intelligence export</a>
+            @if (Model.Servers.Count == 0)
+            {
+                <a class="secondary-button full-button" asp-controller="Operations" asp-action="Servers" aria-label="View registered servers before exporting cached server intelligence">View registered servers</a>
+            }
+            else
+            {
+                <form method="get" asp-controller="EnterpriseReports" asp-action="ServerIntelligenceSelection" class="report-actions">
+                    <label><span>Registered server</span><select name="registrationId" required aria-label="Choose a registered server for cached server intelligence export">
+                        @foreach (var server in Model.Servers)
+                        {
+                            <option value="@server.Id">@server.Name</option>
+                        }
+                    </select></label>
+                    <button class="secondary-button full-button" type="submit">Download selected server CSV</button>
+                </form>
+                @if (Model.TotalServers > Model.Servers.Count)
+                {
+                    <p class="server-mini-note">Showing the first @Model.Servers.Count of @Model.TotalServers registered servers. Use Servers for the full bounded estate workflow.</p>
+                }
+            }
         </article>
 
         <article class="glass-panel report-card">
@@ -84,4 +104,4 @@
     }
 </section>
 
-<div class="data-banner"><strong>DISCOVERABILITY</strong><span>All global export and diagnostics entry points are listed here. Server-specific intelligence and history exports remain contextual by design: open Servers, choose a server, then use the selected server workflow.</span></div>
+<div class="data-banner"><strong>DISCOVERABILITY</strong><span>Global exports and diagnostics entry points are listed here. Server Intelligence now provides a bounded registered-server selector directly in this page; History remains contextual through the selected server workflow.</span></div>
