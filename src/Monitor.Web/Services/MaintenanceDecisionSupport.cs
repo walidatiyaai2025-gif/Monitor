@@ -30,6 +30,19 @@ public sealed record MaintenanceDecisionSupportResult(
 
 public static class MaintenanceDecisionSupport
 {
+    public static MaintenanceOperation NormalizeOperation(string? input)
+    {
+        if (!string.IsNullOrWhiteSpace(input) &&
+            Enum.TryParse<MaintenanceOperation>(input.Trim(), ignoreCase: true, out var parsed) &&
+            parsed != MaintenanceOperation.Unknown &&
+            Enum.IsDefined(parsed))
+        {
+            return parsed;
+        }
+
+        return Batch400MaintenanceSafety.NormalizeOperation(input);
+    }
+
     public static MaintenanceDecisionSupportResult Evaluate(MaintenanceDecisionEvidence evidence)
     {
         ArgumentNullException.ThrowIfNull(evidence);
