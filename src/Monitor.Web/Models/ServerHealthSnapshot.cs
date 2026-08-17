@@ -18,7 +18,8 @@ public sealed record ServerHealthSnapshot(
     BlockingHealthSnapshot? Blocking = null,
     PerformanceHealthSnapshot? Performance = null,
     TempDbHealthSnapshot? TempDb = null,
-    TransactionLogHealthSnapshot? TransactionLogs = null);
+    TransactionLogHealthSnapshot? TransactionLogs = null,
+    HaHealthSnapshot? HighAvailability = null);
 
 public sealed record MemoryHealthSnapshot(
     long TotalPhysicalMemoryKb,
@@ -113,6 +114,28 @@ public sealed record TransactionLogDatabaseSnapshot(
 public sealed record TransactionLogHealthSnapshot(
     int TotalDatabases,
     IReadOnlyList<TransactionLogDatabaseSnapshot>? Databases = null,
+    bool IsTruncated = false);
+
+public sealed record HaDatabaseReplicaSnapshot(
+    string GroupKey,
+    string DatabaseKey,
+    string? Role,
+    string? SynchronizationState,
+    string? SynchronizationHealth,
+    bool? Connected,
+    bool AutomaticFailover,
+    bool IsSuspended,
+    long? SendQueueBytes,
+    long? RedoQueueBytes,
+    long? LagSeconds);
+
+public sealed record HaHealthSnapshot(
+    bool IsHadrEnabled,
+    int TotalLocalDatabaseReplicas,
+    IReadOnlyList<HaDatabaseReplicaSnapshot>? Replicas = null,
+    string? QuorumState = null,
+    int? HealthyVotes = null,
+    int? TotalVotes = null,
     bool IsTruncated = false);
 
 public enum SnapshotCollectionFailure
