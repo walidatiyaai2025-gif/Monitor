@@ -19,9 +19,9 @@ else
 {
     <section class="health-command-summary" aria-label="Backup health summary">
         <article class="health-command-card hero state-@(missing > 0 ? "critical" : unavailable > 0 ? "warning" : "healthy")"><div><small>24H FULL-BACKUP COVERAGE</small><strong>@covered covered</strong><span>@missing database(s) missing full-backup evidence</span></div></article>
-        <article class="health-command-card state-@(missing > 0 ? "critical" : "healthy")"><small>MISSING / 24H</small><strong>@missing</strong><span>Collected databases without qualifying full backup</span></article>
+        <article class="health-command-card state-@(missing > 0 ? "critical" : unavailable > 0 ? "warning" : "healthy")"><small>MISSING / 24H</small><strong>@missing</strong><span>@(unavailable > 0 ? $"{unavailable} server(s) also lack backup evidence" : "Collected databases without qualifying full backup")</span></article>
         <article class="health-command-card state-@(unavailable > 0 ? "offline" : "healthy")"><small>EVIDENCE UNAVAILABLE</small><strong>@unavailable</strong><span>Servers without backup evidence</span></article>
-        <article class="health-command-card state-healthy"><small>LATEST FULL BACKUP</small><strong>@(latestFull == default ? "Not collected" : latestFull.ToString("u"))</strong><span>Most recent timestamp in cached evidence</span></article>
+        <article class="health-command-card state-@(latestFull == default || unavailable > 0 ? "warning" : "healthy")"><small>LATEST FULL BACKUP</small><strong>@(latestFull == default ? "Not collected" : latestFull.ToString("u"))</strong><span>@(unavailable > 0 ? "Most recent timestamp among available cached evidence; estate evidence is incomplete" : "Most recent timestamp in cached evidence")</span></article>
     </section>
 
     <section class="glass-panel table-panel health-surface-panel">
@@ -42,5 +42,5 @@ else
             }
         </div>
     </section>
-    <div class="data-banner"><strong>INTERPRETATION BOUNDARY</strong><span>Missing full-backup evidence is not the same as backup failure. This screen shows only cached full-backup coverage returned by the collector.</span></div>
+    <div class="data-banner"><strong>INTERPRETATION BOUNDARY</strong><span>Missing full-backup evidence is not the same as backup failure. This screen shows only cached full-backup coverage returned by the collector. It does not claim B300 RPO compliance because recovery-model/log-backup policy evidence is not collected here.</span></div>
 }
