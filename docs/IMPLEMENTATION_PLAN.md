@@ -265,12 +265,19 @@ Historical feature breadth remains available, but it does not outrank the remain
 
 The production plan is complete only when P0-001..050 are reconciled, P0.1..P0.5 are accepted in order, #162 Step 0/manual promotion/separate durable verification and tag/assets/product-hash checks are complete before #116 production mutation, the selected SingleNode release has actual trusted-HTTPS IIS/recycle/least-privilege/backup/rollback evidence, the real 15/15 evidence pack remains bound to the externally preserved session-manifest SHA-256 through recording/finalization/review, and the final required CI/acceptance gates are Green. BATCH-700 repository/UI completion is independent of that external production acceptance and cannot satisfy it.
 
-## Issue #276 — Idempotent IIS bootstrap installer and deploy entrypoint — IN PROGRESS / PR #279
+## Issue #276 / PR #279 — Idempotent IIS bootstrap installer and deploy entrypoint — COMPLETE
 
-- Repository implementation landed concurrently on `main` in `ce498e1beeb7acf9b9950917132cda313be9778f` (`Bootstrap-IisProductionSingleNode.ps1`), `94e44caf3872c40710fc4ec04adb37fea2a62244` (`Install-ProductionSingleNode.ps1`) and `e7621fcb5dd94d0cc3a7baa91603c3beda11c1c8` (fail-closed regression coverage).
-- The bootstrap is idempotent and **PLAN ONLY by default**; explicit `-Apply` is required for Windows/IIS/runtime/certificate/filesystem/ACL mutation.
-- It supports operator-supplied Offline Hosting Bundle installation and constrained explicit Microsoft Online download with optional SHA-256 pin plus Authenticode verification; machine-certificate thumbprint and SecureString-protected PFX flows are fail-closed.
-- It creates or validates the low-privilege No Managed Code app pool, IIS site/HTTPS binding, stable release/state roots and least-privilege ACL baseline without embedding credentials.
-- The single install entrypoint preserves strict ordering `bootstrap -> Test-IisProductionPrerequisites.ps1 -> Deploy-ProductionSingleNode.ps1`; the existing preflight remains authoritative and the existing immutable release, external `App_Data`, package SHA-256, acceptance and physical-path rollback semantics are unchanged.
-- PR #279 is the repository follow-up that adds production-candidate parser/package integration, operator documentation and canonical tracking. Merge requires normal CI plus Windows production-candidate Green.
-- This work does **not** rebuild/repackage the selected RC.61 candidate, dispatch/publish #162, mutate a real IIS/SQL target, manufacture #116 evidence or change the strict `#162 -> #116 -> #111` dependency.
+- Repository implementation landed on `main` in `ce498e1beeb7acf9b9950917132cda313be9778f`, `94e44caf3872c40710fc4ec04adb37fea2a62244` and `e7621fcb5dd94d0cc3a7baa91603c3beda11c1c8`.
+- PR #279 completed production-candidate parser/package integration, operator documentation and canonical tracking and squash-merged as `d784d0d62b9db6cec2a94d07102e5330ded7783a` after CI #1921 / `31999646008`, Real SQL #131 / `31999646007` and Windows production-candidate #218 / `31999645994` Green.
+- The bootstrap remains PlanOnly-by-default and preserves the existing authoritative preflight/deploy, immutable release, external `App_Data`, package SHA-256, acceptance and physical-path rollback semantics.
+- This work did not rebuild/repackage the selected RC.61 candidate, dispatch/publish #162, mutate a real IIS/SQL target or manufacture #116 evidence.
+
+## Issue #281 / PR #283 — Fresh-host IIS bootstrap and PowerShell 7 prerequisite — IN VALIDATION
+
+- Port only the unique fresh-host/idempotency improvements from superseded PR #280 onto current main; do not reintroduce duplicate #279 workflow/docs changes.
+- Before any IIS/application mutation, `Install-ProductionSingleNode.ps1` must detect/prepare PowerShell 7 and require relaunch under `pwsh` if the operator starts in Windows PowerShell 5.1.
+- Online PowerShell mode is pinned to official v7.4.16 `PowerShell-7.4.16-win-x64.msi` with SHA-256 `2c0c2036b0032375ad4f7809a92d0b6fa4a8e4ee89a75211514c4cf55ae22495`; Offline mode accepts an operator-supplied MSI. Both paths require SHA-256 and Microsoft Corporation Authenticode verification.
+- Prerequisite installer exit `3010` and Windows-feature reboot requirements stop before IIS/application cutover; after installation the operator reruns from elevated PowerShell 7.
+- Bootstrap hardening includes robust .NET/ANCM discovery, exact approved Microsoft Hosting Bundle Online hosts, optional Hosting Bundle SHA-256, shared-IIS restart gating behind explicit `-AllowIisServiceRestart`, PFX reuse, binding drift fail-closed behavior and conditional ACL handling.
+- Dedicated regression tests plus `docs/IIS_FRESH_HOST_BOOTSTRAP.md` and `docs/work/P0-053.md` cover these boundaries.
+- PR #283 may merge only after exact-head normal CI, applicable Real SQL and Windows production-candidate are Green. It cannot satisfy or bypass #162/#116/#111.
