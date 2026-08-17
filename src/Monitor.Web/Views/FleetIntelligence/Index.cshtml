@@ -35,9 +35,17 @@
     </section>
 }
 
-@if (Model.DecisionSupport is { } decisionSupport)
+@if (!Model.IncidentEvidenceComplete)
+{
+    <section class="glass-panel state-warning" aria-label="Fleet incident evidence unavailable">
+        <div class="panel-heading"><div><span class="eyebrow">INCIDENT EVIDENCE</span><h3>Fleet decision support not evaluated</h3></div><span class="status-chip">BOUNDED @Model.IncidentEvidenceLimit</span></div>
+        <p>Active incident evidence for the enabled fleet exceeded the bounded decision-read limit. Correlation clusters, routing recommendations, and rule hot-spots are withheld rather than calculated from a partial incident set.</p>
+        <p class="snapshot-note">The legacy incident store may contain more rows; B800-073 bounds operator decision inputs and exposes overflow explicitly. Storage-level server-scoped querying is separate follow-up work.</p>
+    </section>
+}
+else if (Model.DecisionSupport is { } decisionSupport)
 {
     <partial name="_FleetDecisionSupport" model="decisionSupport" />
 }
 
-<section class="glass-panel table-panel"><div class="panel-heading"><div><span class="eyebrow">RULE HOT-SPOTS</span><h3>Open incident concentration</h3></div><span class="snapshot-note">Top 20 deterministic rules</span></div><div class="responsive-table" role="region" aria-label="Rule hot spots" tabindex="0"><div class="table-head fleet-hotspot-grid" role="row"><span>Rule</span><span>Open</span><span>Critical</span><span>Suppressed</span><span>Incidents</span></div>@foreach (var hotspot in Model.RuleHotspots) { <div class="table-row fleet-hotspot-grid" role="row"><strong>@hotspot.RuleId</strong><span>@hotspot.Open</span><span>@hotspot.Critical</span><span>@hotspot.Suppressed</span><a class="secondary-button compact-button" asp-controller="Operations" asp-action="Alerts" asp-route-ruleId="@hotspot.RuleId">Review</a></div> }@if (Model.RuleHotspots.Count == 0) { <div class="incident-empty">No open incident hot-spots.</div> }</div></section>
+<section class="glass-panel table-panel"><div class="panel-heading"><div><span class="eyebrow">RULE HOT-SPOTS</span><h3>Open incident concentration</h3></div><span class="snapshot-note">Top 20 deterministic rules</span></div><div class="responsive-table" role="region" aria-label="Rule hot spots" tabindex="0"><div class="table-head fleet-hotspot-grid" role="row"><span>Rule</span><span>Open</span><span>Critical</span><span>Suppressed</span><span>Incidents</span></div>@foreach (var hotspot in Model.RuleHotspots) { <div class="table-row fleet-hotspot-grid" role="row"><strong>@hotspot.RuleId</strong><span>@hotspot.Open</span><span>@hotspot.Critical</span><span>@hotspot.Suppressed</span><a class="secondary-button compact-button" asp-controller="Operations" asp-action="Alerts" asp-route-ruleId="@hotspot.RuleId">Review</a></div> }@if (Model.RuleHotspots.Count == 0) { <div class="incident-empty">@(Model.IncidentEvidenceComplete ? "No open incident hot-spots." : "Rule hot-spots are unavailable because active incident evidence exceeded the bounded decision-read limit.")</div> }</div></section>
