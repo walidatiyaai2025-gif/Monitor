@@ -34,7 +34,7 @@ Browser GET navigation remains cache/control-plane only. Where a diagnostic dime
 | Memory Health | shared cached health-module read model + bounded memory counters/configuration/clerk evidence | **B800 memory diagnostic slice wired; exact final validation pending** |
 | Performance | cached health-module read model + bounded cumulative wait evidence | **B800 wait-stat projection wired and SQL-real validated on pre-canonical heads** |
 | Backups | cached backup aggregate | Wired aggregate; policy-backed RPO compliance still requires explicit configuration/evidence contract |
-| SQL Agent | cached aggregate + bounded recent job-summary run history | **B800 run-history reliability wired; schedule lateness explicitly not evaluated until schedule evidence exists** |
+| SQL Agent | cached aggregate + bounded recent job-summary history + current Agent activity evidence | **B800 run-history reliability and current next-run/running evidence wired; lateness explicitly not evaluated without canonical server time-zone + recurrence/expected-run semantics** |
 | Storage | cached allocation + bounded logical-file I/O evidence | **B800 B400 file-I/O projection wired and SQL-real validated on pre-canonical heads** |
 | Blocking | cached blocked-count/max-wait aggregate | Wired aggregate |
 | Alerts | incident workflow/query + role-scoped transitions | Wired; validate all transition/feedback paths |
@@ -52,13 +52,13 @@ Browser GET navigation remains cache/control-plane only. Where a diagnostic dime
 
 ## Data-availability boundary discovered during inventory
 
-The B800 branch extends `ServerHealthSnapshot` while preserving optional/backward-compatible shapes. The bounded collector now projects server identity/version/edition/uptime, database totals/states plus up to 50 user-database logical name/state rows with non-online states prioritized, OS/SQL process memory, max server memory, Total/Target Server Memory, PLE, Memory Grants Pending, dominant memory-clerk class/size, full-backup aggregate, SQL Agent aggregate, allocated storage, blocking count/max wait, bounded performance counts, up to 12 non-benign cumulative wait types from `sys.dm_os_wait_stats`, up to 12 logical database/file I/O counter rows from `sys.dm_io_virtual_file_stats` joined to `sys.master_files`, and up to 50 recent SQL Agent job-summary history rows from `msdb.dbo.sysjobhistory` joined to `sysjobs`.
+The B800 branch extends `ServerHealthSnapshot` while preserving optional/backward-compatible shapes. The bounded collector now projects server identity/version/edition/uptime, database totals/states plus up to 50 user-database logical name/state rows with non-online states prioritized, OS/SQL process memory, max server memory, Total/Target Server Memory, PLE, Memory Grants Pending, dominant memory-clerk class/size, full-backup aggregate, SQL Agent aggregate, allocated storage, blocking count/max wait, bounded performance counts, up to 12 non-benign cumulative wait types from `sys.dm_os_wait_stats`, up to 12 logical database/file I/O counter rows from `sys.dm_io_virtual_file_stats` joined to `sys.master_files`, up to 50 recent SQL Agent job-summary history rows from `msdb.dbo.sysjobhistory` joined to `sysjobs`, and up to 50 current Agent activity rows from the latest `msdb.dbo.sysjobactivity` session.
 
-The database-state detail contains logical user-database name plus `state_desc` only and remains bounded to 50 rows; no table data or physical path is collected. The memory, wait and file-I/O additions reuse the existing read-only server permission boundary (`VIEW SERVER PERFORMANCE STATE` on SQL Server 2022+ or `VIEW SERVER STATE` on older supported versions plus `VIEW ANY DEFINITION`). SQL Agent history adds read-only `SELECT` on `msdb.dbo.sysjobhistory`; no Agent operator/write role is granted. Wait evidence contains only wait type and bounded counters. File-I/O evidence contains database/logical-file identity plus cumulative read/write/stall/byte counters; `physical_name` is never selected. Agent history contains logical job name, owner, success/failure, run ordering key and duration only; step rows, commands, command text, schedules, proxies and credentials are not collected.
+The database-state detail contains logical user-database name plus `state_desc` only and remains bounded to 50 rows; no table data or physical path is collected. The memory, wait and file-I/O additions reuse the existing read-only server permission boundary (`VIEW SERVER PERFORMANCE STATE` on SQL Server 2022+ or `VIEW SERVER STATE` on older supported versions plus `VIEW ANY DEFINITION`). SQL Agent history adds read-only `SELECT` on `msdb.dbo.sysjobhistory`; current Agent activity adds read-only `SELECT` on `msdb.dbo.sysjobactivity`; no Agent operator/write role is granted. Wait evidence contains only wait type and bounded counters. File-I/O evidence contains database/logical-file identity plus cumulative read/write/stall/byte counters; `physical_name` is never selected. Agent run-history contains logical job name, owner, success/failure, run ordering key and duration only. Current Agent activity contains logical job name, server-local `next_scheduled_run_date` with `DateTimeKind.Unspecified`, and a running flag derived from current activity state. Step rows, commands, command text, recurrence definitions, proxies and credentials are not collected.
 
-Wait and file-I/O counters are cumulative since SQL Server start and are normalized by collected uptime in pure cached projections. Agent run-history reliability is derived from bounded recent outcomes and durations; schedule lateness is deliberately excluded until schedule evidence is collected. No SQL text, query plans, client identity, table data, physical filesystem paths, or configuration writes are collected.
+Wait and file-I/O counters are cumulative since SQL Server start and are normalized by collected uptime in pure cached projections. Agent run-history reliability is derived from bounded recent outcomes and durations. Current Agent next-run time is preserved only as server-local wall-clock evidence: it is not converted to UTC and is not classified Late/On-time because the snapshot does not carry canonical server time-zone identity or recurrence/expected-run policy. `AgentReliabilityProjection` therefore keeps `ScheduleLatenessEvaluated = false`. No SQL text, query plans, client identity, table data, physical filesystem paths, or configuration writes are collected.
 
-B300 estate identity and runtime-pressure helpers are wired from cached evidence. B300 per-database state classification/actionable/worst-observed helpers are now wired only from retained exact database-state rows rather than reconstructing detail from aggregate `OfflineOrOther`. B400 wait intelligence, B400 file-I/O intelligence, and the run-history portions of B400 Agent reliability are wired from bounded cached evidence. B400 query-regression, TempDB, transaction-log, Agent schedule lateness and HA helpers still require explicit new snapshot evidence before they can be truthfully displayed. Backup RPO compliance also requires an explicit policy/configuration contract; B800 will not invent RPO values or placeholder inputs.
+B300 estate identity and runtime-pressure helpers are wired from cached evidence. B300 per-database state classification/actionable/worst-observed helpers are now wired only from retained exact database-state rows rather than reconstructing detail from aggregate `OfflineOrOther`. B400 wait intelligence, B400 file-I/O intelligence, and the run-history portions of B400 Agent reliability are wired from bounded cached evidence. Bounded current Agent activity/next-run metadata is also available, but lateness scoring remains disabled until the time-zone/recurrence/expected-run contract exists. B400 query-regression, TempDB, transaction-log and HA helpers still require explicit new snapshot evidence before they can be truthfully displayed. Backup RPO compliance also requires an explicit policy/configuration contract; B800 will not invent RPO values or placeholder inputs.
 
 ## Task program
 
@@ -127,11 +127,11 @@ B300 estate identity and runtime-pressure helpers are wired from cached evidence
 - [x] B800-056 add unit/source tests proving logical-only identity, no `physical_name`, no browser SQL, missing-evidence behavior and bounded mapping.
 - [x] B800-057 validate the Storage/I/O slice on CI #2046, Real SQL #169 and Windows candidate #265.
 - [x] B800-058 add bounded SQL Agent job-summary run-history evidence (max 50 rows/server) and read-only `sysjobhistory` permission; never collect job step commands/text.
-- [x] B800-059 add `AgentReliabilityProjection` using recent success rate, failure streak, P95 duration and duration regression; explicitly exclude schedule lateness until schedule evidence exists.
+- [x] B800-059 add `AgentReliabilityProjection` using recent success rate, failure streak, P95 duration and duration regression; keep schedule lateness explicitly not evaluated until canonical server time-zone + recurrence/expected-run semantics exist.
 - [x] B800-060 wire B400 run-history reliability into SQL Agent with explicit empty-evidence behavior and server drill-downs.
 - [x] B800-061 add Agent collector/projection/UI regression coverage and least-privilege documentation.
 - [ ] B800-062 validate Agent slice on exact-head CI/Real-SQL/Windows candidate.
-- [ ] B800-063 add bounded Agent schedule evidence before enabling lateness functions.
+- [x] B800-063 add bounded current Agent schedule/activity evidence before enabling lateness functions; preserve server-local next-run time and running state only, with lateness still disabled (`docs/work/B800-063.md`).
 - [ ] B800-064 add policy-backed backup RPO configuration before claiming B300 backup compliance.
 - [ ] B800-065 add bounded TempDB evidence.
 - [ ] B800-066 add bounded transaction-log evidence.
@@ -206,7 +206,7 @@ Storage/file-I/O slice:
 - `tests/Monitor.Web.Tests/IoLatencyProjectionTests.cs`
 - `tests/Monitor.Web.Tests/IoSnapshotCollectorTests.cs`
 
-SQL Agent run-history slice:
+SQL Agent run-history/activity slice:
 - `src/Monitor.Web/Models/ServerHealthSnapshot.cs`
 - `src/Monitor.Web/Services/SqlServerSnapshotCollector.cs`
 - `src/Monitor.Web/Services/AgentReliabilityProjection.cs`
@@ -214,6 +214,7 @@ SQL Agent run-history slice:
 - `scripts/sql/monitored_sql_least_privilege.sql`
 - `tests/Monitor.Web.Tests/AgentReliabilityProjectionTests.cs`
 - `tests/Monitor.Web.Tests/AgentSnapshotCollectorTests.cs`
+- `docs/work/B800-063.md`
 
 Per-database state slice:
 - `src/Monitor.Web/Models/ServerHealthSnapshot.cs`
@@ -231,8 +232,9 @@ Per-database state slice:
 - Wait-slice head `5dc585fad80f24dfa2bacdd729fc0b1b1d3f26fe`: CI #2029 and Real SQL #161 Green.
 - Storage/I/O head `ffc7b307e99558d92500e7278ff62ec721796e7f`: CI #2046, Real SQL #169 and Windows production-candidate #265 all Green. Real SQL validation includes application of the read-only monitored-SQL role and execution against SQL Server 2022.
 - Database-state source head `895297809d5dcb656cb3e6bc064aba96d02e58b1`: CI #2120 and Real SQL #205 Green; later shared-branch commits supersede it as merge evidence.
-- Canonical documentation is now reconciled in this PR. Only CI, Real SQL and Windows production-candidate on the final exact head count for Ready/merge.
+- B800-063 adds bounded current Agent activity/next-run metadata while deliberately keeping lateness unevaluated; its own source heads are chronology only after this canonical reconciliation moves the branch again.
+- Canonical documentation now reflects B800-063. Only CI, Real SQL and Windows production-candidate on the final exact head count for Ready/merge.
 
 ## Documentation / merge gate
 
-`docs/FEATURE_CATALOG.md`, `docs/STATUS.md`, and `docs/IMPLEMENTATION_PLAN.md` are reconciled in PR #288, and this ledger reflects implemented B800-015/016/017/019/021/022/069 work without claiming unsupported diagnostics. Before PR #288 is marked Ready or merged, applicable CI must be green on the exact final head, the branch must remain current with `main`, and review threads must remain resolved. Issue #287 remains OPEN after this partial slice.
+`docs/FEATURE_CATALOG.md`, `docs/STATUS.md`, `docs/IMPLEMENTATION_PLAN.md`, and this ledger are reconciled in PR #288, including implemented B800-015/016/017/019/021/022/063/069 work without claiming unsupported lateness or diagnostics. Before PR #288 is marked Ready or merged, applicable CI must be green on the exact final head, the branch must remain current with `main`, and review threads must remain resolved. Issue #287 remains OPEN after this partial slice.
