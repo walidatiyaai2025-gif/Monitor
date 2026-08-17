@@ -23,6 +23,7 @@ public sealed class OperationsController : Controller
     private readonly PerformanceScaleOptions _performance;
     private readonly IDbaOperationsSurfaceService? _dbaSurface;
     private readonly IOperatorMetadataStore? _operatorMetadata;
+    private readonly BackupPolicyOptions _backupPolicy;
     private readonly TimeProvider _timeProvider;
 
     public OperationsController(
@@ -41,6 +42,7 @@ public sealed class OperationsController : Controller
         PerformanceScaleOptions? performance = null,
         IDbaOperationsSurfaceService? dbaSurface = null,
         IOperatorMetadataStore? operatorMetadata = null,
+        BackupPolicyOptions? backupPolicy = null,
         TimeProvider? timeProvider = null)
     {
         _monitor = monitor;
@@ -59,6 +61,8 @@ public sealed class OperationsController : Controller
         _performance.Validate();
         _dbaSurface = dbaSurface;
         _operatorMetadata = operatorMetadata;
+        _backupPolicy = backupPolicy ?? new BackupPolicyOptions();
+        _backupPolicy.Validate();
         _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
@@ -167,7 +171,14 @@ public sealed class OperationsController : Controller
     public async Task<IActionResult> DatabaseHealth(CancellationToken cancellationToken) => View(new HealthModulePageViewModel("Database Health", "Cached database states from the shared snapshot. Missing database detail remains explicit.", await _readService.GetHealthModulesAsync(cancellationToken)));
 
     [HttpGet("/backups")]
-    public async Task<IActionResult> Backups(CancellationToken cancellationToken) => View(new HealthModulePageViewModel("Backup Health", "Full-backup coverage from the shared cached snapshot.", await _readService.GetHealthModulesAsync(cancellationToken)));
+    public async Task<IActionResult> Backups(CancellationToken cancellationToken)
+    {
+        ViewData["BackupPolicy"] = _backupPolicy;
+        return View(new HealthModulePageViewModel(
+            "Backup Health",
+            "Full-backup coverage from the shared cached snapshot.",
+            await _readService.GetHealthModulesAsync(cancellationToken)));
+    }
 
     [HttpGet("/jobs")]
     public async Task<IActionResult> Jobs(CancellationToken cancellationToken) => View(new HealthModulePageViewModel("SQL Agent Jobs", "Aggregate job outcomes; commands and step text are never collected.", await _readService.GetHealthModulesAsync(cancellationToken)));

@@ -33,7 +33,7 @@ Browser GET navigation remains cache/control-plane only. Where a diagnostic dime
 | Database Health | cached health-module read model + bounded per-database state evidence | **B800 exact database-state classification/actionable/worst-observed slice wired; omitted rows are not inferred** |
 | Memory Health | shared cached health-module read model + bounded memory counters/configuration/clerk evidence | **B800 memory diagnostic slice wired; exact final validation pending** |
 | Performance | cached health-module read model + bounded cumulative wait evidence | **B800 wait-stat projection wired and SQL-real validated on pre-canonical heads** |
-| Backups | cached backup aggregate | Wired aggregate; policy-backed RPO compliance still requires explicit configuration/evidence contract |
+| Backups | cached backup aggregate + explicit control-plane RPO policy metadata | **B800 policy configuration wired with no default RPO values; B300 compliance remains `Not evaluated` until per-database recovery-model/full/log evidence exists** |
 | SQL Agent | cached aggregate + bounded recent job-summary history + current Agent activity evidence | **B800 run-history reliability and current next-run/running evidence wired; lateness explicitly not evaluated without canonical server time-zone + recurrence/expected-run semantics** |
 | Storage | cached allocation + bounded logical-file I/O evidence | **B800 B400 file-I/O projection wired and SQL-real validated on pre-canonical heads** |
 | Blocking | cached blocked-count/max-wait aggregate | Wired aggregate |
@@ -58,7 +58,7 @@ The database-state detail contains logical user-database name plus `state_desc` 
 
 Wait and file-I/O counters are cumulative since SQL Server start and are normalized by collected uptime in pure cached projections. Agent run-history reliability is derived from bounded recent outcomes and durations. Current Agent next-run time is preserved only as server-local wall-clock evidence: it is not converted to UTC and is not classified Late/On-time because the snapshot does not carry canonical server time-zone identity or recurrence/expected-run policy. `AgentReliabilityProjection` therefore keeps `ScheduleLatenessEvaluated = false`. No SQL text, query plans, client identity, table data, physical filesystem paths, or configuration writes are collected.
 
-B300 estate identity and runtime-pressure helpers are wired from cached evidence. B300 per-database state classification/actionable/worst-observed helpers are now wired only from retained exact database-state rows rather than reconstructing detail from aggregate `OfflineOrOther`. B400 wait intelligence, B400 file-I/O intelligence, and the run-history portions of B400 Agent reliability are wired from bounded cached evidence. Bounded current Agent activity/next-run metadata is also available, but lateness scoring remains disabled until the time-zone/recurrence/expected-run contract exists. B400 query-regression, TempDB, transaction-log and HA helpers still require explicit new snapshot evidence before they can be truthfully displayed. Backup RPO compliance also requires an explicit policy/configuration contract; B800 will not invent RPO values or placeholder inputs.
+B300 estate identity and runtime-pressure helpers are wired from cached evidence. B300 per-database state classification/actionable/worst-observed helpers are now wired only from retained exact database-state rows rather than reconstructing detail from aggregate `OfflineOrOther`. B400 wait intelligence, B400 file-I/O intelligence, and the run-history portions of B400 Agent reliability are wired from bounded cached evidence. Bounded current Agent activity/next-run metadata is also available, but lateness scoring remains disabled until the time-zone/recurrence/expected-run contract exists. B800-064 now provides explicit policy-backed Full/Log RPO configuration with no numeric defaults; the Backups page can display that policy metadata but deliberately does not invoke `Batch300BackupCompliance` because the snapshot still lacks per-database recovery model and last log-backup timestamps. B400 query-regression, TempDB, transaction-log and HA helpers still require explicit new snapshot evidence before they can be truthfully displayed.
 
 ## Task program
 
@@ -139,7 +139,7 @@ B300 estate identity and runtime-pressure helpers are wired from cached evidence
 - [x] B800-061 add Agent collector/projection/UI regression coverage and least-privilege documentation.
 - [ ] B800-062 validate Agent slice on exact-head CI/Real-SQL/Windows candidate.
 - [x] B800-063 add bounded current Agent schedule/activity evidence before enabling lateness functions; preserve server-local next-run time and running state only, with lateness still disabled (`docs/work/B800-063.md`).
-- [ ] B800-064 add policy-backed backup RPO configuration before claiming B300 backup compliance.
+- [x] B800-064 add explicit policy-backed Full/Log backup RPO configuration with no default values; surface the policy but keep B300 compliance `Not evaluated` until per-database recovery/log evidence exists (`docs/work/B800-064.md`).
 - [ ] B800-065 add bounded TempDB evidence.
 - [ ] B800-066 add bounded transaction-log evidence.
 - [ ] B800-067 add HA readiness evidence.
@@ -237,6 +237,17 @@ SQL Agent run-history/activity slice:
 - `tests/Monitor.Web.Tests/AgentSnapshotCollectorTests.cs`
 - `docs/work/B800-063.md`
 
+Backup RPO policy slice:
+- `src/Monitor.Web/Services/BackupPolicyOptions.cs`
+- `src/Monitor.Web/Program.cs`
+- `src/Monitor.Web/Controllers/OperationsController.cs`
+- `src/Monitor.Web/Views/Operations/Backups.cshtml`
+- `src/Monitor.Web/appsettings.json`
+- `deploy/appsettings.Production.example.json`
+- `tests/Monitor.Web.Tests/BackupPolicyOptionsTests.cs`
+- `tests/Monitor.Web.Tests/BackupPolicyWiringTests.cs`
+- `docs/work/B800-064.md`
+
 Per-database state slice:
 - `src/Monitor.Web/Models/ServerHealthSnapshot.cs`
 - `src/Monitor.Web/Services/SqlServerSnapshotCollector.cs`
@@ -256,7 +267,8 @@ Per-database state slice:
 - B800-063 adds bounded current Agent activity/next-run metadata while deliberately keeping lateness unevaluated.
 - B800-023..029 add bounded navigation, PRG, role visibility, Connection Lab, Settings backup/restore, Governance destructive-confirmation and Enterprise role-wiring contracts without introducing new monitored-SQL or production mutation paths.
 - B800-030 follow-up pre-reconciliation head `ef3d0d34260e0a6f7574331d73aa53f375a7231a` passed CI #2256; final documentation head still requires exact-head CI before Ready/merge.
-- Canonical documentation must reflect the final merge-frozen #288 scope. Only CI, Real SQL and Windows production-candidate on the final exact head count for Ready/merge.
+- B800-064 implementation head `129fddec046467bc853675871af8991f88fd404c` passed normal CI #2275 before BATCH reconciliation; final documentation head requires exact-head validation before Ready/merge.
+- Canonical documentation must reflect the current focused B800 follow-up slice. Exact-head applicable gates remain authoritative for Ready/merge.
 
 ## PR #288 scope freeze / merge gate
 
