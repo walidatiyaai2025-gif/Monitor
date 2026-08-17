@@ -1,4 +1,5 @@
 using System.Data;
+using System.Text.Json;
 using Microsoft.Data.SqlClient;
 using Monitor.Web.Models;
 
@@ -16,7 +17,12 @@ internal sealed record SqlSnapshotRow(
     SqlHealthModulesRow? Modules = null,
     SqlPerformanceRow? Performance = null);
 
-internal sealed record SqlPerformanceRow(long ActiveRequests, long RunnableTasks, long PendingIoRequests);
+internal sealed record SqlWaitStatRow(string WaitType, long WaitTimeMs, long SignalWaitTimeMs, long WaitingTasks);
+internal sealed record SqlPerformanceRow(
+    long ActiveRequests,
+    long RunnableTasks,
+    long PendingIoRequests,
+    IReadOnlyList<SqlWaitStatRow>? Waits = null);
 
 internal sealed record SqlHealthModulesRow(
     long Restoring, long Recovering, long RecoveryPending, long Suspect, long Emergency, long OfflineOrOther,
@@ -167,12 +173,19 @@ internal sealed class SqlServerSnapshotCollector(
             if (row.Performance is not null)
             {
                 var p = row.Performance;
-                if (p.ActiveRequests < 0 || p.RunnableTasks < 0 || p.PendingIoRequests < 0)
+                var waits = p.Waits ?? [];
+                if (p.ActiveRequests < 0 || p.RunnableTasks < 0 || p.PendingIoRequests < 0 ||
+                    waits.Count > 12 ||
+                    waits.Any(wait => string.IsNullOrWhiteSpace(wait.WaitType) || wait.WaitType.Length > 128 || wait.WaitTimeMs < 0 || wait.SignalWaitTimeMs < 0 || wait.SignalWaitTimeMs > wait.WaitTimeMs || wait.WaitingTasks < 0))
                 {
                     throw new InvalidDataException("Invalid performance row.");
                 }
 
-                performance = new(checked((int)p.ActiveRequests), checked((int)p.RunnableTasks), checked((int)p.PendingIoRequests));
+                performance = new(
+                    checked((int)p.ActiveRequests),
+                    checked((int)p.RunnableTasks),
+                    checked((int)p.PendingIoRequests),
+                    waits.Select(wait => new WaitStatSnapshot(wait.WaitType, wait.WaitTimeMs, wait.SignalWaitTimeMs, wait.WaitingTasks)).ToArray());
             }
 
             return new ServerHealthSnapshot(
@@ -265,6 +278,22 @@ internal sealed class SqlSnapshotQuery : ISqlSnapshotQuery
             ,(select TOP (1) CONVERT(bigint, cntr_value) FROM sys.dm_os_performance_counters WHERE counter_name = N'Memory Grants Pending' AND object_name LIKE N'%:Memory Manager%' AND instance_name = N'') AS MemoryGrantsPending
             ,(select TOP (1) mc.type FROM sys.dm_os_memory_clerks mc GROUP BY mc.type ORDER BY SUM(CONVERT(bigint, mc.pages_kb)) DESC, mc.type ASC) AS TopMemoryClerkType
             ,(select TOP (1) SUM(CONVERT(bigint, mc.pages_kb)) FROM sys.dm_os_memory_clerks mc GROUP BY mc.type ORDER BY SUM(CONVERT(bigint, mc.pages_kb)) DESC, mc.type ASC) AS TopMemoryClerkKb
+            ,(select TOP (12)
+                  ws.wait_type AS WaitType,
+                  CONVERT(bigint, ws.wait_time_ms) AS WaitTimeMs,
+                  CONVERT(bigint, ws.signal_wait_time_ms) AS SignalWaitTimeMs,
+                  CONVERT(bigint, ws.waiting_tasks_count) AS WaitingTasks
+              FROM sys.dm_os_wait_stats ws
+              WHERE ws.wait_time_ms > 0
+                AND ws.wait_type NOT LIKE N'SLEEP[_]%'
+                AND ws.wait_type NOT LIKE N'BROKER[_]%'
+                AND ws.wait_type NOT LIKE N'XE[_]%'
+                AND ws.wait_type NOT LIKE N'SQLTRACE[_]%'
+                AND ws.wait_type NOT LIKE N'LAZYWRITER[_]%'
+                AND ws.wait_type <> N'REQUEST_FOR_DEADLOCK_SEARCH'
+                AND ws.wait_type <> N'LOGMGR_QUEUE'
+              ORDER BY ws.wait_time_ms DESC, ws.wait_type ASC
+              FOR JSON PATH) AS WaitStatsJson
         FROM sys.databases AS d
         CROSS JOIN sys.dm_os_sys_info AS osi
         CROSS JOIN sys.dm_os_sys_memory AS osm
@@ -334,11 +363,23 @@ internal sealed class SqlSnapshotQuery : ISqlSnapshotQuery
                     reader.GetInt64(23), reader.GetInt64(24), reader.GetInt64(25),
                     reader.GetInt64(26), reader.GetInt64(27), reader.GetInt64(28),
                     reader.GetInt64(29), reader.GetInt64(30)),
-                new SqlPerformanceRow(reader.GetInt64(31), reader.GetInt64(32), reader.GetInt64(33)));
+                new SqlPerformanceRow(
+                    reader.GetInt64(31),
+                    reader.GetInt64(32),
+                    reader.GetInt64(33),
+                    ReadWaitStats(reader, 41)));
         }
         catch (SqlException exception)
         {
             throw new SqlProbeException(SqlErrorClassifier.Classify(exception.Number));
         }
+    }
+
+    private static IReadOnlyList<SqlWaitStatRow> ReadWaitStats(SqlDataReader reader, int ordinal)
+    {
+        if (reader.IsDBNull(ordinal)) return [];
+        var json = reader.GetString(ordinal);
+        if (string.IsNullOrWhiteSpace(json)) return [];
+        return JsonSerializer.Deserialize<SqlWaitStatRow[]>(json) ?? [];
     }
 }
