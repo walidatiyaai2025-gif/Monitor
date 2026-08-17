@@ -11,10 +11,14 @@
   security policy before production deployment.
 
   Metadata note:
-  The collector reads sys.master_files. SQL Server metadata visibility rules can
-  otherwise hide rows even when SELECT on the catalog view is granted. The
-  server role therefore receives VIEW ANY DEFINITION, which permits metadata
-  visibility but does not grant data access or mutation rights.
+  The collector reads sys.master_files and bounded server-level configuration /
+  performance metadata (sys.configurations, sys.dm_os_performance_counters,
+  sys.dm_os_memory_clerks, sys.dm_os_wait_stats and
+  sys.dm_io_virtual_file_stats). SQL Server metadata visibility rules can
+  otherwise hide rows even when SELECT on a catalog view is granted. The server
+  role therefore receives VIEW ANY DEFINITION, while VIEW SERVER PERFORMANCE
+  STATE (SQL Server 2022+) or VIEW SERVER STATE (older versions) supplies the
+  existing read-only DMV boundary. These grants do not permit data mutation.
 */
 
 SET NOCOUNT ON;
@@ -85,13 +89,28 @@ END;
 GRANT SELECT ON dbo.backupset TO MonitorObserverMsdbRole;
 GRANT SELECT ON dbo.sysjobs TO MonitorObserverMsdbRole;
 GRANT SELECT ON dbo.sysjobservers TO MonitorObserverMsdbRole;
+GRANT SELECT ON dbo.sysjobhistory TO MonitorObserverMsdbRole;
+GRANT SELECT ON dbo.sysjobactivity TO MonitorObserverMsdbRole;
 SET @sql = N'ALTER ROLE MonitorObserverMsdbRole ADD MEMBER ' + QUOTENAME(@MonitorLogin) + N';';
 EXEC sys.sp_executesql @sql;
 
 /*
-  Collector coverage intentionally stops here. The current Monitor snapshot query
-  reads server identity, sys.databases/sys.master_files, OS/request/scheduler/I/O
-  DMVs, and the three msdb metadata tables above. It does not need SQL text,
-  execution plans, table data, BACKUP/RESTORE, SQL Agent operator rights, DDL,
-  IMPERSONATE, CONTROL SERVER or sysadmin.
+  Collector coverage intentionally stops at bounded read-only operational facts.
+  The current Monitor snapshot query reads server identity, sys.databases /
+  sys.master_files, OS/request/scheduler/I/O DMVs, a bounded top-12 non-benign
+  wait-type projection from sys.dm_os_wait_stats, a bounded top-12 logical-file
+  I/O counter projection from sys.dm_io_virtual_file_stats, max-server-memory
+  metadata, Memory Manager / Buffer Manager counters, the dominant memory-clerk
+  class, and the five msdb metadata tables above. SQL Agent run-history evidence
+  is bounded to recent job-level outcomes and contains job identity/owner,
+  success state, run ordering and duration only; current Agent activity evidence
+  is separately bounded to job identity, server-local next scheduled run and a
+  running flag from the current sysjobactivity session. Job-step commands,
+  command text, recurrence definitions, proxies and credentials are not selected.
+  Server-local schedule timestamps are not converted to UTC and do not by
+  themselves enable lateness scoring. Wait and file-I/O evidence is cumulative
+  since SQL Server start. File evidence contains database/logical-file identity
+  and counters only; physical filesystem paths are not selected. It does not
+  collect SQL text, execution plans, client identity, table data, BACKUP/RESTORE,
+  SQL Agent operator rights, DDL, IMPERSONATE, CONTROL SERVER or sysadmin.
 */

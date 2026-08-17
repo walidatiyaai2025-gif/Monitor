@@ -5,7 +5,7 @@ using Monitor.Web.Services;
 
 namespace Monitor.Web.Controllers;
 
-[Authorize(Roles = "Administrator")]
+[Authorize(Policy = MonitorPolicies.Manage)]
 public sealed class ServerConnectionsController(
     IServerRegistrationRepository registrations,
     IServerConnectionTester tester,

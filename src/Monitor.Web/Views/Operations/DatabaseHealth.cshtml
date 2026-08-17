@@ -1,3 +1,4 @@
+@using Monitor.Web.Services
 @model HealthModulePageViewModel
 @{
     ViewData["Title"] = Model.Title;
@@ -9,10 +10,22 @@
     var unavailable = Model.Servers.Count(server => server.Source == ServerDataSource.RegisteredUnavailable || server.Databases is null);
     var totalDatabases = Model.Servers.Where(server => server.Source != ServerDataSource.RegisteredUnavailable).Sum(server => server.DatabaseTotal);
     var onlineDatabases = Model.Servers.Where(server => server.Source != ServerDataSource.RegisteredUnavailable).Sum(server => server.DatabaseOnline);
-    var canManage = User.IsInRole(Monitor.Web.Services.MonitorRoles.Administrator);
+    var projections = Model.Servers
+        .Select(server => new { Server = server, Projection = DatabaseStateProjection.Build(server.Databases) })
+        .ToArray();
+    var actionableObserved = projections.Sum(item => item.Projection.ActionableCount);
+    var perDatabaseUnavailable = projections.Count(item => item.Server.Source == ServerDataSource.RegisteredUnavailable || !item.Projection.HasEvidence);
+    var worstObserved = projections
+        .Where(item => item.Projection.HasEvidence)
+        .SelectMany(item => item.Projection.Items)
+        .Select(item => item.State)
+        .DefaultIfEmpty(string.Empty)
+        .ToArray();
+    var estateWorst = worstObserved.Length == 0 ? DatabaseStateClass.Unknown : Batch300DatabaseState.Worst(worstObserved);
+    var canManage = User.IsInRole(MonitorRoles.Administrator);
 }
 
-<partial name="_PortalPageHeader" model="@(new PortalPageHeaderViewModel(Model.Title, Model.Description + " Navigation reads cached evidence only.", "CACHED DATABASE STATE", "View servers", Url.Action("Servers", "Operations")))" />
+<partial name="_PortalPageHeader" model="@(new PortalPageHeaderViewModel(Model.Title, Model.Description + " Navigation reads cached evidence only. Up to 50 user-database state rows are retained per server with non-online states prioritized.", "CACHED DATABASE STATE", "View servers", Url.Action("Servers", "Operations")))" />
 
 @if (Model.Servers.Count == 0)
 {
@@ -21,11 +34,11 @@
 else
 {
     <section class="health-command-summary" aria-label="Database health summary">
-        <article class="health-command-card hero state-@(suspect + emergency > 0 ? "critical" : restoring + recovering > 0 ? "warning" : "healthy")"><div><small>DATABASE AVAILABILITY</small><strong>@onlineDatabases / @totalDatabases</strong><span>Online databases in available cached snapshots</span></div></article>
-        <article class="health-command-card state-@(suspect > 0 ? "critical" : "healthy")"><small>SUSPECT</small><strong>@suspect</strong><span>Collected suspect database states</span></article>
-        <article class="health-command-card state-@(restoring + recovering > 0 ? "warning" : "healthy")"><small>RECOVERY / RESTORE</small><strong>@(restoring + recovering)</strong><span>Restoring, recovering or recovery-pending</span></article>
-        <article class="health-command-card state-@(emergency > 0 ? "critical" : "healthy")"><small>EMERGENCY</small><strong>@emergency</strong><span>Emergency database states</span></article>
-        <article class="health-command-card state-@(unavailable > 0 ? "offline" : "healthy")"><small>DETAIL UNAVAILABLE</small><strong>@unavailable</strong><span>Servers with no database detail evidence</span></article>
+        <article class="health-command-card hero state-@(suspect + emergency > 0 ? "critical" : restoring + recovering > 0 || unavailable > 0 ? "warning" : "healthy")"><div><small>DATABASE AVAILABILITY</small><strong>@onlineDatabases / @totalDatabases</strong><span>Online databases in available cached snapshots</span></div></article>
+        <article class="health-command-card state-@(actionableObserved > 0 ? "critical" : perDatabaseUnavailable > 0 ? "warning" : "healthy")"><small>ACTIONABLE STATES</small><strong>@actionableObserved</strong><span>@(perDatabaseUnavailable > 0 ? $"{perDatabaseUnavailable} server(s) lack retained per-database evidence" : "Bounded user-DB rows classified by B300")</span></article>
+        <article class="health-command-card state-@(estateWorst is DatabaseStateClass.Suspect or DatabaseStateClass.RecoveryPending or DatabaseStateClass.Emergency or DatabaseStateClass.Offline ? "critical" : estateWorst is DatabaseStateClass.Recovering or DatabaseStateClass.Restoring or DatabaseStateClass.Unknown ? "warning" : "healthy")"><small>WORST OBSERVED</small><strong>@estateWorst</strong><span>Worst class among retained database-state evidence</span></article>
+        <article class="health-command-card state-@(restoring + recovering > 0 ? "warning" : "healthy")"><small>RECOVERY / RESTORE</small><strong>@(restoring + recovering)</strong><span>Restoring, recovering or recovery-pending aggregate evidence</span></article>
+        <article class="health-command-card state-@(unavailable > 0 ? "offline" : "healthy")"><small>DETAIL UNAVAILABLE</small><strong>@unavailable</strong><span>Servers with no aggregate database detail evidence</span></article>
     </section>
 
     <section class="glass-panel table-panel health-surface-panel">
@@ -48,4 +61,46 @@ else
             }
         </div>
     </section>
+
+    <section class="dashboard-grid" style="margin-top:14px" aria-label="Bounded per-database state evidence">
+        @foreach (var item in projections)
+        {
+            var projection = item.Projection;
+            var state = projection.WorstObserved switch
+            {
+                DatabaseStateClass.Suspect or DatabaseStateClass.RecoveryPending or DatabaseStateClass.Emergency or DatabaseStateClass.Offline => "critical",
+                DatabaseStateClass.Recovering or DatabaseStateClass.Restoring or DatabaseStateClass.Unknown => "warning",
+                DatabaseStateClass.Online => "healthy",
+                _ => "unknown"
+            };
+            <article class="glass-panel ops-panel state-@state">
+                <div class="panel-heading"><div><span class="eyebrow">@item.Server.Name · B300 DATABASE STATE</span><h3>Bounded user-database detail</h3></div><span class="snapshot-note">Worst observed: @projection.WorstObserved</span></div>
+                @if (!projection.HasEvidence)
+                {
+                    <p class="panel-copy"><strong>Not collected.</strong> Per-database state evidence is unavailable in this cached snapshot. Aggregate counts above are not expanded into guessed database states.</p>
+                }
+                else
+                {
+                    <div class="responsive-table" role="region" aria-label="@item.Server.Name database states" tabindex="0">
+                        <div class="table-head health-detail-grid health-detail-grid-six" role="row"><span>Database</span><span>State</span><span>Class</span><span>Actionable</span><span>Source</span><span>Details</span></div>
+                        @foreach (var database in projection.Items.OrderByDescending(database => database.Actionable).ThenBy(database => database.Name, StringComparer.OrdinalIgnoreCase))
+                        {
+                            var dbState = database.Actionable ? "critical" : database.Classification is DatabaseStateClass.Restoring or DatabaseStateClass.Recovering or DatabaseStateClass.Unknown ? "warning" : "healthy";
+                            <div class="table-row health-detail-grid health-detail-grid-six" role="row">
+                                <strong>@database.Name</strong>
+                                <span>@database.State</span>
+                                <span class="state-@dbState">@database.Classification</span>
+                                <span>@(database.Actionable ? "YES" : "NO")</span>
+                                <span>Cached snapshot</span>
+                                <a class="secondary-button compact-button" asp-controller="Operations" asp-action="ServerDetails" asp-route-id="@item.Server.Id">Server</a>
+                            </div>
+                        }
+                    </div>
+                    <p class="server-mini-note">@projection.Items.Count retained user-database state row(s), @projection.ActionableCount actionable, @projection.UnknownCount unknown. The collector caps detail at 50 rows/server and prioritizes non-online states; this is bounded diagnostic evidence, not an unbounded catalog browser.</p>
+                }
+            </article>
+        }
+    </section>
+
+    <div class="data-banner"><strong>COLLECTION BOUNDARY</strong><span>Per-database detail contains logical database name and `state_desc` only. Up to 50 user databases are retained per server with non-online states prioritized. No table data, file path, SQL text or query plan is collected; GET navigation reads cache only.</span></div>
 }

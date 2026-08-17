@@ -1,3 +1,4 @@
+@using Monitor.Web.Services
 @model HealthModulePageViewModel
 @{
     ViewData["Title"] = Model.Title;
@@ -7,10 +8,19 @@
     var pendingIo = observed.Sum(server => server.Performance!.PendingIoRequests);
     var pressured = observed.Count(server => server.Performance!.RunnableTasks > 4 || server.Performance.PendingIoRequests > 0);
     var unavailable = Model.Servers.Count(server => server.Performance is null || server.Source == ServerDataSource.RegisteredUnavailable);
-    var canManage = User.IsInRole(Monitor.Web.Services.MonitorRoles.Administrator);
+    var waitObserved = Model.Servers
+        .Select(server => new { Server = server, Waits = WaitIntelligenceProjection.Build(server.Performance, server.UptimeSeconds) })
+        .Where(item => item.Waits.Count > 0)
+        .ToArray();
+    var topWait = waitObserved
+        .SelectMany(item => item.Waits.Select(wait => new { item.Server.Name, Wait = wait }))
+        .OrderByDescending(item => item.Wait.Score)
+        .ThenByDescending(item => item.Wait.SharePercent)
+        .FirstOrDefault();
+    var canManage = User.IsInRole(MonitorRoles.Administrator);
 }
 
-<partial name="_PortalPageHeader" model="@(new PortalPageHeaderViewModel(Model.Title, Model.Description + " Navigation never starts monitored-SQL collection.", "CACHED PERFORMANCE", "View servers", Url.Action("Servers", "Operations")))" />
+<partial name="_PortalPageHeader" model="@(new PortalPageHeaderViewModel(Model.Title, Model.Description + " Navigation never starts monitored-SQL collection.", "CACHED PERFORMANCE + WAITS", "View servers", Url.Action("Servers", "Operations")))" />
 
 @if (Model.Servers.Count == 0)
 {
@@ -22,7 +32,7 @@ else
         <article class="health-command-card hero state-@(pressured > 0 ? "warning" : unavailable > 0 ? "warning" : "healthy")"><div><small>CURRENT WORKLOAD</small><strong>@active active</strong><span>@runnable runnable tasks · @pendingIo pending I/O requests</span></div></article>
         <article class="health-command-card state-@(runnable > 0 ? "warning" : "healthy")"><small>RUNNABLE TASKS</small><strong>@runnable</strong><span>Aggregate scheduler queue evidence</span></article>
         <article class="health-command-card state-@(pendingIo > 0 ? "warning" : "healthy")"><small>PENDING I/O</small><strong>@pendingIo</strong><span>Pending I/O requests in current evidence</span></article>
-        <article class="health-command-card state-@(pressured > 0 ? "warning" : "healthy")"><small>PRESSURED SERVERS</small><strong>@pressured</strong><span>Runnable &gt; 4 or pending I/O &gt; 0</span></article>
+        <article class="health-command-card state-@(topWait?.Wait.Severity is B400Severity.Critical ? "critical" : topWait?.Wait.Severity is B400Severity.Warning ? "warning" : "healthy")"><small>TOP WAIT SIGNAL</small><strong>@(topWait is null ? "Not collected" : topWait.Wait.WaitType)</strong><span>@(topWait is null ? "No bounded wait evidence" : $"{topWait.Name} · {topWait.Wait.Category} · score {topWait.Wait.Score:0.##}")</span></article>
         <article class="health-command-card state-@(unavailable > 0 ? "offline" : "healthy")"><small>EVIDENCE UNAVAILABLE</small><strong>@unavailable</strong><span>Servers without performance evidence</span></article>
     </section>
 
@@ -45,5 +55,46 @@ else
         </div>
     </section>
 
-    <div class="data-banner"><strong>INTERPRETATION BOUNDARY</strong><span>These are bounded workload counters from the latest cached snapshot. They are not query plans, SQL text, wait-stat history, or automatic remediation signals.</span></div>
+    <section class="dashboard-grid" style="margin-top:14px" aria-label="Wait intelligence by server">
+        @foreach (var server in Model.Servers)
+        {
+            var waits = WaitIntelligenceProjection.Build(server.Performance, server.UptimeSeconds);
+            var top = waits.FirstOrDefault();
+            var waitState = top?.Severity switch
+            {
+                B400Severity.Critical => "critical",
+                B400Severity.Warning => "warning",
+                B400Severity.Info => "healthy",
+                _ => "unknown"
+            };
+            <article class="glass-panel ops-panel state-@waitState">
+                <div class="panel-heading"><div><span class="eyebrow">@server.Name · B400 WAIT INTELLIGENCE</span><h3>Cumulative waits since SQL Server start</h3></div><span class="snapshot-note">@(server.UptimeSeconds is long uptime ? $"uptime {TimeSpan.FromSeconds(uptime).TotalHours:0.0}h" : "uptime unavailable")</span></div>
+                @if (waits.Count == 0)
+                {
+                    <p class="panel-copy"><strong>Not collected.</strong> Bounded wait evidence or server uptime is unavailable. No zero/healthy wait state is inferred.</p>
+                }
+                else
+                {
+                    <div class="responsive-table" role="region" aria-label="@server.Name wait intelligence" tabindex="0">
+                        <div class="table-head health-detail-grid health-detail-grid-six" role="row"><span>Wait</span><span>Category</span><span>Rate</span><span>Share</span><span>Signal</span><span>Severity</span></div>
+                        @foreach (var wait in waits)
+                        {
+                            <div class="table-row health-detail-grid health-detail-grid-six" role="row">
+                                <strong title="Fingerprint @wait.Fingerprint">@wait.WaitType</strong>
+                                <span>@wait.Category</span>
+                                <span>@wait.WaitMsPerSecond.ToString("0.##") ms/s</span>
+                                <span>@wait.SharePercent.ToString("0.##")%</span>
+                                <span>@wait.SignalPercent.ToString("0.##")%</span>
+                                <span class="state-@(wait.Severity is B400Severity.Critical ? "critical" : wait.Severity is B400Severity.Warning ? "warning" : "healthy")">@wait.Severity</span>
+                            </div>
+                        }
+                    </div>
+                    <p class="server-mini-note">The rate normalizes cumulative `sys.dm_os_wait_stats` counters by SQL Server uptime. It is not an interval delta and is not wait-history persistence.</p>
+                }
+                <div style="margin-top:12px"><a class="secondary-button" asp-controller="Operations" asp-action="ServerDetails" asp-route-id="@server.Id">Open full server evidence</a></div>
+            </article>
+        }
+    </section>
+
+    <div class="data-banner"><strong>INTERPRETATION BOUNDARY</strong><span>Current request/scheduler/I/O facts and up to 12 bounded non-benign wait types come from the latest cached snapshot. Wait counters are cumulative since SQL Server start and normalized by collected uptime; they are not interval deltas. SQL text, query plans, client identity and automatic remediation remain outside this surface.</span></div>
 }

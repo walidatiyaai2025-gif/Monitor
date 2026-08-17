@@ -10,14 +10,15 @@ namespace Monitor.Web.Tests;
 public sealed class ServerConnectionsControllerTests
 {
     [Fact]
-    public void Endpoint_RequiresAdministratorAndAntiforgery()
+    public void Endpoint_RequiresAdministratorManagePolicyAndAntiforgery()
     {
         var authorize = Assert.Single(typeof(ServerConnectionsController)
             .GetCustomAttributes(typeof(AuthorizeAttribute), inherit: true)
             .Cast<AuthorizeAttribute>());
         var action = typeof(ServerConnectionsController).GetMethod(nameof(ServerConnectionsController.TestConnection));
 
-        Assert.Equal("Administrator", authorize.Roles);
+        Assert.Equal(MonitorPolicies.Manage, authorize.Policy);
+        Assert.Null(authorize.Roles);
         Assert.NotNull(action);
         Assert.NotEmpty(action.GetCustomAttributes(typeof(ValidateAntiForgeryTokenAttribute), inherit: true));
     }

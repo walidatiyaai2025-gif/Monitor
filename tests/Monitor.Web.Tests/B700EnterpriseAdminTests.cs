@@ -84,7 +84,7 @@ public sealed class B700EnterpriseAdminTests
         var view = Read("src/Monitor.Web/Views/ConnectionLab/Index.cshtml");
         var css = Read("src/Monitor.Web/wwwroot/css/b700-admin.css");
 
-        Assert.Contains("[Authorize(Roles = \"Administrator\")]", controller, StringComparison.Ordinal);
+        Assert.Contains("[Authorize(Policy = MonitorPolicies.Manage)]", controller, StringComparison.Ordinal);
         Assert.Contains("[ValidateAntiForgeryToken]", controller, StringComparison.Ordinal);
         Assert.Contains("lab-success", view, StringComparison.Ordinal);
         Assert.Contains("asp-validation-summary=\"ModelOnly\"", view, StringComparison.Ordinal);

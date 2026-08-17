@@ -1,4 +1,5 @@
 using System.Data;
+using System.Text.Json;
 using Microsoft.Data.SqlClient;
 using Monitor.Web.Models;
 
@@ -16,14 +17,27 @@ internal sealed record SqlSnapshotRow(
     SqlHealthModulesRow? Modules = null,
     SqlPerformanceRow? Performance = null);
 
-internal sealed record SqlPerformanceRow(long ActiveRequests, long RunnableTasks, long PendingIoRequests);
+internal sealed record SqlWaitStatRow(string WaitType, long WaitTimeMs, long SignalWaitTimeMs, long WaitingTasks);
+internal sealed record SqlIoFileRow(string FileKey, long Reads, long Writes, long ReadStallMs, long WriteStallMs, long BytesRead, long BytesWritten);
+internal sealed record SqlAgentRunRow(string JobKey, string Owner, bool Succeeded, long RunOrder, long DurationSeconds);
+internal sealed record SqlAgentScheduleRow(string JobKey, DateTime? NextScheduledRunLocal, bool IsRunning);
+internal sealed record SqlDatabaseStateRow(string Name, string State);
+internal sealed record SqlPerformanceRow(
+    long ActiveRequests,
+    long RunnableTasks,
+    long PendingIoRequests,
+    IReadOnlyList<SqlWaitStatRow>? Waits = null);
 
 internal sealed record SqlHealthModulesRow(
     long Restoring, long Recovering, long RecoveryPending, long Suspect, long Emergency, long OfflineOrOther,
     long BackedUpLast24Hours, long MissingFullBackupLast24Hours, DateTimeOffset? LastFullBackupAtUtc,
     long TotalJobs, long EnabledJobs, long FailedLastRun,
     long TotalAllocatedBytes, long DataAllocatedBytes, long LogAllocatedBytes,
-    long BlockedRequests, long MaxWaitMilliseconds);
+    long BlockedRequests, long MaxWaitMilliseconds,
+    IReadOnlyList<SqlIoFileRow>? IoFiles = null,
+    IReadOnlyList<SqlAgentRunRow>? AgentRuns = null,
+    IReadOnlyList<SqlDatabaseStateRow>? DatabaseStates = null,
+    IReadOnlyList<SqlAgentScheduleRow>? AgentSchedules = null);
 
 internal sealed record SqlMemoryRow(
     long TotalPhysicalMemoryKb,
@@ -32,7 +46,14 @@ internal sealed record SqlMemoryRow(
     int SqlProcessMemoryUtilizationPercent,
     bool IsPhysicalMemoryLow,
     bool IsVirtualMemoryLow,
-    string SystemMemoryState);
+    string SystemMemoryState,
+    long? MaxServerMemoryMb = null,
+    long? TotalServerMemoryKb = null,
+    long? TargetServerMemoryKb = null,
+    long? PageLifeExpectancySeconds = null,
+    long? MemoryGrantsPending = null,
+    string? TopMemoryClerkType = null,
+    long? TopMemoryClerkKb = null);
 
 internal interface ISqlSnapshotQuery
 {
@@ -94,12 +115,22 @@ internal sealed class SqlServerSnapshotCollector(
             if (row.Memory is not null)
             {
                 var value = row.Memory;
+                var hasClerkType = !string.IsNullOrWhiteSpace(value.TopMemoryClerkType);
+                var hasClerkSize = value.TopMemoryClerkKb.HasValue;
                 if (value.TotalPhysicalMemoryKb < 0 ||
                     value.AvailablePhysicalMemoryKb < 0 ||
                     value.AvailablePhysicalMemoryKb > value.TotalPhysicalMemoryKb ||
                     value.SqlProcessPhysicalMemoryKb < 0 ||
                     value.SqlProcessMemoryUtilizationPercent is < 0 or > 100 ||
-                    string.IsNullOrWhiteSpace(value.SystemMemoryState))
+                    string.IsNullOrWhiteSpace(value.SystemMemoryState) ||
+                    value.MaxServerMemoryMb is < 0 ||
+                    value.TotalServerMemoryKb is < 0 ||
+                    value.TargetServerMemoryKb is < 0 ||
+                    value.PageLifeExpectancySeconds is < 0 ||
+                    value.MemoryGrantsPending is < 0 ||
+                    value.TopMemoryClerkKb is < 0 ||
+                    hasClerkType != hasClerkSize ||
+                    (value.TopMemoryClerkType?.Length ?? 0) > 128)
                 {
                     throw new InvalidDataException("Invalid memory snapshot row.");
                 }
@@ -111,7 +142,14 @@ internal sealed class SqlServerSnapshotCollector(
                     value.SqlProcessMemoryUtilizationPercent,
                     value.IsPhysicalMemoryLow,
                     value.IsVirtualMemoryLow,
-                    value.SystemMemoryState);
+                    value.SystemMemoryState,
+                    value.MaxServerMemoryMb,
+                    value.TotalServerMemoryKb,
+                    value.TargetServerMemoryKb,
+                    value.PageLifeExpectancySeconds,
+                    value.MemoryGrantsPending,
+                    value.TopMemoryClerkType,
+                    value.TopMemoryClerkKb);
             }
 
             DatabaseHealthDetailSnapshot? databases = null;
@@ -124,31 +162,71 @@ internal sealed class SqlServerSnapshotCollector(
             {
                 var m = row.Modules;
                 var states = new[] { m.Restoring, m.Recovering, m.RecoveryPending, m.Suspect, m.Emergency, m.OfflineOrOther };
+                var ioFiles = m.IoFiles ?? [];
+                var agentRuns = m.AgentRuns ?? [];
+                var databaseStates = m.DatabaseStates ?? [];
+                var agentSchedules = m.AgentSchedules ?? [];
                 if (states.Any(value => value < 0) || states.Sum() > total ||
                     m.BackedUpLast24Hours < 0 || m.MissingFullBackupLast24Hours < 0 || m.BackedUpLast24Hours + m.MissingFullBackupLast24Hours > total ||
                     m.TotalJobs < 0 || m.EnabledJobs < 0 || m.EnabledJobs > m.TotalJobs || m.FailedLastRun < 0 || m.FailedLastRun > m.TotalJobs ||
                     m.TotalAllocatedBytes < 0 || m.DataAllocatedBytes < 0 || m.LogAllocatedBytes < 0 || m.DataAllocatedBytes + m.LogAllocatedBytes > m.TotalAllocatedBytes ||
-                    m.BlockedRequests < 0 || m.MaxWaitMilliseconds < 0)
+                    m.BlockedRequests < 0 || m.MaxWaitMilliseconds < 0 ||
+                    ioFiles.Count > 12 ||
+                    ioFiles.Any(file => string.IsNullOrWhiteSpace(file.FileKey) || file.FileKey.Length > 128 || file.Reads < 0 || file.Writes < 0 || file.ReadStallMs < 0 || file.WriteStallMs < 0 || file.BytesRead < 0 || file.BytesWritten < 0) ||
+                    agentRuns.Count > 50 ||
+                    agentRuns.Any(run => string.IsNullOrWhiteSpace(run.JobKey) || run.JobKey.Length > 128 || string.IsNullOrWhiteSpace(run.Owner) || run.Owner.Length > 64 || run.RunOrder <= 0 || run.DurationSeconds < 0 || run.DurationSeconds > 31L * 24 * 60 * 60) ||
+                    databaseStates.Count > 50 ||
+                    databaseStates.Any(database => string.IsNullOrWhiteSpace(database.Name) || database.Name.Length > 128 || string.IsNullOrWhiteSpace(database.State) || database.State.Length > 60) ||
+                    agentSchedules.Count > 50 ||
+                    agentSchedules.Any(schedule => string.IsNullOrWhiteSpace(schedule.JobKey) || schedule.JobKey.Length > 128))
                 {
                     throw new InvalidDataException("Invalid health module row.");
                 }
 
-                databases = new(checked((int)m.Restoring), checked((int)m.Recovering), checked((int)m.RecoveryPending), checked((int)m.Suspect), checked((int)m.Emergency), checked((int)m.OfflineOrOther));
+                databases = new(
+                    checked((int)m.Restoring),
+                    checked((int)m.Recovering),
+                    checked((int)m.RecoveryPending),
+                    checked((int)m.Suspect),
+                    checked((int)m.Emergency),
+                    checked((int)m.OfflineOrOther),
+                    databaseStates.Select(database => new DatabaseStateSnapshot(database.Name, database.State)).ToArray());
                 backups = new(checked((int)m.BackedUpLast24Hours), checked((int)m.MissingFullBackupLast24Hours), m.LastFullBackupAtUtc);
-                jobs = new(checked((int)m.TotalJobs), checked((int)m.EnabledJobs), checked((int)m.FailedLastRun));
-                storage = new(m.TotalAllocatedBytes, m.DataAllocatedBytes, m.LogAllocatedBytes);
+                jobs = new(
+                    checked((int)m.TotalJobs),
+                    checked((int)m.EnabledJobs),
+                    checked((int)m.FailedLastRun),
+                    agentRuns.Select(run => new AgentJobRunSnapshot(run.JobKey, run.Owner, run.Succeeded, run.RunOrder, run.DurationSeconds)).ToArray(),
+                    agentSchedules.Select(schedule => new AgentScheduleSnapshot(
+                        schedule.JobKey,
+                        schedule.NextScheduledRunLocal.HasValue
+                            ? DateTime.SpecifyKind(schedule.NextScheduledRunLocal.Value, DateTimeKind.Unspecified)
+                            : null,
+                        schedule.IsRunning)).ToArray());
+                storage = new(
+                    m.TotalAllocatedBytes,
+                    m.DataAllocatedBytes,
+                    m.LogAllocatedBytes,
+                    ioFiles.Select(file => new IoFileSnapshot(file.FileKey, file.Reads, file.Writes, file.ReadStallMs, file.WriteStallMs, file.BytesRead, file.BytesWritten)).ToArray());
                 blocking = new(checked((int)m.BlockedRequests), m.MaxWaitMilliseconds);
             }
 
             if (row.Performance is not null)
             {
                 var p = row.Performance;
-                if (p.ActiveRequests < 0 || p.RunnableTasks < 0 || p.PendingIoRequests < 0)
+                var waits = p.Waits ?? [];
+                if (p.ActiveRequests < 0 || p.RunnableTasks < 0 || p.PendingIoRequests < 0 ||
+                    waits.Count > 12 ||
+                    waits.Any(wait => string.IsNullOrWhiteSpace(wait.WaitType) || wait.WaitType.Length > 128 || wait.WaitTimeMs < 0 || wait.SignalWaitTimeMs < 0 || wait.SignalWaitTimeMs > wait.WaitTimeMs || wait.WaitingTasks < 0))
                 {
                     throw new InvalidDataException("Invalid performance row.");
                 }
 
-                performance = new(checked((int)p.ActiveRequests), checked((int)p.RunnableTasks), checked((int)p.PendingIoRequests));
+                performance = new(
+                    checked((int)p.ActiveRequests),
+                    checked((int)p.RunnableTasks),
+                    checked((int)p.PendingIoRequests),
+                    waits.Select(wait => new WaitStatSnapshot(wait.WaitType, wait.WaitTimeMs, wait.SignalWaitTimeMs, wait.WaitingTasks)).ToArray());
             }
 
             return new ServerHealthSnapshot(
@@ -234,6 +312,71 @@ internal sealed class SqlSnapshotQuery : ISqlSnapshotQuery
             ,(select COUNT_BIG(*) FROM sys.dm_exec_requests WHERE session_id <> @@SPID) AS ActiveRequests
             ,(select COALESCE(SUM(CONVERT(bigint, runnable_tasks_count)), 0) FROM sys.dm_os_schedulers WHERE status = 'VISIBLE ONLINE') AS RunnableTasks
             ,(select COUNT_BIG(*) FROM sys.dm_io_pending_io_requests) AS PendingIoRequests
+            ,(select TOP (1) CONVERT(bigint, value_in_use) FROM sys.configurations WHERE name = N'max server memory (MB)') AS MaxServerMemoryMb
+            ,(select TOP (1) CONVERT(bigint, cntr_value) FROM sys.dm_os_performance_counters WHERE counter_name = N'Total Server Memory (KB)' AND object_name LIKE N'%:Memory Manager%' AND instance_name = N'') AS TotalServerMemoryKb
+            ,(select TOP (1) CONVERT(bigint, cntr_value) FROM sys.dm_os_performance_counters WHERE counter_name = N'Target Server Memory (KB)' AND object_name LIKE N'%:Memory Manager%' AND instance_name = N'') AS TargetServerMemoryKb
+            ,(select TOP (1) CONVERT(bigint, cntr_value) FROM sys.dm_os_performance_counters WHERE counter_name = N'Page life expectancy' AND object_name LIKE N'%:Buffer Manager%' AND instance_name = N'') AS PageLifeExpectancySeconds
+            ,(select TOP (1) CONVERT(bigint, cntr_value) FROM sys.dm_os_performance_counters WHERE counter_name = N'Memory Grants Pending' AND object_name LIKE N'%:Memory Manager%' AND instance_name = N'') AS MemoryGrantsPending
+            ,(select TOP (1) mc.type FROM sys.dm_os_memory_clerks mc GROUP BY mc.type ORDER BY SUM(CONVERT(bigint, mc.pages_kb)) DESC, mc.type ASC) AS TopMemoryClerkType
+            ,(select TOP (1) SUM(CONVERT(bigint, mc.pages_kb)) FROM sys.dm_os_memory_clerks mc GROUP BY mc.type ORDER BY SUM(CONVERT(bigint, mc.pages_kb)) DESC, mc.type ASC) AS TopMemoryClerkKb
+            ,(select TOP (12)
+                  ws.wait_type AS WaitType,
+                  CONVERT(bigint, ws.wait_time_ms) AS WaitTimeMs,
+                  CONVERT(bigint, ws.signal_wait_time_ms) AS SignalWaitTimeMs,
+                  CONVERT(bigint, ws.waiting_tasks_count) AS WaitingTasks
+              FROM sys.dm_os_wait_stats ws
+              WHERE ws.wait_time_ms > 0
+                AND ws.wait_type NOT LIKE N'SLEEP[_]%'
+                AND ws.wait_type NOT LIKE N'BROKER[_]%'
+                AND ws.wait_type NOT LIKE N'XE[_]%'
+                AND ws.wait_type NOT LIKE N'SQLTRACE[_]%'
+                AND ws.wait_type NOT LIKE N'LAZYWRITER[_]%'
+                AND ws.wait_type <> N'REQUEST_FOR_DEADLOCK_SEARCH'
+                AND ws.wait_type <> N'LOGMGR_QUEUE'
+              ORDER BY ws.wait_time_ms DESC, ws.wait_type ASC
+              FOR JSON PATH) AS WaitStatsJson
+            ,(select TOP (12)
+                  CONVERT(nvarchar(128), CONCAT(COALESCE(DB_NAME(vfs.database_id), N'DB#' + CONVERT(nvarchar(10), vfs.database_id)), N'/', mf.name)) AS FileKey,
+                  CONVERT(bigint, vfs.num_of_reads) AS Reads,
+                  CONVERT(bigint, vfs.num_of_writes) AS Writes,
+                  CONVERT(bigint, vfs.io_stall_read_ms) AS ReadStallMs,
+                  CONVERT(bigint, vfs.io_stall_write_ms) AS WriteStallMs,
+                  CONVERT(bigint, vfs.num_of_bytes_read) AS BytesRead,
+                  CONVERT(bigint, vfs.num_of_bytes_written) AS BytesWritten
+              FROM sys.dm_io_virtual_file_stats(NULL, NULL) vfs
+              INNER JOIN sys.master_files mf ON mf.database_id = vfs.database_id AND mf.file_id = vfs.file_id
+              WHERE vfs.num_of_reads > 0 OR vfs.num_of_writes > 0
+              ORDER BY (CONVERT(bigint, vfs.io_stall_read_ms) + CONVERT(bigint, vfs.io_stall_write_ms)) DESC, vfs.database_id ASC, vfs.file_id ASC
+              FOR JSON PATH) AS IoFilesJson
+            ,(select TOP (50)
+                  CONVERT(nvarchar(128), j.name) AS JobKey,
+                  CONVERT(nvarchar(64), COALESCE(SUSER_SNAME(j.owner_sid), N'UNASSIGNED')) AS Owner,
+                  CONVERT(bit, CASE WHEN h.run_status = 1 THEN 1 ELSE 0 END) AS Succeeded,
+                  CONVERT(bigint, h.run_date) * 1000000 + CONVERT(bigint, h.run_time) AS RunOrder,
+                  CONVERT(bigint, (h.run_duration / 10000) * 3600 + ((h.run_duration % 10000) / 100) * 60 + (h.run_duration % 100)) AS DurationSeconds
+              FROM msdb.dbo.sysjobhistory h
+              INNER JOIN msdb.dbo.sysjobs j ON j.job_id = h.job_id
+              WHERE h.step_id = 0 AND h.run_date > 0
+              ORDER BY h.run_date DESC, h.run_time DESC, j.name ASC
+              FOR JSON PATH) AS AgentRunsJson
+            ,(select TOP (50)
+                  CONVERT(nvarchar(128), x.name) AS Name,
+                  CONVERT(nvarchar(60), x.state_desc) AS State
+              FROM sys.databases x
+              WHERE x.database_id > 4
+              ORDER BY CASE WHEN x.state = 0 THEN 1 ELSE 0 END ASC, x.name ASC
+              FOR JSON PATH) AS DatabaseStatesJson
+            ,(select TOP (50)
+                  CONVERT(nvarchar(128), j.name) AS JobKey,
+                  a.next_scheduled_run_date AS NextScheduledRunLocal,
+                  CONVERT(bit, CASE WHEN a.start_execution_date IS NOT NULL AND a.stop_execution_date IS NULL THEN 1 ELSE 0 END) AS IsRunning
+              FROM msdb.dbo.sysjobactivity a
+              INNER JOIN msdb.dbo.sysjobs j ON j.job_id = a.job_id
+              WHERE a.session_id = (SELECT MAX(current_activity.session_id) FROM msdb.dbo.sysjobactivity current_activity)
+              ORDER BY CASE WHEN a.next_scheduled_run_date IS NULL THEN 1 ELSE 0 END ASC,
+                       a.next_scheduled_run_date ASC,
+                       j.name ASC
+              FOR JSON PATH) AS AgentSchedulesJson
         FROM sys.databases AS d
         CROSS JOIN sys.dm_os_sys_info AS osi
         CROSS JOIN sys.dm_os_sys_memory AS osm
@@ -289,18 +432,73 @@ internal sealed class SqlSnapshotQuery : ISqlSnapshotQuery
                     reader.GetInt32(10),
                     reader.GetBoolean(11),
                     reader.GetBoolean(12),
-                    reader.GetString(13)),
+                    reader.GetString(13),
+                    reader.IsDBNull(34) ? null : reader.GetInt64(34),
+                    reader.IsDBNull(35) ? null : reader.GetInt64(35),
+                    reader.IsDBNull(36) ? null : reader.GetInt64(36),
+                    reader.IsDBNull(37) ? null : reader.GetInt64(37),
+                    reader.IsDBNull(38) ? null : reader.GetInt64(38),
+                    reader.IsDBNull(39) ? null : reader.GetString(39),
+                    reader.IsDBNull(40) ? null : reader.GetInt64(40)),
                 new SqlHealthModulesRow(
                     reader.GetInt64(14), reader.GetInt64(15), reader.GetInt64(16), reader.GetInt64(17), reader.GetInt64(18), reader.GetInt64(19),
                     reader.GetInt64(20), reader.GetInt64(21), reader.IsDBNull(22) ? null : new DateTimeOffset(DateTime.SpecifyKind(reader.GetDateTime(22), DateTimeKind.Utc)),
                     reader.GetInt64(23), reader.GetInt64(24), reader.GetInt64(25),
                     reader.GetInt64(26), reader.GetInt64(27), reader.GetInt64(28),
-                    reader.GetInt64(29), reader.GetInt64(30)),
-                new SqlPerformanceRow(reader.GetInt64(31), reader.GetInt64(32), reader.GetInt64(33)));
+                    reader.GetInt64(29), reader.GetInt64(30),
+                    ReadIoFiles(reader, 42),
+                    ReadAgentRuns(reader, 43),
+                    ReadDatabaseStates(reader, 44),
+                    ReadAgentSchedules(reader, 45)),
+                new SqlPerformanceRow(
+                    reader.GetInt64(31),
+                    reader.GetInt64(32),
+                    reader.GetInt64(33),
+                    ReadWaitStats(reader, 41)));
         }
         catch (SqlException exception)
         {
             throw new SqlProbeException(SqlErrorClassifier.Classify(exception.Number));
         }
+    }
+
+    private static IReadOnlyList<SqlWaitStatRow> ReadWaitStats(SqlDataReader reader, int ordinal)
+    {
+        if (reader.IsDBNull(ordinal)) return [];
+        var json = reader.GetString(ordinal);
+        if (string.IsNullOrWhiteSpace(json)) return [];
+        return JsonSerializer.Deserialize<SqlWaitStatRow[]>(json) ?? [];
+    }
+
+    private static IReadOnlyList<SqlIoFileRow> ReadIoFiles(SqlDataReader reader, int ordinal)
+    {
+        if (reader.IsDBNull(ordinal)) return [];
+        var json = reader.GetString(ordinal);
+        if (string.IsNullOrWhiteSpace(json)) return [];
+        return JsonSerializer.Deserialize<SqlIoFileRow[]>(json) ?? [];
+    }
+
+    private static IReadOnlyList<SqlAgentRunRow> ReadAgentRuns(SqlDataReader reader, int ordinal)
+    {
+        if (reader.IsDBNull(ordinal)) return [];
+        var json = reader.GetString(ordinal);
+        if (string.IsNullOrWhiteSpace(json)) return [];
+        return JsonSerializer.Deserialize<SqlAgentRunRow[]>(json) ?? [];
+    }
+
+    private static IReadOnlyList<SqlDatabaseStateRow> ReadDatabaseStates(SqlDataReader reader, int ordinal)
+    {
+        if (reader.IsDBNull(ordinal)) return [];
+        var json = reader.GetString(ordinal);
+        if (string.IsNullOrWhiteSpace(json)) return [];
+        return JsonSerializer.Deserialize<SqlDatabaseStateRow[]>(json) ?? [];
+    }
+
+    private static IReadOnlyList<SqlAgentScheduleRow> ReadAgentSchedules(SqlDataReader reader, int ordinal)
+    {
+        if (reader.IsDBNull(ordinal)) return [];
+        var json = reader.GetString(ordinal);
+        if (string.IsNullOrWhiteSpace(json)) return [];
+        return JsonSerializer.Deserialize<SqlAgentScheduleRow[]>(json) ?? [];
     }
 }

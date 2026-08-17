@@ -63,13 +63,20 @@
     <h3>AI Advisor</h3><p>@Model.Advisor.Message</p>
     @if (TempData["AdvisorStatus"] is string advisorStatus) { <p class="data-banner">@advisorStatus</p> }
 
-    <div class="form-actions">
-        @if (Model.Incident.Status == IncidentStatus.Open)
-        {
-            <form asp-action="AcknowledgeIncident" asp-route-id="@Model.Incident.Id" method="post"><button class="button primary" type="submit">Acknowledge</button></form>
-        }
-        <form asp-action="RequestAdvisor" asp-route-id="@Model.Incident.Id" method="post"><button class="button" type="submit">Request AI advice</button></form>
-    </div>
+    @if (canOperate)
+    {
+        <div class="form-actions">
+            @if (Model.Incident.Status == IncidentStatus.Open)
+            {
+                <form asp-action="AcknowledgeIncident" asp-route-id="@Model.Incident.Id" method="post"><button class="button primary" type="submit">Acknowledge</button></form>
+            }
+            <form asp-action="RequestAdvisor" asp-route-id="@Model.Incident.Id" method="post"><button class="button" type="submit">Request AI advice</button></form>
+        </div>
+    }
+    else
+    {
+        <p class="data-banner">Viewer access is read-only. Incident transitions and AI Advisor requests require Operator or Administrator access.</p>
+    }
 
     @if (canOperate && Model.Incident.Status != IncidentStatus.Resolved)
     {

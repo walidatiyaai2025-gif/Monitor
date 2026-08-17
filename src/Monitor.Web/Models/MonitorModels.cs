@@ -84,7 +84,9 @@ public sealed record HealthModuleServerViewModel(
     SqlAgentHealthSnapshot? Jobs,
     StorageHealthSnapshot? Storage,
     BlockingHealthSnapshot? Blocking,
-    PerformanceHealthSnapshot? Performance);
+    PerformanceHealthSnapshot? Performance,
+    MemoryHealthSnapshot? Memory = null,
+    long? UptimeSeconds = null);
 
 public sealed record HealthModulePageViewModel(string Title, string Description, IReadOnlyList<HealthModuleServerViewModel> Servers);
 
