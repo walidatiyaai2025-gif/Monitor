@@ -30,6 +30,10 @@ param(
     [string]$OperatorToolingCommit,
 
     [Parameter(Mandatory = $true)]
+    [ValidatePattern('^[a-fA-F0-9]{64}$')]
+    [string]$ExpectedOperatorToolkitManifestSha256,
+
+    [Parameter(Mandatory = $true)]
     [string]$HostName,
 
     [Parameter(Mandatory = $true)]
@@ -56,6 +60,16 @@ param(
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+
+function Assert-ExactProperties {
+    param([object]$Value, [string[]]$Allowed, [string]$Path)
+    if ($null -eq $Value) { throw "$Path is required." }
+    $names = @($Value.PSObject.Properties.Name)
+    $missing = @($Allowed | Where-Object { $_ -cnotin $names })
+    $unknown = @($names | Where-Object { $_ -cnotin $Allowed })
+    if ($missing.Count -gt 0) { throw "$Path is missing required properties: $($missing -join ', ')." }
+    if ($unknown.Count -gt 0) { throw "$Path contains unknown properties: $($unknown -join ', ')." }
+}
 
 function Assert-BoundedSafeText {
     param(
@@ -158,14 +172,57 @@ $requiredOperatorToolingFiles = @(
 $resolvedSessionRoot = Assert-SafeSessionTarget -Value $SessionRoot
 $selectedProductHash = $ExpectedProductSha256.ToLowerInvariant()
 $normalizedToolingCommit = $OperatorToolingCommit.ToLowerInvariant()
+$expectedToolkitManifestHash = $ExpectedOperatorToolkitManifestSha256.ToLowerInvariant()
+
+$toolkitManifestPath = Join-Path $PSScriptRoot 'toolkit-manifest.json'
+$toolkitManifestLockPath = Join-Path $PSScriptRoot 'toolkit-manifest.sha256'
+if (-not (Test-Path -LiteralPath $toolkitManifestPath -PathType Leaf) -or
+    -not (Test-Path -LiteralPath $toolkitManifestLockPath -PathType Leaf)) {
+    throw 'Acceptance Control Toolkit manifest and toolkit-manifest.sha256 must exist beside the initializer.'
+}
+$actualToolkitManifestHash = (Get-FileHash -LiteralPath $toolkitManifestPath -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($actualToolkitManifestHash -ne $expectedToolkitManifestHash) {
+    throw 'Acceptance Control Toolkit manifest SHA-256 does not match independently supplied ExpectedOperatorToolkitManifestSha256.'
+}
+$toolkitManifestLockLine = (Get-Content -LiteralPath $toolkitManifestLockPath -Raw).Trim()
+if ($toolkitManifestLockLine -cne "$expectedToolkitManifestHash  toolkit-manifest.json") {
+    throw 'toolkit-manifest.sha256 does not match independently supplied ExpectedOperatorToolkitManifestSha256.'
+}
+try {
+    $toolkitManifest = Get-Content -LiteralPath $toolkitManifestPath -Raw | ConvertFrom-Json -Depth 20
+}
+catch {
+    throw 'Acceptance Control Toolkit manifest is not valid JSON.'
+}
+Assert-ExactProperties -Value $toolkitManifest -Allowed @('schemaVersion', 'toolkitName', 'toolingCommit', 'fileCount', 'files', 'note') -Path '$toolkitManifest'
+if ([int]$toolkitManifest.schemaVersion -ne 1 -or [string]$toolkitManifest.toolkitName -cne 'Monitor Acceptance Control Toolkit') {
+    throw 'Acceptance Control Toolkit manifest schema/name is invalid.'
+}
+if (([string]$toolkitManifest.toolingCommit).ToLowerInvariant() -ne $normalizedToolingCommit) {
+    throw 'Acceptance Control Toolkit manifest toolingCommit does not match OperatorToolingCommit.'
+}
+if ([int]$toolkitManifest.fileCount -ne $requiredOperatorToolingFiles.Count) {
+    throw 'Acceptance Control Toolkit manifest fileCount must be exactly 6.'
+}
+$toolkitEntries = @($toolkitManifest.files)
+if ($toolkitEntries.Count -ne $requiredOperatorToolingFiles.Count) {
+    throw 'Acceptance Control Toolkit manifest must contain exactly six file entries.'
+}
 
 $operatorToolingFiles = [ordered]@{}
-foreach ($toolName in $requiredOperatorToolingFiles) {
+for ($i = 0; $i -lt $requiredOperatorToolingFiles.Count; $i++) {
+    $toolName = $requiredOperatorToolingFiles[$i]
     $toolPath = Join-Path $PSScriptRoot $toolName
     if (-not (Test-Path -LiteralPath $toolPath -PathType Leaf)) {
         throw "Required acceptance-control sidecar file was not found beside the initializer: $toolName"
     }
-    $operatorToolingFiles[$toolName] = (Get-FileHash -LiteralPath $toolPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $toolHash = (Get-FileHash -LiteralPath $toolPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $entry = $toolkitEntries[$i]
+    Assert-ExactProperties -Value $entry -Allowed @('fileName', 'sha256') -Path "`$toolkitManifest.files[$i]"
+    if ([string]$entry.fileName -cne $toolName -or ([string]$entry.sha256).ToLowerInvariant() -ne $toolHash) {
+        throw "Acceptance Control Toolkit manifest entry does not match the current sidecar file: $toolName"
+    }
+    $operatorToolingFiles[$toolName] = $toolHash
 }
 
 if (-not (Test-Path -LiteralPath $ArtifactPath -PathType Leaf)) {
@@ -292,6 +349,7 @@ try {
         sourceCommit = $SourceCommit.ToLowerInvariant()
         testedMergeCommit = $TestedMergeCommit.ToLowerInvariant()
         operatorToolingCommit = $normalizedToolingCommit
+        operatorToolkitManifestSha256 = $expectedToolkitManifestHash
         operatorToolingFiles = $operatorToolingFiles
         hostName = $HostName.ToLowerInvariant()
         siteName = $SiteName
@@ -318,7 +376,7 @@ try {
     $nextSteps = @(
         'Monitor P0.5 production acceptance session — NEXT STEPS',
         '1. Preserve the returned ManifestSha256 outside the mutable session and verify session-manifest.sha256 before any production operation.',
-        '2. Retain the exact reviewed OperatorToolingCommit and do not modify the six acceptance-control sidecar files whose SHA-256 values are locked in the manifest.',
+        '2. Retain the exact reviewed OperatorToolingCommit and ExpectedOperatorToolkitManifestSha256; do not modify the six acceptance-control sidecar files or toolkit manifest/lock.',
         '3. Run Test-IisProductionPrerequisites.ps1 on the intended host and retain bounded non-secret proof.',
         '4. Run Deploy-ProductionSingleNode.ps1 in PLAN ONLY mode and review the plan.',
         '5. Use explicit -Apply only after the reviewed plan and operational backup are approved.',
@@ -340,6 +398,7 @@ try {
         CandidateArtifact = Join-Path $resolvedSessionRoot "candidate\$expectedArtifactName"
         SelectedProductSha256 = $selectedProductHash
         OperatorToolingCommit = $normalizedToolingCommit
+        OperatorToolkitManifestSha256 = $expectedToolkitManifestHash
         OperatorToolingFileCount = $requiredOperatorToolingFiles.Count
         ExternalGateCount = 15
         ExternalGatesPassed = 0
