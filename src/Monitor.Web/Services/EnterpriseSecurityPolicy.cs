@@ -7,6 +7,7 @@ public enum EnterpriseDownloadSubject
     Servers,
     Incidents,
     History,
+    FleetDecisionSupport,
     Audit,
     Manifest,
     Diagnostics

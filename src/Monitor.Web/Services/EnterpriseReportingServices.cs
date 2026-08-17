@@ -82,6 +82,7 @@ public interface IEnterpriseReportingService
     byte[] Servers(EnterpriseServerReportFilter filter);
     byte[] Incidents(EnterpriseIncidentReportFilter filter);
     byte[] History(Guid registrationId, TimeSpan window);
+    byte[] FleetDecisionSupport();
     byte[] Audit();
     byte[] Manifest();
 }
@@ -178,6 +179,12 @@ public sealed class EnterpriseReportingService(
         return EnterpriseReportContract.Csv(
             ["RegistrationId", "CollectedAtUtc", "DatabaseOnline", "DatabaseTotal", "MemoryPercent", "BlockedRequests", "RunnableTasks", "Freshness"],
             rows);
+    }
+
+    public byte[] FleetDecisionSupport()
+    {
+        var snapshot = new FleetIntelligenceService(registrations, cache, operatorMetadata, incidents, timeProvider).Read();
+        return Monitor.Web.Services.FleetDecisionSupportExport.Build(snapshot);
     }
 
     public byte[] Audit()

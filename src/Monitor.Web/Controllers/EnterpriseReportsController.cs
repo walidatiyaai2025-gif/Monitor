@@ -49,6 +49,13 @@ public sealed class EnterpriseReportsController : Controller
         return Download(bytes, "text/csv; charset=utf-8", EnterpriseDownloadSubject.History, "csv");
     }
 
+    [HttpGet("/reports/fleet-decision-support.csv")]
+    public IActionResult FleetDecisionSupport()
+    {
+        var bytes = _reports.FleetDecisionSupport();
+        return Download(bytes, "text/csv; charset=utf-8", EnterpriseDownloadSubject.FleetDecisionSupport, "csv");
+    }
+
     [HttpGet("/reports/audit.csv")]
     [Authorize(Policy = MonitorPolicies.Manage)]
     public IActionResult Audit()
