@@ -85,6 +85,7 @@ public interface IEnterpriseReportingService
     byte[] FleetDecisionSupport();
     byte[]? MaintenanceDecision(Guid registrationId, string? operation);
     byte[] BackupHealth();
+    byte[] SqlAgentHealth();
     byte[] Audit();
     byte[] Manifest();
 }
@@ -236,6 +237,71 @@ public sealed class EnterpriseReportingService(
             });
 
         return BackupHealthSummaryExport.Build(rows);
+    }
+
+    public byte[] SqlAgentHealth()
+    {
+        var rows = registrations.GetAll()
+            .Where(registration => registration.IsEnabled)
+            .OrderBy(registration => registration.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(registration => registration.Id)
+            .Select(registration =>
+            {
+                try
+                {
+                    var cached = cache.Peek(registration.Id);
+                    var jobs = cached?.Snapshot.Jobs;
+                    var historyAvailable = jobs?.RecentRuns is { Count: > 0 };
+                    var top = historyAvailable ? AgentReliabilityProjection.Build(jobs, 1).FirstOrDefault() : null;
+                    var activityRows = jobs?.Schedules is { Count: > 0 } schedules ? schedules : null;
+
+                    return new SqlAgentHealthSummaryExportRow(
+                        registration.DisplayName,
+                        cached?.Freshness.ToString() ?? "Unavailable",
+                        cached?.Snapshot.CollectedAtUtc,
+                        jobs?.TotalJobs,
+                        jobs?.EnabledJobs,
+                        jobs?.FailedLastRun,
+                        historyAvailable ? "Available" : "Unavailable",
+                        top?.Score,
+                        top?.Severity.ToString(),
+                        top?.SuccessRatePercent,
+                        top?.FailureStreak,
+                        top is null ? null : top.P95Duration.TotalSeconds,
+                        top?.DurationRegressionPercent,
+                        top?.AlertWorthy,
+                        top?.RunsEvaluated,
+                        activityRows is null ? "Unavailable" : "Available",
+                        activityRows?.Count,
+                        activityRows?.Count(item => item.IsRunning),
+                        activityRows is null ? "Unavailable" : "NotEvaluated");
+                }
+                catch (SnapshotCollectionException)
+                {
+                    return new SqlAgentHealthSummaryExportRow(
+                        registration.DisplayName,
+                        "Unavailable",
+                        null,
+                        null,
+                        null,
+                        null,
+                        "Unavailable",
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        "Unavailable",
+                        null,
+                        null,
+                        "Unavailable");
+                }
+            });
+
+        return SqlAgentHealthSummaryExport.Build(rows);
     }
 
     public byte[] Audit()
