@@ -63,8 +63,9 @@ public static class DatabaseHealthExport
         {
             var aggregateAvailable = server.Source is ServerDataSource.LiveFresh or ServerDataSource.LiveStale or ServerDataSource.Demo;
             var detail = aggregateAvailable ? server.Databases : null;
+            var aggregateDetailAvailable = detail is not null;
             var projection = DatabaseStateProjection.Build(detail);
-            var detailAvailable = projection.HasEvidence;
+            var retainedDetailAvailable = projection.HasEvidence;
 
             rows.Add(Row(
                 "Server",
@@ -73,16 +74,16 @@ public static class DatabaseHealthExport
                 aggregateAvailable ? server.AgeSeconds.ToString(CultureInfo.InvariantCulture) : "Unavailable",
                 aggregateAvailable ? server.DatabaseOnline.ToString(CultureInfo.InvariantCulture) : "Unavailable",
                 aggregateAvailable ? server.DatabaseTotal.ToString(CultureInfo.InvariantCulture) : "Unavailable",
-                detailAvailable ? "Available" : "Unavailable",
-                detailAvailable ? projection.WorstObserved.ToString() : "Unavailable",
-                detailAvailable ? projection.ActionableCount.ToString(CultureInfo.InvariantCulture) : "Unavailable",
-                detailAvailable ? projection.UnknownCount.ToString(CultureInfo.InvariantCulture) : "Unavailable",
-                detailAvailable ? detail!.Restoring.ToString(CultureInfo.InvariantCulture) : "Unavailable",
-                detailAvailable ? detail!.Recovering.ToString(CultureInfo.InvariantCulture) : "Unavailable",
-                detailAvailable ? detail!.RecoveryPending.ToString(CultureInfo.InvariantCulture) : "Unavailable",
-                detailAvailable ? detail!.Suspect.ToString(CultureInfo.InvariantCulture) : "Unavailable",
-                detailAvailable ? detail!.Emergency.ToString(CultureInfo.InvariantCulture) : "Unavailable",
-                detailAvailable ? detail!.OfflineOrOther.ToString(CultureInfo.InvariantCulture) : "Unavailable",
+                retainedDetailAvailable ? "Available" : "Unavailable",
+                retainedDetailAvailable ? projection.WorstObserved.ToString() : "Unavailable",
+                retainedDetailAvailable ? projection.ActionableCount.ToString(CultureInfo.InvariantCulture) : "Unavailable",
+                retainedDetailAvailable ? projection.UnknownCount.ToString(CultureInfo.InvariantCulture) : "Unavailable",
+                aggregateDetailAvailable ? detail!.Restoring.ToString(CultureInfo.InvariantCulture) : "Unavailable",
+                aggregateDetailAvailable ? detail!.Recovering.ToString(CultureInfo.InvariantCulture) : "Unavailable",
+                aggregateDetailAvailable ? detail!.RecoveryPending.ToString(CultureInfo.InvariantCulture) : "Unavailable",
+                aggregateDetailAvailable ? detail!.Suspect.ToString(CultureInfo.InvariantCulture) : "Unavailable",
+                aggregateDetailAvailable ? detail!.Emergency.ToString(CultureInfo.InvariantCulture) : "Unavailable",
+                aggregateDetailAvailable ? detail!.OfflineOrOther.ToString(CultureInfo.InvariantCulture) : "Unavailable",
                 null));
         }
 
