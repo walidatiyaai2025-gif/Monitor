@@ -7,23 +7,28 @@ public sealed class B800FleetDecisionSupportSurfaceTests
     private static readonly string Root = FindRoot();
 
     [Fact]
-    public void FleetService_UsesBoundedActiveIncidentsAndOperatorPolicyFactsOnly()
+    public void FleetService_UsesBoundedIncidentsAndExplicitOperatorPolicyAvailability()
     {
         var service = Read("src/Monitor.Web/Services/FleetIntelligenceService.cs");
 
         Assert.Contains("BoundedIncidentReadModel.ActiveForRegistrations", service, StringComparison.Ordinal);
-        Assert.Contains("incidentRead.IsComplete", service, StringComparison.Ordinal);
-        Assert.Contains("item.Server.Suppressed", service, StringComparison.Ordinal);
-        Assert.Contains("item.Server.Maintenance", service, StringComparison.Ordinal);
-        Assert.Contains("ReadAssignee(item.Incident.Id)", service, StringComparison.Ordinal);
+        Assert.Contains("OperatorPolicyReadService", service, StringComparison.Ordinal);
+        Assert.Contains("operatorPolicy.GetServers", service, StringComparison.Ordinal);
+        Assert.Contains("operatorPolicy.GetIncidents", service, StringComparison.Ordinal);
+        Assert.Contains("PolicyReadable", service, StringComparison.Ordinal);
+        Assert.Contains("incidentRead.IsComplete && incidentPolicyEvidenceComplete", service, StringComparison.Ordinal);
+        Assert.Contains("item.Server!.Policy.Environment", service, StringComparison.Ordinal);
         Assert.Contains("FleetDecisionSupport.Build", service, StringComparison.Ordinal);
+        Assert.DoesNotContain("ReadAssignee", service, StringComparison.Ordinal);
+        Assert.DoesNotContain("operatorMetadata.GetServer", service, StringComparison.Ordinal);
+        Assert.DoesNotContain("operatorMetadata.GetIncident", service, StringComparison.Ordinal);
         Assert.DoesNotContain("incidents.GetAll()", service, StringComparison.Ordinal);
         Assert.DoesNotContain("SqlConnection", service, StringComparison.Ordinal);
         Assert.DoesNotContain("SnapshotQuery", service, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void DecisionSupportSurface_IsReadOnlyExplicitlyNonExecutingAndTruthfulOnOverflow()
+    public void DecisionSupportSurface_IsReadOnlyExplicitlyNonExecutingAndTruthfulOnIncompleteEvidence()
     {
         var view = Read("src/Monitor.Web/Views/Shared/_FleetDecisionSupport.cshtml");
         var fleet = Read("src/Monitor.Web/Views/FleetIntelligence/Index.cshtml");
@@ -34,7 +39,12 @@ public sealed class B800FleetDecisionSupportSurfaceTests
         Assert.Contains("_FleetDecisionSupport", fleet, StringComparison.Ordinal);
         Assert.Contains("Fleet decision support not evaluated", fleet, StringComparison.Ordinal);
         Assert.Contains("partial incident set", fleet, StringComparison.Ordinal);
+        Assert.Contains("Some fleet policy facts are unavailable", fleet, StringComparison.Ordinal);
+        Assert.Contains("maintenance and suppression totals are withheld", fleet, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Operator metadata required for one or more active incidents is unavailable", fleet, StringComparison.Ordinal);
+        Assert.Contains("an unavailable metadata read is a different state", fleet, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Rule hot-spots are unavailable", fleet, StringComparison.Ordinal);
+        Assert.Contains("required operator policy metadata could not be read", fleet, StringComparison.Ordinal);
         Assert.DoesNotContain("method=\"post\"", view, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("asp-action=\"Send", view, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("asp-action=\"Page", view, StringComparison.OrdinalIgnoreCase);
