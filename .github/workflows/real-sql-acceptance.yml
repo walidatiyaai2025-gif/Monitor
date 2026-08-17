@@ -10,6 +10,7 @@ on:
       - 'scripts/sql/monitored_sql_least_privilege.sql'
       - 'src/Monitor.Web/Models/**'
       - 'src/Monitor.Web/Services/EnterpriseOperatorServices.cs'
+      - 'src/Monitor.Web/Services/GovernedSqlSnapshotQuery.cs'
       - 'src/Monitor.Web/Services/SqlConnectionStringFactory.cs'
       - 'src/Monitor.Web/Services/SqlConnectionTester.cs'
       - 'src/Monitor.Web/Services/SqlServerSnapshotCollector.cs'
