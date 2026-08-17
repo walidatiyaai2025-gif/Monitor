@@ -31,7 +31,7 @@ public sealed class MaintenanceDecisionSupportController(
             incident.RegistrationId == id &&
             incident.Status != IncidentStatus.Resolved &&
             incident.Severity == FindingSeverity.Critical);
-        var selectedOperation = Batch400MaintenanceSafety.NormalizeOperation(operation);
+        var selectedOperation = MaintenanceDecisionSupport.NormalizeOperation(operation);
         var evidence = new MaintenanceDecisionEvidence(
             selectedOperation,
             metadata.Environment == ServerEnvironmentClass.Production,
