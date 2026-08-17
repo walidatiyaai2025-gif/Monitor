@@ -24,7 +24,7 @@ public sealed class PortalController(
     public async Task<IActionResult> Performance(CancellationToken cancellationToken) =>
         View(new HealthModulePageViewModel(
             "Performance Health",
-            "Bounded request, runnable-task and pending-I/O facts from the shared cached snapshot.",
+            "Cached request, scheduler, pending-I/O and bounded wait-stat evidence. Wait counters are cumulative since SQL Server start and normalized by collected uptime; GET navigation does not collect.",
             await monitoring.GetHealthModulesAsync(cancellationToken)));
 
     [HttpGet("/recommendations")]
