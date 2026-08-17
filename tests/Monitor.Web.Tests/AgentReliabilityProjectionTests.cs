@@ -46,7 +46,7 @@ public sealed class AgentReliabilityProjectionTests
     }
 
     [Fact]
-    public void JobsView_WiresHistoryReliabilityAndKeepsCommandsOut()
+    public void JobsView_WiresHistoryAndCurrentActivityWithoutInventingLateness()
     {
         var root = FindRoot();
         var view = File.ReadAllText(Path.Combine(root, "src/Monitor.Web/Views/Operations/Jobs.cshtml"));
@@ -54,9 +54,14 @@ public sealed class AgentReliabilityProjectionTests
 
         Assert.Contains("AgentReliabilityProjection.Build", view, StringComparison.Ordinal);
         Assert.Contains("B400 AGENT RELIABILITY", view, StringComparison.Ordinal);
-        Assert.Contains("Schedule lateness is", view, StringComparison.Ordinal);
-        Assert.Contains("not evaluated", view, StringComparison.Ordinal);
+        Assert.Contains("CURRENT AGENT ACTIVITY", view, StringComparison.Ordinal);
+        Assert.Contains("server-local wall clock", view, StringComparison.Ordinal);
+        Assert.Contains("Evidence only · lateness not evaluated", view, StringComparison.Ordinal);
+        Assert.Contains("does not convert the value to UTC or classify it as late/on-time", view, StringComparison.Ordinal);
+        Assert.Contains("scheduleUnavailable > 0 ? \"warning\" : \"healthy\"", view, StringComparison.Ordinal);
+        Assert.Contains("historyUnavailable > 0 ? \"warning\" : \"healthy\"", view, StringComparison.Ordinal);
         Assert.Contains("msdb.dbo.sysjobhistory", collector, StringComparison.Ordinal);
+        Assert.Contains("msdb.dbo.sysjobactivity", collector, StringComparison.Ordinal);
         Assert.DoesNotContain("sysjobsteps", collector, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("command_text", collector, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("SqlConnection", view, StringComparison.OrdinalIgnoreCase);
