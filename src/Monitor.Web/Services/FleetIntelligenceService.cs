@@ -24,7 +24,8 @@ public sealed record FleetIntelligenceSnapshot(
     int Suppressed,
     IReadOnlyList<FleetRuleHotspot> RuleHotspots,
     FleetRiskSummary Risks,
-    FleetAdvancedEvidenceSummary? Advanced = null);
+    FleetAdvancedEvidenceSummary? Advanced = null,
+    FleetDecisionSupportSnapshot? DecisionSupport = null);
 
 public interface IFleetIntelligenceService
 {
@@ -70,7 +71,7 @@ public sealed class FleetIntelligenceService(
             .Select(incident =>
             {
                 var server = servers.FirstOrDefault(item => item.Id == incident.RegistrationId);
-                return (Incident: incident, Suppressed: server?.Suppressed ?? false);
+                return (Incident: incident, Server: server, Suppressed: server?.Suppressed ?? false);
             })
             .ToArray();
         var hotspots = incidentRows
@@ -101,6 +102,19 @@ public sealed class FleetIntelligenceService(
             servers.Sum(item => item.Snapshot?.Snapshot.Ha?.DatabaseReplicas?.Count(database => database.IsSuspended == true) ?? 0),
             servers.Count(item => item.Snapshot?.Freshness == SnapshotFreshness.Stale && HasAdvancedEvidence(item.Snapshot.Snapshot)));
 
+        var decisionSupport = FleetDecisionSupport.Build(incidentRows
+            .Where(item => item.Server is not null)
+            .Select(item => new FleetDecisionIncident(
+                item.Incident.Id,
+                item.Incident.RegistrationId,
+                item.Incident.RuleId,
+                item.Incident.Severity,
+                item.Incident.LastSeenUtc,
+                item.Server!.Environment,
+                item.Server.Suppressed,
+                item.Server.Maintenance,
+                ReadAssignee(item.Incident.Id))));
+
         return new(
             byEnvironment,
             byGroup,
@@ -112,7 +126,24 @@ public sealed class FleetIntelligenceService(
             servers.Count(item => item.Suppressed),
             hotspots,
             risks,
-            advanced);
+            advanced,
+            decisionSupport);
+    }
+
+    private string? ReadAssignee(string incidentId)
+    {
+        try
+        {
+            return operatorMetadata.GetIncident(incidentId).Assignee;
+        }
+        catch (InvalidDataException)
+        {
+            return null;
+        }
+        catch (SharedStateStoreUnavailableException)
+        {
+            return null;
+        }
     }
 
     private static bool HasAdvancedEvidence(ServerHealthSnapshot snapshot) =>
