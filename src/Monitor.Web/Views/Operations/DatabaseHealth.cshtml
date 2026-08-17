@@ -14,6 +14,7 @@
         .Select(server => new { Server = server, Projection = DatabaseStateProjection.Build(server.Databases) })
         .ToArray();
     var actionableObserved = projections.Sum(item => item.Projection.ActionableCount);
+    var perDatabaseUnavailable = projections.Count(item => item.Server.Source == ServerDataSource.RegisteredUnavailable || !item.Projection.HasEvidence);
     var worstObserved = projections
         .Where(item => item.Projection.HasEvidence)
         .SelectMany(item => item.Projection.Items)
@@ -33,11 +34,11 @@
 else
 {
     <section class="health-command-summary" aria-label="Database health summary">
-        <article class="health-command-card hero state-@(suspect + emergency > 0 ? "critical" : restoring + recovering > 0 ? "warning" : "healthy")"><div><small>DATABASE AVAILABILITY</small><strong>@onlineDatabases / @totalDatabases</strong><span>Online databases in available cached snapshots</span></div></article>
-        <article class="health-command-card state-@(actionableObserved > 0 ? "critical" : "healthy")"><small>ACTIONABLE STATES</small><strong>@actionableObserved</strong><span>Bounded user-DB rows classified by B300</span></article>
+        <article class="health-command-card hero state-@(suspect + emergency > 0 ? "critical" : restoring + recovering > 0 || unavailable > 0 ? "warning" : "healthy")"><div><small>DATABASE AVAILABILITY</small><strong>@onlineDatabases / @totalDatabases</strong><span>Online databases in available cached snapshots</span></div></article>
+        <article class="health-command-card state-@(actionableObserved > 0 ? "critical" : perDatabaseUnavailable > 0 ? "warning" : "healthy")"><small>ACTIONABLE STATES</small><strong>@actionableObserved</strong><span>@(perDatabaseUnavailable > 0 ? $"{perDatabaseUnavailable} server(s) lack retained per-database evidence" : "Bounded user-DB rows classified by B300")</span></article>
         <article class="health-command-card state-@(estateWorst is DatabaseStateClass.Suspect or DatabaseStateClass.RecoveryPending or DatabaseStateClass.Emergency or DatabaseStateClass.Offline ? "critical" : estateWorst is DatabaseStateClass.Recovering or DatabaseStateClass.Restoring or DatabaseStateClass.Unknown ? "warning" : "healthy")"><small>WORST OBSERVED</small><strong>@estateWorst</strong><span>Worst class among retained database-state evidence</span></article>
         <article class="health-command-card state-@(restoring + recovering > 0 ? "warning" : "healthy")"><small>RECOVERY / RESTORE</small><strong>@(restoring + recovering)</strong><span>Restoring, recovering or recovery-pending aggregate evidence</span></article>
-        <article class="health-command-card state-@(unavailable > 0 ? "offline" : "healthy")"><small>DETAIL UNAVAILABLE</small><strong>@unavailable</strong><span>Servers with no database detail evidence</span></article>
+        <article class="health-command-card state-@(unavailable > 0 ? "offline" : "healthy")"><small>DETAIL UNAVAILABLE</small><strong>@unavailable</strong><span>Servers with no aggregate database detail evidence</span></article>
     </section>
 
     <section class="glass-panel table-panel health-surface-panel">
