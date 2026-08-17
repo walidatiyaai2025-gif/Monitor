@@ -56,6 +56,15 @@ function Read-CanonicalChecksum {
     return $Matches['hash'].ToLowerInvariant()
 }
 
+$requiredOperatorToolingFiles = @(
+    'New-ProductionAcceptanceSession.ps1',
+    'New-ProductionAcceptanceEvidencePack.ps1',
+    'Test-ProductionAcceptanceSessionBinding.ps1',
+    'Set-ProductionAcceptanceGate.ps1',
+    'Complete-ProductionAcceptance.ps1',
+    'Test-ProductionAcceptanceEvidence.ps1'
+)
+
 if (-not (Test-Path -LiteralPath $EvidencePath -PathType Leaf)) {
     throw "Evidence pack was not found: $EvidencePath"
 }
@@ -109,6 +118,7 @@ Assert-ExactProperties -Value $manifest -Allowed @(
     'sourceCommit',
     'testedMergeCommit',
     'operatorToolingCommit',
+    'operatorToolingFiles',
     'hostName',
     'siteName',
     'appPoolName',
@@ -144,6 +154,23 @@ if ([string]$manifest.sourceCommit -notmatch '^[a-fA-F0-9]{40}$' -or [string]$ma
 $operatorToolingCommit = ([string]$manifest.operatorToolingCommit).ToLowerInvariant()
 if ($operatorToolingCommit -notmatch '^[a-f0-9]{40}$') {
     throw 'Session manifest operatorToolingCommit must be a full 40-hex repository commit SHA.'
+}
+
+Assert-ExactProperties -Value $manifest.operatorToolingFiles -Allowed $requiredOperatorToolingFiles -Path '$manifest.operatorToolingFiles'
+foreach ($toolName in $requiredOperatorToolingFiles) {
+    $expectedToolHash = ([string]$manifest.operatorToolingFiles.PSObject.Properties[$toolName].Value).ToLowerInvariant()
+    if ($expectedToolHash -notmatch '^[a-f0-9]{64}$') {
+        throw "Session manifest operatorToolingFiles.$toolName must be a 64-hex SHA-256."
+    }
+
+    $actualToolPath = Join-Path $PSScriptRoot $toolName
+    if (-not (Test-Path -LiteralPath $actualToolPath -PathType Leaf)) {
+        throw "Acceptance Control Toolkit sidecar file is missing: $toolName"
+    }
+    $actualToolHash = (Get-FileHash -LiteralPath $actualToolPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($actualToolHash -ne $expectedToolHash) {
+        throw "Acceptance Control Toolkit sidecar file hash does not match the locked session manifest: $toolName"
+    }
 }
 
 $expectedArtifactName = "Monitor-$($manifest.candidateVersion)-win-x64.zip"
@@ -217,6 +244,7 @@ foreach ($pair in $identityPairs) {
     SessionManifestSha256 = $expectedManifestHash
     SelectedProductSha256 = $selectedProductHash
     OperatorToolingCommit = $operatorToolingCommit
+    OperatorToolingFileCount = $requiredOperatorToolingFiles.Count
     CandidateArtifact = $candidateArtifactPath
     EvidencePack = $resolvedEvidencePath
     ProofRoot = $proofRoot
