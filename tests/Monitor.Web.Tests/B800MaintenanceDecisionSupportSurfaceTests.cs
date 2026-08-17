@@ -27,20 +27,22 @@ public sealed class B800MaintenanceDecisionSupportSurfaceTests
     public void Controller_UsesExplicitPolicyAvailabilityAndBoundedIncidentEvidenceWithoutSnapshotOrSqlCollection()
     {
         var source = Read("src/Monitor.Web/Controllers/MaintenanceDecisionSupportController.cs");
+        var evidenceBuilder = Read("src/Monitor.Web/Services/MaintenanceDecisionSupport.cs");
 
         Assert.Contains("IOperatorPolicyReadService operatorPolicy", source, StringComparison.Ordinal);
         Assert.Contains("operatorPolicy.GetServer(id)", source, StringComparison.Ordinal);
-        Assert.Contains("policy.PolicyReadable", source, StringComparison.Ordinal);
-        Assert.Contains("IsProduction: policy.PolicyReadable", source, StringComparison.Ordinal);
-        Assert.Contains("ObservedMaintenanceWindowActive: policy.PolicyReadable", source, StringComparison.Ordinal);
         Assert.Contains("BoundedIncidentReadModel.ActiveForServer(incidents, id)", source, StringComparison.Ordinal);
-        Assert.Contains("incidentRead.IsComplete", source, StringComparison.Ordinal);
-        Assert.Contains("FindingSeverity.Critical", source, StringComparison.Ordinal);
-        Assert.Contains("InApprovedWindow: null", source, StringComparison.Ordinal);
-        Assert.Contains("HasApproval: null", source, StringComparison.Ordinal);
-        Assert.Contains("HasRollbackPlan: null", source, StringComparison.Ordinal);
-        Assert.Contains("ReplicaHealthy: null", source, StringComparison.Ordinal);
-        Assert.Contains("RecentBackupAvailable: null", source, StringComparison.Ordinal);
+        Assert.Contains("MaintenanceDecisionSupport.BuildEvidence(selectedOperation, policy, incidentRead)", source, StringComparison.Ordinal);
+        Assert.Contains("incidentRead.IsComplete", evidenceBuilder, StringComparison.Ordinal);
+        Assert.Contains("FindingSeverity.Critical", evidenceBuilder, StringComparison.Ordinal);
+        Assert.Contains("policy.PolicyReadable", evidenceBuilder, StringComparison.Ordinal);
+        Assert.Contains("IsProduction: policy.PolicyReadable", evidenceBuilder, StringComparison.Ordinal);
+        Assert.Contains("ObservedMaintenanceWindowActive: policy.PolicyReadable", evidenceBuilder, StringComparison.Ordinal);
+        Assert.Contains("InApprovedWindow: null", evidenceBuilder, StringComparison.Ordinal);
+        Assert.Contains("HasApproval: null", evidenceBuilder, StringComparison.Ordinal);
+        Assert.Contains("HasRollbackPlan: null", evidenceBuilder, StringComparison.Ordinal);
+        Assert.Contains("ReplicaHealthy: null", evidenceBuilder, StringComparison.Ordinal);
+        Assert.Contains("RecentBackupAvailable: null", evidenceBuilder, StringComparison.Ordinal);
         Assert.DoesNotContain("operatorMetadata.GetServer", source, StringComparison.Ordinal);
         Assert.DoesNotContain("IOperatorMetadataStore", source, StringComparison.Ordinal);
         Assert.DoesNotContain("incidents.GetAll()", source, StringComparison.Ordinal);
