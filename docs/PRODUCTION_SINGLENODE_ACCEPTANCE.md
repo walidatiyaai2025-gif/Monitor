@@ -2,7 +2,7 @@
 
 Issue: #116  
 Dependency: P0.4 / #115 COMPLETE  
-Retention prerequisite: #162 — manual RC.61 promotion + separate read-only durable verification  
+Retention prerequisite: #162 — Step 0 fail-closed preflight + manual RC.61 promotion + separate read-only durable verification  
 Scope: first production activation only; `Deployment:Mode=SingleNode`.
 
 This document is the operator evidence record for the first IIS/HTTPS production cutover. Repository CI can prove package, configuration and recovery contracts, but it cannot truthfully close #116 without exercising the actual Windows/IIS environment. **#116 must remain OPEN until the external evidence pack validates 15/15 required production gates and the real operator explicitly finalizes that evidence.**
@@ -37,6 +37,25 @@ For RC.61 the selected identity is:
 
 Complete this **before** production backup/session/deployment steps. Durable retention is a repository/recoverability prerequisite; it is not one of the 15 real environment PASS gates.
 
+### 0. Run the read-only fail-closed RC.61 preflight
+
+From an authenticated operator environment with GitHub CLI (`gh`) available, run:
+
+```powershell
+./scripts/Test-Rc61DurablePromotionPreflight.ps1
+```
+
+Proceed to the first publication attempt only when the returned state is exactly consistent with all four conditions:
+
+- `Status = READY_FOR_EXPLICIT_MANUAL_PROMOTION`
+- `MutatedGitHubState = False`
+- `TagExists = False`
+- `ReleaseExists = False`
+
+The preflight is pinned to the exact Monitor repository, RC.61 version, source run, artifact ID, outer artifact digest, product SHA-256, source head, tested merge and release tag. It verifies repository/default-branch identity plus source-run/artifact provenance and expiry without mutating GitHub state. Only an actual 404 is treated as tag/release absence; authentication, network or API ambiguity fails closed.
+
+If the preflight reports existing durable state, an expired artifact, provenance/digest drift, or ambiguous GitHub probing, **stop and investigate; do not dispatch promotion**.
+
 ### 1. Promote the exact existing candidate
 
 Manually dispatch `.github/workflows/promote-existing-candidate.yml` **from `main`** using exactly the RC.61 inputs in `deploy/RC61_DURABLE_PROMOTION.md`:
@@ -64,9 +83,9 @@ After promotion is Green, separately dispatch `.github/workflows/verify-durable-
 
 The verifier is read-only (`contents: read`) and must independently confirm immutable tag provenance, exact-two release assets, asset metadata/digests/downloaded bytes and canonical checksum.
 
-Do not proceed to cutover until #162 is ready to close: both runs are Green, tag `v0.1.0-rc.61` resolves to the approved tested merge, the release contains exactly `Monitor-0.1.0-rc.61-win-x64.zip` plus `Monitor-0.1.0-rc.61-win-x64.zip.sha256`, and the durable ZIP hash matches the selected product hash.
+Do not proceed to cutover until #162 is ready to close: the Step 0 preflight is clean, both workflow runs are Green, tag `v0.1.0-rc.61` resolves to the approved tested merge, the release contains exactly `Monitor-0.1.0-rc.61-win-x64.zip` plus `Monitor-0.1.0-rc.61-win-x64.zip.sha256`, and the durable ZIP hash matches the selected product hash.
 
-**Neither successful promotion nor successful durable verification marks any external production gate PASS.** They do not deploy IIS, configure a trusted certificate/app-pool identity, exercise the production SQL target, prove recycle durability or validate rollback.
+**Neither successful preflight, successful promotion nor successful durable verification marks any external production gate PASS.** They do not deploy IIS, configure a trusted certificate/app-pool identity, exercise the production SQL target, prove recycle durability or validate rollback.
 
 ## Pre-cutover environment evidence
 
@@ -177,10 +196,9 @@ Before recording any gate, `$acceptanceTools\Test-ProductionAcceptanceSessionBin
 - the evidence pack candidate version/source/tested-merge/artifact/hash and environment identity still match the locked session.
 
 A pack-only, session-manifest, toolkit-manifest/lock, candidate-byte, modified-tooling, missing-tooling or substituted-sidecar change therefore fails closed before a gate PASS can be recorded or final acceptance committed.
-
 ## Deployment procedure
 
-1. Confirm #162 durable promotion and separate read-only durable verification are Green for the exact selected RC.61 identity.
+1. Confirm the Step 0 RC.61 preflight is clean and #162 durable promotion plus separate read-only durable verification are Green for the exact selected RC.61 identity.
 2. Obtain the exact selected candidate bytes and verify their SHA-256 against the independently verified durable release.
 3. Create and validate the operational backup and preserve the previous release as the rollback point.
 4. Export the exact reviewed Acceptance Control Toolkit from the independently selected commit, independently verify its toolkit-manifest SHA-256, preserve `$operatorToolingCommit` and `$operatorToolkitManifestSha256`, then create the immutable acceptance session above.
