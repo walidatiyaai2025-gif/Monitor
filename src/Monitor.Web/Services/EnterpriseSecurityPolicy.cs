@@ -11,6 +11,7 @@ public enum EnterpriseDownloadSubject
     MaintenanceDecisionSupport,
     ServerIntelligence,
     DatabaseHealth,
+    MemoryHealth,
     Audit,
     Manifest,
     Diagnostics
