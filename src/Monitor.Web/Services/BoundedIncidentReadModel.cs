@@ -33,25 +33,21 @@ public static class BoundedIncidentReadModel
             throw new ArgumentOutOfRangeException(nameof(limit), $"Incident read limit must be between 1 and {MaximumLimit}.");
         }
 
-        var ids = registrationIds.Where(id => id != Guid.Empty).ToHashSet();
+        var ids = registrationIds.ToHashSet();
+        if (ids.Contains(Guid.Empty))
+        {
+            throw new ArgumentException("Incident registration scope cannot contain an empty ID.", nameof(registrationIds));
+        }
         if (ids.Count == 0)
         {
             return new([], true, limit);
         }
 
-        // IHealthIncidentRepository.GetAll() is a legacy storage contract. This projection
-        // deliberately bounds the evidence admitted into operator decisions and makes
-        // overflow explicit. Storage-level server-scoped querying is a separate follow-up.
-        var rows = repository.GetAll()
-            .Where(incident => ids.Contains(incident.RegistrationId) && incident.Status != IncidentStatus.Resolved)
-            .OrderByDescending(incident => incident.Severity)
-            .ThenByDescending(incident => incident.LastSeenUtc)
-            .ThenBy(incident => incident.RuleId, StringComparer.Ordinal)
-            .ThenBy(incident => incident.Id, StringComparer.Ordinal)
-            .Take(limit + 1)
-            .ToArray();
-
-        var complete = rows.Length <= limit;
-        return new(rows.Take(limit).ToArray(), complete, limit);
+        var read = repository.Read(new IncidentRepositoryQuery(
+            RegistrationIds: ids,
+            ExcludeResolved: true,
+            Offset: 0,
+            Limit: limit));
+        return new(read.Items, !read.HasMore, limit);
     }
 }
