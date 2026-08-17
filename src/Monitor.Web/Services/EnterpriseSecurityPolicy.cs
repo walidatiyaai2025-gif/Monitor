@@ -9,6 +9,7 @@ public enum EnterpriseDownloadSubject
     History,
     FleetDecisionSupport,
     MaintenanceDecisionSupport,
+    ServerIntelligence,
     Audit,
     Manifest,
     Diagnostics
