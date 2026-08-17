@@ -107,6 +107,12 @@ public sealed class EnterpriseReportsController : Controller
         return Download(_reports.SqlAgentHealth(), "text/csv; charset=utf-8", EnterpriseDownloadSubject.SqlAgentHealth, "csv");
     }
 
+    [HttpGet("/reports/performance-health.csv")]
+    public IActionResult PerformanceHealth()
+    {
+        return Download(_reports.PerformanceHealth(), "text/csv; charset=utf-8", EnterpriseDownloadSubject.PerformanceHealth, "csv");
+    }
+
     [HttpGet("/reports/audit.csv")]
     [Authorize(Policy = MonitorPolicies.Manage)]
     public IActionResult Audit()

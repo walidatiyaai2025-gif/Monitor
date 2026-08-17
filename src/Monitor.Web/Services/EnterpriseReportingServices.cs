@@ -86,6 +86,7 @@ public interface IEnterpriseReportingService
     byte[]? MaintenanceDecision(Guid registrationId, string? operation);
     byte[] BackupHealth();
     byte[] SqlAgentHealth();
+    byte[] PerformanceHealth();
     byte[] Audit();
     byte[] Manifest();
 }
@@ -302,6 +303,58 @@ public sealed class EnterpriseReportingService(
             });
 
         return SqlAgentHealthSummaryExport.Build(rows);
+    }
+
+    public byte[] PerformanceHealth()
+    {
+        var rows = registrations.GetAll()
+            .Where(registration => registration.IsEnabled)
+            .OrderBy(registration => registration.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(registration => registration.Id)
+            .Select(registration =>
+            {
+                try
+                {
+                    var cached = cache.Peek(registration.Id);
+                    var snapshot = cached?.Snapshot;
+                    var performance = snapshot?.Performance;
+                    var topWait = WaitIntelligenceProjection.Build(performance, snapshot?.UptimeSeconds, 1).FirstOrDefault();
+
+                    return new PerformanceHealthSummaryExportRow(
+                        registration.DisplayName,
+                        cached?.Freshness.ToString() ?? "Unavailable",
+                        snapshot?.CollectedAtUtc,
+                        performance?.ActiveRequests,
+                        performance?.RunnableTasks,
+                        performance?.PendingIoRequests,
+                        topWait is null ? "Unavailable" : "Available",
+                        topWait?.Category.ToString(),
+                        topWait?.Score,
+                        topWait?.Severity.ToString(),
+                        topWait?.WaitMsPerSecond,
+                        topWait?.SharePercent,
+                        topWait?.SignalPercent);
+                }
+                catch (SnapshotCollectionException)
+                {
+                    return new PerformanceHealthSummaryExportRow(
+                        registration.DisplayName,
+                        "Unavailable",
+                        null,
+                        null,
+                        null,
+                        null,
+                        "Unavailable",
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null);
+                }
+            });
+
+        return PerformanceHealthSummaryExport.Build(rows);
     }
 
     public byte[] Audit()
