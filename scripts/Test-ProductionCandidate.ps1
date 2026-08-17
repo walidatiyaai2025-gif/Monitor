@@ -24,10 +24,27 @@ $requiredFiles = @(
     'Monitor.Web.deps.json',
     'Monitor.Web.runtimeconfig.json',
     'web.config',
-    'appsettings.json'
+    'appsettings.json',
+    '_operations/scripts/Setup-MonitorServer.ps1',
+    '_operations/scripts/Install-Monitor.ps1',
+    '_operations/docs/MONITOR_SERVER_SETUP.md'
 )
 foreach ($file in $requiredFiles) {
     Assert-Condition (Test-Path -LiteralPath (Join-Path $publish $file) -PathType Leaf) "Required production file is missing: $file"
+}
+
+$bootstrapScripts = @(
+    (Join-Path $publish '_operations/scripts/Setup-MonitorServer.ps1'),
+    (Join-Path $publish '_operations/scripts/Install-Monitor.ps1')
+)
+foreach ($scriptPath in $bootstrapScripts) {
+    $tokens = $null
+    $errors = $null
+    [System.Management.Automation.Language.Parser]::ParseFile(
+        $scriptPath,
+        [ref]$tokens,
+        [ref]$errors) | Out-Null
+    Assert-Condition ($errors.Count -eq 0) "Packaged bootstrap PowerShell contains parser errors: $scriptPath :: $($errors.Message -join '; ')"
 }
 
 $forbiddenFiles = @(
