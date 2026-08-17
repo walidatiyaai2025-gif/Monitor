@@ -13,5 +13,8 @@
   </ItemGroup>
   <ItemGroup>
     <Content Update="appsettings.Development.json" CopyToPublishDirectory="Never" />
+    <Content Include="..\..\scripts\Setup-MonitorServer.ps1" Link="_operations/scripts/Setup-MonitorServer.ps1" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\scripts\Install-Monitor.ps1" Link="_operations/scripts/Install-Monitor.ps1" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\docs\MONITOR_SERVER_SETUP.md" Link="_operations/docs/MONITOR_SERVER_SETUP.md" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
