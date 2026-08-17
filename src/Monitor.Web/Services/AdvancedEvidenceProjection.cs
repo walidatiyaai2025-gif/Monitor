@@ -11,7 +11,7 @@ public sealed record TempDbDiagnostics(
     double? UsedImbalancePercent,
     double? ReadLatencyMs,
     double? WriteLatencyMs,
-    int RecommendedFileCount);
+    int? RecommendedFileCount);
 
 public sealed record TransactionLogDatabaseDiagnostics(
     string DatabaseKey,
@@ -43,6 +43,9 @@ public static class AdvancedEvidenceProjection
     {
         if (evidence is null) return null;
         var files = evidence.DataFiles?.Where(file => file.SizeBytes > 0).ToArray() ?? [];
+        var recommendedFileCount = evidence.IsTruncated
+            ? (int?)null
+            : Batch400TempDbPressure.RecommendedFileCount(evidence.LogicalCpuCount, evidence.TotalDataFiles);
         if (files.Length == 0) return new(
             0,
             evidence.TotalDataFiles,
@@ -52,7 +55,7 @@ public static class AdvancedEvidenceProjection
             null,
             null,
             null,
-            Batch400TempDbPressure.RecommendedFileCount(evidence.LogicalCpuCount, evidence.TotalDataFiles));
+            recommendedFileCount);
 
         var sizeMb = files.Select(file => file.SizeBytes / 1_048_576d).ToArray();
         var averageSize = sizeMb.Average();
@@ -85,7 +88,7 @@ public static class AdvancedEvidenceProjection
             usedImbalance,
             reads > 0 ? Math.Round(readStall / (double)reads, 2) : null,
             writes > 0 ? Math.Round(writeStall / (double)writes, 2) : null,
-            Batch400TempDbPressure.RecommendedFileCount(evidence.LogicalCpuCount, evidence.TotalDataFiles));
+            recommendedFileCount);
     }
 
     public static IReadOnlyList<TransactionLogDatabaseDiagnostics> BuildTransactionLogs(TransactionLogHealthSnapshot? evidence)
