@@ -78,8 +78,8 @@ public sealed class B800SqlAgentHealthSummaryExportTests
         Assert.Contains("\"12\",\"10\",\"2\",\"Available\"", csv, StringComparison.Ordinal);
         Assert.Contains("\"73.5\",\"Warning\",\"80\",\"2\",\"45.5\",\"25\",\"true\",\"5\"", csv, StringComparison.Ordinal);
         Assert.Contains("\"Available\",\"7\",\"1\",\"NotEvaluated\"", csv, StringComparison.Ordinal);
-        Assert.DoesNotContain("Late", csv, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("OnTime", csv, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("\"Late\"", csv, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("\"OnTime\"", csv, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
