@@ -89,6 +89,7 @@ END;
 GRANT SELECT ON dbo.backupset TO MonitorObserverMsdbRole;
 GRANT SELECT ON dbo.sysjobs TO MonitorObserverMsdbRole;
 GRANT SELECT ON dbo.sysjobservers TO MonitorObserverMsdbRole;
+GRANT SELECT ON dbo.sysjobhistory TO MonitorObserverMsdbRole;
 SET @sql = N'ALTER ROLE MonitorObserverMsdbRole ADD MEMBER ' + QUOTENAME(@MonitorLogin) + N';';
 EXEC sys.sp_executesql @sql;
 
@@ -99,10 +100,12 @@ EXEC sys.sp_executesql @sql;
   wait-type projection from sys.dm_os_wait_stats, a bounded top-12 logical-file
   I/O counter projection from sys.dm_io_virtual_file_stats, max-server-memory
   metadata, Memory Manager / Buffer Manager counters, the dominant memory-clerk
-  class, and the three msdb metadata tables above. Wait and file-I/O evidence is
-  cumulative since SQL Server start. File evidence contains database/logical-file
-  identity and counters only; physical filesystem paths are not selected. It does
-  not collect SQL text, execution plans, client identity, table data,
-  BACKUP/RESTORE, SQL Agent operator rights, DDL, IMPERSONATE, CONTROL SERVER or
-  sysadmin.
+  class, and the four msdb metadata tables above. SQL Agent run-history evidence
+  is bounded to recent job-level outcomes and contains job identity/owner,
+  success state, run ordering and duration only; job-step commands/command text
+  are not selected. Wait and file-I/O evidence is cumulative since SQL Server
+  start. File evidence contains database/logical-file identity and counters only;
+  physical filesystem paths are not selected. It does not collect SQL text,
+  execution plans, client identity, table data, BACKUP/RESTORE, SQL Agent operator
+  rights, DDL, IMPERSONATE, CONTROL SERVER or sysadmin.
 */
