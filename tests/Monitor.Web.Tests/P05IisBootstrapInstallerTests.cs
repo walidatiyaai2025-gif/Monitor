@@ -83,7 +83,7 @@ public sealed class P05IisBootstrapInstallerTests
         Assert.Contains("& net.exe stop was /y", script, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("& net.exe start w3svc", script, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("RebootRequired", script, StringComparison.Ordinal);
-        Assert.Contains("reboot before deployment", script, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Reboot the server and rerun", script, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("valid Microsoft Authenticode signature", script, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Refusing", script, StringComparison.OrdinalIgnoreCase);
 
