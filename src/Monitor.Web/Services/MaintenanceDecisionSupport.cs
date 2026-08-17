@@ -1,3 +1,5 @@
+using Monitor.Web.Models;
+
 namespace Monitor.Web.Services;
 
 public enum MaintenanceDecisionSupportStatus
@@ -32,6 +34,30 @@ public static class MaintenanceDecisionSupport
 {
     public static MaintenanceOperation NormalizeOperation(string? input) =>
         Batch400MaintenanceSafety.NormalizeOperation(input);
+
+    public static MaintenanceDecisionEvidence BuildEvidence(
+        MaintenanceOperation operation,
+        ServerOperatorPolicyState policy,
+        BoundedIncidentReadResult incidentRead)
+    {
+        ArgumentNullException.ThrowIfNull(policy);
+        ArgumentNullException.ThrowIfNull(incidentRead);
+
+        int? activeCriticalIncidents = incidentRead.IsComplete
+            ? incidentRead.Incidents.Count(incident => incident.Severity == FindingSeverity.Critical)
+            : null;
+
+        return new(
+            operation,
+            IsProduction: policy.PolicyReadable ? policy.Environment == ServerEnvironmentClass.Production : null,
+            ObservedMaintenanceWindowActive: policy.PolicyReadable ? policy.MaintenanceActive : null,
+            InApprovedWindow: null,
+            HasApproval: null,
+            HasRollbackPlan: null,
+            ActiveCriticalIncidents: activeCriticalIncidents,
+            ReplicaHealthy: null,
+            RecentBackupAvailable: null);
+    }
 
     public static MaintenanceDecisionSupportResult Evaluate(MaintenanceDecisionEvidence evidence)
     {

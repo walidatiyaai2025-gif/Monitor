@@ -56,6 +56,15 @@ public sealed class EnterpriseReportsController : Controller
         return Download(bytes, "text/csv; charset=utf-8", EnterpriseDownloadSubject.FleetDecisionSupport, "csv");
     }
 
+    [HttpGet("/reports/maintenance-decision-support/{registrationId:guid}.csv")]
+    public IActionResult MaintenanceDecisionSupport(Guid registrationId, string? operation = null)
+    {
+        EnterpriseSecurityPolicy.ValidateEnterpriseTextBudget(operation);
+        var bytes = _reports.MaintenanceDecision(registrationId, operation);
+        if (bytes is null) return NotFound();
+        return Download(bytes, "text/csv; charset=utf-8", EnterpriseDownloadSubject.MaintenanceDecisionSupport, "csv");
+    }
+
     [HttpGet("/reports/audit.csv")]
     [Authorize(Policy = MonitorPolicies.Manage)]
     public IActionResult Audit()

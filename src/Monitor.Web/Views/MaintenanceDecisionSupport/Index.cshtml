@@ -23,6 +23,14 @@
         <div class="hero-actions">
             <a class="button secondary" asp-controller="EnterpriseOperations" asp-action="Overview">Enterprise Operations</a>
             <a class="button secondary" asp-controller="Operations" asp-action="ServerDetails" asp-route-id="@Model.Registration.Id">Server Details</a>
+            @if (Model.Operation != MaintenanceOperation.Unknown)
+            {
+                <a class="button secondary"
+                   asp-controller="EnterpriseReports"
+                   asp-action="MaintenanceDecisionSupport"
+                   asp-route-registrationId="@Model.Registration.Id"
+                   asp-route-operation="@Model.Operation">Export current decision CSV</a>
+            }
         </div>
     </div>
 
@@ -47,6 +55,7 @@
             <p class="meta-line">Configured window: @window.StartsAtUtc.ToString("u") → @window.EndsAtUtc.ToString("u") · @window.Reason</p>
         }
         <div class="data-banner"><strong>TRUTH BOUNDARY</strong><span>A configured maintenance window is an observed scheduling fact only. It is not treated as approved-window evidence. Approval, rollback-plan, replica-readiness and recent-backup evidence remain unavailable unless an explicit governed source exists.</span></div>
+        <p class="meta-line">The CSV export uses the same bounded evidence and excludes target identity, incident IDs, assignees and sensitive monitored-SQL payloads.</p>
     </section>
 
     <section class="panel panel-pad" aria-labelledby="maintenance-operation-heading">
