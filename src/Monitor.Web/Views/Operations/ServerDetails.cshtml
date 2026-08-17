@@ -8,7 +8,7 @@
     var runtimePressure = intelligence.RuntimePressure;
     var runtimePressureState = runtimePressure?.Classification switch
     {
-        RuntimePressureClass.Healthy => "healthy",
+        RuntimePressureClass.Healthy => intelligence.EvidenceState == ServerIntelligenceEvidenceState.Stale ? "warning" : "healthy",
         RuntimePressureClass.Elevated => "warning",
         RuntimePressureClass.High => "warning",
         RuntimePressureClass.Critical => "critical",
@@ -133,7 +133,7 @@
 
 <section class="dashboard-grid" style="margin-top:14px" aria-labelledby="server-intelligence-title">
     <article class="glass-panel panel-span-2 ops-panel">
-        <div class="panel-heading"><div><span class="eyebrow">DBA INTELLIGENCE · BATCH-300 WIRED</span><h3 id="server-intelligence-title">Cached estate classification</h3></div><span class="snapshot-note">Deterministic projection</span></div>
+        <div class="panel-heading"><div><span class="eyebrow">DBA INTELLIGENCE · BATCH-300 WIRED</span><h3 id="server-intelligence-title">Cached estate classification</h3></div><span class="snapshot-note">@intelligence.EvidenceStateLabel</span></div>
         <div class="definition-grid">
             <div><small>Display identity</small><strong>@intelligence.DisplayLabel</strong></div>
             <div><small>SQL major</small><strong>@(intelligence.MajorVersion?.ToString() ?? "Not collected")</strong></div>
@@ -146,10 +146,10 @@
     </article>
 
     <article class="glass-panel ops-panel state-@runtimePressureState">
-        <div class="panel-heading"><div><span class="eyebrow">COMPOSITE RUNTIME PRESSURE</span><h3>Memory + blocking + scheduler + I/O</h3></div><span class="snapshot-note">@(runtimePressure?.Classification.ToString() ?? "Unavailable")</span></div>
+        <div class="panel-heading"><div><span class="eyebrow">COMPOSITE RUNTIME PRESSURE</span><h3>Memory + blocking + scheduler + I/O</h3></div><span class="snapshot-note">@intelligence.RuntimePressureStatusLabel</span></div>
         @if (runtimePressure is null)
         {
-            <p class="panel-copy"><strong>Not collected.</strong> Composite pressure requires memory, blocking and performance evidence from the cached snapshot. Missing evidence is not replaced with zero.</p>
+            <p class="panel-copy"><strong>Unavailable.</strong> Composite pressure requires usable memory, blocking and performance evidence from the cached snapshot. Missing or unavailable evidence is not replaced with zero.</p>
         }
         else
         {
@@ -158,7 +158,7 @@
                 <div><small>Classification</small><strong>@runtimePressure.Classification</strong></div>
                 <div><small>Active domains</small><strong>@intelligence.RuntimeSignalsLabel</strong></div>
             </div>
-            <p class="server-mini-note">The score is a deterministic bounded projection. It is decision support only and does not execute remediation.</p>
+            <p class="server-mini-note">The score is a deterministic bounded projection over <strong>@intelligence.EvidenceStateLabel</strong>. It is decision support only and does not execute remediation.</p>
         }
     </article>
 </section>
@@ -195,7 +195,7 @@
             <div class="definition-grid">
                 <div><small>SQL utilization</small><strong>@memory.SqlProcessMemoryUtilizationPercent%</strong></div>
                 <div><small>SQL physical memory</small><strong>@((memory.SqlProcessPhysicalMemoryKb / 1024d / 1024d).ToString("0.0")) GB</strong></div>
-                <div><small>Total physical memory</small><strong>@((memory.TotalPhysicalMemoryKb / 1024d / 1024d).ToString("0.0")) GB</strong></div>
+                <div><small>Total physical memory</small><strong>@((memory.TotalPhysicalMemoryKb / 1024d / 1024d / 1024d).ToString("0.0")) GB</strong></div>
                 <div><small>Available physical memory</small><strong>@((memory.AvailablePhysicalMemoryKb / 1024d / 1024d).ToString("0.0")) GB</strong></div>
                 <div><small>Physical memory low</small><strong>@(memory.IsPhysicalMemoryLow ? "YES" : "NO")</strong></div>
                 <div><small>Virtual memory low</small><strong>@(memory.IsVirtualMemoryLow ? "YES" : "NO")</strong></div>
