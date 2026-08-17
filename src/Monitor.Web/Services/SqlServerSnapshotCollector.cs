@@ -20,6 +20,7 @@ internal sealed record SqlSnapshotRow(
 internal sealed record SqlWaitStatRow(string WaitType, long WaitTimeMs, long SignalWaitTimeMs, long WaitingTasks);
 internal sealed record SqlIoFileRow(string FileKey, long Reads, long Writes, long ReadStallMs, long WriteStallMs, long BytesRead, long BytesWritten);
 internal sealed record SqlAgentRunRow(string JobKey, string Owner, bool Succeeded, long RunOrder, long DurationSeconds);
+internal sealed record SqlDatabaseStateRow(string Name, string State);
 internal sealed record SqlPerformanceRow(
     long ActiveRequests,
     long RunnableTasks,
@@ -33,7 +34,8 @@ internal sealed record SqlHealthModulesRow(
     long TotalAllocatedBytes, long DataAllocatedBytes, long LogAllocatedBytes,
     long BlockedRequests, long MaxWaitMilliseconds,
     IReadOnlyList<SqlIoFileRow>? IoFiles = null,
-    IReadOnlyList<SqlAgentRunRow>? AgentRuns = null);
+    IReadOnlyList<SqlAgentRunRow>? AgentRuns = null,
+    IReadOnlyList<SqlDatabaseStateRow>? DatabaseStates = null);
 
 internal sealed record SqlMemoryRow(
     long TotalPhysicalMemoryKb,
@@ -160,6 +162,7 @@ internal sealed class SqlServerSnapshotCollector(
                 var states = new[] { m.Restoring, m.Recovering, m.RecoveryPending, m.Suspect, m.Emergency, m.OfflineOrOther };
                 var ioFiles = m.IoFiles ?? [];
                 var agentRuns = m.AgentRuns ?? [];
+                var databaseStates = m.DatabaseStates ?? [];
                 if (states.Any(value => value < 0) || states.Sum() > total ||
                     m.BackedUpLast24Hours < 0 || m.MissingFullBackupLast24Hours < 0 || m.BackedUpLast24Hours + m.MissingFullBackupLast24Hours > total ||
                     m.TotalJobs < 0 || m.EnabledJobs < 0 || m.EnabledJobs > m.TotalJobs || m.FailedLastRun < 0 || m.FailedLastRun > m.TotalJobs ||
@@ -168,12 +171,21 @@ internal sealed class SqlServerSnapshotCollector(
                     ioFiles.Count > 12 ||
                     ioFiles.Any(file => string.IsNullOrWhiteSpace(file.FileKey) || file.FileKey.Length > 128 || file.Reads < 0 || file.Writes < 0 || file.ReadStallMs < 0 || file.WriteStallMs < 0 || file.BytesRead < 0 || file.BytesWritten < 0) ||
                     agentRuns.Count > 50 ||
-                    agentRuns.Any(run => string.IsNullOrWhiteSpace(run.JobKey) || run.JobKey.Length > 128 || string.IsNullOrWhiteSpace(run.Owner) || run.Owner.Length > 64 || run.RunOrder <= 0 || run.DurationSeconds < 0 || run.DurationSeconds > 31L * 24 * 60 * 60))
+                    agentRuns.Any(run => string.IsNullOrWhiteSpace(run.JobKey) || run.JobKey.Length > 128 || string.IsNullOrWhiteSpace(run.Owner) || run.Owner.Length > 64 || run.RunOrder <= 0 || run.DurationSeconds < 0 || run.DurationSeconds > 31L * 24 * 60 * 60) ||
+                    databaseStates.Count > 50 ||
+                    databaseStates.Any(database => string.IsNullOrWhiteSpace(database.Name) || database.Name.Length > 128 || string.IsNullOrWhiteSpace(database.State) || database.State.Length > 60))
                 {
                     throw new InvalidDataException("Invalid health module row.");
                 }
 
-                databases = new(checked((int)m.Restoring), checked((int)m.Recovering), checked((int)m.RecoveryPending), checked((int)m.Suspect), checked((int)m.Emergency), checked((int)m.OfflineOrOther));
+                databases = new(
+                    checked((int)m.Restoring),
+                    checked((int)m.Recovering),
+                    checked((int)m.RecoveryPending),
+                    checked((int)m.Suspect),
+                    checked((int)m.Emergency),
+                    checked((int)m.OfflineOrOther),
+                    databaseStates.Select(database => new DatabaseStateSnapshot(database.Name, database.State)).ToArray());
                 backups = new(checked((int)m.BackedUpLast24Hours), checked((int)m.MissingFullBackupLast24Hours), m.LastFullBackupAtUtc);
                 jobs = new(
                     checked((int)m.TotalJobs),
@@ -336,6 +348,13 @@ internal sealed class SqlSnapshotQuery : ISqlSnapshotQuery
               WHERE h.step_id = 0 AND h.run_date > 0
               ORDER BY h.run_date DESC, h.run_time DESC, j.name ASC
               FOR JSON PATH) AS AgentRunsJson
+            ,(select TOP (50)
+                  CONVERT(nvarchar(128), x.name) AS Name,
+                  CONVERT(nvarchar(60), x.state_desc) AS State
+              FROM sys.databases x
+              WHERE x.database_id > 4
+              ORDER BY CASE WHEN x.state = 0 THEN 1 ELSE 0 END ASC, x.name ASC
+              FOR JSON PATH) AS DatabaseStatesJson
         FROM sys.databases AS d
         CROSS JOIN sys.dm_os_sys_info AS osi
         CROSS JOIN sys.dm_os_sys_memory AS osm
@@ -406,7 +425,8 @@ internal sealed class SqlSnapshotQuery : ISqlSnapshotQuery
                     reader.GetInt64(26), reader.GetInt64(27), reader.GetInt64(28),
                     reader.GetInt64(29), reader.GetInt64(30),
                     ReadIoFiles(reader, 42),
-                    ReadAgentRuns(reader, 43)),
+                    ReadAgentRuns(reader, 43),
+                    ReadDatabaseStates(reader, 44)),
                 new SqlPerformanceRow(
                     reader.GetInt64(31),
                     reader.GetInt64(32),
@@ -441,5 +461,13 @@ internal sealed class SqlSnapshotQuery : ISqlSnapshotQuery
         var json = reader.GetString(ordinal);
         if (string.IsNullOrWhiteSpace(json)) return [];
         return JsonSerializer.Deserialize<SqlAgentRunRow[]>(json) ?? [];
+    }
+
+    private static IReadOnlyList<SqlDatabaseStateRow> ReadDatabaseStates(SqlDataReader reader, int ordinal)
+    {
+        if (reader.IsDBNull(ordinal)) return [];
+        var json = reader.GetString(ordinal);
+        if (string.IsNullOrWhiteSpace(json)) return [];
+        return JsonSerializer.Deserialize<SqlDatabaseStateRow[]>(json) ?? [];
     }
 }
