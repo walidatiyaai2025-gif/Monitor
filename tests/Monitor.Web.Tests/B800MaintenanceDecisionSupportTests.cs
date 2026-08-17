@@ -41,6 +41,25 @@ public sealed class B800MaintenanceDecisionSupportTests
     }
 
     [Fact]
+    public void UnavailableEnvironment_IsNotEvaluatedInsteadOfAssumedNonProduction()
+    {
+        var result = MaintenanceDecisionSupport.Evaluate(new MaintenanceDecisionEvidence(
+            MaintenanceOperation.StatisticsUpdate,
+            IsProduction: null,
+            ObservedMaintenanceWindowActive: null,
+            InApprovedWindow: null,
+            HasApproval: null,
+            HasRollbackPlan: null,
+            ActiveCriticalIncidents: 0,
+            ReplicaHealthy: null,
+            RecentBackupAvailable: null));
+
+        Assert.Equal(MaintenanceDecisionSupportStatus.NotEvaluated, result.Status);
+        Assert.Null(result.Decision);
+        Assert.Contains("environment-class", result.MissingInputs);
+    }
+
+    [Fact]
     public void ObservedWindow_DoesNotBecomeApprovedWindowEvidence()
     {
         var result = MaintenanceDecisionSupport.Evaluate(new MaintenanceDecisionEvidence(
