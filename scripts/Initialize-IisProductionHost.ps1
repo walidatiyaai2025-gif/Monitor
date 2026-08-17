@@ -86,12 +86,9 @@ function Get-HostingBundleState {
 
 function Assert-MicrosoftHostingBundleUrl {
     param([Uri]$Uri)
-    if ($null -eq $Uri) {
-        throw 'HostingBundleUrl is required for Online mode.'
-    }
-    if ($Uri.Scheme -ne 'https') {
-        throw 'HostingBundleUrl must use HTTPS.'
-    }
+    if ($null -eq $Uri) { throw 'HostingBundleUrl is required for Online mode.' }
+    if ($Uri.Scheme -ne 'https') { throw 'HostingBundleUrl must use HTTPS.' }
+
     $allowedHosts = @(
         'download.visualstudio.microsoft.com',
         'builds.dotnet.microsoft.com'
@@ -200,9 +197,7 @@ function Get-IisInfrastructureState {
     return [pscustomobject]$state
 }
 
-if (-not $IsWindows) {
-    throw 'Monitor IIS bootstrap is supported only on Windows Server.'
-}
+if (-not $IsWindows) { throw 'Monitor IIS bootstrap is supported only on Windows Server.' }
 Assert-ConcreteHostName -Value $HostName
 
 $usingThumbprint = -not [string]::IsNullOrWhiteSpace($CertificateThumbprint)
@@ -318,9 +313,7 @@ if (-not $Apply) {
 $rebootRequired = $false
 if ($missingFeatures.Count -gt 0) {
     $installResult = Install-WindowsFeature -Name $missingFeatures -IncludeManagementTools
-    if (-not $installResult.Success) {
-        throw 'Failed to install all required IIS roles/features.'
-    }
+    if (-not $installResult.Success) { throw 'Failed to install all required IIS roles/features.' }
     if ([string]$installResult.RestartNeeded -eq 'Yes') { $rebootRequired = $true }
 }
 
@@ -359,7 +352,7 @@ if ($usingPfx) {
         CertStoreLocation = 'Cert:\LocalMachine\My'
         Exportable = $false
     }
-    if ($null -ne $PfxPassword) { $importArgs.Password = $PfxPassword }
+    if ($null -ne $PfxPassword) { $importArgs['Password'] = $PfxPassword }
     $imported = Import-PfxCertificate @importArgs
     if ($null -eq $imported) { throw 'PFX import did not return an imported certificate.' }
     $resolvedThumbprint = Normalize-Thumbprint ([string]$imported.Thumbprint)
@@ -420,7 +413,7 @@ $bindingThumbprint = Normalize-Thumbprint ([string]$binding.certificateHash)
 if ([string]::IsNullOrWhiteSpace($bindingThumbprint)) {
     $binding.AddSslCertificate($resolvedThumbprint, 'my')
 }
-elif ($bindingThumbprint -ne $resolvedThumbprint) {
+elseif ($bindingThumbprint -ne $resolvedThumbprint) {
     throw 'Existing HTTPS binding certificate does not match the approved certificate thumbprint. Refusing to replace it implicitly.'
 }
 
@@ -455,4 +448,6 @@ $result = [pscustomobject]@{
 if ($PassThru) { return $result }
 $result | Format-List
 Write-Host 'Monitor IIS host bootstrap is ready for the authoritative Test-IisProductionPrerequisites.ps1 preflight.'
-if ($rebootRequired) { Write-Warning 'A Windows feature or Hosting Bundle installer requested a reboot. Perform the approved reboot before production cutover if required by platform policy.' }
+if ($rebootRequired) {
+    Write-Warning 'A Windows feature or Hosting Bundle installer requested a reboot. Perform the approved reboot before production cutover if required by platform policy.'
+}
