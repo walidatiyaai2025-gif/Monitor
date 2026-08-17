@@ -85,7 +85,8 @@ public sealed class P05IisBootstrapInstallerTests
         Assert.Contains("RebootRequired", script, StringComparison.Ordinal);
         Assert.Contains("Reboot the server and rerun", script, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("valid Microsoft Authenticode signature", script, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("Refusing", script, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("will not silently restart shared IIS services", script, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Bootstrap will not overwrite an unexpected binding certificate", script, StringComparison.OrdinalIgnoreCase);
 
         var pfxGuard = script.IndexOf("if (-not (Test-Path -LiteralPath $storePath))", StringComparison.Ordinal);
         var pfxImport = script.IndexOf("Import-PfxCertificate", StringComparison.Ordinal);
