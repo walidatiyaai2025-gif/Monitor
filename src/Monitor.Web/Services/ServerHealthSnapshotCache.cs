@@ -26,7 +26,7 @@ public sealed class ServerHealthSnapshotCache(
     ISqlServerSnapshotCollector collector,
     TimeProvider timeProvider,
     PerformanceScaleOptions? performance = null,
-    IConnectionSecretStore? secretStore = null) : IServerHealthSnapshotCache
+    IServiceProvider? services = null) : IServerHealthSnapshotCache
 {
     internal static readonly TimeSpan FreshFor = TimeSpan.FromSeconds(30);
     internal static readonly TimeSpan RetainStaleFor = TimeSpan.FromMinutes(5);
@@ -37,7 +37,11 @@ public sealed class ServerHealthSnapshotCache(
     private readonly ConcurrentDictionary<Guid, long> _generations = new();
     private readonly object _trimGate = new();
     private readonly int _maxEntries = ResolveCapacity(performance);
-    private readonly TempDbSnapshotQuery? _tempDbQuery = secretStore is null ? null : new TempDbSnapshotQuery(performance);
+    private readonly IConnectionSecretStore? _secretStore = services?.GetService(typeof(IConnectionSecretStore)) as IConnectionSecretStore;
+    private readonly TempDbSnapshotQuery? _tempDbQuery =
+        services?.GetService(typeof(IConnectionSecretStore)) is IConnectionSecretStore
+            ? new TempDbSnapshotQuery(performance)
+            : null;
 
     public SnapshotCacheResult? Peek(Guid registrationId)
     {
@@ -139,14 +143,14 @@ public sealed class ServerHealthSnapshotCache(
         ServerRegistration registration,
         ServerHealthSnapshot snapshot)
     {
-        if (_tempDbQuery is null || secretStore is null) return snapshot;
+        if (_tempDbQuery is null || _secretStore is null) return snapshot;
 
         try
         {
             SqlLoginSecret? secret = null;
             if (registration.AuthenticationMode == SqlAuthenticationMode.SqlLogin)
             {
-                secret = await secretStore.ResolveAsync(registration.SecretReference!.Value, CancellationToken.None);
+                secret = await _secretStore.ResolveAsync(registration.SecretReference!.Value, CancellationToken.None);
                 if (secret is null) return snapshot;
             }
 
