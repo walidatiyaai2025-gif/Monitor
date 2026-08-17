@@ -1,0 +1,50 @@
+@using Monitor.Web.Services
+@model FleetDecisionSupportSnapshot
+
+<section class="glass-panel table-panel" aria-label="Fleet correlation decision support">
+    <div class="panel-heading"><div><span class="eyebrow">CORRELATION · DECISION SUPPORT</span><h3>Open-incident clusters</h3></div><span class="snapshot-note">@Model.CorrelationWindow.TotalMinutes.ToString("0")-minute window · max @FleetDecisionSupport.MaxItems</span></div>
+    <div class="responsive-table" role="region" aria-label="Open incident correlations" tabindex="0">
+        <div class="table-head health-detail-grid health-detail-grid-six" role="row"><span>Bucket</span><span>Rule</span><span>Servers</span><span>Environment</span><span>Severity</span><span>Score</span></div>
+        @foreach (var cluster in Model.Correlations)
+        {
+            <div class="table-row health-detail-grid health-detail-grid-six" role="row">
+                <span>@cluster.BucketUtc.ToString("u")</span>
+                <strong>@cluster.DominantRule</strong>
+                <span>@cluster.AffectedServers</span>
+                <span>@string.Join(", ", cluster.Environments)</span>
+                <span>@cluster.Severity</span>
+                <span>@cluster.Score.ToString("0.##")</span>
+            </div>
+        }
+        @if (Model.Correlations.Count == 0)
+        {
+            <div class="incident-empty">No correlation clusters from current open incidents.</div>
+        }
+    </div>
+    <p class="server-mini-note">Correlation groups current open incidents by environment, rule and the B400 bounded time window. The score is decision support only and does not trigger paging, suppression, failover or remediation.</p>
+</section>
+
+<section class="glass-panel table-panel" style="margin-top:14px" aria-label="Fleet routing decision support">
+    <div class="panel-heading"><div><span class="eyebrow">ROUTING · RECOMMENDATION ONLY</span><h3>Suggested incident routes</h3></div><span class="snapshot-note">No notification is sent</span></div>
+    <div class="responsive-table" role="region" aria-label="Suggested incident routing" tabindex="0">
+        <div class="table-head health-detail-grid" role="row"><span>Incident</span><span>Rule / environment</span><span>Severity</span><span>Suggested route</span><span>Tier / cooldown</span><span>Owner</span><span>Reason</span></div>
+        @foreach (var item in Model.RoutingSuggestions)
+        {
+            var blocked = item.SuggestedRoute == AlertRoute.None;
+            <div class="table-row health-detail-grid" role="row">
+                <strong>@item.IncidentId</strong>
+                <span>@item.RuleId · @item.Environment</span>
+                <span>@item.Severity</span>
+                <span class="@(blocked ? "state-warning" : string.Empty)">@item.SuggestedRoute</span>
+                <span>T@item.EscalationTier · @item.Cooldown.TotalMinutes.ToString("0")m</span>
+                <span>@item.Owner</span>
+                <span>@item.Reason</span>
+            </div>
+        }
+        @if (Model.RoutingSuggestions.Count == 0)
+        {
+            <div class="incident-empty">No route suggestions from current open incidents.</div>
+        }
+    </div>
+    <p class="server-mini-note">Suppression and maintenance windows force the suggested route to <strong>None</strong>. These rows are deterministic recommendations from incident/operator metadata only; this page contains no sender, pager or mutation action.</p>
+</section>
