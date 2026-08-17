@@ -7,8 +7,8 @@ namespace Monitor.Web.Controllers;
 
 public sealed record MaintenanceDecisionSupportPageViewModel(
     ServerRegistration Registration,
-    ServerOperatorMetadata Metadata,
-    bool MaintenanceWindowActive,
+    ServerOperatorPolicyState Policy,
+    bool? MaintenanceWindowActive,
     MaintenanceOperation Operation,
     MaintenanceDecisionSupportResult Result,
     int? ActiveCriticalIncidents,
@@ -18,9 +18,8 @@ public sealed record MaintenanceDecisionSupportPageViewModel(
 [Authorize(Policy = MonitorPolicies.Read)]
 public sealed class MaintenanceDecisionSupportController(
     IServerRegistrationRepository registrations,
-    IOperatorMetadataStore operatorMetadata,
-    IHealthIncidentRepository incidents,
-    TimeProvider timeProvider) : Controller
+    IOperatorPolicyReadService operatorPolicy,
+    IHealthIncidentRepository incidents) : Controller
 {
     [HttpGet("/enterprise/maintenance/{id:guid}")]
     public IActionResult Index(Guid id, string? operation = null)
@@ -28,7 +27,7 @@ public sealed class MaintenanceDecisionSupportController(
         var registration = registrations.GetById(id);
         if (registration is null || !registration.IsEnabled) return NotFound();
 
-        var metadata = operatorMetadata.GetServer(id);
+        var policy = operatorPolicy.GetServer(id);
         var incidentRead = BoundedIncidentReadModel.ActiveForServer(incidents, id);
         int? activeCriticalIncidents = incidentRead.IsComplete
             ? incidentRead.Incidents.Count(incident => incident.Severity == FindingSeverity.Critical)
@@ -36,8 +35,8 @@ public sealed class MaintenanceDecisionSupportController(
         var selectedOperation = MaintenanceDecisionSupport.NormalizeOperation(operation);
         var evidence = new MaintenanceDecisionEvidence(
             selectedOperation,
-            metadata.Environment == ServerEnvironmentClass.Production,
-            EnterpriseOperatorPolicy.IsMaintenanceActive(metadata, timeProvider.GetUtcNow()),
+            IsProduction: policy.PolicyReadable ? policy.Environment == ServerEnvironmentClass.Production : null,
+            ObservedMaintenanceWindowActive: policy.PolicyReadable ? policy.MaintenanceActive : null,
             InApprovedWindow: null,
             HasApproval: null,
             HasRollbackPlan: null,
@@ -48,7 +47,7 @@ public sealed class MaintenanceDecisionSupportController(
 
         return View(new MaintenanceDecisionSupportPageViewModel(
             registration,
-            metadata,
+            policy,
             evidence.ObservedMaintenanceWindowActive,
             selectedOperation,
             result,
