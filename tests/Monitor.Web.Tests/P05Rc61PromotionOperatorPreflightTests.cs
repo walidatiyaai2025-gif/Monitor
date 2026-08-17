@@ -63,7 +63,7 @@ public sealed class P05Rc61PromotionOperatorPreflightTests
     }
 
     [Fact]
-    public void Preflight_FailsClosedOnRepositorySourceRunAndArtifactDrift()
+    public void Preflight_FailsClosedOnRepositorySourceRunArtifactAndProbeDrift()
     {
         var script = Read("scripts/Test-Rc61DurablePromotionPreflight.ps1");
 
@@ -74,6 +74,12 @@ public sealed class P05Rc61PromotionOperatorPreflightTests
         Assert.Contains("Selected artifact source provenance drifted", script, StringComparison.Ordinal);
         Assert.Contains("Selected artifact repository provenance drifted", script, StringComparison.Ordinal);
         Assert.Contains("Selected RC.61 Actions artifact is expired", script, StringComparison.Ordinal);
+        Assert.Contains("HTTP\\s+404|Not Found", script, StringComparison.Ordinal);
+        Assert.Contains("refusing to treat the error as absence", script, StringComparison.Ordinal);
+        Assert.Contains("git/ref/tags/$releaseTag", script, StringComparison.Ordinal);
+        Assert.Contains("TagExists = $tagExists", script, StringComparison.Ordinal);
+        Assert.Contains("ReleaseExists = $releaseExists", script, StringComparison.Ordinal);
+        Assert.Contains("DURABLE_STATE_EXISTS_VERIFY_OR_INVESTIGATE", script, StringComparison.Ordinal);
     }
 
     private static string Read(string relative) =>
