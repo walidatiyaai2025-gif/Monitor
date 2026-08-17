@@ -26,10 +26,10 @@ internal static class TempDbEvidenceMapper
     {
         ArgumentNullException.ThrowIfNull(row);
         var files = row.DataFiles ?? [];
+        var expectedFileRows = Math.Min(row.TotalDataFiles, TempDbSnapshotQuery.MaxFiles);
         if (row.LogicalCpuCount <= 0 ||
             row.TotalDataFiles <= 0 ||
-            files.Count > TempDbSnapshotQuery.MaxFiles ||
-            row.TotalDataFiles < files.Count ||
+            files.Count != expectedFileRows ||
             files.Select(file => file.FileId).Distinct().Count() != files.Count ||
             files.Any(file =>
                 file.FileId <= 0 ||
@@ -58,7 +58,7 @@ internal static class TempDbEvidenceMapper
                 file.Writes,
                 file.ReadStallMs,
                 file.WriteStallMs)).ToArray(),
-            row.TotalDataFiles > files.Count);
+            row.TotalDataFiles > TempDbSnapshotQuery.MaxFiles);
     }
 }
 
@@ -75,7 +75,7 @@ internal sealed class TempDbSnapshotQuery(PerformanceScaleOptions? performance =
                   CONVERT(bigint, df.size) * 8192 AS SizeBytes,
                   CASE
                       WHEN fs.file_id IS NULL THEN NULL
-                      ELSE (CONVERT(bigint, df.size) - CONVERT(bigint, fs.unallocated_extent_page_count)) * 8192
+                      ELSE (CONVERT(bigint, fs.total_page_count) - CONVERT(bigint, fs.unallocated_extent_page_count)) * 8192
                   END AS UsedBytes,
                   CONVERT(bigint, COALESCE(vfs.num_of_reads, 0)) AS Reads,
                   CONVERT(bigint, COALESCE(vfs.num_of_writes, 0)) AS Writes,
