@@ -155,7 +155,7 @@ The release artifact no longer has a weaker construction path than the selected 
 3. `release.yml` resolves/validates the tag/manual version and delegates packaging to the reusable production-candidate workflow rather than running independent publish/zip/upload steps;
 4. tagged/manual releases inherit the same Release build warnings-as-errors, full tests, production PowerShell parser, immutable-session runtime, session-bound recorder/finalizer runtime, RID-specific win-x64 publish, secret-free baseline validation, HTTPS/auth smoke before/after restart, runtime-state removal, `_operations` staging, clean-package validation and SHA-256 artifact upload;
 5. release manifest schema 2 records fixed P0.4 run IDs as `prerequisiteEvidence.p04`, while candidate-specific run evidence remains authoritative on #116;
-6. regression tests fail if independent `dotnet publish`, packaging, `upload-artifact` in `release.yml`, `gh release upload`, and `--clobber`;
+6. regression tests fail if independent release packaging or the ambiguous `realSqlAcceptance` manifest field returns;
 7. this is repository release-integrity evidence only and cannot satisfy a real IIS gate.
 
 ### Durable tagged release asset contract — #159 / PR #160 COMPLETE
