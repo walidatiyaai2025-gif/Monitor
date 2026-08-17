@@ -9,12 +9,20 @@ public sealed class AgentSnapshotCollectorTests
     private static readonly DateTimeOffset CollectedAt = new(2026, 8, 17, 8, 0, 0, TimeSpan.Zero);
 
     [Fact]
-    public async Task CollectAsync_MapsBoundedJobSummaryHistory()
+    public async Task CollectAsync_MapsBoundedJobHistoryAndCurrentActivity()
     {
         var runs = new[]
         {
             new SqlAgentRunRow("Nightly ETL", "DOMAIN\\sqlagent", false, 20260817030000, 120),
             new SqlAgentRunRow("Nightly ETL", "DOMAIN\\sqlagent", true, 20260816030000, 60)
+        };
+        var schedules = new[]
+        {
+            new SqlAgentScheduleRow(
+                "Nightly ETL",
+                new DateTime(2026, 8, 18, 3, 0, 0, DateTimeKind.Unspecified),
+                false),
+            new SqlAgentScheduleRow("Long Running Job", null, true)
         };
         var modules = new SqlHealthModulesRow(
             0, 0, 0, 0, 0, 0,
@@ -22,7 +30,8 @@ public sealed class AgentSnapshotCollectorTests
             4, 4, 1,
             10_000, 8_000, 2_000,
             0, 0,
-            AgentRuns: runs);
+            AgentRuns: runs,
+            AgentSchedules: schedules);
         var collector = new SqlServerSnapshotCollector(
             new FakeSecretStore(new SqlLoginSecret("reader", "password")),
             new FakeQuery(new SqlSnapshotRow("SQL01", "17", "Enterprise", null, 3_600, 2, 2, Modules: modules)),
@@ -36,6 +45,15 @@ public sealed class AgentSnapshotCollectorTests
         Assert.Equal("DOMAIN\\sqlagent", snapshot.Jobs.RecentRuns[0].Owner);
         Assert.False(snapshot.Jobs.RecentRuns[0].Succeeded);
         Assert.Equal(120, snapshot.Jobs.RecentRuns[0].DurationSeconds);
+
+        Assert.NotNull(snapshot.Jobs.Schedules);
+        Assert.Equal(2, snapshot.Jobs.Schedules!.Count);
+        Assert.Equal("Nightly ETL", snapshot.Jobs.Schedules[0].JobKey);
+        Assert.Equal(DateTimeKind.Unspecified, snapshot.Jobs.Schedules[0].NextScheduledRunLocal!.Value.Kind);
+        Assert.Equal(new DateTime(2026, 8, 18, 3, 0, 0), snapshot.Jobs.Schedules[0].NextScheduledRunLocal);
+        Assert.False(snapshot.Jobs.Schedules[0].IsRunning);
+        Assert.True(snapshot.Jobs.Schedules[1].IsRunning);
+        Assert.Null(snapshot.Jobs.Schedules[1].NextScheduledRunLocal);
     }
 
     [Fact]
@@ -60,25 +78,65 @@ public sealed class AgentSnapshotCollectorTests
     }
 
     [Fact]
-    public void QueryUsesOnlyJobSummaryHistoryAndNoStepCommandSource()
+    public async Task InvalidOrOverBoundAgentScheduleActivityFailsClosed()
+    {
+        var invalidModules = new SqlHealthModulesRow(
+            0, 0, 0, 0, 0, 0,
+            1, 0, CollectedAt,
+            1, 1, 0,
+            10, 8, 2,
+            0, 0,
+            AgentSchedules: [new SqlAgentScheduleRow("", null, false)]);
+        var invalidCollector = new SqlServerSnapshotCollector(
+            new FakeSecretStore(new SqlLoginSecret("reader", "password")),
+            new FakeQuery(new SqlSnapshotRow("SQL01", "17", "Enterprise", null, 100, 1, 1, Modules: invalidModules)),
+            new FixedTimeProvider(CollectedAt));
+
+        var invalid = await Assert.ThrowsAsync<SnapshotCollectionException>(() => invalidCollector.CollectAsync(Registration()));
+        Assert.Equal(SnapshotCollectionFailure.Failed, invalid.Failure);
+
+        var tooManyModules = invalidModules with
+        {
+            AgentSchedules = Enumerable.Range(1, 51)
+                .Select(index => new SqlAgentScheduleRow($"Job {index}", null, false))
+                .ToArray()
+        };
+        var tooManyCollector = new SqlServerSnapshotCollector(
+            new FakeSecretStore(new SqlLoginSecret("reader", "password")),
+            new FakeQuery(new SqlSnapshotRow("SQL01", "17", "Enterprise", null, 100, 1, 1, Modules: tooManyModules)),
+            new FixedTimeProvider(CollectedAt));
+
+        var tooMany = await Assert.ThrowsAsync<SnapshotCollectionException>(() => tooManyCollector.CollectAsync(Registration()));
+        Assert.Equal(SnapshotCollectionFailure.Failed, tooMany.Failure);
+    }
+
+    [Fact]
+    public void QueryUsesOnlyBoundedJobSummaryHistoryAndCurrentActivityMetadata()
     {
         var sql = SqlSnapshotQuery.CommandText;
 
         Assert.Contains("msdb.dbo.sysjobhistory", sql, StringComparison.Ordinal);
         Assert.Contains("h.step_id = 0", sql, StringComparison.Ordinal);
-        Assert.Contains("TOP (50)", sql, StringComparison.Ordinal);
         Assert.Contains("AgentRunsJson", sql, StringComparison.Ordinal);
+        Assert.Contains("msdb.dbo.sysjobactivity", sql, StringComparison.Ordinal);
+        Assert.Contains("next_scheduled_run_date", sql, StringComparison.Ordinal);
+        Assert.Contains("MAX(current_activity.session_id)", sql, StringComparison.Ordinal);
+        Assert.Contains("AgentSchedulesJson", sql, StringComparison.Ordinal);
+        Assert.Contains("TOP (50)", sql, StringComparison.Ordinal);
         Assert.DoesNotContain("sysjobsteps", sql, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("sysjobschedules", sql, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("sysschedules", sql, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("command", sql, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
-    public void LeastPrivilegeScriptGrantsOnlyReadAccessNeededForAgentHistory()
+    public void LeastPrivilegeScriptGrantsOnlyReadAccessNeededForAgentEvidence()
     {
         var root = FindRoot();
         var script = File.ReadAllText(Path.Combine(root, "scripts/sql/monitored_sql_least_privilege.sql"));
 
         Assert.Contains("GRANT SELECT ON dbo.sysjobhistory TO MonitorObserverMsdbRole;", script, StringComparison.Ordinal);
+        Assert.Contains("GRANT SELECT ON dbo.sysjobactivity TO MonitorObserverMsdbRole;", script, StringComparison.Ordinal);
         Assert.DoesNotContain("SQLAgentReaderRole", script, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("SQLAgentOperatorRole", script, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("SQLAgentUserRole", script, StringComparison.OrdinalIgnoreCase);
