@@ -196,6 +196,7 @@ Before recording any gate, `$acceptanceTools\Test-ProductionAcceptanceSessionBin
 - the evidence pack candidate version/source/tested-merge/artifact/hash and environment identity still match the locked session.
 
 A pack-only, session-manifest, toolkit-manifest/lock, candidate-byte, modified-tooling, missing-tooling or substituted-sidecar change therefore fails closed before a gate PASS can be recorded or final acceptance committed.
+
 ## Deployment procedure
 
 1. Confirm the Step 0 RC.61 preflight is clean and #162 durable promotion plus separate read-only durable verification are Green for the exact selected RC.61 identity.
