@@ -25,10 +25,11 @@ public sealed class P05IisBootstrapRuntimeHardeningTests
         var root = FindRepoRoot();
         var script = Read(root, "scripts/Bootstrap-IisProductionSingleNode.ps1");
 
-        Assert.Contains("sitesSharingPool", script, StringComparison.Ordinal);
-        Assert.Contains("must be dedicated; it is also assigned to", script, StringComparison.Ordinal);
+        Assert.Contains("$otherSites", script, StringComparison.Ordinal);
+        Assert.Contains("is shared by other IIS site(s)", script, StringComparison.Ordinal);
+        Assert.Contains("Monitor requires a dedicated app pool", script, StringComparison.Ordinal);
         Assert.Contains("sslFlags", script, StringComparison.Ordinal);
-        Assert.Contains("sslFlags=1 (SNI)", script, StringComparison.Ordinal);
+        Assert.Contains("exact SNI sslFlags=1", script, StringComparison.Ordinal);
         Assert.Contains("newly created HTTPS binding", script, StringComparison.Ordinal);
         Assert.Contains("Set-WebBinding", script, StringComparison.Ordinal);
         Assert.Contains("New-WebBinding", script, StringComparison.Ordinal);
@@ -58,17 +59,19 @@ public sealed class P05IisBootstrapRuntimeHardeningTests
 
         Assert.Contains("[ValidateSet('Online', 'Offline')]", script, StringComparison.Ordinal);
         Assert.Contains("[string]$PowerShellMode = 'Online'", script, StringComparison.Ordinal);
-        Assert.Contains("PowerShellInstallerPath", script, StringComparison.Ordinal);
-        Assert.Contains("PowerShellDownloadUrl", script, StringComparison.Ordinal);
-        Assert.Contains("PowerShellInstallerSha256", script, StringComparison.Ordinal);
+        Assert.Contains("PowerShellMsiInstallerPath", script, StringComparison.Ordinal);
+        Assert.Contains("PowerShellMsiDownloadUrl", script, StringComparison.Ordinal);
+        Assert.Contains("PowerShellMsiSha256", script, StringComparison.Ordinal);
         Assert.Contains("PowerShell-7.4.16-win-x64.msi", script, StringComparison.Ordinal);
         Assert.Contains("2c0c2036b0032375ad4f7809a92d0b6fa4a8e4ee89a75211514c4cf55ae22495", script, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Get-FileHash", script, StringComparison.Ordinal);
         Assert.Contains("Get-AuthenticodeSignature", script, StringComparison.Ordinal);
-        Assert.Contains("PowerShell MSI must have a valid Microsoft Authenticode signature", script, StringComparison.Ordinal);
-        Assert.Contains("Offline PowerShell installation requires -PowerShellInstallerPath", script, StringComparison.Ordinal);
-        Assert.Contains("USE_MU=0", script, StringComparison.Ordinal);
-        Assert.Contains("ENABLE_MU=0", script, StringComparison.Ordinal);
-        Assert.Contains("$env:ProgramFiles 'PowerShell\\7\\pwsh.exe'", script, StringComparison.Ordinal);
+        Assert.Contains("PowerShell 7 MSI must have a valid Microsoft Corporation Authenticode signature", script, StringComparison.Ordinal);
+        Assert.Contains("if ($PowerShellMode -eq 'Offline')", script, StringComparison.Ordinal);
+        Assert.Contains("Offline PowerShell 7 installation requires -PowerShellMsiInstallerPath", script, StringComparison.Ordinal);
+        Assert.Contains("Invoke-WebRequest -Uri $PowerShellMsiDownloadUrl.AbsoluteUri", script, StringComparison.Ordinal);
+        Assert.Contains("Join-Path $env:ProgramFiles 'PowerShell\\7\\pwsh.exe'", script, StringComparison.Ordinal);
+        Assert.Contains("No IIS mutation was attempted", script, StringComparison.Ordinal);
     }
 
     [Fact]
