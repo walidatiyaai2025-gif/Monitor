@@ -31,12 +31,16 @@ public sealed class P05ProductionAcceptanceSessionBindingTests
     }
 
     [Fact]
-    public void BindingVerifier_RetainsSidecarToolingIdentityAndCandidateChain()
+    public void BindingVerifier_RetainsToolkitManifestSidecarIdentityAndCandidateChain()
     {
         var text = Read("scripts/Test-ProductionAcceptanceSessionBinding.ps1");
         Assert.Contains("operatorToolingCommit", text, StringComparison.Ordinal);
+        Assert.Contains("operatorToolkitManifestSha256", text, StringComparison.Ordinal);
         Assert.Contains("full 40-hex repository commit SHA", text, StringComparison.Ordinal);
         Assert.Contains("OperatorToolingCommit = $operatorToolingCommit", text, StringComparison.Ordinal);
+        Assert.Contains("OperatorToolkitManifestSha256 = $operatorToolkitManifestHash", text, StringComparison.Ordinal);
+        Assert.Contains("Acceptance Control Toolkit manifest SHA-256 drifted from the locked session manifest", text, StringComparison.Ordinal);
+        Assert.Contains("toolkit-manifest.sha256 drifted from the locked session manifest", text, StringComparison.Ordinal);
         Assert.Contains("Session candidate artifact bytes no longer match the selected product SHA-256", text, StringComparison.Ordinal);
         Assert.Contains("Session candidate checksum no longer matches the selected product SHA-256", text, StringComparison.Ordinal);
         Assert.Contains("candidate.sourceCommit", text, StringComparison.Ordinal);
@@ -61,14 +65,18 @@ public sealed class P05ProductionAcceptanceSessionBindingTests
     }
 
     [Fact]
-    public void WindowsCandidate_ParsesExercisesAndPackagesBindingVerifier()
+    public void WindowsCandidate_ParsesExercisesAndPackagesBindingVerifierFromVerifiedToolkit()
     {
         var workflow = Read(".github/workflows/production-candidate.yml");
         Assert.Contains("scripts/Test-ProductionAcceptanceSessionBinding.ps1", workflow, StringComparison.Ordinal);
         Assert.Contains("scripts/Test-ProductionAcceptanceSessionChain.ps1", workflow, StringComparison.Ordinal);
         Assert.Contains("Exercise explicit acceptance gate recorder", workflow, StringComparison.Ordinal);
         Assert.Contains("Exercise final operator acceptance finalizer", workflow, StringComparison.Ordinal);
-        Assert.Contains("Copy-Item scripts/Test-ProductionAcceptanceSessionBinding.ps1 \"$ops/scripts/\" -Force", workflow, StringComparison.Ordinal);
+        Assert.Contains("Export verified Acceptance Control Toolkit for candidate operations", workflow, StringComparison.Ordinal);
+        Assert.Contains("$env:MONITOR_PACKAGED_TOOLKIT_ROOT/Test-ProductionAcceptanceSessionBinding.ps1", workflow, StringComparison.Ordinal);
+        Assert.Contains("$ops/acceptance-control-toolkit", workflow, StringComparison.Ordinal);
+        Assert.Contains("toolkit-manifest.json", workflow, StringComparison.Ordinal);
+        Assert.Contains("toolkit-manifest.sha256", workflow, StringComparison.Ordinal);
     }
 
     [Fact]
