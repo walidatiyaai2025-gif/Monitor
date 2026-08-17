@@ -168,7 +168,7 @@ public sealed class MonitorReadService(
                     result.Freshness == SnapshotFreshness.Fresh ? ServerDataSource.LiveFresh : ServerDataSource.LiveStale,
                     (int)Math.Clamp(result.Age.TotalSeconds, 0, int.MaxValue),
                     snapshot.DatabaseOnline, snapshot.DatabaseTotal, snapshot.Databases, snapshot.Backups,
-                    snapshot.Jobs, snapshot.Storage, snapshot.Blocking, snapshot.Performance));
+                    snapshot.Jobs, snapshot.Storage, snapshot.Blocking, snapshot.Performance, snapshot.Memory));
             }
             catch (SnapshotCollectionException)
             {
