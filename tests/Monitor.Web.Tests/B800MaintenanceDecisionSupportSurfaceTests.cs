@@ -24,20 +24,25 @@ public sealed class B800MaintenanceDecisionSupportSurfaceTests
     }
 
     [Fact]
-    public void Controller_UsesOwnedMetadataAndBoundedIncidentEvidenceWithoutSnapshotOrSqlCollection()
+    public void Controller_UsesExplicitPolicyAvailabilityAndBoundedIncidentEvidenceWithoutSnapshotOrSqlCollection()
     {
         var source = Read("src/Monitor.Web/Controllers/MaintenanceDecisionSupportController.cs");
 
-        Assert.Contains("operatorMetadata.GetServer(id)", source, StringComparison.Ordinal);
+        Assert.Contains("IOperatorPolicyReadService operatorPolicy", source, StringComparison.Ordinal);
+        Assert.Contains("operatorPolicy.GetServer(id)", source, StringComparison.Ordinal);
+        Assert.Contains("policy.PolicyReadable", source, StringComparison.Ordinal);
+        Assert.Contains("IsProduction: policy.PolicyReadable", source, StringComparison.Ordinal);
+        Assert.Contains("ObservedMaintenanceWindowActive: policy.PolicyReadable", source, StringComparison.Ordinal);
         Assert.Contains("BoundedIncidentReadModel.ActiveForServer(incidents, id)", source, StringComparison.Ordinal);
         Assert.Contains("incidentRead.IsComplete", source, StringComparison.Ordinal);
         Assert.Contains("FindingSeverity.Critical", source, StringComparison.Ordinal);
-        Assert.Contains("IsMaintenanceActive", source, StringComparison.Ordinal);
         Assert.Contains("InApprovedWindow: null", source, StringComparison.Ordinal);
         Assert.Contains("HasApproval: null", source, StringComparison.Ordinal);
         Assert.Contains("HasRollbackPlan: null", source, StringComparison.Ordinal);
         Assert.Contains("ReplicaHealthy: null", source, StringComparison.Ordinal);
         Assert.Contains("RecentBackupAvailable: null", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("operatorMetadata.GetServer", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("IOperatorMetadataStore", source, StringComparison.Ordinal);
         Assert.DoesNotContain("incidents.GetAll()", source, StringComparison.Ordinal);
         Assert.DoesNotContain("SqlConnection", source, StringComparison.Ordinal);
         Assert.DoesNotContain("SnapshotQuery", source, StringComparison.Ordinal);
@@ -45,7 +50,7 @@ public sealed class B800MaintenanceDecisionSupportSurfaceTests
     }
 
     [Fact]
-    public void View_ProvidesGetOnlyEvaluationAndNoExecutionControl()
+    public void View_ProvidesGetOnlyEvaluationAndExplicitUnavailablePolicyState()
     {
         var view = Read("src/Monitor.Web/Views/MaintenanceDecisionSupport/Index.cshtml");
         var enterprise = Read("src/Monitor.Web/Views/EnterpriseOperations/Overview.cshtml");
@@ -54,6 +59,9 @@ public sealed class B800MaintenanceDecisionSupportSurfaceTests
         Assert.Contains("method=\"get\"", view, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("No action executed", view, StringComparison.Ordinal);
         Assert.Contains("not treated as approved-window evidence", view, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("OPERATOR POLICY EVIDENCE UNAVAILABLE", view, StringComparison.Ordinal);
+        Assert.Contains("POLICY UNAVAILABLE", view, StringComparison.Ordinal);
+        Assert.Contains("rather than treating unavailable metadata as non-production or an inactive window", view, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("INCIDENT EVIDENCE INCOMPLETE", view, StringComparison.Ordinal);
         Assert.Contains("Not evaluated", view, StringComparison.Ordinal);
         Assert.Contains("MissingInputs", view, StringComparison.Ordinal);
@@ -73,12 +81,25 @@ public sealed class B800MaintenanceDecisionSupportSurfaceTests
         var decisionCall = source.IndexOf("Batch400MaintenanceSafety.Decide(context)", StringComparison.Ordinal);
         Assert.True(missingCheck >= 0);
         Assert.True(decisionCall > missingCheck);
+        Assert.Contains("!evidence.IsProduction.HasValue", source, StringComparison.Ordinal);
+        Assert.Contains("environment-class", source, StringComparison.Ordinal);
+        Assert.Contains("evidence.IsProduction!.Value", source, StringComparison.Ordinal);
         Assert.Contains("MaintenanceDecisionSupportStatus.NotEvaluated", source, StringComparison.Ordinal);
         Assert.Contains("Batch400MaintenanceSafety.ApprovalRequired", source, StringComparison.Ordinal);
         Assert.Contains("Batch400MaintenanceSafety.RollbackRequired", source, StringComparison.Ordinal);
         Assert.Contains("Batch400MaintenanceSafety.WindowRequired", source, StringComparison.Ordinal);
         Assert.DoesNotContain("HttpClient", source, StringComparison.Ordinal);
         Assert.DoesNotContain("SqlConnection", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void OperatorPolicyState_RetainsMetadataOnlyOnSuccessfulRead()
+    {
+        var source = Read("src/Monitor.Web/Services/OperatorPolicyServices.cs");
+
+        Assert.Contains("ServerOperatorMetadata? Metadata = null", source, StringComparison.Ordinal);
+        Assert.Contains("item.Tags.ToArray(), item", source, StringComparison.Ordinal);
+        Assert.Contains("return Unavailable(registrationId)", source, StringComparison.Ordinal);
     }
 
     private static string Read(string relativePath) => File.ReadAllText(Path.Combine(Root, relativePath.Replace('/', Path.DirectorySeparatorChar)));

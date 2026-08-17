@@ -9,8 +9,8 @@ public enum MaintenanceDecisionSupportStatus
 
 public sealed record MaintenanceDecisionEvidence(
     MaintenanceOperation Operation,
-    bool IsProduction,
-    bool ObservedMaintenanceWindowActive,
+    bool? IsProduction,
+    bool? ObservedMaintenanceWindowActive,
     bool? InApprovedWindow,
     bool? HasApproval,
     bool? HasRollbackPlan,
@@ -49,7 +49,7 @@ public static class MaintenanceDecisionSupport
 
         var context = new MaintenanceContext(
             evidence.Operation,
-            evidence.IsProduction,
+            evidence.IsProduction!.Value,
             evidence.InApprovedWindow ?? false,
             evidence.HasApproval ?? false,
             evidence.HasRollbackPlan ?? false,
@@ -76,10 +76,15 @@ public static class MaintenanceDecisionSupport
         }
 
         if (!evidence.ActiveCriticalIncidents.HasValue) missing.Add("active-critical-incidents");
+        if (!evidence.IsProduction.HasValue)
+        {
+            missing.Add("environment-class");
+            return missing.Distinct(StringComparer.Ordinal).OrderBy(value => value, StringComparer.Ordinal).ToArray();
+        }
 
         var probe = new MaintenanceContext(
             evidence.Operation,
-            evidence.IsProduction,
+            evidence.IsProduction.Value,
             false,
             false,
             false,
