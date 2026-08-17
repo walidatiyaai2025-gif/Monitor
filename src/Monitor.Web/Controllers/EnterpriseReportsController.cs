@@ -77,6 +77,10 @@ public sealed class EnterpriseReportsController : Controller
         return Download(ServerIntelligenceExport.Build(model), "text/csv; charset=utf-8", EnterpriseDownloadSubject.ServerIntelligence, "csv");
     }
 
+    [HttpGet("/reports/server-intelligence.csv")]
+    public Task<IActionResult> ServerIntelligenceSelection(Guid registrationId, CancellationToken cancellationToken) =>
+        ServerIntelligence(registrationId, cancellationToken);
+
     [HttpGet("/reports/audit.csv")]
     [Authorize(Policy = MonitorPolicies.Manage)]
     public IActionResult Audit()
