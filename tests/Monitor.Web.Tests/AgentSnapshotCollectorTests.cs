@@ -72,6 +72,19 @@ public sealed class AgentSnapshotCollectorTests
         Assert.DoesNotContain("command", sql, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void LeastPrivilegeScriptGrantsOnlyReadAccessNeededForAgentHistory()
+    {
+        var root = FindRoot();
+        var script = File.ReadAllText(Path.Combine(root, "scripts/sql/monitored_sql_least_privilege.sql"));
+
+        Assert.Contains("GRANT SELECT ON dbo.sysjobhistory TO MonitorObserverMsdbRole;", script, StringComparison.Ordinal);
+        Assert.DoesNotContain("SQLAgentReaderRole", script, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("SQLAgentOperatorRole", script, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("SQLAgentUserRole", script, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("GRANT EXECUTE", script, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static ServerRegistration Registration() => new(
         Guid.NewGuid(), "SQL 01", new SqlServerEndpoint("sql01.internal", port: 1433),
         SqlAuthenticationMode.SqlLogin, new ConnectionSecretReference("sql01-login"),
@@ -90,5 +103,12 @@ public sealed class AgentSnapshotCollectorTests
     private sealed class FixedTimeProvider(DateTimeOffset value) : TimeProvider
     {
         public override DateTimeOffset GetUtcNow() => value;
+    }
+
+    private static string FindRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "Monitor.sln"))) directory = directory.Parent;
+        return directory?.FullName ?? throw new DirectoryNotFoundException("Repository root was not found.");
     }
 }
