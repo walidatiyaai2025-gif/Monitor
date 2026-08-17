@@ -50,11 +50,16 @@ public sealed record AgentJobRunSnapshot(
     bool Succeeded,
     long RunOrder,
     long DurationSeconds);
+public sealed record AgentScheduleSnapshot(
+    string JobKey,
+    DateTime? NextScheduledRunLocal,
+    bool IsRunning);
 public sealed record SqlAgentHealthSnapshot(
     int TotalJobs,
     int EnabledJobs,
     int FailedLastRun,
-    IReadOnlyList<AgentJobRunSnapshot>? RecentRuns = null);
+    IReadOnlyList<AgentJobRunSnapshot>? RecentRuns = null,
+    IReadOnlyList<AgentScheduleSnapshot>? Schedules = null);
 public sealed record IoFileSnapshot(
     string FileKey,
     long Reads,
