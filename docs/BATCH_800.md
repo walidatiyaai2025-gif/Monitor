@@ -90,7 +90,9 @@ B300 estate identity and runtime-pressure helpers are wired from cached evidence
 
 ### B800-021..030 — cross-page actions and workflow completion
 
-- [ ] complete action/drill-down/filter/PRG/role matrix across existing pages.
+- [x] B800-021 enforce an assembly-wide protected POST workflow matrix: antiforgery + authorization + named-policy boundary (`docs/work/B800-021.md`).
+- [x] B800-022 verify visible Razor tag-helper POST forms resolve to real controller POST endpoints (`docs/work/B800-022.md`).
+- [ ] B800-023..030 complete the remaining action/drill-down/filter/PRG/role matrix across existing pages without inventing unsupported runtime behavior.
 
 ### B800-031..050 — bounded snapshot expansion
 
@@ -112,8 +114,8 @@ B300 estate identity and runtime-pressure helpers are wired from cached evidence
 - [x] B800-046 wire bounded B400 wait intelligence into the Performance page with explicit `Not collected` behavior and a cumulative-since-start interpretation boundary.
 - [x] B800-047 add regression coverage for collector wait evidence, projection behavior and Performance UI wiring.
 - [x] B800-048 validate the wait/file-I/O pre-canonical head with CI #2046, Real SQL #169 and Windows production-candidate #265 Green.
-- [ ] B800-049 reconcile the completed diagnostic material into canonical `IMPLEMENTATION_PLAN`, `STATUS`, and `FEATURE_CATALOG`.
-- [ ] B800-050 close the bounded diagnostic slice after canonical docs and review.
+- [x] B800-049 reconcile the completed diagnostic material into canonical `IMPLEMENTATION_PLAN`, `STATUS`, and `FEATURE_CATALOG`.
+- [ ] B800-050 close the bounded diagnostic slice after exact-head validation and review.
 
 ### B800-051..070 — dedicated diagnostics surfaces
 
@@ -165,6 +167,12 @@ Server Details / cross-page contract slice:
 - `docs/work/B800-017.md`
 - `docs/work/B800-018.md`
 - `docs/work/B800-019.md`
+
+Protected workflow contract slice:
+- `tests/Monitor.Web.Tests/B800WorkflowSafetyMatrixTests.cs`
+- `tests/Monitor.Web.Tests/B800RazorPostWiringTests.cs`
+- `docs/work/B800-021.md`
+- `docs/work/B800-022.md`
 
 Memory Health slice:
 - `src/Monitor.Web/Models/ServerHealthSnapshot.cs`
@@ -223,8 +231,8 @@ Per-database state slice:
 - Wait-slice head `5dc585fad80f24dfa2bacdd729fc0b1b1d3f26fe`: CI #2029 and Real SQL #161 Green.
 - Storage/I/O head `ffc7b307e99558d92500e7278ff62ec721796e7f`: CI #2046, Real SQL #169 and Windows production-candidate #265 all Green. Real SQL validation includes application of the read-only monitored-SQL role and execution against SQL Server 2022.
 - Database-state source head `895297809d5dcb656cb3e6bc064aba96d02e58b1`: CI #2120 and Real SQL #205 Green; later shared-branch commits supersede it as merge evidence.
-- Canonical documentation commits change the exact head; only the final reconciled exact-head CI, Real SQL and Windows production-candidate conclusions count for Ready/merge.
+- Canonical documentation is now reconciled in this PR. Only CI, Real SQL and Windows production-candidate on the final exact head count for Ready/merge.
 
 ## Documentation / merge gate
 
-This batch ledger is evidence of active work, not completion. `FEATURE_CATALOG` reconciliation is committed in PR #288; `IMPLEMENTATION_PLAN` and `STATUS` remain part of the same merge-gate reconciliation. Before PR #288 is marked Ready or merged, all three canonical documents must be reconciled, applicable CI must be green on the exact reconciled head, the branch must remain current with `main`, and review threads must remain resolved. Issue #287 remains OPEN after this partial slice.
+`docs/FEATURE_CATALOG.md`, `docs/STATUS.md`, and `docs/IMPLEMENTATION_PLAN.md` are reconciled in PR #288, and this ledger reflects implemented B800-015/016/017/019/021/022/069 work without claiming unsupported diagnostics. Before PR #288 is marked Ready or merged, applicable CI must be green on the exact final head, the branch must remain current with `main`, and review threads must remain resolved. Issue #287 remains OPEN after this partial slice.
