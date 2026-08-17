@@ -11,7 +11,9 @@ public sealed record MaintenanceDecisionSupportPageViewModel(
     bool MaintenanceWindowActive,
     MaintenanceOperation Operation,
     MaintenanceDecisionSupportResult Result,
-    int ActiveCriticalIncidents);
+    int? ActiveCriticalIncidents,
+    bool IncidentEvidenceComplete,
+    int IncidentEvidenceLimit);
 
 [Authorize(Policy = MonitorPolicies.Read)]
 public sealed class MaintenanceDecisionSupportController(
@@ -27,10 +29,10 @@ public sealed class MaintenanceDecisionSupportController(
         if (registration is null || !registration.IsEnabled) return NotFound();
 
         var metadata = operatorMetadata.GetServer(id);
-        var activeCriticalIncidents = incidents.GetAll().Count(incident =>
-            incident.RegistrationId == id &&
-            incident.Status != IncidentStatus.Resolved &&
-            incident.Severity == FindingSeverity.Critical);
+        var incidentRead = BoundedIncidentReadModel.ActiveForServer(incidents, id);
+        int? activeCriticalIncidents = incidentRead.IsComplete
+            ? incidentRead.Incidents.Count(incident => incident.Severity == FindingSeverity.Critical)
+            : null;
         var selectedOperation = MaintenanceDecisionSupport.NormalizeOperation(operation);
         var evidence = new MaintenanceDecisionEvidence(
             selectedOperation,
@@ -50,6 +52,8 @@ public sealed class MaintenanceDecisionSupportController(
             evidence.ObservedMaintenanceWindowActive,
             selectedOperation,
             result,
-            activeCriticalIncidents));
+            activeCriticalIncidents,
+            incidentRead.IsComplete,
+            incidentRead.Limit));
     }
 }
