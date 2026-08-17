@@ -31,8 +31,8 @@ Browser GET navigation remains cache/control-plane only. Where a diagnostic dime
 | Servers | bounded server read model + policy metadata | Wired; validate paging/actions |
 | Server Details | cached snapshot + refresh POST + metadata/history | B800: B300 identity/runtime-pressure projection wired |
 | Database Health | cached health-module read model | Wired aggregate; deeper diagnostics depend on collector scope |
-| Memory Health | shared cached health-module read model + bounded memory counters/configuration/clerk evidence | **B800 memory diagnostic slice wired; exact-head CI pending** |
-| Performance | cached health-module read model | Wired aggregate; B400 waits/query/TempDB/log/I/O not yet collected in current snapshot |
+| Memory Health | shared cached health-module read model + bounded memory counters/configuration/clerk evidence | **B800 memory diagnostic slice wired; final exact-head validation pending** |
+| Performance | cached health-module read model + bounded cumulative wait evidence | **B800 wait-stat projection wired; query/TempDB/log/per-file-I/O diagnostics still require later evidence contracts** |
 | Backups | cached backup aggregate | Wired aggregate; B300/B400 compliance detail requires evidence expansion |
 | SQL Agent | cached Agent aggregate | Wired aggregate; reliability detail requires evidence expansion |
 | Storage | cached allocated-byte aggregate | Wired aggregate; file latency/log/TempDB detail requires evidence expansion |
@@ -52,11 +52,11 @@ Browser GET navigation remains cache/control-plane only. Where a diagnostic dime
 
 ## Data-availability boundary discovered during inventory
 
-The B800 branch extends `ServerHealthSnapshot.Memory` while preserving its optional/backward-compatible shape. The bounded collector now projects server identity/version/edition/uptime, database totals/states, OS/SQL process memory, max server memory, Total/Target Server Memory, PLE, Memory Grants Pending, dominant memory-clerk class/size, full-backup aggregate, SQL Agent aggregate, allocated storage, blocking count/max wait, and bounded performance counts.
+The B800 branch extends `ServerHealthSnapshot` while preserving optional/backward-compatible shapes. The bounded collector now projects server identity/version/edition/uptime, database totals/states, OS/SQL process memory, max server memory, Total/Target Server Memory, PLE, Memory Grants Pending, dominant memory-clerk class/size, full-backup aggregate, SQL Agent aggregate, allocated storage, blocking count/max wait, bounded performance counts, and up to 12 non-benign cumulative wait types from `sys.dm_os_wait_stats`.
 
-The memory additions reuse the existing read-only server permission boundary (`VIEW SERVER PERFORMANCE STATE` on SQL Server 2022+ or `VIEW SERVER STATE` on older supported versions plus `VIEW ANY DEFINITION`). No SQL text, query plans, table data or configuration writes are collected.
+The memory and wait additions reuse the existing read-only server permission boundary (`VIEW SERVER PERFORMANCE STATE` on SQL Server 2022+ or `VIEW SERVER STATE` on older supported versions plus `VIEW ANY DEFINITION`). Wait evidence contains only wait type and bounded counters, is cumulative since SQL Server start, and does not collect SQL text, query plans, client identity, table data, or configuration writes.
 
-B300 estate identity and runtime-pressure helpers are wired from cached evidence. B400 wait-stat, query-regression, TempDB, transaction-log, per-file I/O, detailed Agent reliability and HA helpers still require explicit new snapshot evidence before they can be truthfully displayed. B800 will not project those helpers from invented placeholder inputs.
+B300 estate identity and runtime-pressure helpers are wired from cached evidence. B400 wait intelligence is now wired from bounded cached wait evidence plus collected SQL Server uptime. B400 query-regression, TempDB, transaction-log, per-file I/O, detailed Agent reliability and HA helpers still require explicit new snapshot evidence before they can be truthfully displayed. B800 will not project those helpers from invented placeholder inputs.
 
 ## Task program
 
@@ -100,13 +100,22 @@ B300 estate identity and runtime-pressure helpers are wired from cached evidence
 - [x] B800-036 replace Memory Health `Planned` placeholders with real Max Memory / Total-Target / PLE / grants / dominant clerk evidence and explicit Not collected states.
 - [x] B800-037 add deterministic `MemoryIntelligenceProjection` recommendations with no automatic tuning/configuration write.
 - [x] B800-038 update least-privilege documentation and regression coverage for the expanded read-only memory evidence.
-- [ ] B800-039 obtain exact-head Green CI/Real-SQL/Windows candidate evidence for the memory slice.
+- [ ] B800-039 obtain exact-head Green CI/Real-SQL/Windows candidate evidence for the reconciled memory slice.
 - [ ] B800-040 reconcile/close the memory slice after canonical docs and review.
-- [ ] B800-041..050 add only the evidence required for the next B400 wait/query/TempDB/log/I/O/Agent/HA diagnostics, one bounded contract at a time.
+- [x] B800-041 extend optional Performance snapshot evidence with bounded cumulative wait samples.
+- [x] B800-042 append a top-12 non-benign `sys.dm_os_wait_stats` projection to the existing bounded collector without collecting SQL text or client identity.
+- [x] B800-043 validate wait type/counters fail-closed and preserve backward-compatible optional snapshot behavior.
+- [x] B800-044 preserve the existing read-only SQL Server DMV permission boundary and document wait-stat coverage explicitly.
+- [x] B800-045 add pure `WaitIntelligenceProjection` over cached Performance evidence plus SQL Server uptime.
+- [x] B800-046 wire bounded B400 wait intelligence into the Performance page with explicit `Not collected` behavior and a cumulative-since-start interpretation boundary.
+- [x] B800-047 add regression coverage for collector wait evidence, projection behavior and Performance UI wiring.
+- [ ] B800-048 obtain final exact-head Green CI/Real-SQL/Windows candidate evidence after documentation reconciliation.
+- [ ] B800-049 reconcile the completed memory/wait material into canonical `IMPLEMENTATION_PLAN`, `STATUS`, and `FEATURE_CATALOG`.
+- [ ] B800-050 close the bounded memory/wait diagnostic slice after canonical docs and review.
 
 ### B800-051..070 — dedicated diagnostics surfaces
 
-- [ ] project the new cached diagnostics into server and dedicated operator pages; GET remains cache-only.
+- [ ] project the next new cached diagnostics into server and dedicated operator pages; GET remains cache-only.
 
 ### B800-071..080 — fleet / routing / maintenance intelligence
 
@@ -143,8 +152,26 @@ Memory Health slice:
 - `tests/Monitor.Web.Tests/SqlServerSnapshotCollectorTests.cs`
 - `tests/Monitor.Web.Tests/MemoryIntelligenceProjectionTests.cs`
 
-A first memory-slice CI attempt failed only on a nullable C# conditional in `MemoryIntelligenceProjection`; the exact compiler error was fixed immediately. The slice remains IN VALIDATION until the new exact head is Green; failed CI is retained as evidence rather than hidden.
+Performance wait slice:
+
+- `src/Monitor.Web/Models/ServerHealthSnapshot.cs`
+- `src/Monitor.Web/Models/MonitorModels.cs`
+- `src/Monitor.Web/Services/SqlServerSnapshotCollector.cs`
+- `src/Monitor.Web/Services/MonitorReadService.cs`
+- `src/Monitor.Web/Services/WaitIntelligenceProjection.cs`
+- `src/Monitor.Web/Controllers/PortalController.cs`
+- `src/Monitor.Web/Views/Portal/Performance.cshtml`
+- `scripts/sql/monitored_sql_least_privilege.sql`
+- `tests/Monitor.Web.Tests/SqlServerSnapshotCollectorTests.cs`
+- `tests/Monitor.Web.Tests/WaitIntelligenceProjectionTests.cs`
+
+## Validation chronology
+
+- Initial Server Details slice: CI Green.
+- First Memory Health head: CI build failed on one nullable conditional expression in `MemoryIntelligenceProjection` (`CS0173`). The nullable type was corrected explicitly to `long?`; no product/safety contract was weakened.
+- Pre-reconciliation wait-slice head `5dc585fad80f24dfa2bacdd729fc0b1b1d3f26fe`: CI #2029 and Real SQL #161 Green; Windows production-candidate #257 was still running when documentation reconciliation started.
+- Because documentation changes are part of the required merge contract, only checks on the final reconciled head count as B800-039/B800-048 completion evidence.
 
 ## Documentation / merge gate
 
-This batch ledger is evidence of active work, not completion. Before any B800 PR is marked Ready or merged, material work must be reconciled into the canonical `docs/IMPLEMENTATION_PLAN.md`, `docs/STATUS.md`, and `docs/FEATURE_CATALOG.md`, and applicable CI must be green on the exact head.
+This batch ledger is evidence of active work, not completion. Before any B800 PR is marked Ready or merged, material work must be reconciled into the canonical `docs/IMPLEMENTATION_PLAN.md`, `docs/STATUS.md`, and `docs/FEATURE_CATALOG.md`, applicable CI must be green on the exact reconciled head, and review threads must remain resolved.
