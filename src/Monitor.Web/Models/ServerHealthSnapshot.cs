@@ -34,7 +34,15 @@ public sealed record MemoryHealthSnapshot(
     string? TopMemoryClerkType = null,
     long? TopMemoryClerkKb = null);
 
-public sealed record DatabaseHealthDetailSnapshot(int Restoring, int Recovering, int RecoveryPending, int Suspect, int Emergency, int OfflineOrOther);
+public sealed record DatabaseStateSnapshot(string Name, string State);
+public sealed record DatabaseHealthDetailSnapshot(
+    int Restoring,
+    int Recovering,
+    int RecoveryPending,
+    int Suspect,
+    int Emergency,
+    int OfflineOrOther,
+    IReadOnlyList<DatabaseStateSnapshot>? Items = null);
 public sealed record BackupHealthSnapshot(int BackedUpLast24Hours, int MissingFullBackupLast24Hours, DateTimeOffset? LastFullBackupAtUtc);
 public sealed record AgentJobRunSnapshot(
     string JobKey,
