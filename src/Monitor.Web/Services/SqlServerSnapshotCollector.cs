@@ -19,6 +19,7 @@ internal sealed record SqlSnapshotRow(
 
 internal sealed record SqlWaitStatRow(string WaitType, long WaitTimeMs, long SignalWaitTimeMs, long WaitingTasks);
 internal sealed record SqlIoFileRow(string FileKey, long Reads, long Writes, long ReadStallMs, long WriteStallMs, long BytesRead, long BytesWritten);
+internal sealed record SqlAgentRunRow(string JobKey, string Owner, bool Succeeded, long RunOrder, long DurationSeconds);
 internal sealed record SqlPerformanceRow(
     long ActiveRequests,
     long RunnableTasks,
@@ -31,7 +32,8 @@ internal sealed record SqlHealthModulesRow(
     long TotalJobs, long EnabledJobs, long FailedLastRun,
     long TotalAllocatedBytes, long DataAllocatedBytes, long LogAllocatedBytes,
     long BlockedRequests, long MaxWaitMilliseconds,
-    IReadOnlyList<SqlIoFileRow>? IoFiles = null);
+    IReadOnlyList<SqlIoFileRow>? IoFiles = null,
+    IReadOnlyList<SqlAgentRunRow>? AgentRuns = null);
 
 internal sealed record SqlMemoryRow(
     long TotalPhysicalMemoryKb,
@@ -157,20 +159,27 @@ internal sealed class SqlServerSnapshotCollector(
                 var m = row.Modules;
                 var states = new[] { m.Restoring, m.Recovering, m.RecoveryPending, m.Suspect, m.Emergency, m.OfflineOrOther };
                 var ioFiles = m.IoFiles ?? [];
+                var agentRuns = m.AgentRuns ?? [];
                 if (states.Any(value => value < 0) || states.Sum() > total ||
                     m.BackedUpLast24Hours < 0 || m.MissingFullBackupLast24Hours < 0 || m.BackedUpLast24Hours + m.MissingFullBackupLast24Hours > total ||
                     m.TotalJobs < 0 || m.EnabledJobs < 0 || m.EnabledJobs > m.TotalJobs || m.FailedLastRun < 0 || m.FailedLastRun > m.TotalJobs ||
                     m.TotalAllocatedBytes < 0 || m.DataAllocatedBytes < 0 || m.LogAllocatedBytes < 0 || m.DataAllocatedBytes + m.LogAllocatedBytes > m.TotalAllocatedBytes ||
                     m.BlockedRequests < 0 || m.MaxWaitMilliseconds < 0 ||
                     ioFiles.Count > 12 ||
-                    ioFiles.Any(file => string.IsNullOrWhiteSpace(file.FileKey) || file.FileKey.Length > 128 || file.Reads < 0 || file.Writes < 0 || file.ReadStallMs < 0 || file.WriteStallMs < 0 || file.BytesRead < 0 || file.BytesWritten < 0))
+                    ioFiles.Any(file => string.IsNullOrWhiteSpace(file.FileKey) || file.FileKey.Length > 128 || file.Reads < 0 || file.Writes < 0 || file.ReadStallMs < 0 || file.WriteStallMs < 0 || file.BytesRead < 0 || file.BytesWritten < 0) ||
+                    agentRuns.Count > 50 ||
+                    agentRuns.Any(run => string.IsNullOrWhiteSpace(run.JobKey) || run.JobKey.Length > 128 || string.IsNullOrWhiteSpace(run.Owner) || run.Owner.Length > 64 || run.RunOrder <= 0 || run.DurationSeconds < 0 || run.DurationSeconds > 31L * 24 * 60 * 60))
                 {
                     throw new InvalidDataException("Invalid health module row.");
                 }
 
                 databases = new(checked((int)m.Restoring), checked((int)m.Recovering), checked((int)m.RecoveryPending), checked((int)m.Suspect), checked((int)m.Emergency), checked((int)m.OfflineOrOther));
                 backups = new(checked((int)m.BackedUpLast24Hours), checked((int)m.MissingFullBackupLast24Hours), m.LastFullBackupAtUtc);
-                jobs = new(checked((int)m.TotalJobs), checked((int)m.EnabledJobs), checked((int)m.FailedLastRun));
+                jobs = new(
+                    checked((int)m.TotalJobs),
+                    checked((int)m.EnabledJobs),
+                    checked((int)m.FailedLastRun),
+                    agentRuns.Select(run => new AgentJobRunSnapshot(run.JobKey, run.Owner, run.Succeeded, run.RunOrder, run.DurationSeconds)).ToArray());
                 storage = new(
                     m.TotalAllocatedBytes,
                     m.DataAllocatedBytes,
@@ -316,6 +325,17 @@ internal sealed class SqlSnapshotQuery : ISqlSnapshotQuery
               WHERE vfs.num_of_reads > 0 OR vfs.num_of_writes > 0
               ORDER BY (CONVERT(bigint, vfs.io_stall_read_ms) + CONVERT(bigint, vfs.io_stall_write_ms)) DESC, vfs.database_id ASC, vfs.file_id ASC
               FOR JSON PATH) AS IoFilesJson
+            ,(select TOP (50)
+                  CONVERT(nvarchar(128), j.name) AS JobKey,
+                  CONVERT(nvarchar(64), COALESCE(SUSER_SNAME(j.owner_sid), N'UNASSIGNED')) AS Owner,
+                  CONVERT(bit, CASE WHEN h.run_status = 1 THEN 1 ELSE 0 END) AS Succeeded,
+                  CONVERT(bigint, h.run_date) * 1000000 + CONVERT(bigint, h.run_time) AS RunOrder,
+                  CONVERT(bigint, (h.run_duration / 10000) * 3600 + ((h.run_duration % 10000) / 100) * 60 + (h.run_duration % 100)) AS DurationSeconds
+              FROM msdb.dbo.sysjobhistory h
+              INNER JOIN msdb.dbo.sysjobs j ON j.job_id = h.job_id
+              WHERE h.step_id = 0 AND h.run_date > 0
+              ORDER BY h.run_date DESC, h.run_time DESC, j.name ASC
+              FOR JSON PATH) AS AgentRunsJson
         FROM sys.databases AS d
         CROSS JOIN sys.dm_os_sys_info AS osi
         CROSS JOIN sys.dm_os_sys_memory AS osm
@@ -385,7 +405,8 @@ internal sealed class SqlSnapshotQuery : ISqlSnapshotQuery
                     reader.GetInt64(23), reader.GetInt64(24), reader.GetInt64(25),
                     reader.GetInt64(26), reader.GetInt64(27), reader.GetInt64(28),
                     reader.GetInt64(29), reader.GetInt64(30),
-                    ReadIoFiles(reader, 42)),
+                    ReadIoFiles(reader, 42),
+                    ReadAgentRuns(reader, 43)),
                 new SqlPerformanceRow(
                     reader.GetInt64(31),
                     reader.GetInt64(32),
@@ -412,5 +433,13 @@ internal sealed class SqlSnapshotQuery : ISqlSnapshotQuery
         var json = reader.GetString(ordinal);
         if (string.IsNullOrWhiteSpace(json)) return [];
         return JsonSerializer.Deserialize<SqlIoFileRow[]>(json) ?? [];
+    }
+
+    private static IReadOnlyList<SqlAgentRunRow> ReadAgentRuns(SqlDataReader reader, int ordinal)
+    {
+        if (reader.IsDBNull(ordinal)) return [];
+        var json = reader.GetString(ordinal);
+        if (string.IsNullOrWhiteSpace(json)) return [];
+        return JsonSerializer.Deserialize<SqlAgentRunRow[]>(json) ?? [];
     }
 }
