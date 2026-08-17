@@ -63,7 +63,10 @@ public sealed record ServerSnapshotEvidence(
     SqlAgentHealthSnapshot? Jobs,
     StorageHealthSnapshot? Storage,
     BlockingHealthSnapshot? Blocking,
-    PerformanceHealthSnapshot? Performance);
+    PerformanceHealthSnapshot? Performance,
+    TempDbHealthSnapshot? TempDb = null,
+    TransactionLogHealthSnapshot? TransactionLogs = null,
+    HaHealthSnapshot? Ha = null);
 
 public sealed class ServerDetailsViewModel
 {
@@ -86,7 +89,10 @@ public sealed record HealthModuleServerViewModel(
     BlockingHealthSnapshot? Blocking,
     PerformanceHealthSnapshot? Performance,
     MemoryHealthSnapshot? Memory = null,
-    long? UptimeSeconds = null);
+    long? UptimeSeconds = null,
+    TempDbHealthSnapshot? TempDb = null,
+    TransactionLogHealthSnapshot? TransactionLogs = null,
+    HaHealthSnapshot? Ha = null);
 
 public sealed record HealthModulePageViewModel(string Title, string Description, IReadOnlyList<HealthModuleServerViewModel> Servers);
 
