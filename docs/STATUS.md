@@ -102,13 +102,13 @@ This baseline correction is historical reconciliation rather than new task accou
 ## BATCH-800 — Full functional operator wiring — IN PROGRESS
 
 **Umbrella:** #287 — OPEN  
-**Current PR:** #308 — DRAFT / B800-076 Fleet operator-policy availability slice  
+**Current PR:** #309 — DRAFT / B800-077 Maintenance operator-policy availability slice  
 **Task range:** B800-001..100  
 **Ledger:** `docs/BATCH_800.md`
 
 BATCH-800 converts visible-route completeness into traceable functional contracts: `UI -> controller -> authorization/antiforgery -> service/read model -> cached/persisted evidence -> explicit state -> regression evidence`. It remains subordinate to the P0 production boundary and cannot publish RC.61 or satisfy #162/#116/#111.
 
-Incremental focused slices are merged through B800-075. Current evidence-backed scope includes cached B300 server intelligence, exact per-database state projection, bounded memory/wait/logical-file-I/O/Agent evidence, workflow/navigation/role safety contracts, explicit backup RPO policy metadata, B800-071 fleet correlation/routing, B800-072 maintenance safety decision support, B800-073 bounded incident decision evidence, B800-074 repository-bounded incident operator reads and B800-075 native persisted/decorated repository reads. Unsupported diagnostics remain explicit rather than inferred.
+Incremental focused slices are merged through B800-076. Current evidence-backed scope includes cached B300 server intelligence, exact per-database state projection, bounded memory/wait/logical-file-I/O/Agent evidence, workflow/navigation/role safety contracts, explicit backup RPO policy metadata, B800-071 fleet correlation/routing, B800-072 maintenance safety decision support, B800-073 bounded incident decision evidence, B800-074 repository-bounded incident operator reads, B800-075 native persisted/decorated repository reads and B800-076 Fleet operator-policy availability. Unsupported diagnostics remain explicit rather than inferred.
 
 B800-071 merged through PR #303 as `3821d1a1ebd15039a3c93b1e77ff7bac210e0b08`. Exact final head `5a18b5167cc24cd292ce7826fb144434762c7eae` passed CI #2393 and Windows production-candidate #393; Real SQL was not selected because the slice added no monitored-SQL query/collector/permission path. Fleet Intelligence exposes bounded correlation clusters and B300 routing recommendations as `RECOMMENDATION ONLY`, with no sender, notification, incident mutation or remediation.
 
@@ -120,16 +120,18 @@ B800-074 merged through PR #306 as `7f388f04da3b1d681f1464f2ee77a361183e542d`. E
 
 B800-075 merged through PR #307 as `e29890ecfcf6a8b04e1451e335959621b41e26f7`. Exact final reconciled head `b4ac0fa9ff1969438bb14f877b9febc7a4768d66` passed CI `32050338379`, Real SQL `32050338400`, and Windows production-candidate `32050338383`. File and Shared production repositories own native `Read(...)` implementations over their existing whole-state persistence models, Telemetry forwards bounded reads and derives active incident observation from `TotalMatched`, and no persistence schema or row-level SharedState queryability is claimed.
 
-PR #308 carries B800-076 only plus canonical reconciliation:
-- Fleet reuses the existing `OperatorPolicyReadService`, `ServerOperatorPolicyState` and `IncidentOperatorPolicyState` availability contract rather than introducing a parallel truth model;
-- enabled registrations, snapshot-cache `Peek`, cached risk and advanced evidence remain renderable when operator metadata is corrupt or SharedState metadata reads are unavailable;
-- environment/group/tag buckets admit only readable server policy states;
-- Fleet maintenance/suppression totals are withheld in the UI whenever server policy evidence is incomplete rather than showing unavailable policy as synthetic zero/default;
-- rule hot-spots plus B300 routing/B400 correlation are withheld whenever complete bounded incident evidence exists but required server/incident operator-policy states for the active decision population are unreadable;
-- a readable incident with `Assignee == null` remains legitimate unassigned evidence; an unavailable metadata read is a distinct state and does not silently become a null assignee;
-- no monitored-SQL query/permission, browser collection/refresh, notification, mutation, remediation or maintenance execution changes are introduced.
+B800-076 merged through PR #308 as `a5799ea01ff3dc388a3a904206e72c18418d774f`. Exact final reconciled head `62cfd95f974a45f33b63d52a5a86a17e9d39aaf6` passed CI `32053753000`, Real SQL `32053753184`, and Windows production-candidate `32053753230`. Fleet reuses the existing operator-policy availability states, keeps independent registration/cache/risk/advanced evidence visible and withholds policy-dependent buckets/totals/routing/correlation/hot-spots when required metadata is unreadable rather than fabricating environment, suppression, maintenance or assignment facts.
 
-B800-076 pre-canonical implementation head `f3e5c37535fa655be1b5b76209b6aa329517b4ac` passed CI `32052187627` and Windows production-candidate `32052187635`; Real SQL was not selected on that implementation head. Canonical reconciliation moves the source SHA, so **Ready/merge still requires every repository-selected required workflow Green on one exact final reconciled head**, no unresolved review threads, branch current with `main`, and a diff bounded to B800-076 plus canonical reconciliation. #287 remains OPEN for B800-077+.
+PR #309 carries B800-077 only plus canonical reconciliation:
+- Maintenance Decision Support consumes `IOperatorPolicyReadService` instead of directly reading `IOperatorMetadataStore`;
+- `MaintenanceDecisionEvidence.IsProduction` and observed configured maintenance-window activity are nullable evidence;
+- unreadable server policy leaves environment/window evidence unavailable and returns `NotEvaluated` with `environment-class`, rather than assuming non-production or an inactive window;
+- successful `ServerOperatorPolicyState` retains the `ServerOperatorMetadata` already read by the policy service as an optional payload so configured-window detail renders without a second metadata-store read; unavailable policy state carries no metadata payload;
+- bounded incident evidence remains independent and incident overflow still leaves Critical count unavailable;
+- configured maintenance-window observation remains distinct from independently approved-window evidence;
+- no monitored-SQL query/permission, browser collection/refresh, maintenance execution, notification, mutation, remediation or paging changes are introduced.
+
+B800-077 pre-canonical implementation head `4ee47dbf5770443709e75590fb0534b01e121e42` passed CI `32054786245` and Windows production-candidate `32054786197`; Real SQL was not selected on that implementation head. Canonical reconciliation moves the source SHA, so **Ready/merge still requires every repository-selected required workflow Green on one exact final reconciled head**, no unresolved review threads, branch current with `main`, and a diff bounded to B800-077 plus canonical reconciliation. #287 remains OPEN for B800-078+.
 
 ## BATCH-700 — Full visible portal/UI completion — COMPLETE
 
@@ -197,7 +199,7 @@ B600 delivered deterministic fail-closed repository orchestration for evidence f
 - BATCH-500: B500-001..100 COMPLETE.
 - BATCH-600: B600-001..100 COMPLETE.
 - BATCH-700: UI700-001..050 COMPLETE; PR #240 squash-merged as `fd33e79c6d19d7f9852417b9c35a11f91f21714c` after exact final head `0834db6b5d518fe5c52eec9b47c03e467929aa89` passed CI #1637, Real SQL #91 and production-candidate #142.
-- BATCH-800: IN PROGRESS under #287; incremental focused slices are merged through B800-075, with current PR #308 carrying B800-076. Excluded from completed-task totals until its own batch gates close.
+- BATCH-800: IN PROGRESS under #287; incremental focused slices are merged through B800-076, with current PR #309 carrying B800-077. Excluded from completed-task totals until its own batch gates close.
 - Total completed hardening/UI task IDs B100+B200+B300+B400+B500+B600+B700: **660**. PR #156 remains baseline reconciliation, not new task accounting.
 
 ## Stable guardrails
@@ -215,6 +217,7 @@ B600 delivered deterministic fail-closed repository orchestration for evidence f
 - B800 operator decisions must fail explicit when their bounded evidence is incomplete; partial incident sets must not masquerade as complete Fleet/Maintenance state.
 - B800-075 specializes File/Shared/Telemetry repository/decorator `Read(...)` paths without changing persistence schema: File remains whole-file state loaded into memory; Shared incidents remain one JSON document and are not physically row-queryable.
 - B800-076 reuses existing operator-policy availability states; unreadable Fleet metadata must remain explicit, must not become synthetic environment/group/tag/maintenance/suppression/assignee facts, and must withhold decision support when required for the active incident population.
+- B800-077 carries the same fail-closed policy into Maintenance: unreadable environment/window metadata must remain nullable `NotEvaluated` evidence and must not be converted into non-production or an inactive maintenance window.
 
 ## Issue #276 / PR #279 — IIS bootstrap installer follow-up — COMPLETE
 
@@ -240,4 +243,4 @@ B600 delivered deterministic fail-closed repository orchestration for evidence f
 - Final PR head `ff14f16006b1d5c953ba4c507f196a3393660e42` passed CI #2085, Real SQL #188 and Windows production-candidate #284 Green. PR #286 squash-merged as `74b804e8b681a77b9e619490610af556a4b1ae3e`; post-merge main CI #2095 passed Green and Issue #285 closed completed.
 - This remains repository/staging behavior only and did not publish or mutate selected RC.61/tag/release state, real production IIS/SQL, #116 acceptance or the strict `#162 -> #116 -> #111` dependency.
 
-**Overall:** 🟢 verified foundation · 🟢 P0.1–P0.4 COMPLETE · 🟢 P0.5 repository cutover/evidence/session/finalization/release/promotion/workflow-supply-chain/native-Node-24/durable-release hardening through PR #219 · 🟢 #256 selected-product-hash session hardening COMPLETE via PR #257 · 🟢 #258/#259 locked-session sidecar binding COMPLETE · 🟢 #261/#262 Acceptance Control Toolkit provenance COMPLETE with exact toolkit source `b422eaaee53d931a62a43b3c36a53b68cd4f3e27` · 🟢 #266/#267 RC.61 read-only promotion preflight COMPLETE · 🟢 #270/#271 Step 0 operator handoff COMPLETE · 🟢 #276/PR #279 IIS bootstrap integration COMPLETE · 🟢 #281/PR #283 fresh-host/PowerShell 7 hardening COMPLETE · 🟢 #285/PR #286 clean IIS no-demo/POST-error fix COMPLETE · 🟡 #287 BATCH-800 IN PROGRESS: focused slices merged through B800-075; PR #308 carries B800-076 Fleet operator-policy availability and awaits one exact final-head validation set after canonical reconciliation · 🟡 selected RC.61 durable publication + separate verification pending manual #162 · ⛔ #116 production mutation blocked while #162 is OPEN · 🟡 external IIS/HTTPS 15-gate acceptance pending after #162 · 🔴 production acceptance not yet granted
+**Overall:** 🟢 verified foundation · 🟢 P0.1–P0.4 COMPLETE · 🟢 P0.5 repository cutover/evidence/session/finalization/release/promotion/workflow-supply-chain/native-Node-24/durable-release hardening through PR #219 · 🟢 #256 selected-product-hash session hardening COMPLETE via PR #257 · 🟢 #258/#259 locked-session sidecar binding COMPLETE · 🟢 #261/#262 Acceptance Control Toolkit provenance COMPLETE with exact toolkit source `b422eaaee53d931a62a43b3c36a53b68cd4f3e27` · 🟢 #266/#267 RC.61 read-only promotion preflight COMPLETE · 🟢 #270/#271 Step 0 operator handoff COMPLETE · 🟢 #276/PR #279 IIS bootstrap integration COMPLETE · 🟢 #281/PR #283 fresh-host/PowerShell 7 hardening COMPLETE · 🟢 #285/PR #286 clean IIS no-demo/POST-error fix COMPLETE · 🟡 #287 BATCH-800 IN PROGRESS: focused slices merged through B800-076; PR #309 carries B800-077 Maintenance operator-policy availability and awaits one exact final-head validation set after canonical reconciliation · 🟡 selected RC.61 durable publication + separate verification pending manual #162 · ⛔ #116 production mutation blocked while #162 is OPEN · 🟡 external IIS/HTTPS 15-gate acceptance pending after #162 · 🔴 production acceptance not yet granted
