@@ -24,9 +24,12 @@ public sealed class ServerIntelligenceProjectionTests
         Assert.True(result.SupportedMajor);
         Assert.Equal(SqlEditionClass.Enterprise, result.EditionClass);
         Assert.Equal(UptimeBand.Stable, result.UptimeBand);
+        Assert.Equal(ServerIntelligenceEvidenceState.Fresh, result.EvidenceState);
+        Assert.Equal("Fresh cached evidence", result.EvidenceStateLabel);
         Assert.NotNull(result.RuntimePressure);
         Assert.Equal(56, result.RuntimePressure!.Score);
         Assert.Equal(RuntimePressureClass.High, result.RuntimePressure.Classification);
+        Assert.Equal("High", result.RuntimePressureStatusLabel);
         Assert.Equal(new[] { "memory", "blocking", "scheduler", "io" }, result.RuntimePressure.Signals);
     }
 
@@ -48,6 +51,67 @@ public sealed class ServerIntelligenceProjectionTests
         Assert.Equal(SqlEditionClass.Unknown, result.EditionClass);
         Assert.Null(result.RuntimePressure);
         Assert.Equal("Not collected", result.RuntimeSignalsLabel);
+        Assert.Equal("Unavailable", result.RuntimePressureStatusLabel);
+    }
+
+    [Fact]
+    public void Build_LabelsDerivedPressureFromStaleCachedEvidence()
+    {
+        var model = BuildModel(
+            version: "16.0.1000.6",
+            edition: "Enterprise Edition",
+            memory: new MemoryHealthSnapshot(64_000_000, 8_000_000, 40_000_000, 91, false, false, "Available physical memory is high"),
+            blocking: new BlockingHealthSnapshot(3, 15_000),
+            performance: new PerformanceHealthSnapshot(12, 8, 4),
+            source: ServerDataSource.LiveStale);
+
+        var result = ServerIntelligenceProjection.Build(model);
+
+        Assert.Equal(ServerIntelligenceEvidenceState.Stale, result.EvidenceState);
+        Assert.Equal("Stale cached evidence", result.EvidenceStateLabel);
+        Assert.Equal(UptimeBand.Stable, result.UptimeBand);
+        Assert.NotNull(result.RuntimePressure);
+        Assert.Equal("High · stale evidence", result.RuntimePressureStatusLabel);
+    }
+
+    [Fact]
+    public void Build_FailsClosedForUnavailableSourceEvenIfGhostEvidenceIsPresent()
+    {
+        var model = BuildModel(
+            version: "16.0.1000.6",
+            edition: "Enterprise Edition",
+            memory: new MemoryHealthSnapshot(64_000_000, 8_000_000, 40_000_000, 91, false, false, "Available physical memory is high"),
+            blocking: new BlockingHealthSnapshot(3, 15_000),
+            performance: new PerformanceHealthSnapshot(12, 8, 4),
+            source: ServerDataSource.RegisteredUnavailable);
+
+        var result = ServerIntelligenceProjection.Build(model);
+
+        Assert.Equal(ServerIntelligenceEvidenceState.Unavailable, result.EvidenceState);
+        Assert.Equal("Unavailable", result.EvidenceStateLabel);
+        Assert.Equal(UptimeBand.Unknown, result.UptimeBand);
+        Assert.Null(result.RuntimePressure);
+        Assert.Equal("Unavailable", result.RuntimePressureStatusLabel);
+    }
+
+    [Fact]
+    public void Build_FailsClosedWhenLiveSourceHasNoSnapshotEvidence()
+    {
+        var model = BuildModel(
+            version: "16.0.1000.6",
+            edition: "Enterprise Edition",
+            memory: null,
+            blocking: null,
+            performance: null,
+            source: ServerDataSource.LiveFresh,
+            includeEvidence: false);
+
+        var result = ServerIntelligenceProjection.Build(model);
+
+        Assert.Equal(ServerIntelligenceEvidenceState.Unavailable, result.EvidenceState);
+        Assert.Equal(UptimeBand.Unknown, result.UptimeBand);
+        Assert.Null(result.RuntimePressure);
+        Assert.Equal("Unavailable", result.RuntimePressureStatusLabel);
     }
 
     [Fact]
@@ -67,7 +131,9 @@ public sealed class ServerIntelligenceProjectionTests
         string edition,
         MemoryHealthSnapshot? memory,
         BlockingHealthSnapshot? blocking,
-        PerformanceHealthSnapshot? performance)
+        PerformanceHealthSnapshot? performance,
+        ServerDataSource source = ServerDataSource.LiveFresh,
+        bool includeEvidence = true)
     {
         var server = new ServerCard(
             Id: Guid.Parse("11111111-1111-1111-1111-111111111111").ToString("D"),
@@ -82,7 +148,7 @@ public sealed class ServerIntelligenceProjectionTests
             JobsHealthy: null,
             JobsTotal: null,
             LastScanSecondsAgo: 5,
-            Source: ServerDataSource.LiveFresh,
+            Source: source,
             InstanceName: "PROD",
             UptimeSeconds: 172_800,
             CollectedAtUtc: DateTimeOffset.Parse("2026-08-17T08:00:00Z"));
@@ -91,17 +157,19 @@ public sealed class ServerIntelligenceProjectionTests
         {
             Server = server,
             Metrics = [],
-            Evidence = new ServerSnapshotEvidence(
-                "PROD",
-                172_800,
-                DateTimeOffset.Parse("2026-08-17T08:00:00Z"),
-                memory,
-                new DatabaseHealthDetailSnapshot(0, 0, 0, 0, 0, 0),
-                new BackupHealthSnapshot(4, 0, DateTimeOffset.Parse("2026-08-17T04:00:00Z")),
-                new SqlAgentHealthSnapshot(10, 9, 0),
-                new StorageHealthSnapshot(1_000_000, 800_000, 200_000),
-                blocking,
-                performance)
+            Evidence = includeEvidence
+                ? new ServerSnapshotEvidence(
+                    "PROD",
+                    172_800,
+                    DateTimeOffset.Parse("2026-08-17T08:00:00Z"),
+                    memory,
+                    new DatabaseHealthDetailSnapshot(0, 0, 0, 0, 0, 0),
+                    new BackupHealthSnapshot(4, 0, DateTimeOffset.Parse("2026-08-17T04:00:00Z")),
+                    new SqlAgentHealthSnapshot(10, 9, 0),
+                    new StorageHealthSnapshot(1_000_000, 800_000, 200_000),
+                    blocking,
+                    performance)
+                : null
         };
     }
 
