@@ -12,6 +12,7 @@ public enum EnterpriseDownloadSubject
     ServerIntelligence,
     DatabaseHealth,
     MemoryHealth,
+    BackupHealth,
     Audit,
     Manifest,
     Diagnostics
