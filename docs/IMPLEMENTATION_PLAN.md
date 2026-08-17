@@ -224,7 +224,7 @@ BATCH-700 does **not** change production priority or acceptance truth: monitored
 ## BATCH-800 — Full functional operator wiring — IN PROGRESS
 
 **Umbrella:** Issue #287 — OPEN  
-**Current PR:** #315 — B800-083 bounded cached Server Intelligence export  
+**Current PR:** #316 — B800-084 bounded cached Database Health summary export  
 **Task range:** B800-001..100  
 **Execution ledger:** `docs/BATCH_800.md`
 
@@ -232,7 +232,7 @@ BATCH-800 closes the gap between a visible route and a functionally wired operat
 
 `UI control / route -> controller endpoint -> authorization + antiforgery boundary -> service/read model -> persisted or cached evidence -> explicit success/error/unavailable state -> regression evidence`
 
-Incremental focused slices have advanced the batch beyond the historical #288 partial branch. Current `main` contains the evidence-backed server/diagnostic/workflow slices plus B800-071 fleet decision support, B800-072 maintenance safety decision support, B800-073 bounded incident decision evidence, B800-074 repository-bounded incident operator reads, B800-075 persisted/decorated native incident reads, B800-076 Fleet operator-policy availability, B800-077 Maintenance operator-policy availability, B800-078 bounded Fleet incident risk, B800-079 full bounded Fleet routing coverage, B800-080 full bounded Fleet correlation coverage, B800-081 bounded Fleet decision-support export and B800-082 bounded Maintenance decision-support export. PR #315 carries B800-083 bounded cached Server Intelligence export.
+Incremental focused slices have advanced the batch beyond the historical #288 partial branch. Current `main` contains the evidence-backed server/diagnostic/workflow slices plus B800-071 fleet decision support, B800-072 maintenance safety decision support, B800-073 bounded incident decision evidence, B800-074 repository-bounded incident operator reads, B800-075 persisted/decorated native incident reads, B800-076 Fleet operator-policy availability, B800-077 Maintenance operator-policy availability, B800-078 bounded Fleet incident risk, B800-079 full bounded Fleet routing coverage, B800-080 full bounded Fleet correlation coverage, B800-081 bounded Fleet decision-support export, B800-082 bounded Maintenance decision-support export and B800-083 bounded cached Server Intelligence export. PR #316 carries B800-084 bounded cached Database Health summary export.
 
 Current evidence-backed state:
 
@@ -256,15 +256,17 @@ Current evidence-backed state:
 - B800-081 reuses the existing `EnterpriseReportContract` to expose Viewer+ `GET /reports/fleet-decision-support.csv` from `FleetIntelligenceService.Read()` cache/control-plane evidence only; it records explicit availability, aggregate Fleet risk/routing/correlation facts and safe deterministic top-20 correlation detail while excluding per-incident routing suggestions/IDs/owners and sensitive payloads;
 - B800-082 is merged through PR #314 as `906d7ce2f3ef7c8379001723afe1c06be030f297`; exact final reconciled head `28df37a86377ea5228158d676460f05e5dc3d9da` passed CI #2628, Real SQL #336 and Windows production-candidate #469;
 - B800-082 exposes Viewer+ `GET /reports/maintenance-decision-support/{registrationId:guid}.csv?operation=...` through the same `EnterpriseReportContract`, keeps target identity in the request route only and shares `MaintenanceDecisionSupport.BuildEvidence(...)` with the visible page; unavailable/NotEvaluated facts remain explicit and sensitive identity/payload data is excluded;
-- B800-083 exposes Viewer+ contextual `GET /reports/server-intelligence/{registrationId:guid}.csv` through `IMonitorReadService.GetServerAsync` and the same `ServerIntelligenceProjection.Build(model)` used by Server Details;
-- B800-083 retains `monitor-export-v2` bounds/formula safety, preserves unavailable snapshot/database/runtime-pressure truth instead of synthetic zero/healthy, excludes credentials/connection strings/SQL text/plans/provider payloads/physical paths, and adds no refresh/mutation/remediation or monitored-SQL browser path;
-- B800-083 implementation/discoverability head `300b2e99590d742a3936efbf209febd5e79bad4f` passed CI #2637 before canonical reconciliation; the exact final post-reconciliation gate remains required.
+- B800-083 is complete and merged through PR #315 as `301c6af20534d37a899d8f8e3d50c81d7494ebb4`; exact final reconciled head `067de7549b7758bc680ccfb595ed66848d69f637` passed CI #2653 / `32072383956`, Real SQL #343 / `32072384083`, and Windows production-candidate #479 / `32072384098`;
+- B800-083 exposes Viewer+ contextual `GET /reports/server-intelligence/{registrationId:guid}.csv` through `IMonitorReadService.GetServerAsync` and the same `ServerIntelligenceProjection.Build(model)` used by Server Details; unavailable snapshot/database/runtime-pressure truth remains explicit and sensitive payloads remain excluded;
+- B800-084 exposes Viewer+ contextual `GET /reports/database-health/{registrationId:guid}.csv` through the same cache-only `IMonitorReadService.GetServerAsync` path and reuses `DatabaseStateProjection.Build(...)` for retained-state summary values;
+- B800-084 preserves aggregate online/total/database-state counters independently from retained-row availability, emits retained-state `Unavailable` rather than reconstructing missing rows, deliberately excludes retained database names and registration IDs, and adds no collector/refresh/mutation/remediation/failover/configuration-write path;
+- B800-084 implementation head `1895f4c340ee835a2a9e1aef3f401905ae136def` passed CI #2674 / `32073015882` and Windows production-candidate #480 / `32073015903`; Real SQL was not selected because no monitored-SQL query, collector or permission path changed. Exact final post-canonical-reconciliation gate remains required.
 
 Safety/truth boundaries remain mandatory: monitored GETs never collect SQL; missing, truncated or unreadable decision evidence is never converted to zero/healthy/default except that an explicitly complete empty incident population may truthfully summarize as zero; wait/I/O counters are cumulative since SQL Server start rather than interval history; `AgentReliabilityProjection` keeps `ScheduleLatenessEvaluated=false` until canonical time-zone + recurrence/expected-run semantics exist; backup RPO compliance is not claimed without policy; TempDB, transaction-log, HA readiness and privacy-safe query regression remain pending; no SQL text/query plans/client identity/table data/physical paths are collected; no autonomous remediation or AI-generated SQL execution is introduced.
 
-Least privilege remains read-only: SQL Server 2022+ uses `VIEW SERVER PERFORMANCE STATE` (older supported versions `VIEW SERVER STATE`) plus `VIEW ANY DEFINITION` and existing narrow metadata grants; Agent history/activity adds only read-only `SELECT` on `msdb.dbo.sysjobhistory` and `msdb.dbo.sysjobactivity`, with no SQLAgent execution/operator role. B800-071/072/073/074/075/076/077/078/079/080/081/082/083 add no monitored-SQL permission or query path.
+Least privilege remains read-only: SQL Server 2022+ uses `VIEW SERVER PERFORMANCE STATE` (older supported versions `VIEW SERVER STATE`) plus `VIEW ANY DEFINITION` and existing narrow metadata grants; Agent history/activity adds only read-only `SELECT` on `msdb.dbo.sysjobhistory` and `msdb.dbo.sysjobactivity`, with no SQLAgent execution/operator role. B800-071/072/073/074/075/076/077/078/079/080/081/082/083/084 add no monitored-SQL permission or query path.
 
-PR #315 becomes eligible for Ready/merge only after `BATCH_800`, `FEATURE_CATALOG`, `STATUS` and this plan are reconciled on one exact head, every repository-selected required workflow is Green on that same head, review threads are resolved, the branch is current with `main`, and the effective diff remains bounded to B800-083 plus canonical reconciliation. Real SQL is required only if repository path policy selects it. Merging #315 closes B800-083 only; #287 remains OPEN for B800-084+.
+PR #316 becomes eligible for Ready/merge only after `BATCH_800`, `FEATURE_CATALOG`, `STATUS` and this plan are reconciled on one exact head, every repository-selected required workflow is Green on that same head, review threads are resolved, the branch is current with `main`, and the effective diff remains bounded to B800-084 plus canonical reconciliation. Real SQL is required only if repository path policy selects it. Merging #316 closes B800-084 only; #287 remains OPEN for B800-085+.
 
 BATCH-800 does not publish/supersede selected RC.61, mutate real production IIS/SQL, satisfy #162/#116/#111, or change the strict production dependency.
 
@@ -291,7 +293,7 @@ BATCH-800 does not publish/supersede selected RC.61, mutate real production IIS/
 - BATCH-500 — B500-001..100 COMPLETE.
 - BATCH-600 — B600-001..100 COMPLETE.
 - `docs/BATCH_700.md` — UI700-001..050 COMPLETE; PR #240 squash-merged as `fd33e79c6d19d7f9852417b9c35a11f91f21714c` after exact final head `0834db6b5d518fe5c52eec9b47c03e467929aa89` passed CI #1637, Real SQL #91 and production-candidate #142.
-- `docs/BATCH_800.md` — B800-001..100 IN PROGRESS under #287; incremental focused slices are merged through B800-082 on `main`, with PR #315 carrying B800-083. The overall batch is not counted as complete.
+- `docs/BATCH_800.md` — B800-001..100 IN PROGRESS under #287; incremental focused slices are merged through B800-083 on `main`, with PR #316 carrying B800-084. The overall batch is not counted as complete.
 
 The BATCH-200 reconciliation selectively restored retention governance, enterprise security hardening and bounded scale primitives plus mapped B200-051..090 regression coverage and an additional audit-pagination regression on RC.61-era current main. Legacy issues #87/#91/#93 are closed completed, while stale PRs #88/#92/#94/#104 are closed unmerged as superseded. This was baseline correction rather than feature expansion or new task accounting; it preserves `IServerTargetLifecycleService`, BATCH-300 and all P0 production/release boundaries and does not change #116 or selected RC.61.
 
@@ -319,6 +321,7 @@ Historical feature breadth remains available, but it does not outrank the remain
 - B800-081 exports only bounded/versioned/redacted Fleet decision-support evidence through the existing shared CSV contract; unavailable/truncated evidence remains explicit, per-incident routing suggestions and sensitive identifiers/payloads are excluded, and the export adds no monitored-SQL or execution authority.
 - B800-082 exports one selected Maintenance decision through the same shared bounded evidence owner used by the visible page; target identity remains request-only, unreadable/truncated/ungoverned facts remain `Unavailable`/`NotEvaluated`, sensitive identity/payload data remains excluded, and the export adds no monitored-SQL or maintenance execution authority.
 - B800-083 exports only cached Server Intelligence already visible through Server Details; it reuses the same projection and shared CSV contract, preserves unavailable evidence explicitly, and adds no monitored-SQL, refresh, mutation or remediation path.
+- B800-084 exports only a contextual cached Database Health summary through the shared bounded CSV contract; aggregate and retained-state evidence remain separate, unavailable retained evidence remains explicit, retained database names/registration IDs are excluded, and the GET adds no monitored-SQL, refresh, mutation or remediation path.
 
 ## Definition of done
 

@@ -77,6 +77,15 @@ public sealed class EnterpriseReportsController : Controller
         return Download(ServerIntelligenceExport.Build(model), "text/csv; charset=utf-8", EnterpriseDownloadSubject.ServerIntelligence, "csv");
     }
 
+    [HttpGet("/reports/database-health/{registrationId:guid}.csv")]
+    public async Task<IActionResult> DatabaseHealth(Guid registrationId, CancellationToken cancellationToken)
+    {
+        if (registrationId == Guid.Empty) return NotFound();
+        var model = await _monitoring.GetServerAsync(registrationId.ToString("D"), cancellationToken);
+        if (model is null) return NotFound();
+        return Download(DatabaseHealthSummaryExport.Build(model), "text/csv; charset=utf-8", EnterpriseDownloadSubject.DatabaseHealth, "csv");
+    }
+
     [HttpGet("/reports/audit.csv")]
     [Authorize(Policy = MonitorPolicies.Manage)]
     public IActionResult Audit()
