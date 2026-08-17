@@ -83,6 +83,7 @@ public interface IEnterpriseReportingService
     byte[] Incidents(EnterpriseIncidentReportFilter filter);
     byte[] History(Guid registrationId, TimeSpan window);
     byte[] FleetDecisionSupport();
+    byte[]? MaintenanceDecision(Guid registrationId, string? operation);
     byte[] Audit();
     byte[] Manifest();
 }
@@ -185,6 +186,20 @@ public sealed class EnterpriseReportingService(
     {
         var snapshot = new FleetIntelligenceService(registrations, cache, operatorMetadata, incidents, timeProvider).Read();
         return Monitor.Web.Services.FleetDecisionSupportExport.Build(snapshot);
+    }
+
+    public byte[]? MaintenanceDecision(Guid registrationId, string? operation)
+    {
+        if (registrationId == Guid.Empty) return null;
+        var registration = registrations.GetById(registrationId);
+        if (registration is null || !registration.IsEnabled) return null;
+
+        var policy = new OperatorPolicyReadService(operatorMetadata, timeProvider).GetServer(registrationId);
+        var incidentRead = BoundedIncidentReadModel.ActiveForServer(incidents, registrationId);
+        var selectedOperation = Monitor.Web.Services.MaintenanceDecisionSupport.NormalizeOperation(operation);
+        var evidence = Monitor.Web.Services.MaintenanceDecisionSupport.BuildEvidence(selectedOperation, policy, incidentRead);
+        var result = Monitor.Web.Services.MaintenanceDecisionSupport.Evaluate(evidence);
+        return MaintenanceDecisionSupportExport.Build(policy, incidentRead, result);
     }
 
     public byte[] Audit()
