@@ -29,9 +29,9 @@ Browser GET navigation remains cache/control-plane only. Where a diagnostic dime
 | Login | AccountController + PBKDF2 verifier + cookie auth | Wired; include in end-to-end matrix |
 | Dashboard | IMonitorReadService + IDbaOperationsSurfaceService | Wired; validate every card/drill-down |
 | Servers | bounded server read model + policy metadata | Wired; validate paging/actions |
-| Server Details | cached snapshot + refresh POST + metadata/history | **B800 first slice: adding B300 intelligence projection** |
+| Server Details | cached snapshot + refresh POST + metadata/history | B800: B300 identity/runtime-pressure projection wired |
 | Database Health | cached health-module read model | Wired aggregate; deeper diagnostics depend on collector scope |
-| Memory Health | cached server read model | Wired aggregate |
+| Memory Health | shared cached health-module read model + bounded memory counters/configuration/clerk evidence | **B800 memory diagnostic slice wired; exact-head CI pending** |
 | Performance | cached health-module read model | Wired aggregate; B400 waits/query/TempDB/log/I/O not yet collected in current snapshot |
 | Backups | cached backup aggregate | Wired aggregate; B300/B400 compliance detail requires evidence expansion |
 | SQL Agent | cached Agent aggregate | Wired aggregate; reliability detail requires evidence expansion |
@@ -52,9 +52,11 @@ Browser GET navigation remains cache/control-plane only. Where a diagnostic dime
 
 ## Data-availability boundary discovered during inventory
 
-The current `ServerHealthSnapshot` provides server identity/version/edition/uptime, database totals/states, memory, full-backup aggregate, SQL Agent aggregate, allocated storage, blocking count/max wait, and bounded performance counts.
+The B800 branch extends `ServerHealthSnapshot.Memory` while preserving its optional/backward-compatible shape. The bounded collector now projects server identity/version/edition/uptime, database totals/states, OS/SQL process memory, max server memory, Total/Target Server Memory, PLE, Memory Grants Pending, dominant memory-clerk class/size, full-backup aggregate, SQL Agent aggregate, allocated storage, blocking count/max wait, and bounded performance counts.
 
-Therefore B300 estate identity and runtime-pressure helpers can be wired immediately from existing cached evidence. In contrast, B400 wait-stat, query-regression, TempDB, transaction-log, per-file I/O, detailed Agent reliability and HA helpers require explicit new snapshot evidence before they can be truthfully displayed. B800 will not project those helpers from invented placeholder inputs.
+The memory additions reuse the existing read-only server permission boundary (`VIEW SERVER PERFORMANCE STATE` on SQL Server 2022+ or `VIEW SERVER STATE` on older supported versions plus `VIEW ANY DEFINITION`). No SQL text, query plans, table data or configuration writes are collected.
+
+B300 estate identity and runtime-pressure helpers are wired from cached evidence. B400 wait-stat, query-regression, TempDB, transaction-log, per-file I/O, detailed Agent reliability and HA helpers still require explicit new snapshot evidence before they can be truthfully displayed. B800 will not project those helpers from invented placeholder inputs.
 
 ## Task program
 
@@ -90,7 +92,17 @@ Therefore B300 estate identity and runtime-pressure helpers can be wired immedia
 
 ### B800-031..050 — bounded snapshot expansion
 
-- [ ] add only the evidence required for B400 wait/query/TempDB/log/I/O/Agent/HA diagnostics, with bounded least-privilege collection and truthful optional fields.
+- [x] B800-031 extend optional memory snapshot evidence with max server memory, Total/Target Server Memory, PLE, Memory Grants Pending and dominant clerk class/size.
+- [x] B800-032 append the memory projections to the existing one-statement bounded collector without shifting existing evidence ordinals.
+- [x] B800-033 validate all optional memory numerics and clerk evidence fail-closed before snapshot publication.
+- [x] B800-034 keep the monitored-SQL query free of SQL text/query plans and preserve the existing two-second command / seven-second overall timeout boundary.
+- [x] B800-035 project detailed Memory evidence through `GetHealthModulesAsync`; normal Memory Health GET remains cache-only.
+- [x] B800-036 replace Memory Health `Planned` placeholders with real Max Memory / Total-Target / PLE / grants / dominant clerk evidence and explicit Not collected states.
+- [x] B800-037 add deterministic `MemoryIntelligenceProjection` recommendations with no automatic tuning/configuration write.
+- [x] B800-038 update least-privilege documentation and regression coverage for the expanded read-only memory evidence.
+- [ ] B800-039 obtain exact-head Green CI/Real-SQL/Windows candidate evidence for the memory slice.
+- [ ] B800-040 reconcile/close the memory slice after canonical docs and review.
+- [ ] B800-041..050 add only the evidence required for the next B400 wait/query/TempDB/log/I/O/Agent/HA diagnostics, one bounded contract at a time.
 
 ### B800-051..070 — dedicated diagnostics surfaces
 
@@ -108,17 +120,30 @@ Therefore B300 estate identity and runtime-pressure helpers can be wired immedia
 
 - [ ] end-to-end/controller-service contracts, role/antiforgery tests, no-fake-data tests, responsive/accessibility review, canonical docs, exact-head CI and final closeout.
 
-## First slice implementation evidence
+## Implementation evidence
 
 Branch: `agent/b800-functional-screen-wiring`.
 
-Initial code paths:
+Server Details slice:
 
 - `src/Monitor.Web/Services/ServerIntelligenceProjection.cs`
 - `src/Monitor.Web/Views/Operations/ServerDetails.cshtml`
 - `tests/Monitor.Web.Tests/ServerIntelligenceProjectionTests.cs`
 
-The projection is deterministic and consumes the existing Server Details read model only. It has no collector, SQL connection, credential or mutation dependency.
+Memory Health slice:
+
+- `src/Monitor.Web/Models/ServerHealthSnapshot.cs`
+- `src/Monitor.Web/Models/MonitorModels.cs`
+- `src/Monitor.Web/Services/SqlServerSnapshotCollector.cs`
+- `src/Monitor.Web/Services/MonitorReadService.cs`
+- `src/Monitor.Web/Services/MemoryIntelligenceProjection.cs`
+- `src/Monitor.Web/Controllers/OperationsController.cs`
+- `src/Monitor.Web/Views/Operations/MemoryHealth.cshtml`
+- `scripts/sql/monitored_sql_least_privilege.sql`
+- `tests/Monitor.Web.Tests/SqlServerSnapshotCollectorTests.cs`
+- `tests/Monitor.Web.Tests/MemoryIntelligenceProjectionTests.cs`
+
+A first memory-slice CI attempt failed only on a nullable C# conditional in `MemoryIntelligenceProjection`; the exact compiler error was fixed immediately. The slice remains IN VALIDATION until the new exact head is Green; failed CI is retained as evidence rather than hidden.
 
 ## Documentation / merge gate
 
