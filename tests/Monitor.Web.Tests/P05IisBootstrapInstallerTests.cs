@@ -22,6 +22,8 @@ public sealed class P05IisBootstrapInstallerTests
         Assert.Contains("Offline mode", setup, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Get-FileHash", setup, StringComparison.Ordinal);
         Assert.Contains("SHA-256 mismatch", setup, StringComparison.Ordinal);
+        Assert.Contains("Get-AuthenticodeSignature", setup, StringComparison.Ordinal);
+        Assert.Contains("signed by Microsoft Corporation", setup, StringComparison.Ordinal);
         Assert.Contains("Test-IisProductionPrerequisites.ps1", setup, StringComparison.Ordinal);
 
         Assert.DoesNotContain("New-SelfSignedCertificate", setup, StringComparison.Ordinal);
@@ -41,6 +43,8 @@ public sealed class P05IisBootstrapInstallerTests
         Assert.Contains("LocalSystem", setup, StringComparison.Ordinal);
         Assert.Contains("LocalService", setup, StringComparison.Ordinal);
         Assert.Contains("NetworkService", setup, StringComparison.Ordinal);
+        Assert.Contains("shared by other IIS site(s)", setup, StringComparison.Ordinal);
+        Assert.Contains("will not mutate a shared application pool", setup, StringComparison.Ordinal);
         Assert.Contains("will not be hijacked", setup, StringComparison.Ordinal);
         Assert.Contains("New-WebBinding", setup, StringComparison.Ordinal);
         Assert.Contains("AddSslCertificate", setup, StringComparison.Ordinal);
