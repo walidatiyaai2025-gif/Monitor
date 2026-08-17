@@ -148,7 +148,10 @@ public sealed class MonitorReadService(
                 snapshot.Jobs,
                 snapshot.Storage,
                 snapshot.Blocking,
-                snapshot.Performance)
+                snapshot.Performance,
+                snapshot.TempDb,
+                snapshot.TransactionLogs,
+                snapshot.Ha)
         });
     }
 
@@ -168,7 +171,8 @@ public sealed class MonitorReadService(
                     result.Freshness == SnapshotFreshness.Fresh ? ServerDataSource.LiveFresh : ServerDataSource.LiveStale,
                     (int)Math.Clamp(result.Age.TotalSeconds, 0, int.MaxValue),
                     snapshot.DatabaseOnline, snapshot.DatabaseTotal, snapshot.Databases, snapshot.Backups,
-                    snapshot.Jobs, snapshot.Storage, snapshot.Blocking, snapshot.Performance, snapshot.Memory, snapshot.UptimeSeconds));
+                    snapshot.Jobs, snapshot.Storage, snapshot.Blocking, snapshot.Performance, snapshot.Memory, snapshot.UptimeSeconds,
+                    snapshot.TempDb, snapshot.TransactionLogs, snapshot.Ha));
             }
             catch (SnapshotCollectionException)
             {
@@ -190,6 +194,7 @@ public sealed class MonitorReadService(
                 item.Severity.ToString(),
                 item.RegistrationId.ToString("D"),
                 item.Title,
+                item.RegistrationId.ToString("D"),
                 $"{Math.Max(0, (DateTimeOffset.UtcNow - item.LastSeenUtc).TotalMinutes):0}m",
                 item.Status.ToString()))
             .ToArray();
