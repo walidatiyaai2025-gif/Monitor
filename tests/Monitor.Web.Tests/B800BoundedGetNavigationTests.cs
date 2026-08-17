@@ -60,16 +60,17 @@ public sealed class B800BoundedGetNavigationTests
     {
         var controller = Read("src/Monitor.Web/Controllers/OperationsController.cs");
         var view = Read("src/Monitor.Web/Views/Operations/History.cshtml");
+        var pager = Section(view, "<nav class=\"bounded-pager\"", "</nav>");
 
         Assert.Contains("PerformanceScaleOptions.BoundOffset(offset)", controller, StringComparison.Ordinal);
         Assert.Contains("_performance.BoundHistoryLimit(limit)", controller, StringComparison.Ordinal);
         Assert.Contains("name=\"window\"", view, StringComparison.Ordinal);
         Assert.Contains("name=\"limit\"", view, StringComparison.Ordinal);
         Assert.Contains("name=\"offset\" value=\"0\"", view, StringComparison.Ordinal);
-        Assert.Equal(2, Count(view, "asp-route-window=\"@Model.Window\""));
-        Assert.Equal(2, Count(view, "asp-route-limit=\"@limit\""));
-        Assert.Contains("asp-route-offset=\"@Math.Max(0, offset - limit)\"", view, StringComparison.Ordinal);
-        Assert.Contains("asp-route-offset=\"@(offset + limit)\"", view, StringComparison.Ordinal);
+        Assert.Equal(2, Count(pager, "asp-route-window=\"@Model.Window\""));
+        Assert.Equal(2, Count(pager, "asp-route-limit=\"@limit\""));
+        Assert.Contains("asp-route-offset=\"@Math.Max(0, offset - limit)\"", pager, StringComparison.Ordinal);
+        Assert.Contains("asp-route-offset=\"@(offset + limit)\"", pager, StringComparison.Ordinal);
         Assert.Contains("Changing window reads stored aggregates only", view, StringComparison.Ordinal);
     }
 
@@ -95,6 +96,15 @@ public sealed class B800BoundedGetNavigationTests
             index += token.Length;
         }
         return count;
+    }
+
+    private static string Section(string value, string startToken, string endToken)
+    {
+        var start = value.IndexOf(startToken, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Section start token not found: {startToken}");
+        var end = value.IndexOf(endToken, start, StringComparison.Ordinal);
+        Assert.True(end >= 0, $"Section end token not found after: {startToken}");
+        return value[start..(end + endToken.Length)];
     }
 
     private static string Read(string relative) => File.ReadAllText(Path.Combine(Root, relative));
