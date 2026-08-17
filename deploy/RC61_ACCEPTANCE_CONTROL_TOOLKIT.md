@@ -1,6 +1,6 @@
 # RC.61 Acceptance Control Toolkit sidecar
 
-Issue #260 tracks this compatibility boundary. Selected product candidate RC.61 remains byte-for-byte unchanged.
+Issue #260 tracks this compatibility boundary. **RC.61 product/deployment bytes remain unchanged** and the selected product candidate remains byte-for-byte immutable.
 
 ## Why this is a sidecar
 
