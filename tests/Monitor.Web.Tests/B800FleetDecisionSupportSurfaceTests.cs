@@ -36,11 +36,18 @@ public sealed class B800FleetDecisionSupportSurfaceTests
         var view = Read("src/Monitor.Web/Views/Shared/_FleetDecisionSupport.cshtml");
         var fleet = Read("src/Monitor.Web/Views/FleetIntelligence/Index.cshtml");
 
+        Assert.Contains("CORRELATION · DECISION SUPPORT", view, StringComparison.Ordinal);
+        Assert.Contains("Correlation coverage above evaluates all", view, StringComparison.Ordinal);
+        Assert.Contains("complete bounded Fleet decision population", view, StringComparison.Ordinal);
+        Assert.Contains("top-@FleetDecisionSupport.MaxItems cluster detail view only", view, StringComparison.Ordinal);
+        Assert.Contains("Full correlation coverage is not evaluated", view, StringComparison.Ordinal);
+        Assert.Contains("B400 correlation coverage bound", view, StringComparison.Ordinal);
+        Assert.Contains("Multi-server", view, StringComparison.Ordinal);
+        Assert.Contains("Highest score", view, StringComparison.Ordinal);
         Assert.Contains("ROUTING · RECOMMENDATION ONLY", view, StringComparison.Ordinal);
         Assert.Contains("No notification is sent", view, StringComparison.Ordinal);
         Assert.Contains("no sender, pager or mutation action", view, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Routing coverage above evaluates all", view, StringComparison.Ordinal);
-        Assert.Contains("complete bounded Fleet decision population", view, StringComparison.Ordinal);
         Assert.Contains("top-@FleetDecisionSupport.MaxItems detail view only", view, StringComparison.Ordinal);
         Assert.Contains("Evaluated", view, StringComparison.Ordinal);
         Assert.Contains("Unassigned", view, StringComparison.Ordinal);
@@ -68,11 +75,17 @@ public sealed class B800FleetDecisionSupportSurfaceTests
     public void DecisionSupport_DelegatesCorrelationRoutingAndIncidentRiskToExistingB300B400Contracts()
     {
         var contract = Read("src/Monitor.Web/Services/FleetDecisionSupport.cs");
+        var correlation = Read("src/Monitor.Web/Services/Batch400FleetCorrelation.cs");
         var fleet = Read("src/Monitor.Web/Services/FleetIntelligenceService.cs");
 
         Assert.Contains("Batch400FleetCorrelation.Correlate", contract, StringComparison.Ordinal);
         Assert.Contains("Batch400FleetCorrelation.ClampWindow(TimeSpan.Zero)", contract, StringComparison.Ordinal);
         Assert.Contains("Batch400FleetCorrelation.SeverityWeight", contract, StringComparison.Ordinal);
+        Assert.Contains("Batch400FleetCorrelation.MaxClusterLimit", contract, StringComparison.Ordinal);
+        Assert.Contains("FleetCorrelationSummary", contract, StringComparison.Ordinal);
+        Assert.Contains("allCorrelations.Take(MaxItems)", contract, StringComparison.Ordinal);
+        Assert.Contains("public const int MaxClusterLimit = 100", correlation, StringComparison.Ordinal);
+        Assert.Contains("Math.Clamp(limit, 1, MaxClusterLimit)", correlation, StringComparison.Ordinal);
         Assert.Contains("Batch300AlertRouting.Decide", contract, StringComparison.Ordinal);
         Assert.Contains("FleetRoutingSummary", contract, StringComparison.Ordinal);
         Assert.Contains("routingDecisions.Length", contract, StringComparison.Ordinal);
