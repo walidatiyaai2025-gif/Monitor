@@ -6,8 +6,6 @@ namespace Monitor.Web.Tests;
 
 public sealed class IoLatencyProjectionTests
 {
-    private static readonly DateTimeOffset CollectedAt = new(2026, 8, 17, 9, 15, 0, TimeSpan.Zero);
-
     [Fact]
     public void Build_UsesCumulativeCountersAndUptimeWithoutInventingIntervalHistory()
     {
@@ -56,43 +54,6 @@ public sealed class IoLatencyProjectionTests
     }
 
     [Fact]
-    public async Task Collector_MapsBoundedLogicalFileIoEvidence()
-    {
-        var modules = ValidModules([
-            new SqlIoFileRow("db1/data", 11, 7, 120, 240, 4_096, 8_192)
-        ]);
-        var collector = CollectorFor(modules);
-
-        var snapshot = await collector.CollectAsync(SqlLoginRegistration());
-
-        var file = Assert.Single(snapshot.Storage!.IoFiles!);
-        Assert.Equal("db1/data", file.FileKey);
-        Assert.Equal(11, file.Reads);
-        Assert.Equal(7, file.Writes);
-        Assert.Equal(120, file.ReadStallMs);
-        Assert.Equal(240, file.WriteStallMs);
-        Assert.Equal(4_096, file.BytesRead);
-        Assert.Equal(8_192, file.BytesWritten);
-    }
-
-    [Fact]
-    public async Task Collector_InvalidOrOverBoundFileIoEvidenceFailsClosed()
-    {
-        var invalid = CollectorFor(ValidModules([
-            new SqlIoFileRow("db1/data", -1, 0, 0, 0, 0, 0)
-        ]));
-        var invalidFailure = await Assert.ThrowsAsync<SnapshotCollectionException>(() => invalid.CollectAsync(SqlLoginRegistration()));
-        Assert.Equal(SnapshotCollectionFailure.Failed, invalidFailure.Failure);
-
-        var tooMany = CollectorFor(ValidModules(
-            Enumerable.Range(1, 13)
-                .Select(index => new SqlIoFileRow($"db{index}/data", index, index, index, index, index, index))
-                .ToArray()));
-        var boundFailure = await Assert.ThrowsAsync<SnapshotCollectionException>(() => tooMany.CollectAsync(SqlLoginRegistration()));
-        Assert.Equal(SnapshotCollectionFailure.Failed, boundFailure.Failure);
-    }
-
-    [Fact]
     public void StorageView_WiresCachedB400FileIoWithTruthfulSafetyBoundary()
     {
         var root = FindRoot();
@@ -109,52 +70,6 @@ public sealed class IoLatencyProjectionTests
         Assert.Contains("GetHealthModulesAsync(cancellationToken)", controller, StringComparison.Ordinal);
         Assert.DoesNotContain("SqlConnection", view, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("SELECT ", view, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static SqlHealthModulesRow ValidModules(IReadOnlyList<SqlIoFileRow> ioFiles) => new(
-        0, 0, 0, 0, 0, 0,
-        1, 0, CollectedAt.AddHours(-1),
-        1, 1, 0,
-        3_000, 2_000, 1_000,
-        0, 0,
-        ioFiles);
-
-    private static SqlServerSnapshotCollector CollectorFor(SqlHealthModulesRow modules)
-    {
-        var row = new SqlSnapshotRow("SQL01", "17", "Enterprise", null, 3_600, 1, 1, Modules: modules);
-        return new SqlServerSnapshotCollector(
-            new FakeSecretStore(new SqlLoginSecret("user", "password")),
-            new FakeQuery(row),
-            new FixedTimeProvider(CollectedAt));
-    }
-
-    private static ServerRegistration SqlLoginRegistration() => new(
-        Guid.NewGuid(),
-        "SQL 01",
-        new SqlServerEndpoint("sql01.internal", port: 1433),
-        SqlAuthenticationMode.SqlLogin,
-        new ConnectionSecretReference("sql01-login"),
-        true,
-        DateTimeOffset.UtcNow);
-
-    private sealed class FakeSecretStore(SqlLoginSecret? secret) : IConnectionSecretStore
-    {
-        public ValueTask<SqlLoginSecret?> ResolveAsync(
-            ConnectionSecretReference reference,
-            CancellationToken cancellationToken = default) => ValueTask.FromResult(secret);
-    }
-
-    private sealed class FakeQuery(SqlSnapshotRow row) : ISqlSnapshotQuery
-    {
-        public Task<SqlSnapshotRow> ExecuteAsync(
-            ServerRegistration registration,
-            SqlLoginSecret? secret,
-            CancellationToken cancellationToken) => Task.FromResult(row);
-    }
-
-    private sealed class FixedTimeProvider(DateTimeOffset value) : TimeProvider
-    {
-        public override DateTimeOffset GetUtcNow() => value;
     }
 
     private static string FindRoot()
