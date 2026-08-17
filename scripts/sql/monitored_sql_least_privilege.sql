@@ -11,10 +11,13 @@
   security policy before production deployment.
 
   Metadata note:
-  The collector reads sys.master_files. SQL Server metadata visibility rules can
-  otherwise hide rows even when SELECT on the catalog view is granted. The
-  server role therefore receives VIEW ANY DEFINITION, which permits metadata
-  visibility but does not grant data access or mutation rights.
+  The collector reads sys.master_files and bounded server-level configuration /
+  performance metadata (sys.configurations, sys.dm_os_performance_counters and
+  sys.dm_os_memory_clerks). SQL Server metadata visibility rules can otherwise
+  hide rows even when SELECT on a catalog view is granted. The server role
+  therefore receives VIEW ANY DEFINITION, while VIEW SERVER PERFORMANCE STATE
+  (SQL Server 2022+) or VIEW SERVER STATE (older versions) supplies the existing
+  read-only DMV boundary. These grants do not permit data mutation.
 */
 
 SET NOCOUNT ON;
@@ -89,9 +92,11 @@ SET @sql = N'ALTER ROLE MonitorObserverMsdbRole ADD MEMBER ' + QUOTENAME(@Monito
 EXEC sys.sp_executesql @sql;
 
 /*
-  Collector coverage intentionally stops here. The current Monitor snapshot query
-  reads server identity, sys.databases/sys.master_files, OS/request/scheduler/I/O
-  DMVs, and the three msdb metadata tables above. It does not need SQL text,
+  Collector coverage intentionally stops at bounded read-only operational facts.
+  The current Monitor snapshot query reads server identity, sys.databases /
+  sys.master_files, OS/request/scheduler/I/O DMVs, max-server-memory metadata,
+  Memory Manager / Buffer Manager counters, the dominant memory-clerk class,
+  and the three msdb metadata tables above. It does not collect SQL text,
   execution plans, table data, BACKUP/RESTORE, SQL Agent operator rights, DDL,
   IMPERSONATE, CONTROL SERVER or sysadmin.
 */
