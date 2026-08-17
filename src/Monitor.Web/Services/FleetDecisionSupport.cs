@@ -28,11 +28,22 @@ public sealed record FleetRoutingSuggestion(
     bool Suppressed,
     bool InMaintenance);
 
+public sealed record FleetRoutingSummary(
+    int EvaluatedIncidents,
+    int Page,
+    int Notify,
+    int Queue,
+    int None,
+    int Suppressed,
+    int InMaintenance,
+    int Unassigned);
+
 public sealed record FleetDecisionSupportSnapshot(
     TimeSpan CorrelationWindow,
     int InputIncidents,
     IReadOnlyList<SignalCluster> Correlations,
-    IReadOnlyList<FleetRoutingSuggestion> RoutingSuggestions);
+    IReadOnlyList<FleetRoutingSuggestion> RoutingSuggestions,
+    FleetRoutingSummary? RoutingSummary = null);
 
 public static class FleetDecisionSupport
 {
@@ -57,7 +68,7 @@ public static class FleetDecisionSupport
             item.AtUtc));
         var correlations = Batch400FleetCorrelation.Correlate(signals, window, MaxItems);
 
-        var routing = incidents.Take(MaxItems).Select(item =>
+        var routingDecisions = incidents.Select(item =>
         {
             var severity = ToB400Severity(item.Severity);
             var input = new AlertRoutingInput(
@@ -68,24 +79,35 @@ public static class FleetDecisionSupport
                 item.InMaintenance,
                 item.Assignee,
                 item.AtUtc);
-            var decision = Batch300AlertRouting.Decide(input);
-            return new FleetRoutingSuggestion(
-                item.IncidentId,
-                item.RegistrationId.ToString("D"),
-                item.RuleId,
-                Batch300AlertRouting.NormalizeEnvironment(item.Environment),
-                item.Severity,
-                decision.Route,
-                decision.EscalationTier,
-                decision.Cooldown,
-                decision.Owner,
-                decision.Reason,
-                decision.DedupKey,
-                item.Suppressed,
-                item.InMaintenance);
+            return new FleetRoutingDecision(item, Batch300AlertRouting.Decide(input));
         }).ToArray();
 
-        return new(window, incidents.Length, correlations, routing);
+        var routingSummary = new FleetRoutingSummary(
+            routingDecisions.Length,
+            routingDecisions.Count(item => item.Decision.Route == AlertRoute.Page),
+            routingDecisions.Count(item => item.Decision.Route == AlertRoute.Notify),
+            routingDecisions.Count(item => item.Decision.Route == AlertRoute.Queue),
+            routingDecisions.Count(item => item.Decision.Route == AlertRoute.None),
+            routingDecisions.Count(item => item.Incident.Suppressed),
+            routingDecisions.Count(item => item.Incident.InMaintenance),
+            routingDecisions.Count(item => string.Equals(item.Decision.Owner, "unassigned", StringComparison.Ordinal)));
+
+        var routing = routingDecisions.Take(MaxItems).Select(item => new FleetRoutingSuggestion(
+            item.Incident.IncidentId,
+            item.Incident.RegistrationId.ToString("D"),
+            item.Incident.RuleId,
+            Batch300AlertRouting.NormalizeEnvironment(item.Incident.Environment),
+            item.Incident.Severity,
+            item.Decision.Route,
+            item.Decision.EscalationTier,
+            item.Decision.Cooldown,
+            item.Decision.Owner,
+            item.Decision.Reason,
+            item.Decision.DedupKey,
+            item.Incident.Suppressed,
+            item.Incident.InMaintenance)).ToArray();
+
+        return new(window, incidents.Length, correlations, routing, routingSummary);
     }
 
     private static B400Severity ToB400Severity(FindingSeverity severity) => severity switch
@@ -94,4 +116,8 @@ public static class FleetDecisionSupport
         FindingSeverity.Warning => B400Severity.Warning,
         _ => B400Severity.None
     };
+
+    private sealed record FleetRoutingDecision(
+        FleetDecisionIncident Incident,
+        AlertRoutingDecision Decision);
 }
