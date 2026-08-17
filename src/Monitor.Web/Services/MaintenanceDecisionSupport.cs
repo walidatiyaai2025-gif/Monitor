@@ -1,3 +1,5 @@
+using Monitor.Web.Models;
+
 namespace Monitor.Web.Services;
 
 public enum MaintenanceDecisionSupportStatus
