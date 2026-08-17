@@ -5,6 +5,14 @@ namespace Monitor.Web.Services;
 public sealed record FleetHealthBucket(string Key, int Servers, int Fresh, int Stale, int Unavailable, int Maintenance, int Suppressed);
 public sealed record FleetRuleHotspot(string RuleId, int Open, int Critical, int Suppressed);
 public sealed record FleetRiskSummary(int BackupGaps, int MemoryPressure, int BlockingRisk, int RunnableRisk);
+public sealed record FleetAdvancedEvidenceSummary(
+    int TempDbServers,
+    int TransactionLogServers,
+    int HaServers,
+    int HaEnabledServers,
+    int LogReuseBlockedDatabases,
+    int SuspendedHaDatabases,
+    int StaleEvidenceServers);
 public sealed record FleetIntelligenceSnapshot(
     IReadOnlyList<FleetHealthBucket> ByEnvironment,
     IReadOnlyList<FleetHealthBucket> ByGroup,
@@ -15,7 +23,8 @@ public sealed record FleetIntelligenceSnapshot(
     int Maintenance,
     int Suppressed,
     IReadOnlyList<FleetRuleHotspot> RuleHotspots,
-    FleetRiskSummary Risks);
+    FleetRiskSummary Risks,
+    FleetAdvancedEvidenceSummary? Advanced = null);
 
 public interface IFleetIntelligenceService
 {
@@ -83,6 +92,15 @@ public sealed class FleetIntelligenceService(
             servers.Count(item => item.Snapshot?.Snapshot.Blocking is { BlockedRequests: > 0 }),
             servers.Count(item => item.Snapshot?.Snapshot.Performance is { RunnableTasks: >= 10 }));
 
+        var advanced = new FleetAdvancedEvidenceSummary(
+            servers.Count(item => item.Snapshot?.Snapshot.TempDb is not null),
+            servers.Count(item => item.Snapshot?.Snapshot.TransactionLogs is not null),
+            servers.Count(item => item.Snapshot?.Snapshot.Ha is not null),
+            servers.Count(item => item.Snapshot?.Snapshot.Ha?.IsHadrEnabled == true),
+            servers.Sum(item => AdvancedEvidenceProjection.BuildTransactionLogs(item.Snapshot?.Snapshot.TransactionLogs).Count(database => database.TruncationBlocked == true)),
+            servers.Sum(item => item.Snapshot?.Snapshot.Ha?.DatabaseReplicas?.Count(database => database.IsSuspended == true) ?? 0),
+            servers.Count(item => item.Snapshot?.Freshness == SnapshotFreshness.Stale && HasAdvancedEvidence(item.Snapshot.Snapshot)));
+
         return new(
             byEnvironment,
             byGroup,
@@ -93,8 +111,12 @@ public sealed class FleetIntelligenceService(
             servers.Count(item => item.Maintenance),
             servers.Count(item => item.Suppressed),
             hotspots,
-            risks);
+            risks,
+            advanced);
     }
+
+    private static bool HasAdvancedEvidence(ServerHealthSnapshot snapshot) =>
+        snapshot.TempDb is not null || snapshot.TransactionLogs is not null || snapshot.Ha is not null;
 
     private static FleetHealthBucket[] Bucket(IEnumerable<(string Key, ServerProjection Item)> source) =>
         source.GroupBy(item => item.Key, StringComparer.OrdinalIgnoreCase)
