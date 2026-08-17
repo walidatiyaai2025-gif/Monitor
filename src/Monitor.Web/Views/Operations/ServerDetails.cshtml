@@ -20,6 +20,7 @@
     var isLive = server.Source is ServerDataSource.LiveFresh or ServerDataSource.LiveStale;
     var isUnavailable = server.Source == ServerDataSource.RegisteredUnavailable;
     var isStale = server.Source == ServerDataSource.LiveStale;
+    var hasRegisteredExportContext = Guid.TryParse(server.Id, out var exportRegistrationId) && exportRegistrationId != Guid.Empty;
     var stateName = server.State.ToString().ToLowerInvariant();
     var freshnessLabel = server.Source switch
     {
@@ -91,6 +92,21 @@
         <div class="command-stat state-@jobsState"><small>SQL Agent</small><strong>@(jobs is null ? "Not collected" : $"{jobs.EnabledJobs}/{jobs.TotalJobs} enabled · {jobs.FailedLastRun} failed")</strong></div>
     </div>
 </section>
+
+@if (hasRegisteredExportContext)
+{
+    <section class="glass-panel panel-pad" style="margin-top:14px" aria-labelledby="server-evidence-exports">
+        <div class="panel-heading">
+            <div><span class="eyebrow">BOUNDED EVIDENCE EXPORTS</span><h3 id="server-evidence-exports">Download this registered server context</h3></div>
+            <span class="snapshot-note">Viewer+ · cache only</span>
+        </div>
+        <p class="panel-copy">These downloads reuse the existing cached Server Intelligence and Database Health export contracts. They do not refresh the snapshot or contact the monitored SQL Server.</p>
+        <div class="report-actions">
+            <a class="secondary-button" asp-controller="EnterpriseReports" asp-action="ServerIntelligence" asp-route-registrationId="@exportRegistrationId" aria-label="Download cached server intelligence CSV for @server.Name">Download server intelligence CSV</a>
+            <a class="secondary-button" asp-controller="EnterpriseReports" asp-action="DatabaseHealth" asp-route-registrationId="@exportRegistrationId" aria-label="Download cached database health CSV for @server.Name">Download database health CSV</a>
+        </div>
+    </section>
+}
 
 @if (isUnavailable)
 {
