@@ -28,8 +28,8 @@ Browser GET navigation remains cache/control-plane only. Where a diagnostic dime
 |---|---|---|
 | Login | AccountController + PBKDF2 verifier + cookie auth | Wired; include in end-to-end matrix |
 | Dashboard | IMonitorReadService + IDbaOperationsSurfaceService | Wired; validate every card/drill-down |
-| Servers | bounded server read model + policy metadata | Wired; validate paging/actions |
-| Server Details | cached snapshot + refresh POST + metadata/history | B800: B300 identity/runtime-pressure projection wired |
+| Servers | bounded server read model + policy metadata | Wired; bounded paging/filter contract now regression-locked |
+| Server Details | cached snapshot + refresh POST + metadata/history | B800: B300 identity/runtime-pressure projection wired; refresh PRG contract locked |
 | Database Health | cached health-module read model + bounded per-database state evidence | **B800 exact database-state classification/actionable/worst-observed slice wired; omitted rows are not inferred** |
 | Memory Health | shared cached health-module read model + bounded memory counters/configuration/clerk evidence | **B800 memory diagnostic slice wired; exact final validation pending** |
 | Performance | cached health-module read model + bounded cumulative wait evidence | **B800 wait-stat projection wired and SQL-real validated on pre-canonical heads** |
@@ -37,17 +37,17 @@ Browser GET navigation remains cache/control-plane only. Where a diagnostic dime
 | SQL Agent | cached aggregate + bounded recent job-summary history + current Agent activity evidence | **B800 run-history reliability and current next-run/running evidence wired; lateness explicitly not evaluated without canonical server time-zone + recurrence/expected-run semantics** |
 | Storage | cached allocation + bounded logical-file I/O evidence | **B800 B400 file-I/O projection wired and SQL-real validated on pre-canonical heads** |
 | Blocking | cached blocked-count/max-wait aggregate | Wired aggregate |
-| Alerts | incident workflow/query + role-scoped transitions | Wired; validate all transition/feedback paths |
-| Recommendations | incident repository + deterministic recommendation engine | Wired; validate acknowledgement/drill-down integration |
-| Reports | versioned CSV/ZIP/JSON endpoints | Wired existing exports; extend with new evidence only after collection contracts exist |
-| Connection Lab | registration/test/credential workflow | Existing functional onboarding surface; validate full control flow |
+| Alerts | incident workflow/query + role-scoped transitions | B800 bounded filters/paging + PRG/conflict + role-visible mutation controls regression-locked |
+| Recommendations | incident repository + deterministic recommendation engine | Wired; incident/Advisor mutation controls align with Operator/Administrator policy boundary |
+| Reports | versioned CSV/ZIP/JSON endpoints | Wired existing exports; contextual history export remains explicitly server-scoped/read-only |
+| Connection Lab | registration/test/credential workflow | B800 test-before-save, write-only secret and protected action wiring regression-locked |
 | Audit | bounded audit store | Wired |
-| History | stored snapshot trends | Wired |
+| History | stored snapshot trends | B800 bounded window/limit/paging navigation regression-locked |
 | Fleet Intelligence | enterprise metadata/incidents projection | Existing surface; correlation expansion tracked later in B800 |
-| Enterprise Operations | governance metadata control plane | Existing surface; validate mutations and cross-links |
+| Enterprise Operations | governance metadata control plane | Existing surface; protected mutation/PRG behavior covered by workflow matrix |
 | Observability | control-plane telemetry/readiness | Existing surface; validate source/readiness states |
-| Settings | readiness + operational backup/restore POST workflows | Existing functional controls; validate role/antiforgery/feedback |
-| Governance retention | dry-run/apply workflow | Existing protected workflow; validate destructive confirmation/audit |
+| Settings | readiness + operational backup/restore POST workflows | Existing functional controls; PRG + exact destructive confirmation contract covered |
+| Governance retention | dry-run/apply workflow | Existing protected workflow; audited feedback redirect contract covered |
 | Operator help/readiness | control-plane guidance | Existing read-only surfaces |
 
 ## Data-availability boundary discovered during inventory
@@ -92,7 +92,11 @@ B300 estate identity and runtime-pressure helpers are wired from cached evidence
 
 - [x] B800-021 enforce an assembly-wide protected POST workflow matrix: antiforgery + authorization + named-policy boundary (`docs/work/B800-021.md`).
 - [x] B800-022 verify visible Razor tag-helper POST forms resolve to real controller POST endpoints (`docs/work/B800-022.md`).
-- [ ] B800-023..030 complete the remaining action/drill-down/filter/PRG/role matrix across existing pages without inventing unsupported runtime behavior.
+- [x] B800-023 lock bounded GET filters/paging and filter preservation for Alerts, Servers, History and contextual Reports navigation (`docs/work/B800-023.md`).
+- [x] B800-024 lock HTML mutation PRG/feedback behavior while preserving explicit conflict/not-found/validation outcomes (`docs/work/B800-024.md`).
+- [x] B800-025 align visible incident/AI Advisor mutation controls with existing Operator/Administrator endpoint policies while preserving Viewer evidence (`docs/work/B800-025.md`).
+- [x] B800-026 lock Connection Lab test-before-save, temporary credential cleanup, write-only secret and protected action wiring (`docs/work/B800-026.md`).
+- [ ] B800-027..030 continue remaining action/drill-down/filter/role completion in the next B800 slice; do not extend PR #288 beyond its merge-frozen partial scope.
 
 ### B800-031..050 — bounded snapshot expansion
 
@@ -168,11 +172,19 @@ Server Details / cross-page contract slice:
 - `docs/work/B800-018.md`
 - `docs/work/B800-019.md`
 
-Protected workflow contract slice:
+Protected workflow/navigation slice:
 - `tests/Monitor.Web.Tests/B800WorkflowSafetyMatrixTests.cs`
 - `tests/Monitor.Web.Tests/B800RazorPostWiringTests.cs`
+- `tests/Monitor.Web.Tests/B800BoundedGetNavigationTests.cs`
+- `tests/Monitor.Web.Tests/B800PrgFeedbackContractTests.cs`
+- `tests/Monitor.Web.Tests/B800IncidentAdvisorRoleTests.cs`
+- `tests/Monitor.Web.Tests/B800ConnectionLabWorkflowTests.cs`
 - `docs/work/B800-021.md`
 - `docs/work/B800-022.md`
+- `docs/work/B800-023.md`
+- `docs/work/B800-024.md`
+- `docs/work/B800-025.md`
+- `docs/work/B800-026.md`
 
 Memory Health slice:
 - `src/Monitor.Web/Models/ServerHealthSnapshot.cs`
@@ -232,9 +244,12 @@ Per-database state slice:
 - Wait-slice head `5dc585fad80f24dfa2bacdd729fc0b1b1d3f26fe`: CI #2029 and Real SQL #161 Green.
 - Storage/I/O head `ffc7b307e99558d92500e7278ff62ec721796e7f`: CI #2046, Real SQL #169 and Windows production-candidate #265 all Green. Real SQL validation includes application of the read-only monitored-SQL role and execution against SQL Server 2022.
 - Database-state source head `895297809d5dcb656cb3e6bc064aba96d02e58b1`: CI #2120 and Real SQL #205 Green; later shared-branch commits supersede it as merge evidence.
-- B800-063 adds bounded current Agent activity/next-run metadata while deliberately keeping lateness unevaluated; its own source heads are chronology only after this canonical reconciliation moves the branch again.
-- Canonical documentation now reflects B800-063. Only CI, Real SQL and Windows production-candidate on the final exact head count for Ready/merge.
+- B800-063 adds bounded current Agent activity/next-run metadata while deliberately keeping lateness unevaluated.
+- B800-023..026 add regression coverage/role alignment around bounded GET navigation, PRG outcomes, incident/Advisor visible controls and Connection Lab test-before-save without introducing new monitored-SQL or production mutation paths.
+- Canonical documentation reflects the merge-frozen #288 scope. Only CI, Real SQL and Windows production-candidate on the final exact head count for Ready/merge.
 
-## Documentation / merge gate
+## PR #288 scope freeze / merge gate
 
-`docs/FEATURE_CATALOG.md`, `docs/STATUS.md`, `docs/IMPLEMENTATION_PLAN.md`, and this ledger are reconciled in PR #288, including implemented B800-015/016/017/019/021/022/063/069 work without claiming unsupported lateness or diagnostics. Before PR #288 is marked Ready or merged, applicable CI must be green on the exact final head, the branch must remain current with `main`, and review threads must remain resolved. Issue #287 remains OPEN after this partial slice.
+PR #288 is frozen to the evidence-backed work already present through B800-026 plus B800-031..063 and B800-069. **Do not add B800-027+, B800-064..068, B800-070+ or other new functional scope to #288 after this reconciliation; continue those under #287 in a subsequent PR.**
+
+`docs/FEATURE_CATALOG.md`, `docs/STATUS.md`, `docs/IMPLEMENTATION_PLAN.md`, and this ledger must describe the same frozen scope. Before PR #288 is marked Ready or merged, normal CI, applicable Real SQL and Windows production-candidate must all be Green on one exact final head, the branch must remain current with `main`, and review threads must remain resolved. Issue #287 remains OPEN after this partial slice.
