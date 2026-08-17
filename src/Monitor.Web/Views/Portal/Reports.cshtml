@@ -43,6 +43,13 @@
         </article>
 
         <article class="glass-panel report-card">
+            <div class="panel-heading"><div><span class="eyebrow">DATABASE HEALTH</span><h3>Cached database health summary</h3></div><span class="report-format">CSV · v2 · contextual</span></div>
+            <p>Exports cached aggregate database availability plus the same B300 retained-state summary used by Database Health. Database names are excluded and missing retained detail remains explicitly Unavailable.</p>
+            <dl class="report-metadata"><div><dt>Access</dt><dd>Viewer+</dd></div><div><dt>Source</dt><dd>Server Details cache</dd></div><div><dt>Identifiers</dt><dd>Database names excluded</dd></div></dl>
+            <a class="secondary-button full-button" asp-controller="Operations" asp-action="Servers" aria-label="Choose a server before exporting cached database health summary">Choose server for database export</a>
+        </article>
+
+        <article class="glass-panel report-card">
             <div class="panel-heading"><div><span class="eyebrow">HISTORY</span><h3>Server snapshot history</h3></div><span class="report-format">CSV · contextual</span></div>
             <p>History exports require a selected server registration and an approved 1h, 6h or 24h window. Choose a server first so the export remains explicitly scoped.</p>
             <dl class="report-metadata"><div><dt>Access</dt><dd>Viewer+</dd></div><div><dt>Windows</dt><dd>1h · 6h · 24h</dd></div><div><dt>Source</dt><dd>Stored aggregates</dd></div></dl>
@@ -84,4 +91,4 @@
     }
 </section>
 
-<div class="data-banner"><strong>DISCOVERABILITY</strong><span>All global export and diagnostics entry points are listed here. Server-specific intelligence and history exports remain contextual by design: open Servers, choose a server, then use the selected server workflow.</span></div>
+<div class="data-banner"><strong>DISCOVERABILITY</strong><span>All global export and diagnostics entry points are listed here. Server intelligence, database health and history exports remain contextual by design: open Servers, choose a server, then use the selected server workflow.</span></div>
