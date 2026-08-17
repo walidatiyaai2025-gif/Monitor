@@ -1,3 +1,4 @@
+@using Monitor.Web.Services
 @model HealthModulePageViewModel
 @functions {
     static string Bytes(long value) => value >= 1_099_511_627_776 ? $"{value / 1_099_511_627_776d:0.0} TB" : value >= 1_073_741_824 ? $"{value / 1_073_741_824d:0.0} GB" : value >= 1_048_576 ? $"{value / 1_048_576d:0.0} MB" : $"{value} B";
@@ -9,25 +10,36 @@
     var data = observed.Sum(server => server.Storage!.DataAllocatedBytes);
     var log = observed.Sum(server => server.Storage!.LogAllocatedBytes);
     var unavailable = Model.Servers.Count(server => server.Storage is null || server.Source == ServerDataSource.RegisteredUnavailable);
-    var canManage = User.IsInRole(Monitor.Web.Services.MonitorRoles.Administrator);
+    var ioObserved = Model.Servers
+        .Select(server => new { Server = server, Files = IoLatencyProjection.Build(server.Storage, server.UptimeSeconds) })
+        .Where(item => item.Files.Count > 0)
+        .ToArray();
+    var hotspotCount = ioObserved.Sum(item => item.Files.Count(file => file.Hotspot));
+    var topHotspot = ioObserved
+        .SelectMany(item => item.Files.Select(file => new { item.Server.Name, File = file }))
+        .OrderByDescending(item => item.File.Score)
+        .ThenByDescending(item => item.File.WeightedLatencyMs)
+        .FirstOrDefault();
+    var canManage = User.IsInRole(MonitorRoles.Administrator);
 }
 
-<partial name="_PortalPageHeader" model="@(new PortalPageHeaderViewModel(Model.Title, Model.Description + " Allocation is not disk capacity and does not imply free space.", "CACHED DATABASE ALLOCATION", "View servers", Url.Action("Servers", "Operations")))" />
+<partial name="_PortalPageHeader" model="@(new PortalPageHeaderViewModel(Model.Title, Model.Description + " Allocation is not disk capacity. File I/O counters are cumulative since SQL Server start and normalized with collected uptime.", "CACHED STORAGE + I/O", "View servers", Url.Action("Servers", "Operations")))" />
 
 @if (Model.Servers.Count == 0)
 {
-    <partial name="_PortalState" model="@(new PortalStateViewModel("No storage snapshots", "Collect a server snapshot before interpreting allocated database bytes.", "warning", canManage ? "Manage connections" : "View servers", canManage ? Url.Action("Index", "ConnectionLab") : Url.Action("Servers", "Operations")))" />
+    <partial name="_PortalState" model="@(new PortalStateViewModel("No storage snapshots", "Collect a server snapshot before interpreting allocated database bytes or file I/O evidence.", "warning", canManage ? "Manage connections" : "View servers", canManage ? Url.Action("Index", "ConnectionLab") : Url.Action("Servers", "Operations")))" />
 }
 else
 {
     <section class="health-command-summary" aria-label="Storage allocation summary">
-        <article class="health-command-card hero state-@(unavailable > 0 ? "warning" : "healthy")"><div><small>TOTAL DATABASE ALLOCATION</small><strong>@Bytes(total)</strong><span>Allocated bytes from available cached snapshots</span></div></article>
+        <article class="health-command-card hero state-@(hotspotCount > 0 ? "warning" : unavailable > 0 ? "warning" : "healthy")"><div><small>TOTAL DATABASE ALLOCATION</small><strong>@Bytes(total)</strong><span>Allocated bytes from available cached snapshots</span></div></article>
         <article class="health-command-card state-healthy"><small>DATA ALLOCATION</small><strong>@Bytes(data)</strong><span>Allocated data-file bytes</span></article>
         <article class="health-command-card state-healthy"><small>LOG ALLOCATION</small><strong>@Bytes(log)</strong><span>Allocated log-file bytes</span></article>
+        <article class="health-command-card state-@(hotspotCount > 0 ? "warning" : "healthy")"><small>I/O HOTSPOTS</small><strong>@hotspotCount</strong><span>@(topHotspot is null ? "No bounded file I/O evidence" : $"Top: {topHotspot.Name} · {topHotspot.File.FileKey}")</span></article>
         <article class="health-command-card state-@(unavailable > 0 ? "offline" : "healthy")"><small>EVIDENCE UNAVAILABLE</small><strong>@unavailable</strong><span>Servers without allocation evidence</span></article>
     </section>
 
-    <div class="data-banner"><strong>IMPORTANT</strong><span>This screen reports database allocation only. It does not report volume capacity, disk free space, filesystem usage, or forecast exhaustion.</span></div>
+    <div class="data-banner"><strong>IMPORTANT</strong><span>Allocation values do not represent volume capacity or disk free space. File I/O evidence uses logical database/file identity only; physical filesystem paths are never collected or rendered.</span></div>
 
     <section class="glass-panel table-panel health-surface-panel">
         <div class="panel-heading"><div><span class="eyebrow">ALLOCATION BY SERVER</span><h3>Latest bounded allocation facts</h3></div><span class="snapshot-note">Cache only</span></div>
@@ -47,4 +59,47 @@ else
             }
         </div>
     </section>
+
+    <section class="dashboard-grid" style="margin-top:14px" aria-label="File I/O intelligence by server">
+        @foreach (var server in Model.Servers)
+        {
+            var files = IoLatencyProjection.Build(server.Storage, server.UptimeSeconds);
+            var top = files.FirstOrDefault();
+            var state = top?.Severity switch
+            {
+                B400Severity.Critical => "critical",
+                B400Severity.Warning => "warning",
+                B400Severity.Info => "healthy",
+                _ => "unknown"
+            };
+            <article class="glass-panel ops-panel state-@state">
+                <div class="panel-heading"><div><span class="eyebrow">@server.Name · B400 FILE I/O</span><h3>Cumulative file latency and throughput</h3></div><span class="snapshot-note">@(server.UptimeSeconds is long uptime ? $"uptime {TimeSpan.FromSeconds(uptime).TotalHours:0.0}h" : "uptime unavailable")</span></div>
+                @if (files.Count == 0)
+                {
+                    <p class="panel-copy"><strong>Not collected.</strong> Bounded file-I/O counters or server uptime are unavailable. No healthy I/O state is inferred.</p>
+                }
+                else
+                {
+                    <div class="responsive-table" role="region" aria-label="@server.Name file I/O intelligence" tabindex="0">
+                        <div class="table-head health-detail-grid health-detail-grid-six" role="row"><span>Logical file</span><span>Latency</span><span>Throughput</span><span>Write share</span><span>Band</span><span>Severity</span></div>
+                        @foreach (var file in files)
+                        {
+                            <div class="table-row health-detail-grid health-detail-grid-six" role="row">
+                                <strong title="Fingerprint @file.Fingerprint">@file.FileKey</strong>
+                                <span>@file.WeightedLatencyMs.ToString("0.##") ms</span>
+                                <span>@file.ThroughputMbPerSecond.ToString("0.##") MB/s</span>
+                                <span>@file.WriteSharePercent.ToString("0.##")%</span>
+                                <span>@file.LatencyBand</span>
+                                <span class="state-@(file.Severity is B400Severity.Critical ? "critical" : file.Severity is B400Severity.Warning ? "warning" : "healthy")">@file.Severity</span>
+                            </div>
+                        }
+                    </div>
+                    <p class="server-mini-note">Latency is computed from cumulative stall/read-write counters. Throughput is normalized by SQL Server uptime; it is not a recent interval rate or persisted trend.</p>
+                }
+                <div style="margin-top:12px"><a class="secondary-button" asp-controller="Operations" asp-action="ServerDetails" asp-route-id="@server.Id">Open full server evidence</a></div>
+            </article>
+        }
+    </section>
+
+    <div class="data-banner"><strong>COLLECTION BOUNDARY</strong><span>Up to 12 logical database/file identities and cumulative I/O counters are cached from the bounded snapshot. Physical paths, SQL text, query plans and filesystem free-space probes remain outside this surface. GET navigation does not contact monitored SQL.</span></div>
 }
