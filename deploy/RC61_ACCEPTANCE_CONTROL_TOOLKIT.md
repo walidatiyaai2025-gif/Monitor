@@ -9,7 +9,7 @@ RC.61 was produced before the later selected-product-hash and locked-session acc
 1. **Product/deployment candidate:** exact RC.61 ZIP + companion checksum tracked on #116/#162.
 2. **Acceptance Control Toolkit:** exactly six PowerShell scripts from one reviewed repository commit whose exact final head is recorded on #260/#258 after CI.
 
-The sidecar may initialize/lock the acceptance session, record the 15 real gates, finalize the evidence pack and independently validate closure. It does **not** replace RC.61 application/deployment bytes and cannot create a production PASS by itself.
+The sidecar may initialize/lock the acceptance session, record the 15 real gates, finalize the evidence pack and independently validate closure. It does not replace RC.61 application/deployment bytes and cannot create a production PASS by itself.
 
 ## Exact six sidecar files
 
