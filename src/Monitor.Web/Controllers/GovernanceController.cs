@@ -25,7 +25,7 @@ public sealed class GovernanceController : Controller
             metadata,
             audit,
             timeProvider,
-            pruneState: pruneState ?? GovernancePruneStateMigration.CreateTransient(audit, metadata));
+            pruneState: pruneState);
     }
 
     [HttpGet("/governance/retention")]
