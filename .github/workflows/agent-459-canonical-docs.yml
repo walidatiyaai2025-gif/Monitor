@@ -1,0 +1,79 @@
+name: agent-459-canonical-docs
+
+on:
+  push:
+    branches:
+      - agent/459-operator-metadata-file-lease
+
+permissions:
+  contents: write
+
+jobs:
+  patch-canonical-docs:
+    if: ${{ !contains(github.event.head_commit.message, '[tracking-patched-459]') }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Reconcile canonical tracking
+        shell: python
+        run: |
+          from pathlib import Path
+
+          status = """## SingleNode operator metadata cross-process safety — #459 / PR #460
+
+**Base:** `main@34613f419466f159f86a8499f5de69f1628e4875`.  
+**Gap:** `FileOperatorMetadataStore` cached the shared server/incident envelope per process and protected access only with an instance-local lock, allowing stale reads and whole-envelope lost updates across overlapping SingleNode IIS workers.  
+**Implementation:** PR #460 uses one stable `operator-metadata.json.lock` `CrossProcessFileLease` for the complete envelope, reloads and validates authoritative disk state under the lease before reads and read-modify-write mutations, and preserves existing normalization, bounds, note retention and atomic-save semantics. MultiNode SharedState is unchanged.  
+**Regression contract:** two independently-created file stores must observe peer server/incident state, preserve independent server + incident mutations in the same envelope, and preserve peer incident notes across restart.  
+**Pre-canonical-doc evidence:** code/test head `f26b7f6a86b75713fe8ffed0ccdb401070a1b19f` passed Linux Release build and full test step plus repository safety runtimes; SQL Server 2022 Real SQL and Windows production-candidate were selected for the source change.  
+**Merge gate:** exact final docs-inclusive PR #460 head must remain current with `main`, have zero unresolved review threads, and pass Linux CI, Windows production-candidate, SQL Server 2022 Real SQL when selected/required, and both protected-P0 guards before Ready/squash merge and #459 completion.  
+**Boundary:** no monitored-target SQL query/permission expansion, credential behavior change, MultiNode SharedState contract change, autonomous remediation, RC.61 publication, production IIS/SQL mutation, external P0 acceptance or branch-protection mutation. Manual/external order remains `#162 -> #116 -> #111`; #353 remains repository-admin only.
+"""
+
+          plan = """## Programming closure — SingleNode operator metadata cross-process state — #459 / PR #460
+
+**Base:** `main@34613f419466f159f86a8499f5de69f1628e4875`.  
+**Programming gap:** file-backed operator metadata persisted servers and incidents in one JSON envelope but cached that envelope per process, so overlapping IIS workers could read stale metadata or overwrite a peer server, incident assignment/acknowledgment, or note when saving the whole file.  
+**Implementation:** acquire the existing bounded `CrossProcessFileLease` on one stable `operator-metadata.json.lock`, then reload + validate authoritative disk state before `GetServer`, `GetIncident`, `Snapshot`, `UpsertServer` and every incident mutation. The whole envelope intentionally shares one lease; existing `OperatorMetadataSnapshotValidator`, normalization, capacity/note bounds and `AtomicJsonFile.Save` remain authoritative. MultiNode compare/exchange state is unchanged.  
+**Regression contract:** independent pre-created store instances must see peer reads, retain cross-entity envelope mutations and retain both peer notes after restart.  
+**Pre-canonical-doc evidence:** head `f26b7f6a86b75713fe8ffed0ccdb401070a1b19f` passed Linux Release build + full test step and safety runtimes; Real SQL and Windows production-candidate were selected and the exact final docs-inclusive head must rerun every selected gate.  
+**Definition of done for #459:** final PR #460 head current with `main`; zero unresolved review threads; Linux CI, Windows production-candidate, Real SQL if selected/required and both protected-P0 guards Green; then Ready, squash merge and close #459 completed.  
+**Safety boundary:** no monitored-SQL permission/query expansion, secret/credential behavior change, SharedState contract change, autonomous remediation, RC.61 publication, production mutation, external acceptance or branch-protection mutation. Remaining external/manual dependency stays `#162 -> #116 -> #111`; #353 remains repository-admin only.
+"""
+
+          feature_row = "| SingleNode operator metadata cross-process lease | Closure / #459 | Implemented in PR #460; merge-gated | File-backed server + incident operator metadata share one stable `operator-metadata.json.lock`; reads and mutations reload validated authoritative disk state under the existing bounded `CrossProcessFileLease`, preventing stale reads and whole-envelope lost updates while preserving existing bounds, note retention and atomic-save behavior. Independent-instance regressions cover peer reads, cross-entity mutation preservation and peer-note preservation; final exact-head repository gates remain required before merge |\n"
+
+          def insert_before_first_section(path, marker, section):
+              p = Path(path)
+              text = p.read_text(encoding="utf-8")
+              if marker in text:
+                  return
+              idx = text.find("## ")
+              if idx < 0:
+                  raise SystemExit(f"No section anchor in {path}")
+              p.write_text(text[:idx] + section + "\n" + text[idx:], encoding="utf-8")
+
+          insert_before_first_section("docs/STATUS.md", "#459 / PR #460", status)
+          insert_before_first_section("docs/IMPLEMENTATION_PLAN.md", "#459 / PR #460", plan)
+
+          catalog_path = Path("docs/FEATURE_CATALOG.md")
+          catalog = catalog_path.read_text(encoding="utf-8")
+          if "| Closure / #459 |" not in catalog:
+              anchor = "|---|---|---|---|\n"
+              if anchor not in catalog:
+                  raise SystemExit("Feature catalog table anchor not found")
+              catalog = catalog.replace(anchor, anchor + feature_row, 1)
+              catalog_path.write_text(catalog, encoding="utf-8")
+      - name: Commit tracking reconciliation
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- docs/STATUS.md docs/IMPLEMENTATION_PLAN.md docs/FEATURE_CATALOG.md; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/STATUS.md docs/IMPLEMENTATION_PLAN.md docs/FEATURE_CATALOG.md
+          git commit -m "Reconcile #459 canonical tracking [tracking-patched-459]"
+          git push origin HEAD:agent/459-operator-metadata-file-lease
