@@ -1,0 +1,32 @@
+@model Monitor.Web.Services.EstateIntelligenceSummary
+
+<section class="estate-intelligence state-@Model.Severity" aria-label="@Model.ContextLabel" data-estate-intelligence>
+    <div class="estate-intelligence-heading">
+        <div class="estate-intelligence-title">
+            <span class="eyebrow">@Model.ContextLabel</span>
+            <strong>@Model.Headline</strong>
+            <span>@Model.ContextMessage</span>
+        </div>
+        <div class="estate-intelligence-posture">
+            <span class="estate-intelligence-severity state-@Model.Severity">@Model.Severity.ToUpperInvariant()</span>
+            <small>@Model.ObservedTargets / @Model.RegisteredTargets observed</small>
+        </div>
+    </div>
+
+    <div class="estate-intelligence-signals" role="list" aria-label="Current intelligence signals">
+        @foreach (var signal in Model.Signals)
+        {
+            <div class="estate-intelligence-signal state-@signal.State" role="listitem">
+                <small>@signal.Label</small>
+                <strong>@signal.Value</strong>
+                <span>@signal.Detail</span>
+            </div>
+        }
+    </div>
+
+    <div class="estate-intelligence-next">
+        <span>PRIORITY NEXT ACTION</span>
+        <strong>@Model.NextAction</strong>
+        <small>Cached evidence only · navigation never starts monitored-SQL collection.</small>
+    </div>
+</section>
