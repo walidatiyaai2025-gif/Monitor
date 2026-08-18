@@ -5,6 +5,7 @@ namespace Monitor.Web.Tests;
 public sealed class P05AcceptanceToolkitProvenanceTests
 {
     private static readonly string RepoRoot = FindRepoRoot();
+    private const string FinalRc61OperatorToolingCommit = "b422eaaee53d931a62a43b3c36a53b68cd4f3e27";
 
     [Fact]
     public void Exporter_RequiresExactCleanGitCommitAndFreshExternalOutput()
@@ -82,6 +83,22 @@ public sealed class P05AcceptanceToolkitProvenanceTests
         Assert.Contains("toolkit-manifest.json", workflow, StringComparison.Ordinal);
         Assert.Contains("toolkit-manifest.sha256", workflow, StringComparison.Ordinal);
         Assert.DoesNotContain("contents: write", workflow, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Rc61OperatorHandoffs_PinFinalReviewedToolkitCommitWithoutPlaceholder()
+    {
+        foreach (var path in new[]
+        {
+            "deploy/RC61_ACCEPTANCE_CONTROL_TOOLKIT.md",
+            "docs/PRODUCTION_SINGLENODE_ACCEPTANCE.md"
+        })
+        {
+            var text = Read(path);
+            Assert.Contains(FinalRc61OperatorToolingCommit, text, StringComparison.Ordinal);
+            Assert.DoesNotContain("<exact-final-PR-262-head", text, StringComparison.Ordinal);
+            Assert.DoesNotContain("After #261 / PR #262 completes", text, StringComparison.Ordinal);
+        }
     }
 
     private static readonly string[] RequiredFiles =
