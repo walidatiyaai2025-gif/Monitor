@@ -176,17 +176,24 @@ internal sealed class OperationalBackupService : IOperationalBackupService
     public Task<BackupListItem> CreateAsync(CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        var assemblyBudget = new BackupAssemblyBudget(_options.MaxBundleBytes);
         var registrationItems = _registrations.GetAll()
             .OrderBy(item => item.Id)
             .Select(BackupRegistration.FromDomain)
+            .Select(item => assemblyBudget.Admit(item))
             .ToArray();
-        var incidentItems = _incidents.GetAll().OrderBy(item => item.Id, StringComparer.Ordinal).ToArray();
-        var historyItems = registrationItems
-            .SelectMany(item => _history.Read(item.Id, HistoryWindow))
-            .OrderBy(item => item.RegistrationId)
-            .ThenBy(item => item.CollectedAtUtc)
+        var incidentItems = _incidents.GetAll()
+            .OrderBy(item => item.Id, StringComparer.Ordinal)
+            .Select(item => assemblyBudget.Admit(item))
             .ToArray();
-        var auditItems = ReadAllAudit().OrderBy(item => item.OccurredAtUtc).ThenBy(item => item.Id).ToArray();
+        var historyItems = assemblyBudget.CollectHistory(
+            registrationItems,
+            registrationId => _history.Read(registrationId, HistoryWindow));
+        var auditItems = ReadAllAudit()
+            .OrderBy(item => item.OccurredAtUtc)
+            .ThenBy(item => item.Id)
+            .Select(item => assemblyBudget.Admit(item))
+            .ToArray();
         var createdAt = _timeProvider.GetUtcNow();
         var backupId = $"{createdAt:yyyyMMddHHmmssfff}-{Guid.NewGuid():N}"[..30];
         var manifest = new BackupManifest(
