@@ -1,0 +1,43 @@
+name: b800-093-program-hook
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/b800-093-program-hook.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: agent/b800-093-no-fake-data-guard
+          fetch-depth: 0
+      - name: Add guarded DemoData startup validation hook
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("src/Monitor.Web/Program.cs")
+          text = path.read_text(encoding="utf-8")
+          old = "var builder = WebApplication.CreateBuilder(args);\nProductionAdminCredentialGuard.Validate(builder.Environment);\nbuilder.Host.UseWindowsService(options => options.ServiceName = \"Monitor\");"
+          new = "var builder = WebApplication.CreateBuilder(args);\nProductionAdminCredentialGuard.Validate(builder.Environment);\nDemoDataEnvironmentGuard.Validate(builder.Environment, builder.Configuration);\nbuilder.Host.UseWindowsService(options => options.ServiceName = \"Monitor\");"
+          count = text.count(old)
+          if count != 1:
+              raise SystemExit(f"Program.cs: expected exactly one startup anchor, found {count}")
+          path.write_text(text.replace(old, new, 1), encoding="utf-8")
+          PY
+
+          git diff --check
+          git diff -- src/Monitor.Web/Program.cs
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/Monitor.Web/Program.cs
+          git commit -m "B800-093: enforce no demo data outside Development"
+          git push origin HEAD:agent/b800-093-no-fake-data-guard
