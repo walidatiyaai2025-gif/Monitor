@@ -51,6 +51,87 @@ public sealed class GovernancePruneStateTests
     }
 
     [Fact]
+    public void FileState_ContainsReloadsMarkerWrittenByPeerInstance()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"monitor-governance-prune-peer-read-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var stale = new FileGovernancePruneStateStore(directory);
+            var writer = new FileGovernancePruneStateStore(directory);
+            var noteId = Guid.NewGuid().ToString("D");
+
+            writer.MarkPruned(GovernancePruneKind.Note, noteId);
+
+            Assert.True(stale.Contains(GovernancePruneKind.Note, noteId));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void FileState_DistinctPeerMarkersAreNotLost()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"monitor-governance-prune-peer-write-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var nodeA = new FileGovernancePruneStateStore(directory);
+            var nodeB = new FileGovernancePruneStateStore(directory);
+            var noteA = Guid.NewGuid().ToString("D");
+            var noteB = Guid.NewGuid().ToString("D");
+
+            nodeA.MarkPruned(GovernancePruneKind.Note, noteA);
+            nodeB.MarkPruned(GovernancePruneKind.Note, noteB);
+
+            var restarted = new FileGovernancePruneStateStore(directory);
+            Assert.True(restarted.Contains(GovernancePruneKind.Note, noteA));
+            Assert.True(restarted.Contains(GovernancePruneKind.Note, noteB));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void FileState_SynchronizeReloadsPeerStateBeforeLegacyMerge()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"monitor-governance-prune-peer-sync-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var now = new DateTimeOffset(2026, 8, 18, 12, 0, 0, TimeSpan.Zero);
+            var metadata = new InMemoryOperatorMetadataStore(new FixedTimeProvider(now));
+            const string incidentId = "incident-peer-sync";
+            metadata.AddIncidentNote(incidentId, "operator", "peer marker");
+            metadata.AddIncidentNote(incidentId, "operator", "legacy marker");
+            var notes = metadata.GetIncident(incidentId).Notes;
+            Assert.Equal(2, notes.Count());
+            var peerMarker = notes[0].Id.ToString("D");
+            var legacyMarker = notes[1].Id.ToString("D");
+
+            var stale = new FileGovernancePruneStateStore(directory);
+            var writer = new FileGovernancePruneStateStore(directory);
+            writer.MarkPruned(GovernancePruneKind.Note, peerMarker);
+
+            stale.Synchronize(
+                metadata.Snapshot(),
+                [new GovernancePruneMarker(GovernancePruneKind.Note, legacyMarker)]);
+
+            var restarted = new FileGovernancePruneStateStore(directory);
+            Assert.True(restarted.Contains(GovernancePruneKind.Note, peerMarker));
+            Assert.True(restarted.Contains(GovernancePruneKind.Note, legacyMarker));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
     public void IncidentMarker_RemainsStateAwareAcrossReactivationAndRetentionWindow()
     {
         var now = new DateTimeOffset(2026, 8, 18, 12, 0, 0, TimeSpan.Zero);
