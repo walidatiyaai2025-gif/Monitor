@@ -17,6 +17,7 @@ internal sealed class ProtectedFileConnectionSecretStore : IConnectionSecretStor
     private const int MaxEntries = 1024;
     private const int MaxReferenceLength = 128;
     private const int MaxProtectedPayloadLength = 16 * 1024;
+    private const int MaxStoreFileBytes = 20 * 1024 * 1024;
     private const int MaxUsernameLength = 128;
     private const int MaxPasswordLength = 1024;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { WriteIndented = true };
@@ -155,7 +156,19 @@ internal sealed class ProtectedFileConnectionSecretStore : IConnectionSecretStor
         if (!File.Exists(_path)) return new(StringComparer.Ordinal);
         try
         {
-            var envelope = JsonSerializer.Deserialize<SecretEnvelope>(File.ReadAllText(_path), JsonOptions);
+            using var stream = new FileStream(
+                _path,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read,
+                bufferSize: 16 * 1024,
+                FileOptions.SequentialScan);
+            if (stream.Length <= 0 || stream.Length > MaxStoreFileBytes)
+            {
+                throw new InvalidOperationException("Protected SQL secret store file size is outside the supported bound.");
+            }
+
+            var envelope = JsonSerializer.Deserialize<SecretEnvelope>(stream, JsonOptions);
             if (envelope?.Version != 1 || envelope.Entries is null) throw new InvalidOperationException();
             ValidateEntries(envelope.Entries);
             return new(envelope.Entries, StringComparer.Ordinal);
@@ -175,6 +188,11 @@ internal sealed class ProtectedFileConnectionSecretStore : IConnectionSecretStor
         try
         {
             var bytes = JsonSerializer.SerializeToUtf8Bytes(new SecretEnvelope(1, entries), JsonOptions);
+            if (bytes.Length > MaxStoreFileBytes)
+            {
+                throw new InvalidOperationException("The protected SQL secret store exceeds its raw file-size bound.");
+            }
+
             using (var stream = new FileStream(
                 temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None,
                 16 * 1024, FileOptions.WriteThrough))
