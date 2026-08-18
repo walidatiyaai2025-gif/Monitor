@@ -6,6 +6,8 @@ public sealed partial class FileHealthIncidentRepository
     {
         lock (_gate)
         {
+            using var lease = AcquireLease();
+            _items = Load(_path);
             return IncidentRepositoryRead.Project(_items.Values, query);
         }
     }
