@@ -92,7 +92,19 @@ public sealed class IncidentCollaborationService(
             throw new IncidentNoteRequestAmbiguousException();
 
         audit.Append(actor, "incident.note.write.request", receiptTarget, "requested");
-        audit.Append(actor, "incident.note.write.commit", receiptTarget, "armed");
+        if (audit is IIncidentNoteClaimAuditStore claimAudit)
+        {
+            var claim = claimAudit.TryClaimIncidentNote(actor, receiptTarget);
+            if (claim == IncidentNoteClaimResult.AlreadyApplied)
+                return false;
+            if (claim == IncidentNoteClaimResult.Ambiguous)
+                throw new IncidentNoteRequestAmbiguousException();
+        }
+        else
+        {
+            audit.Append(actor, "incident.note.write.commit", receiptTarget, "armed");
+        }
+
         metadata.AddIncidentNote(incidentId, actor, note);
         audit.Append(actor, "incident.note.request", receiptTarget, "applied");
         return true;

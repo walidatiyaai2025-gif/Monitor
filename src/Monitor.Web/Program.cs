@@ -113,7 +113,12 @@ builder.Services.AddSingleton<IAuditStore>(provider =>
         : operationalRoot is null
             ? new InMemoryAuditStore(provider.GetRequiredService<TimeProvider>())
             : new FileAuditStore(Path.Combine(operationalRoot, "audit.json"), provider.GetRequiredService<TimeProvider>());
-    return new PerformanceBoundedAuditStore(inner, performanceOptions);
+    var bounded = new PerformanceBoundedAuditStore(inner, performanceOptions);
+    return new CoordinatedIncidentNoteAuditStore(
+        bounded,
+        provider.GetRequiredService<ISharedStateDocumentStore>(),
+        provider.GetRequiredService<TimeProvider>(),
+        haStateOptions.UseSharedOperationalState);
 });
 builder.Services.AddSingleton<IHealthIncidentRepository>(provider =>
 {
