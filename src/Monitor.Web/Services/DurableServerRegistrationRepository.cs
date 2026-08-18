@@ -110,6 +110,86 @@ public sealed class FileServerRegistrationRepository : IServerRegistrationReposi
         }
     }
 
+    public ServerRegistrationFieldMutationResult TryReplaceSecretReference(
+        Guid id,
+        ConnectionSecretReference? expectedReference,
+        ConnectionSecretReference nextReference)
+    {
+        lock (_gate)
+        {
+            if (!_registrations.TryGetValue(id, out var current))
+            {
+                return new(ServerRegistrationFieldMutationStatus.NotFound, null);
+            }
+
+            if (!SecretReferencesEqual(current.SecretReference, expectedReference))
+            {
+                return new(ServerRegistrationFieldMutationStatus.Conflict, current);
+            }
+
+            if (SecretReferencesEqual(current.SecretReference, nextReference))
+            {
+                return new(ServerRegistrationFieldMutationStatus.Unchanged, current);
+            }
+
+            var updated = new ServerRegistration(
+                current.Id,
+                current.DisplayName,
+                current.Endpoint,
+                current.AuthenticationMode,
+                nextReference,
+                current.IsEnabled,
+                current.CreatedAtUtc);
+            _registrations[id] = updated;
+            try
+            {
+                Persist();
+                return new(ServerRegistrationFieldMutationStatus.Applied, updated);
+            }
+            catch
+            {
+                _registrations[id] = current;
+                throw;
+            }
+        }
+    }
+
+    public ServerRegistrationFieldMutationResult SetEnabled(Guid id, bool enabled)
+    {
+        lock (_gate)
+        {
+            if (!_registrations.TryGetValue(id, out var current))
+            {
+                return new(ServerRegistrationFieldMutationStatus.NotFound, null);
+            }
+
+            if (current.IsEnabled == enabled)
+            {
+                return new(ServerRegistrationFieldMutationStatus.Unchanged, current);
+            }
+
+            var updated = new ServerRegistration(
+                current.Id,
+                current.DisplayName,
+                current.Endpoint,
+                current.AuthenticationMode,
+                current.SecretReference,
+                enabled,
+                current.CreatedAtUtc);
+            _registrations[id] = updated;
+            try
+            {
+                Persist();
+                return new(ServerRegistrationFieldMutationStatus.Applied, updated);
+            }
+            catch
+            {
+                _registrations[id] = current;
+                throw;
+            }
+        }
+    }
+
     public bool Remove(Guid id)
     {
         lock (_gate)
@@ -131,6 +211,11 @@ public sealed class FileServerRegistrationRepository : IServerRegistrationReposi
             }
         }
     }
+
+    private static bool SecretReferencesEqual(
+        ConnectionSecretReference? left,
+        ConnectionSecretReference? right) =>
+        string.Equals(left?.Value, right?.Value, StringComparison.Ordinal);
 
     private void Persist()
     {
