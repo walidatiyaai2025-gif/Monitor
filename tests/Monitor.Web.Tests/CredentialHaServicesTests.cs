@@ -86,6 +86,54 @@ public sealed class CredentialHaServicesTests
     }
 
     [Fact]
+    public async Task LocalReplacement_MissingPolicyFailsClosedBeforeSecretWriteTestOrMutation()
+    {
+        var registrations = new InMemoryServerRegistrationRepository();
+        var oldReference = new ConnectionSecretReference("local:v1:old");
+        var registration = Registration(oldReference);
+        registrations.Upsert(registration);
+        var secrets = new FakeSecretStore();
+        secrets.AddOwned(oldReference, new SqlLoginSecret("old-user", "old-password"));
+        var tester = new FakeTester(ConnectionTestStatus.Succeeded);
+        var audit = new InMemoryAuditStore(TimeProvider.System);
+        var service = new CredentialLifecycleService(registrations, secrets, tester, audit);
+
+        var result = await service.ReplaceWithLocalCredentialAsync(registration.Id, "new-user", "new-password", "Admin");
+
+        Assert.Equal(CredentialReplacementStatus.Failed, result.Status);
+        Assert.Contains("disabled", result.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, secrets.StoreCalls);
+        Assert.Equal(0, tester.Calls);
+        Assert.Equal(oldReference, registrations.GetById(registration.Id)!.SecretReference);
+        Assert.Equal("local-policy-disabled", audit.Read(0, 10).Single().Outcome);
+    }
+
+    [Fact]
+    public async Task LocalReplacement_DisabledPolicyFailsClosedBeforeSecretWriteTestOrMutation()
+    {
+        var registrations = new InMemoryServerRegistrationRepository();
+        var oldReference = new ConnectionSecretReference("local:v1:old");
+        var registration = Registration(oldReference);
+        registrations.Upsert(registration);
+        var secrets = new FakeSecretStore();
+        secrets.AddOwned(oldReference, new SqlLoginSecret("old-user", "old-password"));
+        var tester = new FakeTester(ConnectionTestStatus.Succeeded);
+        var service = new CredentialLifecycleService(
+            registrations,
+            secrets,
+            tester,
+            new InMemoryAuditStore(TimeProvider.System),
+            new CredentialPolicyOptions { AllowLocalOwnedCredentials = false });
+
+        var result = await service.ReplaceWithLocalCredentialAsync(registration.Id, "new-user", "new-password", "Admin");
+
+        Assert.Equal(CredentialReplacementStatus.Failed, result.Status);
+        Assert.Equal(0, secrets.StoreCalls);
+        Assert.Equal(0, tester.Calls);
+        Assert.Equal(oldReference, registrations.GetById(registration.Id)!.SecretReference);
+    }
+
+    [Fact]
     public async Task ExternalReplacement_TestsCandidateBeforeCommit_CleansOldOwnedSecret_AndAuditsMetadataOnly()
     {
         var registrations = new InMemoryServerRegistrationRepository();
@@ -148,12 +196,18 @@ public sealed class CredentialHaServicesTests
         var secrets = new FakeSecretStore();
         secrets.AddOwned(oldReference, new SqlLoginSecret("old-user", "old-password"));
         var tester = new FakeTester(ConnectionTestStatus.Succeeded);
-        var service = new CredentialLifecycleService(registrations, secrets, tester, new InMemoryAuditStore(TimeProvider.System));
+        var service = new CredentialLifecycleService(
+            registrations,
+            secrets,
+            tester,
+            new InMemoryAuditStore(TimeProvider.System),
+            new CredentialPolicyOptions { AllowLocalOwnedCredentials = true });
 
         var result = await service.ReplaceWithLocalCredentialAsync(registration.Id, "new-user", "new-password", "Admin");
         var updated = registrations.GetById(registration.Id)!;
 
         Assert.True(result.Applied);
+        Assert.Equal(1, secrets.StoreCalls);
         Assert.Equal(registration.Id, updated.Id);
         Assert.Equal(registration.Endpoint, updated.Endpoint);
         Assert.NotEqual(oldReference.Value, updated.SecretReference!.Value.Value);
@@ -172,7 +226,11 @@ public sealed class CredentialHaServicesTests
         var secrets = new FakeSecretStore();
         secrets.AddOwned(oldReference, new SqlLoginSecret("old-user", "old-password"));
         var service = new CredentialLifecycleService(
-            registrations, secrets, new FakeTester(ConnectionTestStatus.AuthenticationFailed), new InMemoryAuditStore(TimeProvider.System));
+            registrations,
+            secrets,
+            new FakeTester(ConnectionTestStatus.AuthenticationFailed),
+            new InMemoryAuditStore(TimeProvider.System),
+            new CredentialPolicyOptions { AllowLocalOwnedCredentials = true });
 
         var result = await service.ReplaceWithLocalCredentialAsync(registration.Id, "bad-user", "bad-password", "Admin");
 
@@ -304,6 +362,7 @@ public sealed class CredentialHaServicesTests
         private readonly Dictionary<string, SqlLoginSecret> _owned = new(StringComparer.Ordinal);
         private readonly Dictionary<string, SqlLoginSecret> _external = new(StringComparer.Ordinal);
 
+        public int StoreCalls { get; private set; }
         public void AddOwned(ConnectionSecretReference reference, SqlLoginSecret secret) => _owned[reference.Value] = secret;
         public void AddExternal(ConnectionSecretReference reference, SqlLoginSecret secret) => _external[reference.Value] = secret;
         public bool ContainsOwned(ConnectionSecretReference reference) => _owned.ContainsKey(reference.Value);
@@ -311,6 +370,7 @@ public sealed class CredentialHaServicesTests
         public IReadOnlyList<ConnectionSecretReference> GetOwnedReferences() => _owned.Keys.Select(value => new ConnectionSecretReference(value)).ToArray();
         public ValueTask<ConnectionSecretReference> StoreAsync(string username, string password, CancellationToken cancellationToken = default)
         {
+            StoreCalls++;
             var reference = new ConnectionSecretReference($"local:v1:{Guid.NewGuid():N}");
             _owned[reference.Value] = new SqlLoginSecret(username, password);
             return ValueTask.FromResult(reference);
