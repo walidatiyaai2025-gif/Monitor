@@ -88,13 +88,20 @@ public sealed class RealSqlAcceptanceTests
             var keyRingPath = Path.Combine(directory, "keyring");
             var configuration = new ConfigurationBuilder().Build();
             var protection = CreateProtectionProvider(keyRingPath);
-            var secrets = new ProtectedFileConnectionSecretStore(secretPath, protection, configuration, []);
+            var credentialPolicy = new CredentialPolicyOptions { AllowLocalOwnedCredentials = true };
+            var secrets = new ProtectedFileConnectionSecretStore(secretPath, protection, configuration, [], credentialPolicy);
             var registrations = new FileServerRegistrationRepository(registrationPath);
             var tester = new ServerConnectionTester(secrets, new SqlConnectionProbe());
             var collector = new SqlServerSnapshotCollector(secrets, new SqlSnapshotQuery(), TimeProvider.System);
             var cache = new ServerHealthSnapshotCache(collector, TimeProvider.System);
             var observer = new RecordingObserver();
-            var connectionLab = new ConnectionLabController(registrations, tester, secrets, cache, observer);
+            var connectionLab = new ConnectionLabController(
+                registrations,
+                tester,
+                secrets,
+                cache,
+                observer,
+                credentialPolicy: credentialPolicy);
             var input = new ConnectionLabRegistrationInput
             {
                 DisplayName = "P0 real SQL journey",
@@ -145,7 +152,8 @@ public sealed class RealSqlAcceptanceTests
                 secretPath,
                 CreateProtectionProvider(keyRingPath),
                 new ConfigurationBuilder().Build(),
-                []);
+                [],
+                credentialPolicy);
             var restartedRegistration = Assert.Single(restartedRegistrations.GetAll());
             Assert.Equal(registration.Id, restartedRegistration.Id);
             Assert.Equal(registration.SecretReference, restartedRegistration.SecretReference);
