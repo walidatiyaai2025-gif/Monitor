@@ -37,10 +37,14 @@ The SQL Server 2022 acceptance test reads and executes the repository's actual `
 
 The Real SQL workflow path contract already includes the installer script and this existing regression file, so this closure is selected automatically.
 
+## Workflow-selected gates
+
+The changed paths are the standalone SharedState SQL installer, its Real SQL regression, and this work ledger. They select repository CI, Real SQL acceptance, and the protected-P0 guards. They do not select `production-candidate`: the installer is not under `src/Monitor.Web/**`, deployment/PowerShell paths, or any file staged into the SingleNode production-candidate operations bundle. This is an intentional workflow boundary, not a skipped or failed Windows result.
+
 ## Safety boundary
 
 SharedState provisioning/data-integrity hardening only. No monitored-target query or permission expansion, schema-version bump, migration/repair, runtime probe writes, secret disclosure, autonomous remediation, release promotion, production IIS/SQL mutation, external production acceptance, protected-P0 completion, or branch-protection mutation. External/manual dependency order remains `#162 -> #116 -> #111`; #353 remains a separate repository-admin action.
 
 ## Definition of Done
 
-The exact final PR head must be current with `main`, have zero unresolved review threads, and pass repository CI, Real SQL acceptance, Windows production-candidate, and protected-P0 guards before merge.
+The exact final PR head must be current with `main`, have zero unresolved review threads, and pass every workflow selected by the changed paths: repository CI, Real SQL acceptance, and protected-P0 guards. Windows production-candidate is additionally required only when selected by its path contract.
