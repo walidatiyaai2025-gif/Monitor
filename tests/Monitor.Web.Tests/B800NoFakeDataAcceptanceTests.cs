@@ -12,8 +12,8 @@ public sealed class B800NoFakeDataAcceptanceTests
     private static readonly string Root = FindRoot();
 
     [Theory]
-    [InlineData(Environments.Production)]
-    [InlineData(Environments.Staging)]
+    [InlineData("Production")]
+    [InlineData("Staging")]
     [InlineData("Acceptance")]
     public void DemoDataGuard_RejectsEnabledDemoOutsideDevelopment(string environmentName)
     {
@@ -35,9 +35,9 @@ public sealed class B800NoFakeDataAcceptanceTests
     }
 
     [Theory]
-    [InlineData(Environments.Production)]
-    [InlineData(Environments.Staging)]
-    [InlineData(Environments.Development)]
+    [InlineData("Production")]
+    [InlineData("Staging")]
+    [InlineData("Development")]
     public void DemoDataGuard_AllowsDisabledDemoInEveryEnvironment(string environmentName)
     {
         DemoDataEnvironmentGuard.Validate(
