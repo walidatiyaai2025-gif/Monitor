@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -171,14 +172,17 @@ public sealed class InMemoryIncidentNoteRequestStateStore : IIncidentNoteRequest
 
 public sealed class FileIncidentNoteRequestStateStore : IIncidentNoteRequestStateStore
 {
+    private static readonly TimeSpan MutationLeaseTimeout = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan MutationLeaseRetryDelay = TimeSpan.FromMilliseconds(25);
     private readonly object _gate = new();
     private readonly string _rootPath;
-    private readonly Dictionary<int, Dictionary<string, IncidentNoteRequestState>> _loaded = [];
+    private readonly string _mutationLeasePath;
 
     public FileIncidentNoteRequestStateStore(string rootPath)
     {
         if (string.IsNullOrWhiteSpace(rootPath)) throw new ArgumentException("Incident-note state root path is required.", nameof(rootPath));
         _rootPath = Path.GetFullPath(rootPath);
+        _mutationLeasePath = Path.Combine(_rootPath, "incident-note-requests.lock");
     }
 
     public IncidentNoteClaimResult TryClaim(string receiptTarget)
@@ -186,7 +190,8 @@ public sealed class FileIncidentNoteRequestStateStore : IIncidentNoteRequestStat
         var shard = IncidentNoteRequestStatePolicy.Shard(receiptTarget);
         lock (_gate)
         {
-            var state = Load(shard);
+            using var lease = AcquireMutationLease();
+            var state = LoadFresh(shard);
             var result = IncidentNoteRequestStatePolicy.TryClaim(state, receiptTarget);
             if (result == IncidentNoteClaimResult.Claimed) Persist(shard, state);
             return result;
@@ -198,7 +203,8 @@ public sealed class FileIncidentNoteRequestStateStore : IIncidentNoteRequestStat
         var shard = IncidentNoteRequestStatePolicy.Shard(receiptTarget);
         lock (_gate)
         {
-            var state = Load(shard);
+            using var lease = AcquireMutationLease();
+            var state = LoadFresh(shard);
             if (IncidentNoteRequestStatePolicy.MarkApplied(state, receiptTarget)) Persist(shard, state);
         }
     }
@@ -209,32 +215,56 @@ public sealed class FileIncidentNoteRequestStateStore : IIncidentNoteRequestStat
         var snapshot = receipts.ToArray();
         lock (_gate)
         {
+            using var lease = AcquireMutationLease();
             for (var shard = 0; shard < IncidentNoteRequestStatePolicy.ShardCount; shard++)
             {
-                var state = Load(shard);
+                var state = LoadFresh(shard);
                 if (IncidentNoteRequestStatePolicy.Materialize(state, snapshot, shard)) Persist(shard, state);
             }
         }
     }
 
-    private Dictionary<string, IncidentNoteRequestState> Load(int shard)
+    private Dictionary<string, IncidentNoteRequestState> LoadFresh(int shard)
     {
-        if (_loaded.TryGetValue(shard, out var state)) return state;
         var envelope = AtomicJsonFile.Load<Envelope>(PathFor(shard));
         if (envelope is null)
+            return new Dictionary<string, IncidentNoteRequestState>(StringComparer.Ordinal);
+        if (envelope.Version != IncidentNoteRequestStatePolicy.FormatVersion || envelope.Entries is null)
+            throw new InvalidDataException("Incident-note request state file format is not supported.");
+        return IncidentNoteRequestStatePolicy.Validate(
+            envelope.Entries.Select(item => new KeyValuePair<string, IncidentNoteRequestState>(item.Target, item.State)),
+            shard);
+    }
+
+    private FileStream AcquireMutationLease()
+    {
+        Directory.CreateDirectory(_rootPath);
+        var started = Stopwatch.GetTimestamp();
+        IOException? contention = null;
+        while (true)
         {
-            state = new Dictionary<string, IncidentNoteRequestState>(StringComparer.Ordinal);
+            try
+            {
+                return new FileStream(
+                    _mutationLeasePath,
+                    FileMode.OpenOrCreate,
+                    FileAccess.ReadWrite,
+                    FileShare.None,
+                    bufferSize: 1,
+                    FileOptions.None);
+            }
+            catch (IOException exception)
+            {
+                contention = exception;
+                if (Stopwatch.GetElapsedTime(started) >= MutationLeaseTimeout)
+                    break;
+                Thread.Sleep(MutationLeaseRetryDelay);
+            }
         }
-        else
-        {
-            if (envelope.Version != IncidentNoteRequestStatePolicy.FormatVersion || envelope.Entries is null)
-                throw new InvalidDataException("Incident-note request state file format is not supported.");
-            state = IncidentNoteRequestStatePolicy.Validate(
-                envelope.Entries.Select(item => new KeyValuePair<string, IncidentNoteRequestState>(item.Target, item.State)),
-                shard);
-        }
-        _loaded[shard] = state;
-        return state;
+
+        throw new IOException(
+            "Incident-note request state mutation lease could not be acquired within the bounded timeout; refusing an unprotected mutation.",
+            contention);
     }
 
     private void Persist(int shard, Dictionary<string, IncidentNoteRequestState> state) =>
