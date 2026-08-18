@@ -9,6 +9,7 @@ public enum SnapshotFreshness
 public enum SnapshotRefreshStatus
 {
     Refreshed,
+    RetainedStale,
     Throttled,
     RegistrationNotFound,
     Disabled
