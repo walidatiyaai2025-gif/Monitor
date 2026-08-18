@@ -44,12 +44,14 @@ public sealed class IncidentCollaborationService(
     IOperatorMetadataStore metadata,
     IAuditStore audit,
     TimeProvider timeProvider,
-    GovernanceRetentionOptions? retentionOptions = null) : IIncidentCollaborationService
+    GovernanceRetentionOptions? retentionOptions = null,
+    IGovernancePruneStateStore? pruneState = null) : IIncidentCollaborationService
 {
     private const int MaxPageSize = 20;
     private static readonly TimeSpan AgingAfter = TimeSpan.FromMinutes(30);
     private static readonly TimeSpan BreachAfter = TimeSpan.FromHours(2);
     private readonly GovernanceRetentionOptions _retentionOptions = ValidateRetentionOptions(retentionOptions ?? new GovernanceRetentionOptions());
+    private readonly IGovernancePruneStateStore _pruneState = pruneState ?? new LazyLegacyGovernancePruneStateStore(audit, metadata);
 
     public IReadOnlyList<IncidentCollaborationProjection> QueryByAssignee(IEnumerable<HealthIncident> incidents, string? assignee)
     {
@@ -74,7 +76,7 @@ public sealed class IncidentCollaborationService(
     {
         incidentId = EnterpriseOperatorValidation.NormalizeIncidentId(incidentId);
         return metadata.GetIncident(incidentId).Notes
-            .Where(note => !HasPruneReceipt("governance.prune.note", note.Id.ToString("D")))
+            .Where(note => !_pruneState.Contains(GovernancePruneKind.Note, note.Id.ToString("D")))
             .OrderByDescending(item => item.OccurredAtUtc)
             .ThenByDescending(item => item.Id)
             .Skip(Math.Max(0, offset))
@@ -164,10 +166,7 @@ public sealed class IncidentCollaborationService(
 
     private bool IsIncidentPruned(HealthIncident incident, DateTimeOffset now) =>
         IncidentRetentionPolicy.ShouldPruneOperatorMetadata(incident, now, _retentionOptions.ResolvedIncidentMetadataDays) &&
-        HasPruneReceipt("governance.prune.incident", incident.Id);
-
-    private bool HasPruneReceipt(string action, string target) =>
-        AuditAny(item => item.Action == action && item.Target == target && item.Outcome == "applied");
+        _pruneState.Contains(GovernancePruneKind.Incident, incident.Id);
 
     private bool AuditAny(Func<AuditEvent, bool> predicate)
     {

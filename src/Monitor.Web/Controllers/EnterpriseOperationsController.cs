@@ -43,6 +43,7 @@ public sealed class EnterpriseOperationsController : Controller
     private readonly IRedactedDiagnosticsPackageService _diagnostics;
     private readonly IAuditStore _audit;
     private readonly TimeProvider _timeProvider;
+    private readonly IGovernancePruneStateStore _pruneState;
 
     public EnterpriseOperationsController(
         IOperatorMetadataStore operatorMetadata,
@@ -52,7 +53,8 @@ public sealed class EnterpriseOperationsController : Controller
         ISafeCsvReportService csv,
         IRedactedDiagnosticsPackageService diagnostics,
         IAuditStore audit,
-        TimeProvider timeProvider)
+        TimeProvider timeProvider,
+        IGovernancePruneStateStore? pruneState = null)
     {
         _operatorMetadata = operatorMetadata;
         _registrations = registrations;
@@ -62,6 +64,7 @@ public sealed class EnterpriseOperationsController : Controller
         _diagnostics = diagnostics;
         _audit = audit;
         _timeProvider = timeProvider;
+        _pruneState = pruneState ?? new LazyLegacyGovernancePruneStateStore(audit, operatorMetadata);
     }
 
     [HttpGet("/enterprise")]
@@ -289,7 +292,11 @@ public sealed class EnterpriseOperationsController : Controller
         return RedirectToAction(nameof(Overview));
     }
 
-    private IIncidentCollaborationService Collaboration() => new IncidentCollaborationService(_operatorMetadata, _audit, _timeProvider);
+    private IIncidentCollaborationService Collaboration() => new IncidentCollaborationService(
+        _operatorMetadata,
+        _audit,
+        _timeProvider,
+        pruneState: _pruneState);
 
     private bool TryActor(out string actor)
     {

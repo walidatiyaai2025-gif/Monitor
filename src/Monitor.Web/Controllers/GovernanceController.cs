@@ -15,10 +15,17 @@ public sealed class GovernanceController : Controller
         IHealthIncidentRepository incidents,
         IOperatorMetadataStore metadata,
         IAuditStore audit,
-        TimeProvider timeProvider)
+        TimeProvider timeProvider,
+        IGovernancePruneStateStore? pruneState = null)
     {
         _audit = audit;
-        _governance = new GovernanceRetentionService(registrations, incidents, metadata, audit, timeProvider);
+        _governance = new GovernanceRetentionService(
+            registrations,
+            incidents,
+            metadata,
+            audit,
+            timeProvider,
+            pruneState: pruneState);
     }
 
     [HttpGet("/governance/retention")]
