@@ -163,7 +163,7 @@ public sealed class IncidentCollaborationService(
     }
 
     private bool IsIncidentPruned(HealthIncident incident, DateTimeOffset now) =>
-        GovernanceRetentionPolicy.ShouldPruneIncident(incident, now, _retentionOptions) &&
+        IncidentRetentionPolicy.ShouldPruneOperatorMetadata(incident, now, _retentionOptions.ResolvedIncidentMetadataDays) &&
         HasPruneReceipt("governance.prune.incident", incident.Id);
 
     private bool HasPruneReceipt(string action, string target) =>
