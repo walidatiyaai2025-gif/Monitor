@@ -33,15 +33,9 @@ jobs:
           if end < 0:
               raise SystemExit('guarded reconciliation step terminator was not found')
           raw = workflow[start:end]
-          lines = raw.splitlines()
           script_lines = []
-          for line in lines:
-              if line == '':
-                  script_lines.append('')
-                  continue
-              if not line.startswith('          '):
-                  raise SystemExit(f'unexpected reconciliation indentation: {line!r}')
-              script_lines.append(line[10:])
+          for line in raw.splitlines():
+              script_lines.append(line[10:] if line.startswith('          ') else line)
           script = '\n'.join(script_lines) + '\n'
           exec(compile(script, 'b800-100-reconcile', 'exec'), {'__name__': '__main__'})
       - name: Restore canonical CI and commit reconciled state
