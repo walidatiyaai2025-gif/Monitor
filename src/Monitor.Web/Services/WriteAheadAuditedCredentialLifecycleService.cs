@@ -1,7 +1,7 @@
 namespace Monitor.Web.Services;
 
 internal sealed class WriteAheadAuditedCredentialLifecycleService(
-    CredentialLifecycleService inner,
+    ICredentialLifecycleService inner,
     ServerRegistrationMutationGate mutationGate,
     IAuditStore audit) : ICredentialLifecycleService
 {
