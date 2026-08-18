@@ -233,6 +233,32 @@ internal sealed class SqlServerSharedStateSqlBackend : ISharedStateSqlBackend
                        AND columns.name = N'DocumentKey'
                  )
            )
+           OR NOT EXISTS
+           (
+               SELECT 1
+               FROM sys.check_constraints AS checks
+               WHERE checks.parent_object_id = @DocumentsObjectId
+                 AND checks.name = N'CK_MonitorSharedStateDocuments_Version'
+                 AND checks.is_disabled = 0
+                 AND checks.is_not_trusted = 0
+                 AND LOWER(
+                     REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+                         checks.definition,
+                         N'[', N''), N']', N''), N'(', N''), N')', N''), N' ', N''), NCHAR(9), N''), NCHAR(13), N''), NCHAR(10), N'')) = N'version>=1'
+           )
+           OR NOT EXISTS
+           (
+               SELECT 1
+               FROM sys.check_constraints AS checks
+               WHERE checks.parent_object_id = @DocumentsObjectId
+                 AND checks.name = N'CK_MonitorSharedStateDocuments_PayloadJson'
+                 AND checks.is_disabled = 0
+                 AND checks.is_not_trusted = 0
+                 AND LOWER(
+                     REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+                         checks.definition,
+                         N'[', N''), N']', N''), N'(', N''), N')', N''), N' ', N''), NCHAR(9), N''), NCHAR(13), N''), NCHAR(10), N'')) = N'isjsonpayloadjson=1'
+           )
         BEGIN
             THROW 51022, 'Monitor shared-state schema-v1 document fingerprint is invalid.', 1;
         END;
