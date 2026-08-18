@@ -1,4 +1,5 @@
 using Microsoft.Data.SqlClient;
+using Monitor.Web.Models;
 using Monitor.Web.Services;
 using Xunit;
 
