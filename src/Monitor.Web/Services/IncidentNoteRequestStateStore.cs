@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -172,8 +171,6 @@ public sealed class InMemoryIncidentNoteRequestStateStore : IIncidentNoteRequest
 
 public sealed class FileIncidentNoteRequestStateStore : IIncidentNoteRequestStateStore
 {
-    private static readonly TimeSpan MutationLeaseTimeout = TimeSpan.FromSeconds(5);
-    private static readonly TimeSpan MutationLeaseRetryDelay = TimeSpan.FromMilliseconds(25);
     private readonly object _gate = new();
     private readonly string _rootPath;
     private readonly string _mutationLeasePath;
@@ -236,36 +233,8 @@ public sealed class FileIncidentNoteRequestStateStore : IIncidentNoteRequestStat
             shard);
     }
 
-    private FileStream AcquireMutationLease()
-    {
-        Directory.CreateDirectory(_rootPath);
-        var started = Stopwatch.GetTimestamp();
-        IOException? contention = null;
-        while (true)
-        {
-            try
-            {
-                return new FileStream(
-                    _mutationLeasePath,
-                    FileMode.OpenOrCreate,
-                    FileAccess.ReadWrite,
-                    FileShare.None,
-                    bufferSize: 1,
-                    FileOptions.None);
-            }
-            catch (IOException exception)
-            {
-                contention = exception;
-                if (Stopwatch.GetElapsedTime(started) >= MutationLeaseTimeout)
-                    break;
-                Thread.Sleep(MutationLeaseRetryDelay);
-            }
-        }
-
-        throw new IOException(
-            "Incident-note request state mutation lease could not be acquired within the bounded timeout; refusing an unprotected mutation.",
-            contention);
-    }
+    private FileStream AcquireMutationLease() =>
+        CrossProcessFileLease.Acquire(_mutationLeasePath, "Incident-note request state mutation");
 
     private void Persist(int shard, Dictionary<string, IncidentNoteRequestState> state) =>
         AtomicJsonFile.Save(
