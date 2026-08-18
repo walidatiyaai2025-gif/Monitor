@@ -147,6 +147,7 @@ public sealed class EnterpriseOperationsController : Controller
                 EnterpriseOperatorValidation.BuildWindow(maintenanceStartUtc, maintenanceEndUtc, maintenanceReason),
                 EnterpriseOperatorValidation.BuildWindow(suppressionStartUtc, suppressionEndUtc, suppressionReason),
                 _timeProvider.GetUtcNow());
+            _audit.Append(actor, "server.operator-profile.request", id.ToString("D"), "requested");
             _operatorMetadata.UpsertServer(metadata);
             _audit.Append(actor, "server.operator-profile", id.ToString("D"), "updated");
             TempData["OperatorStatus"] = "Server operations metadata updated.";
@@ -250,6 +251,7 @@ public sealed class EnterpriseOperationsController : Controller
 
         try
         {
+            _audit.Append(actor, "recommendation.acknowledgment.request", id, acknowledged ? "acknowledge" : "reopen");
             _operatorMetadata.SetRecommendationAcknowledged(id, currentKey, acknowledged);
             _audit.Append(actor, "recommendation.acknowledgment", id, acknowledged ? "acknowledged" : "reopened");
             TempData["OperatorStatus"] = acknowledged ? "Recommendation acknowledged." : "Recommendation review reopened.";

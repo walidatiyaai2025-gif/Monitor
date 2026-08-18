@@ -21,9 +21,30 @@ public sealed class ServerTargetLifecycleTests
         Assert.Equal(ServerTargetLifecycleStatus.Disabled, result.Status);
         Assert.False(repository.GetById(registration.Id)!.IsEnabled);
         Assert.Equal(registration.Id, cache.Evicted);
-        var entry = Assert.Single(audit.Read(0, 10));
-        Assert.Equal("server.monitoring", entry.Action);
-        Assert.Equal("disabled", entry.Outcome);
+        var entries = audit.Read(0, 10);
+        Assert.Contains(entries, entry =>
+            entry.Action == "server.monitoring.request" &&
+            entry.Target == registration.Id.ToString("D") &&
+            entry.Outcome == "disable");
+        var final = Assert.Single(entries, entry => entry.Action == "server.monitoring");
+        Assert.Equal("disabled", final.Outcome);
+    }
+
+    [Fact]
+    public void AuditFailure_PreventsRegistrationMutationAndSnapshotEviction()
+    {
+        var repository = new InMemoryServerRegistrationRepository();
+        var registration = Registration(true);
+        repository.Upsert(registration);
+        var cache = new FakeCache();
+        var service = new ServerTargetLifecycleService(repository, cache, new ThrowingAuditStore());
+
+        var exception = Assert.Throws<IOException>(() =>
+            service.SetEnabled(registration.Id, false, "operator"));
+
+        Assert.Contains("audit unavailable", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.True(repository.GetById(registration.Id)!.IsEnabled);
+        Assert.Null(cache.Evicted);
     }
 
     [Fact]
@@ -76,5 +97,13 @@ public sealed class ServerTargetLifecycleTests
         public void Evict(Guid registrationId) => Evicted = registrationId;
         public Task<SnapshotCacheResult> GetAsync(ServerRegistration registration, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<SnapshotCacheResult> RefreshAsync(ServerRegistration registration, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    }
+
+    private sealed class ThrowingAuditStore : IAuditStore
+    {
+        public void Append(string actor, string action, string target, string outcome) =>
+            throw new IOException("audit unavailable");
+
+        public IReadOnlyList<AuditEvent> Read(int offset, int limit) => [];
     }
 }

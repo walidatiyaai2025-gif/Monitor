@@ -26,10 +26,16 @@ public sealed class IncidentTransitionAuditEnrichmentTests
 
         Assert.IsType<RedirectToActionResult>(response);
         Assert.Equal(IncidentStatus.Acknowledged, repository.GetById(incident.Id)!.Status);
-        var auditEvent = Assert.Single(audit.Read(0, 100));
+        var auditEvents = audit.Read(0, 100);
+        Assert.Equal(2, auditEvents.Count);
+        var request = Assert.Single(auditEvents, item => item.Action == "incident.transition.request");
+        Assert.Equal(AuditTime, request.OccurredAtUtc);
+        Assert.Equal("DOMAIN\\operator.one", request.Actor);
+        Assert.Equal(incident.Id, request.Target);
+        Assert.Equal("acknowledge", request.Outcome);
+        var auditEvent = Assert.Single(auditEvents, item => item.Action == "incident.transition");
         Assert.Equal(AuditTime, auditEvent.OccurredAtUtc);
         Assert.Equal("DOMAIN\\operator.one", auditEvent.Actor);
-        Assert.Equal("incident.transition", auditEvent.Action);
         Assert.Equal(incident.Id, auditEvent.Target);
         Assert.Equal("Open->Acknowledged", auditEvent.Outcome);
     }
@@ -61,9 +67,13 @@ public sealed class IncidentTransitionAuditEnrichmentTests
 
         Assert.IsType<ConflictObjectResult>(response);
         Assert.Equal(IncidentStatus.Open, repository.GetById(incident.Id)!.Status);
-        var auditEvent = Assert.Single(audit.Read(0, 100));
+        var auditEvents = audit.Read(0, 100);
+        Assert.Equal(2, auditEvents.Count);
+        var request = Assert.Single(auditEvents, item => item.Action == "incident.transition.request");
+        Assert.Equal("operator.two", request.Actor);
+        Assert.Equal("reopen", request.Outcome);
+        var auditEvent = Assert.Single(auditEvents, item => item.Action == "incident.transition");
         Assert.Equal("operator.two", auditEvent.Actor);
-        Assert.Equal("incident.transition", auditEvent.Action);
         Assert.Equal("rejected:current=Open", auditEvent.Outcome);
         Assert.DoesNotContain("bounded evidence", auditEvent.Outcome, StringComparison.Ordinal);
     }
@@ -80,7 +90,11 @@ public sealed class IncidentTransitionAuditEnrichmentTests
 
         Assert.IsType<RedirectToActionResult>(response);
         Assert.Equal(IncidentStatus.Acknowledged, repository.GetById(incident.Id)!.Status);
-        var auditEvent = Assert.Single(audit.Read(0, 100));
+        var auditEvents = audit.Read(0, 100);
+        Assert.Equal(2, auditEvents.Count);
+        var request = Assert.Single(auditEvents, item => item.Action == "incident.transition.request");
+        Assert.Equal("acknowledge", request.Outcome);
+        var auditEvent = Assert.Single(auditEvents, item => item.Action == "incident.transition");
         Assert.Equal("applied", auditEvent.Outcome);
     }
 
