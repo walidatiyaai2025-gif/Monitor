@@ -156,23 +156,40 @@ public sealed class SnapshotCollectionCycle(
         var succeeded = 0;
         var failed = 0;
         var skipped = 0;
-        status?.Set(new(policy.Enabled, true, clock.GetUtcNow(), null, targets.Length, 0, 0, 0));
-        await Parallel.ForEachAsync(targets, new ParallelOptions { MaxDegreeOfParallelism = policy.MaxConcurrency, CancellationToken = cancellationToken }, async (registration, token) =>
+        var startedAt = clock.GetUtcNow();
+        status?.Set(new(policy.Enabled, true, startedAt, null, targets.Length, 0, 0, 0));
+        try
         {
-            if (backoff is not null && !backoff.IsEligible(registration.Id)) { Interlocked.Increment(ref skipped); return; }
-            try
+            await Parallel.ForEachAsync(targets, new ParallelOptions { MaxDegreeOfParallelism = policy.MaxConcurrency, CancellationToken = cancellationToken }, async (registration, token) =>
             {
-                observer.Observe(await cache.RefreshAsync(registration, token));
-                backoff?.Success(registration.Id);
-                Interlocked.Increment(ref succeeded);
-            }
-            catch (SnapshotCollectionException)
-            {
-                backoff?.Failure(registration.Id);
-                Interlocked.Increment(ref failed);
-            }
-        });
-        status?.Set(new(policy.Enabled, false, status.Get().LastStartedUtc, clock.GetUtcNow(), targets.Length, succeeded, failed, skipped));
+                if (backoff is not null && !backoff.IsEligible(registration.Id)) { Interlocked.Increment(ref skipped); return; }
+                try
+                {
+                    observer.Observe(await cache.RefreshAsync(registration, token));
+                    backoff?.Success(registration.Id);
+                    Interlocked.Increment(ref succeeded);
+                }
+                catch (SnapshotCollectionException)
+                {
+                    backoff?.Failure(registration.Id);
+                    Interlocked.Increment(ref failed);
+                }
+                catch (OperationCanceledException) when (token.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch
+                {
+                    backoff?.Failure(registration.Id);
+                    Interlocked.Increment(ref failed);
+                    throw;
+                }
+            });
+        }
+        finally
+        {
+            status?.Set(new(policy.Enabled, false, startedAt, clock.GetUtcNow(), targets.Length, succeeded, failed, skipped));
+        }
     }
 
     private ServerRegistration[] SelectBatch(ServerRegistration[] targets, int maxTargets)
