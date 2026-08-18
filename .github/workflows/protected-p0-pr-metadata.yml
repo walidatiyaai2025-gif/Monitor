@@ -1,0 +1,27 @@
+name: protected-p0-pr-metadata
+
+on:
+  pull_request:
+    branches: [ main ]
+    types: [ opened, synchronize, reopened, edited ]
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Reject protected P0 issue closing keywords in PR metadata
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          pattern='(^|[^[:alnum:]_])(close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)[[:space:]]*:?[[:space:]]*((walidatiyaai2025-gif/Monitor)?#)(111|116|162)([^0-9]|$)'
+          if printf '%s\n%s\n' "$PR_TITLE" "$PR_BODY" | grep -Eiq "$pattern"; then
+            echo '::error::Protected P0 parent issues must be completed explicitly after evidence review, not through PR closing keywords.'
+            exit 1
+          fi
+          echo 'Protected P0 PR metadata guard passed.'
