@@ -8,25 +8,27 @@ Close the cross-store idempotency gap where an incident note can be durably writ
 
 For one bounded/hashed incident-note request key:
 
-1. **No write-ahead marker and no applied receipt** — first write may proceed through the existing write-ahead audit gate.
-2. **`incident.note.request = applied` exists** — completion is confirmed; retry is an idempotent no-op and returns the existing `false` contract.
-3. **`incident.note.write.request = requested` exists but no applied receipt exists** — the prior outcome is ambiguous across the audit and operator-metadata stores. Retry fails closed before `AddIncidentNote` with `IncidentNoteRequestAmbiguousException`; the application does not claim the prior request was applied.
+1. **No durable marker and no applied receipt** — first write may proceed.
+2. **`incident.note.write.request = requested` exists, but no `incident.note.write.commit = armed` and no applied receipt exist** — mutation was never armed; the request remains safely retryable under the #396 write-ahead contract.
+3. **`incident.note.write.commit = armed` exists but no `incident.note.request = applied` receipt exists** — the request crossed the final pre-mutation boundary and its outcome is ambiguous across audit/operator-metadata stores. Retry fails closed before `AddIncidentNote` with `IncidentNoteRequestAmbiguousException` and does not claim the prior request succeeded.
+4. **`incident.note.request = applied` exists** — completion is confirmed; retry is an idempotent no-op using the existing `false` return contract.
 
-The third state intentionally replaces the permissive #396 regression that allowed retry after a durable request marker alone. Without a transaction spanning audit and operator metadata, that marker cannot distinguish "audit persisted then failed before metadata mutation" from "metadata mutation succeeded but final receipt failed". Fail-closed ambiguity is therefore the only at-most-once-safe interpretation.
+The second durable marker is necessary because a request-intent append may persist and then throw before metadata mutation. Treating intent alone as ambiguous would unnecessarily break safe retry; treating an armed request as retryable could duplicate a note after the metadata write succeeds but the final receipt fails.
 
 ## Implementation
 
 - `IncidentCollaborationService.TryAddNote(...)` keeps the existing applied-receipt check first;
-- if no applied receipt exists but the same request target has a durable `incident.note.write.request/requested` marker, it throws `IncidentNoteRequestAmbiguousException` before metadata mutation;
-- first-write behavior, bounded request-key hashing/redaction, note validation and final applied receipt remain unchanged;
-- the exception derives from `ArgumentException` so the existing PRG-safe controller rejection path reports the ambiguity instead of displaying "already applied".
+- an existing `incident.note.write.commit/armed` marker without an applied receipt produces `IncidentNoteRequestAmbiguousException` before metadata mutation;
+- first attempt persists `incident.note.write.request/requested`, then immediately persists `incident.note.write.commit/armed` as the final durable pre-mutation boundary, then writes operator metadata and finally records `incident.note.request/applied`;
+- the exception derives from `ArgumentException`, so the existing PRG-safe controller rejection path reports an unresolved prior outcome instead of claiming "already applied";
+- request-key hashing/redaction, bounded audit reads and normal applied-receipt deduplication remain unchanged.
 
 ## Regression coverage
 
-- write-ahead succeeds, metadata note succeeds, final applied audit throws: retry with the same request key is ambiguous and cannot create a second note;
-- a durable request marker whose append persisted and then threw before metadata mutation is also ambiguous on retry, preventing an unsafe guess across the two stores;
-- a normal successful first note creates one write-ahead marker and one applied receipt; subsequent same-key retry returns false and leaves exactly one note;
-- pre-write audit failure still leaves operator metadata unchanged.
+- intent marker persists and its append throws before the request is armed: retry remains safe, writes one note and reaches the normal applied receipt;
+- intent + armed markers persist, the note mutation succeeds, then the final applied receipt throws: same-key retry is ambiguous and cannot create a second note;
+- a normal successful request creates one note and subsequent same-key retry remains an applied-receipt no-op;
+- an audit failure before any durable write still leaves operator metadata unchanged.
 
 ## Safety boundary
 
