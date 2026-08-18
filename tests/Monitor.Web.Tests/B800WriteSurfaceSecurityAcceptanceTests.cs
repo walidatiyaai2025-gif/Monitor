@@ -132,7 +132,10 @@ public sealed class B800WriteSurfaceSecurityAcceptanceTests
                 .Where(policy => !string.IsNullOrWhiteSpace(policy))
                 .ToArray();
 
-            Assert.Contains(namedPolicies, policy => policy is MonitorPolicies.Manage or MonitorPolicies.Operate or MonitorPolicies.Advisor);
+            Assert.Contains(namedPolicies, policy =>
+                string.Equals(policy, MonitorPolicies.Manage, StringComparison.Ordinal) ||
+                string.Equals(policy, MonitorPolicies.Operate, StringComparison.Ordinal) ||
+                string.Equals(policy, MonitorPolicies.Advisor, StringComparison.Ordinal));
         }
     }
 
