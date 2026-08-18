@@ -111,12 +111,13 @@ function global:gh {
             }
         )
         if ($state.DispatchCount -gt 0 -and $state.Mode -in @('fallback', 'ambiguous')) {
+            $newRunCreatedAt = [DateTimeOffset]::UtcNow.ToString('o', [Globalization.CultureInfo]::InvariantCulture)
             $runs += [ordered]@{
                 id = 901
                 event = 'workflow_dispatch'
                 head_branch = 'main'
                 path = '.github/workflows/promote-existing-candidate.yml'
-                created_at = '2026-08-18T03:26:00Z'
+                created_at = $newRunCreatedAt
             }
             if ($state.Mode -eq 'ambiguous') {
                 $runs += [ordered]@{
@@ -124,7 +125,7 @@ function global:gh {
                     event = 'workflow_dispatch'
                     head_branch = 'main'
                     path = '.github/workflows/promote-existing-candidate.yml'
-                    created_at = '2026-08-18T03:26:01Z'
+                    created_at = $newRunCreatedAt
                 }
             }
         }
