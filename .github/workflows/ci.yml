@@ -37,6 +37,7 @@ jobs:
           for line in raw.splitlines():
               script_lines.append(line[10:] if line.startswith('          ') else line)
           script = '\n'.join(script_lines) + '\n'
+          script = script.replace('marker = "## Merge gate"', 'marker = "## Final merge gate"')
           exec(compile(script, 'b800-100-reconcile', 'exec'), {'__name__': '__main__'})
       - name: Restore canonical CI and commit reconciled state
         shell: bash
