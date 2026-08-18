@@ -2,6 +2,15 @@
 
 This is the canonical execution plan. Update it in the same PR as material implementation changes.
 
+## Programming closure — atomic SharedState schema/execution guard — #423 / PR #424
+
+**Base:** `main@3b5e60fef2fa41c6e627468850cf3cf8532b0524`.  
+**PR:** #424 `agent/423-atomic-shared-state-execution`.  
+**Programming state:** implementation + source-contract regression + SQL Server 2022 acceptance are complete on the branch. Exact closure requires the final docs-inclusive head to remain current with `main`, pass normal CI, Real SQL, Windows production-candidate and both protected-P0 guards, and have zero unresolved review threads before merge.  
+**Gap closed:** #421 made the canonical schema-v1/readiness fingerprint a document-execution precondition but left that preflight and Read/CAS on separate backend calls/connections. The production SQL backend now keeps the existing store-level preflight as defense-in-depth, begins one explicit `SERIALIZABLE` transaction, holds the canonical schema metadata row plus target document key/range, reruns the same schema-v1 fingerprint on that connection/transaction, performs the Read/CAS, materializes the bounded result, and commits. Administrative schema-version/DDL drift can no longer interleave between the execution guard and the document operation.  
+**Pre-canonical-doc evidence:** code/test/ledger head `ef9abdec6c5e203c0395c03c937320792f9f2ed2`; normal CI `32156983549` Green; SQL Server 2022 Real SQL `32156983565` Green including the production execution-lock regression; protected-P0 metadata `32156983671` and commit `32156983621` guards Green. The final docs-inclusive head must rerun all required gates; earlier runs are implementation evidence only.  
+**Boundary:** no schema-v2 design, migration/auto-repair or Monitor runtime DDL; no monitored-target SQL query/permission expansion; no secret disclosure, autonomous remediation, RC.61 publication, production IIS/SQL mutation, external P0 acceptance or branch-protection mutation. Remaining external/manual dependency stays `#162 -> #116 -> #111`; #353 remains repository-admin only.
+
 ## Post-closure security/control hardening — #368 / #370 / #371 / #372 / #373 / #374
 
 **PR:** #369 `agent/368-credential-policy-fail-closed`  
@@ -90,7 +99,7 @@ Production-visible values must come from collected evidence. Missing, stale, per
 | 2 | P0.2 | #113 | First real snapshot + truthful read-model mapping | COMPLETE — PR #121 / final CI `31478470867` |
 | 3 | P0.3 | #114 | Server Details v0.1 trusted evidence surface | COMPLETE — PR #122 / final CI `31479311552` |
 | 4 | P0.4 | #115 | Real SQL end-to-end acceptance under success/failure cases | COMPLETE — PR #124; normal `31481874425`; Real SQL `31481874501` |
-| 5 | P0.5 | #116 | First trusted-HTTPS IIS SingleNode production release | **ACTIVE / BLOCKED BEFORE MUTATION BY #162 — repository workflow, selected-product-hash binding, locked-session sidecar binding #258/#259, Acceptance Control Toolkit provenance #261/#262, explicit operator helper #338/#339, handoff reconciliation #340/#341 and production-guide reconciliation #342/#343 are complete; RC.61 publication #162 must complete before external IIS acceptance begins** |
+| 5 | P0.5 | #116 | First trusted-HTTPS IIS SingleNode production release | **ACTIVE / BLOCKED BEFORE MUTATION BY #162 — repository workflow, selected-product-hash binding, locked-session sidecar binding #258/#259, Acceptance Control Toolkit provenance #261/#262, explicit operator helper #338/#339, handoff reconciliation #340/#341 and production-guide #342/#343 are complete; RC.61 publication #162 must complete before external IIS acceptance begins** |
 
 ### Resolved production gates
 
