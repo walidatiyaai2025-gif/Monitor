@@ -55,14 +55,14 @@ public sealed class B800CloseoutLedgerGuardTests
     public void FinalAcceptanceLedger_Records095And096ButNotFutureCompletion()
     {
         var batch = Read("docs/BATCH_800.md");
-        var note095 = Read("docs/work/B800-095.md");
-        var note096 = Read("docs/work/B800-096.md");
+        var evidence096 = Read("docs/work/B800-096.md");
         var note097 = Read("docs/work/B800-097.md");
 
         Assert.Contains("- [x] B800-095", batch, StringComparison.Ordinal);
         Assert.Contains("- [x] B800-096", batch, StringComparison.Ordinal);
-        Assert.Contains("PR #330", note095, StringComparison.Ordinal);
-        Assert.Contains("PR #331", note096, StringComparison.Ordinal);
+        Assert.Contains("PR #330 merged as `cda21b6ef5bbb8e34d32a186f44b3e45dc83bb23`", batch, StringComparison.Ordinal);
+        Assert.Contains("PR #331 merged as `66c8303f57880e5d76a01dab5e5ef36a2efd455c`", batch, StringComparison.Ordinal);
+        Assert.Contains("PR #330", evidence096, StringComparison.Ordinal);
         Assert.Contains("B800-097..100", note097, StringComparison.Ordinal);
         Assert.DoesNotContain("BATCH-800 `COMPLETE`", note097, StringComparison.Ordinal);
     }
