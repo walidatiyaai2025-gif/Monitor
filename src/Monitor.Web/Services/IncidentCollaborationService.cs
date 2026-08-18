@@ -12,6 +12,16 @@ public enum IncidentSlaBucket
     Resolved
 }
 
+public sealed class IncidentNoteRequestAmbiguousException : ArgumentException
+{
+    public IncidentNoteRequestAmbiguousException()
+        : base(
+            "A prior incident-note request with the same request key has an unresolved outcome. Verify the incident notes before submitting a new request.",
+            "requestKey")
+    {
+    }
+}
+
 public sealed record IncidentCollaborationProjection(
     HealthIncident Incident,
     string? Assignee,
@@ -78,7 +88,11 @@ public sealed class IncidentCollaborationService(
         if (AuditAny(item => item.Action == "incident.note.request" && item.Target == receiptTarget && item.Outcome == "applied"))
             return false;
 
+        if (AuditAny(item => item.Action == "incident.note.write.commit" && item.Target == receiptTarget && item.Outcome == "armed"))
+            throw new IncidentNoteRequestAmbiguousException();
+
         audit.Append(actor, "incident.note.write.request", receiptTarget, "requested");
+        audit.Append(actor, "incident.note.write.commit", receiptTarget, "armed");
         metadata.AddIncidentNote(incidentId, actor, note);
         audit.Append(actor, "incident.note.request", receiptTarget, "applied");
         return true;
