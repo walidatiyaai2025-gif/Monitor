@@ -3,25 +3,25 @@
 
 <section class="glass-panel table-panel health-surface-panel" style="margin-top:14px" aria-label="TempDB bounded diagnostics">
     <div class="panel-heading"><div><span class="eyebrow">TEMPDB · BOUNDED EVIDENCE</span><h3>Point-in-time TempDB diagnostics</h3></div><span class="snapshot-note">No growth/contention score</span></div>
-    <div class="responsive-table" role="region" aria-label="TempDB diagnostics by server" tabindex="0">
-        <div class="table-head health-detail-grid" role="row"><span>Server</span><span>Source</span><span>Files</span><span>Used</span><span>Imbalance</span><span>I/O latency</span><span>Guidance</span></div>
+    <div class="responsive-table" role="table" aria-label="TempDB diagnostics by server" tabindex="0">
+        <div class="table-head health-detail-grid" role="row"><span role="columnheader">Server</span><span role="columnheader">Source</span><span role="columnheader">Files</span><span role="columnheader">Used</span><span role="columnheader">Imbalance</span><span role="columnheader">I/O latency</span><span role="columnheader">Guidance</span></div>
         @foreach (var server in Model.Servers)
         {
             var diagnostics = AdvancedEvidenceProjection.BuildTempDb(server.TempDb);
             <div class="table-row health-detail-grid" role="row">
-                <strong>@server.Name</strong>
-                <partial name="_HealthSourceBadge" model="server" />
+                <strong role="cell">@server.Name</strong>
+                <span role="cell"><partial name="_HealthSourceBadge" model="server" /></span>
                 @if (diagnostics is null)
                 {
-                    <span>Not collected</span><span>Unavailable</span><span>Unavailable</span><span>Unavailable</span><span>Not evaluated</span>
+                    <span role="cell">Not collected</span><span role="cell">Unavailable</span><span role="cell">Unavailable</span><span role="cell">Unavailable</span><span role="cell">Not evaluated</span>
                 }
                 else
                 {
-                    <span class="@(diagnostics.IsTruncated ? "state-warning" : string.Empty)">@diagnostics.FileCount / @diagnostics.TotalDataFiles@(diagnostics.IsTruncated ? " retained" : string.Empty)</span>
-                    <span>@(diagnostics.UsedPercent.HasValue ? $"{diagnostics.UsedPercent.Value:0.##}%" : "Unavailable")</span>
-                    <span>size @diagnostics.SizeImbalancePercent.ToString("0.##")% · used @(diagnostics.UsedImbalancePercent.HasValue ? $"{diagnostics.UsedImbalancePercent.Value:0.##}%" : "unavailable")</span>
-                    <span>R @(diagnostics.ReadLatencyMs.HasValue ? $"{diagnostics.ReadLatencyMs.Value:0.##} ms" : "n/a") · W @(diagnostics.WriteLatencyMs.HasValue ? $"{diagnostics.WriteLatencyMs.Value:0.##} ms" : "n/a")</span>
-                    <span>@(diagnostics.RecommendedFileCount.HasValue ? $"bounded file guidance {diagnostics.RecommendedFileCount.Value}" : "Unavailable from truncated evidence")</span>
+                    <span role="cell" class="@(diagnostics.IsTruncated ? "state-warning" : string.Empty)">@diagnostics.FileCount / @diagnostics.TotalDataFiles@(diagnostics.IsTruncated ? " retained" : string.Empty)</span>
+                    <span role="cell">@(diagnostics.UsedPercent.HasValue ? $"{diagnostics.UsedPercent.Value:0.##}%" : "Unavailable")</span>
+                    <span role="cell">size @diagnostics.SizeImbalancePercent.ToString("0.##")% · used @(diagnostics.UsedImbalancePercent.HasValue ? $"{diagnostics.UsedImbalancePercent.Value:0.##}%" : "unavailable")</span>
+                    <span role="cell">R @(diagnostics.ReadLatencyMs.HasValue ? $"{diagnostics.ReadLatencyMs.Value:0.##} ms" : "n/a") · W @(diagnostics.WriteLatencyMs.HasValue ? $"{diagnostics.WriteLatencyMs.Value:0.##} ms" : "n/a")</span>
+                    <span role="cell">@(diagnostics.RecommendedFileCount.HasValue ? $"bounded file guidance {diagnostics.RecommendedFileCount.Value}" : "Unavailable from truncated evidence")</span>
                 }
             </div>
         }
