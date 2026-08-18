@@ -78,42 +78,79 @@ internal sealed class TransactionLogSnapshotQuery(PerformanceScaleOptions? perfo
 {
     internal const int MaxDatabases = 50;
     internal const string CommandText = """
+        DECLARE @TransactionLogEvidence TABLE
+        (
+            DatabaseKey nvarchar(128) NOT NULL,
+            RecoveryModel nvarchar(60) NOT NULL,
+            TotalLogSizeBytes bigint NULL,
+            ActiveLogSizeBytes bigint NULL,
+            TotalVlfCount bigint NULL,
+            ActiveVlfCount bigint NULL,
+            ReuseWait nvarchar(60) NULL,
+            LogBackupAgeSeconds bigint NULL,
+            HasDetailedStats bit NOT NULL
+        );
+
+        INSERT INTO @TransactionLogEvidence
+        (
+            DatabaseKey,
+            RecoveryModel,
+            TotalLogSizeBytes,
+            ActiveLogSizeBytes,
+            TotalVlfCount,
+            ActiveVlfCount,
+            ReuseWait,
+            LogBackupAgeSeconds,
+            HasDetailedStats
+        )
         SELECT
-            (SELECT COUNT(*) FROM sys.databases WHERE database_id > 4 AND state = 0) AS TotalDatabases,
+            CONVERT(nvarchar(128), d.name) AS DatabaseKey,
+            CONVERT(nvarchar(60), COALESCE(ls.recovery_model, d.recovery_model_desc)) AS RecoveryModel,
+            TRY_CONVERT(bigint, ROUND(ls.total_log_size_mb * 1048576.0, 0)) AS TotalLogSizeBytes,
+            TRY_CONVERT(bigint, ROUND(ls.active_log_size_mb * 1048576.0, 0)) AS ActiveLogSizeBytes,
+            CONVERT(bigint, ls.total_vlf_count) AS TotalVlfCount,
+            CONVERT(bigint, ls.active_vlf_count) AS ActiveVlfCount,
+            CONVERT(nvarchar(60), ls.log_truncation_holdup_reason) AS ReuseWait,
+            CASE
+                WHEN ls.log_backup_time IS NULL THEN NULL
+                WHEN ls.log_backup_time > SYSDATETIME() THEN CONVERT(bigint, 0)
+                ELSE CONVERT(bigint, DATEDIFF_BIG(SECOND, ls.log_backup_time, SYSDATETIME()))
+            END AS LogBackupAgeSeconds,
+            CONVERT(bit, CASE
+                WHEN ls.total_log_size_mb IS NOT NULL
+                 AND ls.active_log_size_mb IS NOT NULL
+                 AND ls.total_vlf_count IS NOT NULL
+                 AND ls.active_vlf_count IS NOT NULL
+                 AND ls.log_truncation_holdup_reason IS NOT NULL
+                THEN 1 ELSE 0 END) AS HasDetailedStats
+        FROM sys.databases AS d
+        OUTER APPLY sys.dm_db_log_stats(d.database_id) AS ls
+        WHERE d.database_id > 4 AND d.state = 0;
+
+        SELECT
+            (SELECT COUNT(*) FROM @TransactionLogEvidence) AS TotalDatabases,
             (SELECT TOP (50)
-                  CONVERT(nvarchar(128), d.name) AS DatabaseKey,
-                  CONVERT(nvarchar(60), COALESCE(ls.recovery_model, d.recovery_model_desc)) AS RecoveryModel,
-                  TRY_CONVERT(bigint, ROUND(ls.total_log_size_mb * 1048576.0, 0)) AS TotalLogSizeBytes,
-                  TRY_CONVERT(bigint, ROUND(ls.active_log_size_mb * 1048576.0, 0)) AS ActiveLogSizeBytes,
-                  CONVERT(bigint, ls.total_vlf_count) AS TotalVlfCount,
-                  CONVERT(bigint, ls.active_vlf_count) AS ActiveVlfCount,
-                  CONVERT(nvarchar(60), ls.log_truncation_holdup_reason) AS ReuseWait,
-                  CASE
-                      WHEN ls.log_backup_time IS NULL THEN NULL
-                      WHEN ls.log_backup_time > SYSDATETIME() THEN CONVERT(bigint, 0)
-                      ELSE CONVERT(bigint, DATEDIFF_BIG(SECOND, ls.log_backup_time, SYSDATETIME()))
-                  END AS LogBackupAgeSeconds,
-                  CONVERT(bit, CASE
-                      WHEN ls.total_log_size_mb IS NOT NULL
-                       AND ls.active_log_size_mb IS NOT NULL
-                       AND ls.total_vlf_count IS NOT NULL
-                       AND ls.active_vlf_count IS NOT NULL
-                       AND ls.log_truncation_holdup_reason IS NOT NULL
-                      THEN 1 ELSE 0 END) AS HasDetailedStats
-              FROM sys.databases AS d
-              CROSS APPLY sys.dm_db_log_stats(d.database_id) AS ls
-              WHERE d.database_id > 4 AND d.state = 0
+                  DatabaseKey,
+                  RecoveryModel,
+                  TotalLogSizeBytes,
+                  ActiveLogSizeBytes,
+                  TotalVlfCount,
+                  ActiveVlfCount,
+                  ReuseWait,
+                  LogBackupAgeSeconds,
+                  HasDetailedStats
+              FROM @TransactionLogEvidence
               ORDER BY CASE
-                           WHEN ls.log_truncation_holdup_reason IS NULL THEN 2
-                           WHEN ls.log_truncation_holdup_reason IN (N'NOTHING', N'CHECKPOINT') THEN 1
+                           WHEN ReuseWait IS NULL THEN 2
+                           WHEN ReuseWait IN (N'NOTHING', N'CHECKPOINT') THEN 1
                            ELSE 0
                        END ASC,
                        CASE
-                           WHEN ls.total_log_size_mb > 0 AND ls.active_log_size_mb IS NOT NULL
-                           THEN ls.active_log_size_mb / ls.total_log_size_mb
+                           WHEN TotalLogSizeBytes > 0 AND ActiveLogSizeBytes IS NOT NULL
+                           THEN CONVERT(float, ActiveLogSizeBytes) / CONVERT(float, TotalLogSizeBytes)
                            ELSE -1
                        END DESC,
-                       d.name ASC
+                       DatabaseKey ASC
               FOR JSON PATH) AS TransactionLogsJson;
         """;
 
