@@ -87,7 +87,7 @@ builder.Services.AddSingleton<IServerRegistrationRepository>(provider =>
 {
     if (haStateOptions.UseSharedRegistrations)
     {
-        var shared = new SharedServerRegistrationRepository(provider.GetRequiredService<ISharedStateDocumentStore>());
+        var shared = new AtomicSharedServerRegistrationRepository(provider.GetRequiredService<ISharedStateDocumentStore>());
         if (haStateOptions.ImportLocalRegistrationsWhenSharedEmpty)
         {
             var legacyPath = ResolveRegistrationStorePath();
@@ -158,9 +158,9 @@ builder.Services.AddSingleton<IConnectionSecretStore>(provider => new ProtectedF
 builder.Services.AddSingleton<IRuntimeCredentialWriter>(provider => (IRuntimeCredentialWriter)provider.GetRequiredService<IConnectionSecretStore>());
 builder.Services.AddSingleton<ISqlConnectionProbe, SqlConnectionProbe>();
 builder.Services.AddSingleton<IServerConnectionTester, ServerConnectionTester>();
-builder.Services.AddSingleton<CredentialLifecycleService>();
+builder.Services.AddSingleton<AtomicCredentialLifecycleService>();
 builder.Services.AddSingleton<ICredentialLifecycleService>(provider => new WriteAheadAuditedCredentialLifecycleService(
-    provider.GetRequiredService<CredentialLifecycleService>(),
+    provider.GetRequiredService<AtomicCredentialLifecycleService>(),
     provider.GetRequiredService<ServerRegistrationMutationGate>(),
     provider.GetRequiredService<IAuditStore>()));
 builder.Services.AddSingleton<ICredentialReadinessService, CredentialReadinessService>();
