@@ -138,6 +138,7 @@ internal sealed class OperationalBackupService : IOperationalBackupService
     private const int MaxIncidents = 10000;
     private const int MaxAuditEvents = 1000;
     private const int MaxHistoryPerRegistration = 288;
+    private const int RecentBackupLimit = 5;
     private static readonly TimeSpan HistoryWindow = TimeSpan.FromHours(24);
     private static readonly JsonSerializerOptions CompactJson = new(JsonSerializerDefaults.Web);
     private static readonly JsonSerializerOptions FileJson = new(JsonSerializerDefaults.Web) { WriteIndented = true };
@@ -302,7 +303,12 @@ internal sealed class OperationalBackupService : IOperationalBackupService
 
     public BackupReadinessViewModel GetReadiness()
     {
-        var backups = ListBackups();
+        BackupDirectoryScan backups;
+        lock (_fileGate)
+        {
+            backups = BoundedBackupDirectory.ScanReadiness(_root, RecentBackupLimit);
+        }
+
         return new(
             _restoreWriter.IsSupported,
             _restoreWriter.IsSupported ? "Backup ready" : "Backup export only / restore blocked",
@@ -310,9 +316,9 @@ internal sealed class OperationalBackupService : IOperationalBackupService
                 ? "Operational backups include safe registration metadata, incidents, history and audit. Credential ciphertext and Data Protection keys are excluded."
                 : "Selected InMemory persistence cannot provide a restart-safe restore target.",
             backups.Count,
-            backups.FirstOrDefault()?.CreatedAtUtc,
+            backups.RecentBackups.FirstOrDefault()?.CreatedAtUtc,
             _restoreWriter.RestartRequired,
-            backups.Take(5).ToArray());
+            backups.RecentBackups);
     }
 
     private IReadOnlyList<AuditEvent> ReadAllAudit()
@@ -409,31 +415,7 @@ internal sealed class OperationalBackupService : IOperationalBackupService
         }
     }
 
-    private IReadOnlyList<BackupListItem> ListBackups()
-    {
-        lock (_fileGate)
-        {
-            if (!Directory.Exists(_root)) return [];
-            return Directory.EnumerateFiles(_root, "monitor-backup-*.json", SearchOption.TopDirectoryOnly)
-                .Select(path => new FileInfo(path))
-                .Select(info => new BackupListItem(
-                    Path.GetFileNameWithoutExtension(info.Name)["monitor-backup-".Length..],
-                    new DateTimeOffset(info.LastWriteTimeUtc, TimeSpan.Zero),
-                    info.Length))
-                .OrderByDescending(item => item.CreatedAtUtc)
-                .ToArray();
-        }
-    }
-
-    private void PruneLocked()
-    {
-        var files = Directory.EnumerateFiles(_root, "monitor-backup-*.json", SearchOption.TopDirectoryOnly)
-            .Select(path => new FileInfo(path))
-            .OrderByDescending(info => info.CreationTimeUtc)
-            .ThenByDescending(info => info.Name, StringComparer.Ordinal)
-            .ToArray();
-        foreach (var file in files.Skip(_options.RetentionCount)) file.Delete();
-    }
+    private void PruneLocked() => BoundedBackupDirectory.Prune(_root, _options.RetentionCount);
 
     private string PathFor(string backupId) => Path.Combine(_root, $"monitor-backup-{backupId}.json");
 
