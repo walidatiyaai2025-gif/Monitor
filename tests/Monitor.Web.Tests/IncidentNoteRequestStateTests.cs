@@ -54,6 +54,37 @@ public sealed class IncidentNoteRequestStateTests
     }
 
     [Fact]
+    public void DurableAppliedState_WinsWhenFinalAuditEvidenceFailsAndArmedReceiptRemains()
+    {
+        var time = new FixedTimeProvider(new DateTimeOffset(2026, 8, 18, 20, 0, 0, TimeSpan.Zero));
+        var metadata = new InMemoryOperatorMetadataStore(time);
+        var rawAudit = new FailFinalAppliedAuditStore(time);
+        var state = new InMemoryIncidentNoteRequestStateStore();
+        IAuditStore audit = new CoordinatedIncidentNoteAuditStore(
+            rawAudit,
+            new UnusedSharedStateStore(),
+            time,
+            useSharedOperationalState: false,
+            state);
+        var service = new IncidentCollaborationService(metadata, audit, time);
+        const string incidentId = "11111111111111111111111111111111:RULE-FINAL-AUDIT";
+        const string requestKey = "request-final-audit-12345678";
+
+        var firstFailure = Assert.Throws<IOException>(() =>
+            service.TryAddNote(incidentId, "operator", "Applied before final audit evidence.", requestKey));
+
+        Assert.Contains("final note receipt unavailable", firstFailure.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Single(metadata.GetIncident(incidentId).Notes);
+        Assert.Contains(ReadAll(rawAudit), item =>
+            item.Action == "incident.note.write.commit" && item.Outcome == "armed");
+        Assert.DoesNotContain(ReadAll(rawAudit), item =>
+            item.Action == "incident.note.request" && item.Outcome == "applied");
+
+        Assert.False(service.TryAddNote(incidentId, "operator", "Applied before final audit evidence.", requestKey));
+        Assert.Single(metadata.GetIncident(incidentId).Notes);
+    }
+
+    [Fact]
     public void ArmedRequest_RemainsAmbiguousAfterAuditEvictionAndFileRestart()
     {
         var directory = Path.Combine(Path.GetTempPath(), $"monitor-note-armed-{Guid.NewGuid():N}");
@@ -128,6 +159,21 @@ public sealed class IncidentNoteRequestStateTests
     private sealed class FixedTimeProvider(DateTimeOffset utcNow) : TimeProvider
     {
         public override DateTimeOffset GetUtcNow() => utcNow;
+    }
+
+    private sealed class FailFinalAppliedAuditStore(TimeProvider timeProvider) : IAuditStore
+    {
+        private readonly InMemoryAuditStore _inner = new(timeProvider);
+
+        public void Append(string actor, string action, string target, string outcome)
+        {
+            if (action == "incident.note.request" && outcome == "applied")
+                throw new IOException("Final note receipt unavailable.");
+
+            _inner.Append(actor, action, target, outcome);
+        }
+
+        public IReadOnlyList<AuditEvent> Read(int offset, int limit) => _inner.Read(offset, limit);
     }
 
     private sealed class UnusedSharedStateStore : ISharedStateDocumentStore
