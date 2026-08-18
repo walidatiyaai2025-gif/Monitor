@@ -1,5 +1,3 @@
-using System.Collections.Concurrent;
-
 namespace Monitor.Web.Services;
 
 public static class MonitorRoles
@@ -48,22 +46,86 @@ public interface ILoginAttemptLimiter { bool IsAllowed(string key); void RecordF
 public sealed class LoginAttemptLimiter(TimeProvider timeProvider) : ILoginAttemptLimiter
 {
     internal const int FailureLimit = 5;
+    internal const int MaxTrackedKeys = 4096;
     internal static readonly TimeSpan Window = TimeSpan.FromMinutes(5);
+    internal static readonly TimeSpan PruneInterval = TimeSpan.FromSeconds(30);
 
     private sealed record State(int Failures, DateTimeOffset WindowStart);
-    private readonly ConcurrentDictionary<string, State> _states = new(StringComparer.Ordinal);
+    private readonly object _gate = new();
+    private readonly Dictionary<string, State> _states = new(StringComparer.Ordinal);
+    private DateTimeOffset _nextPruneUtc = DateTimeOffset.MinValue;
 
-    public bool IsAllowed(string key) =>
-        !_states.TryGetValue(key, out var state) ||
-        timeProvider.GetUtcNow() - state.WindowStart >= Window ||
-        state.Failures < FailureLimit;
+    internal int TrackedKeyCount
+    {
+        get
+        {
+            lock (_gate) return _states.Count;
+        }
+    }
 
-    public void RecordFailure(string key) => _states.AddOrUpdate(
-        key,
-        _ => new(1, timeProvider.GetUtcNow()),
-        (_, current) => timeProvider.GetUtcNow() - current.WindowStart >= Window
-            ? new(1, timeProvider.GetUtcNow())
-            : current with { Failures = current.Failures + 1 });
+    public bool IsAllowed(string key)
+    {
+        var now = timeProvider.GetUtcNow();
+        lock (_gate)
+        {
+            if (_states.TryGetValue(key, out var state))
+            {
+                if (now - state.WindowStart >= Window)
+                {
+                    _states.Remove(key);
+                    return true;
+                }
 
-    public void RecordSuccess(string key) => _states.TryRemove(key, out _);
+                return state.Failures < FailureLimit;
+            }
+
+            PruneExpiredIfDue(now);
+            return _states.Count < MaxTrackedKeys;
+        }
+    }
+
+    public void RecordFailure(string key)
+    {
+        var now = timeProvider.GetUtcNow();
+        lock (_gate)
+        {
+            if (_states.TryGetValue(key, out var current))
+            {
+                _states[key] = now - current.WindowStart >= Window
+                    ? new(1, now)
+                    : current with { Failures = current.Failures + 1 };
+                return;
+            }
+
+            PruneExpiredIfDue(now);
+            if (_states.Count >= MaxTrackedKeys)
+            {
+                return;
+            }
+
+            _states[key] = new(1, now);
+        }
+    }
+
+    public void RecordSuccess(string key)
+    {
+        lock (_gate) _states.Remove(key);
+    }
+
+    private void PruneExpiredIfDue(DateTimeOffset now)
+    {
+        if (now < _nextPruneUtc)
+        {
+            return;
+        }
+
+        _nextPruneUtc = now + PruneInterval;
+        foreach (var key in _states
+                     .Where(pair => now - pair.Value.WindowStart >= Window)
+                     .Select(pair => pair.Key)
+                     .ToArray())
+        {
+            _states.Remove(key);
+        }
+    }
 }
