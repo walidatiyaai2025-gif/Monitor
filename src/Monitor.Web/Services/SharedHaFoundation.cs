@@ -925,9 +925,17 @@ public sealed class SharedStateDistributedLeaseManager : IDistributedLeaseManage
             return null;
         }
 
+        var key = LeaseKey(lease.Resource);
         ValidateDuration(lease.Duration);
-        var payload = SerializeLease(new LeaseEnvelope(LeaseFormatVersion, _nodeIdentity.Value, checked((int)lease.Duration.TotalSeconds), Released: false));
-        var write = await _store.CompareExchangeAsync(LeaseKey(lease.Resource), lease.Version, payload, cancellationToken);
+        var durationSeconds = checked((int)lease.Duration.TotalSeconds);
+        var current = await _store.ReadAsync(key, cancellationToken);
+        if (current is null || !HasActivePersistedAuthority(current, lease, durationSeconds))
+        {
+            return null;
+        }
+
+        var payload = SerializeLease(new LeaseEnvelope(LeaseFormatVersion, _nodeIdentity.Value, durationSeconds, Released: false));
+        var write = await _store.CompareExchangeAsync(key, current.Version, payload, cancellationToken);
         return write.Applied && write.Document is not null
             ? lease with { Version = write.Document.Version, ExpiresAtUtc = write.Document.UpdatedAtUtc.Add(lease.Duration) }
             : null;
@@ -941,9 +949,37 @@ public sealed class SharedStateDistributedLeaseManager : IDistributedLeaseManage
             return false;
         }
 
-        var payload = SerializeLease(new LeaseEnvelope(LeaseFormatVersion, _nodeIdentity.Value, checked((int)lease.Duration.TotalSeconds), Released: true));
-        var write = await _store.CompareExchangeAsync(LeaseKey(lease.Resource), lease.Version, payload, cancellationToken);
+        var key = LeaseKey(lease.Resource);
+        ValidateDuration(lease.Duration);
+        var durationSeconds = checked((int)lease.Duration.TotalSeconds);
+        var current = await _store.ReadAsync(key, cancellationToken);
+        if (current is null || !HasActivePersistedAuthority(current, lease, durationSeconds))
+        {
+            return false;
+        }
+
+        var payload = SerializeLease(new LeaseEnvelope(LeaseFormatVersion, _nodeIdentity.Value, durationSeconds, Released: true));
+        var write = await _store.CompareExchangeAsync(key, current.Version, payload, cancellationToken);
         return write.Applied;
+    }
+
+    private bool HasActivePersistedAuthority(SharedStateDocument current, DistributedLeaseHandle lease, int durationSeconds)
+    {
+        if (current.Version != lease.Version)
+        {
+            return false;
+        }
+
+        var persisted = DeserializeLease(current.PayloadJson);
+        if (persisted.Released ||
+            persisted.DurationSeconds != durationSeconds ||
+            !string.Equals(persisted.OwnerId, _nodeIdentity.Value, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var expiresAt = current.UpdatedAtUtc.AddSeconds(persisted.DurationSeconds);
+        return _timeProvider.GetUtcNow() < expiresAt;
     }
 
     private static string LeaseKey(string resource)
