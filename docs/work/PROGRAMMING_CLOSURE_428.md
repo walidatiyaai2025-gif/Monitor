@@ -13,17 +13,19 @@ This was observed on PR #426 where the exact head failed once inside `LeastPrivi
 ## Closure
 
 - The `Run real SQL acceptance tests` invocation now passes `-- xUnit.ParallelizeTestCollections=false` after the `dotnet test` RunSettings delimiter.
-- The change is scoped only to `.github/workflows/real-sql-acceptance.yml`.
+- The execution change is scoped only to `.github/workflows/real-sql-acceptance.yml`.
 - Normal `ci.yml` keeps its existing parallel test execution.
 - Production collector validation and SQL invariants are unchanged.
 
 ## Regression coverage
 
-`RealSqlWorkflowParallelismTests` locks the workflow contract:
+The existing repository-level `P05WorkflowSupplyChainTests` suite locks the workflow contract:
 
 1. Real SQL still filters `Category=RealSql`;
 2. exactly one collection-serialization switch exists in the Real SQL workflow;
 3. the same switch is absent from normal CI.
+
+Keeping the contract in the established supply-chain suite also makes the Windows production-candidate gate select this workflow-hardening PR without broadening the production-candidate path policy.
 
 ## Tracking note
 
