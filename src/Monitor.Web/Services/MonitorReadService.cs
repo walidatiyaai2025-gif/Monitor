@@ -77,6 +77,14 @@ public sealed class MonitorReadService(
         var incidentRows = await GetIncidentsAsync(cancellationToken);
         var online = servers.Sum(item => item.DatabaseOnline);
         var total = servers.Sum(item => item.DatabaseTotal);
+        var unavailable = servers.Count(item => item.Source == ServerDataSource.RegisteredUnavailable);
+        var databaseState = total == 0
+            ? HealthState.Unknown
+            : online < total
+                ? HealthState.Warning
+                : unavailable > 0
+                    ? HealthState.Unknown
+                    : HealthState.Healthy;
         return new DashboardViewModel
         {
             Servers = servers,
@@ -84,10 +92,10 @@ public sealed class MonitorReadService(
             Metrics =
             [
                 new("Registered servers", servers.Count.ToString(), "Real SQL registrations", HealthState.Unknown),
-                new("Databases online", $"{online} / {total}", "From cached SQL snapshots", online == total && total > 0 ? HealthState.Healthy : HealthState.Warning),
-                new("Unavailable", servers.Count(item => item.Source == ServerDataSource.RegisteredUnavailable).ToString(), "Registered without a usable snapshot", HealthState.Warning)
+                new("Databases online", $"{online} / {total}", "From cached SQL snapshots; incomplete target coverage remains unknown", databaseState),
+                new("Unavailable", unavailable.ToString(), "Registered without a usable snapshot", unavailable > 0 ? HealthState.Warning : HealthState.Healthy)
             ],
-            Activity = [new("Now", "Real estate projection loaded from the shared snapshot cache.", HealthState.Healthy)]
+            Activity = [new("Now", "Estate projection loaded from the shared snapshot cache; navigation performed no monitored-SQL collection.", HealthState.Unknown)]
         };
     }
 
