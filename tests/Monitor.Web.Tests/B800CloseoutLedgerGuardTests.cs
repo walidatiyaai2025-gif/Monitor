@@ -7,26 +7,30 @@ public sealed class B800CloseoutLedgerGuardTests
     private static readonly string Root = FindRoot();
 
     [Fact]
-    public void Batch800_RemainsFailClosedUntilFinalCloseoutIsDeliberatelyReconciled()
+    public void Batch800_RemainsFailClosedWhileFinalCloseoutContinues()
     {
         var batch = Read("docs/BATCH_800.md");
 
         Assert.Contains("**State:** IN PROGRESS", batch, StringComparison.Ordinal);
         Assert.DoesNotContain("**State:** COMPLETE", batch, StringComparison.Ordinal);
-        Assert.Contains("- [x] B800-094", batch, StringComparison.Ordinal);
-        Assert.Contains("- [ ] B800-095..100 continue final canonical exact-head and closeout acceptance", batch, StringComparison.Ordinal);
+        Assert.Contains("- [x] B800-096", batch, StringComparison.Ordinal);
+        Assert.Contains("- [ ] B800-097..100 continue final canonical exact-head and closeout acceptance", batch, StringComparison.Ordinal);
         Assert.Contains("BATCH-800 repository/product work does not publish or supersede selected RC.61 and cannot satisfy #162/#116/#111.", batch, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void HistoricalUncheckedTasks_AreExplicitlyInventoriedBeforeReconciliation()
+    public void HistoricalLedgerRows_AreReconciledOnlyAgainstExplicitEvidenceMap()
     {
         var batch = Read("docs/BATCH_800.md");
-        var note = Read("docs/work/B800-095.md");
+        var evidence = Read("docs/work/B800-096.md");
 
-        var staleLedgerTasks = new[]
+        var reconciledTasks = new[]
         {
             "B800-020",
+            "B800-039",
+            "B800-040",
+            "B800-050",
+            "B800-062",
             "B800-065",
             "B800-066",
             "B800-067",
@@ -34,46 +38,46 @@ public sealed class B800CloseoutLedgerGuardTests
             "B800-070"
         };
 
-        foreach (var task in staleLedgerTasks)
+        foreach (var task in reconciledTasks)
         {
-            Assert.Contains($"- [ ] {task}", batch, StringComparison.Ordinal);
-            Assert.Contains($"`{task}`", note, StringComparison.Ordinal);
+            Assert.Contains($"- [x] {task}", batch, StringComparison.Ordinal);
+            Assert.Contains(task, evidence, StringComparison.Ordinal);
         }
 
-        Assert.Contains("0d9c05d6c3c2b2980a6c3c8bbfbe241dc305860a", note, StringComparison.Ordinal);
-        Assert.Contains("d831f77159e43b446aa7549db5a6d74cd23a3f0e", note, StringComparison.Ordinal);
-        Assert.Contains("fad66ef563300f0aaedf8fad472b377ca55db648", note, StringComparison.Ordinal);
-        Assert.Contains("1b9518e7ceb813368106f5a04483817414f047b1", note, StringComparison.Ordinal);
-        Assert.Contains("8e5aea353b8255849b2c82675ec8f0b5443e88db", note, StringComparison.Ordinal);
-        Assert.Contains("3073c3a5b4b802b24a3b59218ee93e1208f534a3", note, StringComparison.Ordinal);
+        Assert.DoesNotContain("- [ ] B800-020", batch, StringComparison.Ordinal);
+        Assert.DoesNotContain("- [ ] B800-039", batch, StringComparison.Ordinal);
+        Assert.DoesNotContain("- [ ] B800-062", batch, StringComparison.Ordinal);
+        Assert.DoesNotContain("- [ ] B800-065", batch, StringComparison.Ordinal);
+        Assert.DoesNotContain("- [ ] B800-070", batch, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void B800094_FinalMergeEvidence_IsCapturedBeforeNextCanonicalRewrite()
-    {
-        var note = Read("docs/work/B800-095.md");
-
-        Assert.Contains("PR #329", note, StringComparison.Ordinal);
-        Assert.Contains("64488940674a39304010901cb87c2025ba3376a9", note, StringComparison.Ordinal);
-        Assert.Contains("67ee71224708153eecc31cf495148ffff00f50dc", note, StringComparison.Ordinal);
-        Assert.Contains("32086916585", note, StringComparison.Ordinal);
-        Assert.Contains("32086916571", note, StringComparison.Ordinal);
-        Assert.Contains("32086916578", note, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void ValidationOnlyLegacyItems_AreNotSilentlyDeclaredCompleteByThisSlice()
+    public void FinalAcceptanceLedger_Records095And096ButNotFutureCompletion()
     {
         var batch = Read("docs/BATCH_800.md");
-        var note = Read("docs/work/B800-095.md");
+        var note095 = Read("docs/work/B800-095.md");
+        var note096 = Read("docs/work/B800-096.md");
+        var note097 = Read("docs/work/B800-097.md");
 
-        foreach (var task in new[] { "B800-039", "B800-040", "B800-050", "B800-062" })
-        {
-            Assert.Contains($"- [ ] {task}", batch, StringComparison.Ordinal);
-            Assert.Contains($"`{task}`", note, StringComparison.Ordinal);
-        }
+        Assert.Contains("- [x] B800-095", batch, StringComparison.Ordinal);
+        Assert.Contains("- [x] B800-096", batch, StringComparison.Ordinal);
+        Assert.Contains("PR #330", note095, StringComparison.Ordinal);
+        Assert.Contains("PR #331", note096, StringComparison.Ordinal);
+        Assert.Contains("B800-097..100", note097, StringComparison.Ordinal);
+        Assert.DoesNotContain("BATCH-800 `COMPLETE`", note097, StringComparison.Ordinal);
+    }
 
-        Assert.Contains("B800-096", note, StringComparison.Ordinal);
+    [Fact]
+    public void DiagnosticTruthBoundary_IsUpdatedWithoutInventingCompositeReadiness()
+    {
+        var batch = Read("docs/BATCH_800.md");
+        var note = Read("docs/work/B800-097.md");
+
+        Assert.Contains("TempDB, transaction-log and HA", batch, StringComparison.Ordinal);
+        Assert.Contains("query regression", batch, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("NotEvaluated", note, StringComparison.Ordinal);
+        Assert.Contains("No positive multi-replica AG acceptance claim", note, StringComparison.Ordinal);
+        Assert.Contains("No live query text/plan collection", note, StringComparison.Ordinal);
     }
 
     private static string Read(string relative) =>
