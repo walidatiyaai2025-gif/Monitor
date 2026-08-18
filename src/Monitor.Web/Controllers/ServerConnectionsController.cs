@@ -44,6 +44,7 @@ public sealed class ServerConnectionsController(
             SnapshotRefreshStatus.RegistrationNotFound => NotFound(result),
             SnapshotRefreshStatus.Disabled => Conflict(result),
             SnapshotRefreshStatus.Throttled => StatusCode(StatusCodes.Status429TooManyRequests, result),
+            SnapshotRefreshStatus.RetainedStale => StatusCode(StatusCodes.Status503ServiceUnavailable, result),
             _ => Ok(result)
         };
     }
