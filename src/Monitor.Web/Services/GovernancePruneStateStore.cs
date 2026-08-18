@@ -169,7 +169,12 @@ public sealed class FileGovernancePruneStateStore : IGovernancePruneStateStore
 
         _rootPath = Path.GetFullPath(rootPath);
         _targets = Enum.GetValues<GovernancePruneKind>()
-            .ToDictionary(kind => kind, Load);
+            .ToDictionary(kind => kind, _ => new HashSet<string>(StringComparer.Ordinal));
+        foreach (var kind in Enum.GetValues<GovernancePruneKind>())
+        {
+            using var lease = CrossProcessFileLease.Acquire(LeasePathFor(kind), "Governance prune state");
+            _targets[kind] = Load(kind);
+        }
     }
 
     public bool Contains(GovernancePruneKind kind, string target)
@@ -177,6 +182,8 @@ public sealed class FileGovernancePruneStateStore : IGovernancePruneStateStore
         var normalized = GovernancePruneStatePolicy.Normalize(kind, target);
         lock (_gate)
         {
+            using var lease = CrossProcessFileLease.Acquire(LeasePathFor(kind), "Governance prune state");
+            ReloadFromDisk(kind);
             return _targets[kind].Contains(normalized);
         }
     }
@@ -186,6 +193,8 @@ public sealed class FileGovernancePruneStateStore : IGovernancePruneStateStore
         var normalized = GovernancePruneStatePolicy.Normalize(kind, target);
         lock (_gate)
         {
+            using var lease = CrossProcessFileLease.Acquire(LeasePathFor(kind), "Governance prune state");
+            ReloadFromDisk(kind);
             if (_targets[kind].Contains(normalized))
             {
                 return;
@@ -207,6 +216,8 @@ public sealed class FileGovernancePruneStateStore : IGovernancePruneStateStore
         {
             foreach (var kind in Enum.GetValues<GovernancePruneKind>())
             {
+                using var lease = CrossProcessFileLease.Acquire(LeasePathFor(kind), "Governance prune state");
+                ReloadFromDisk(kind);
                 var candidate = GovernancePruneStatePolicy.MergeBounded(kind, _targets[kind], legacy, allowed[kind]);
                 if (_targets[kind].SetEquals(candidate))
                 {
@@ -218,6 +229,8 @@ public sealed class FileGovernancePruneStateStore : IGovernancePruneStateStore
             }
         }
     }
+
+    private void ReloadFromDisk(GovernancePruneKind kind) => _targets[kind] = Load(kind);
 
     private HashSet<string> Load(GovernancePruneKind kind)
     {
@@ -253,6 +266,8 @@ public sealed class FileGovernancePruneStateStore : IGovernancePruneStateStore
 
     private string PathFor(GovernancePruneKind kind) =>
         Path.Combine(_rootPath, $"governance-prune-{kind.ToString().ToLowerInvariant()}.json");
+
+    private string LeasePathFor(GovernancePruneKind kind) => $"{PathFor(kind)}.lock";
 
     private sealed record PruneEnvelope(int Version, string[]? Targets);
 }
