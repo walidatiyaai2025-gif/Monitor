@@ -33,6 +33,7 @@ public sealed class RegistrationStoreOptions
 public sealed class FileServerRegistrationRepository : IServerRegistrationRepository
 {
     private const int CurrentFormatVersion = 1;
+    private const int DefaultMaxStoreFileBytes = 16 * 1024 * 1024;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
         WriteIndented = true
@@ -40,17 +41,29 @@ public sealed class FileServerRegistrationRepository : IServerRegistrationReposi
 
     private readonly object _gate = new();
     private readonly string _path;
+    private readonly int _maxStoreFileBytes;
     private readonly Dictionary<Guid, ServerRegistration> _registrations;
 
     public FileServerRegistrationRepository(string path)
+        : this(path, DefaultMaxStoreFileBytes)
+    {
+    }
+
+    internal FileServerRegistrationRepository(string path, int maxStoreFileBytes)
     {
         if (string.IsNullOrWhiteSpace(path))
         {
             throw new ArgumentException("Registration store path is required.", nameof(path));
         }
 
+        if (maxStoreFileBytes < 1024)
+        {
+            throw new ArgumentOutOfRangeException(nameof(maxStoreFileBytes), "Registration store file bound must be at least 1024 bytes.");
+        }
+
         _path = System.IO.Path.GetFullPath(path);
-        _registrations = Load(_path);
+        _maxStoreFileBytes = maxStoreFileBytes;
+        _registrations = Load(_path, _maxStoreFileBytes);
     }
 
     public IReadOnlyList<ServerRegistration> GetAll()
@@ -128,6 +141,11 @@ public sealed class FileServerRegistrationRepository : IServerRegistrationReposi
         var envelope = new PersistedRegistrationStore(
             CurrentFormatVersion,
             Ordered(_registrations.Values).Select(PersistedRegistration.FromDomain).ToArray());
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(envelope, JsonOptions);
+        if (bytes.Length > _maxStoreFileBytes)
+        {
+            throw new InvalidOperationException("Registration store exceeds its bounded file size.");
+        }
 
         var tempPath = $"{_path}.{Guid.NewGuid():N}.tmp";
         try
@@ -140,7 +158,7 @@ public sealed class FileServerRegistrationRepository : IServerRegistrationReposi
                 bufferSize: 4096,
                 FileOptions.WriteThrough))
             {
-                JsonSerializer.Serialize(stream, envelope, JsonOptions);
+                stream.Write(bytes);
                 stream.Flush(flushToDisk: true);
             }
 
@@ -155,7 +173,7 @@ public sealed class FileServerRegistrationRepository : IServerRegistrationReposi
         }
     }
 
-    private static Dictionary<Guid, ServerRegistration> Load(string path)
+    private static Dictionary<Guid, ServerRegistration> Load(string path, int maxStoreFileBytes)
     {
         if (!File.Exists(path))
         {
@@ -164,7 +182,18 @@ public sealed class FileServerRegistrationRepository : IServerRegistrationReposi
 
         try
         {
-            using var stream = File.OpenRead(path);
+            using var stream = new FileStream(
+                path,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read,
+                bufferSize: 16 * 1024,
+                FileOptions.SequentialScan);
+            if (stream.Length > maxStoreFileBytes)
+            {
+                throw new InvalidDataException("Registration store exceeds its bounded file size.");
+            }
+
             var envelope = JsonSerializer.Deserialize<PersistedRegistrationStore>(stream, JsonOptions)
                 ?? throw new InvalidDataException("Registration store is empty or invalid.");
 
