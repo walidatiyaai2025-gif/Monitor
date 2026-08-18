@@ -22,6 +22,7 @@ internal sealed class ProtectedFileConnectionSecretStore : IConnectionSecretStor
     private const int MaxStoreFileBytes = 24 * 1024 * 1024;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { WriteIndented = true };
     private readonly string _path;
+    private readonly string _leasePath;
     private readonly IDataProtector _protector;
     private readonly IConfiguration _configuration;
     private readonly IExternalConnectionSecretProvider[] _externalProviders;
@@ -37,10 +38,12 @@ internal sealed class ProtectedFileConnectionSecretStore : IConnectionSecretStor
         CredentialPolicyOptions? credentialPolicy = null)
     {
         _path = Path.GetFullPath(path);
+        _leasePath = $"{_path}.lock";
         _protector = protectionProvider.CreateProtector("Monitor.SqlSecrets.v1");
         _configuration = configuration;
         _externalProviders = externalProviders.ToArray();
         _credentialPolicy = credentialPolicy ?? new CredentialPolicyOptions();
+        using var lease = CrossProcessFileLease.Acquire(_leasePath, "Protected SQL secret store");
         _entries = Load();
     }
 
@@ -50,7 +53,12 @@ internal sealed class ProtectedFileConnectionSecretStore : IConnectionSecretStor
         if (reference.Value.StartsWith(Prefix, StringComparison.Ordinal))
         {
             string? protectedPayload;
-            lock (_gate) _entries.TryGetValue(reference.Value, out protectedPayload);
+            lock (_gate)
+            {
+                using var lease = CrossProcessFileLease.Acquire(_leasePath, "Protected SQL secret store");
+                ReloadFromDisk();
+                _entries.TryGetValue(reference.Value, out protectedPayload);
+            }
             if (protectedPayload is null) return null;
             try
             {
@@ -87,6 +95,8 @@ internal sealed class ProtectedFileConnectionSecretStore : IConnectionSecretStor
         var protectedPayload = _protector.CreateProtector(reference.Value).Protect(plaintext);
         lock (_gate)
         {
+            using var lease = CrossProcessFileLease.Acquire(_leasePath, "Protected SQL secret store");
+            ReloadFromDisk();
             EnsureCapacityFor(reference.Value);
             var candidate = new Dictionary<string, string>(_entries, StringComparer.Ordinal) { [reference.Value] = protectedPayload };
             Persist(candidate);
@@ -106,6 +116,8 @@ internal sealed class ProtectedFileConnectionSecretStore : IConnectionSecretStor
         var protectedPayload = _protector.CreateProtector(reference.Value).Protect(plaintext);
         lock (_gate)
         {
+            using var lease = CrossProcessFileLease.Acquire(_leasePath, "Protected SQL secret store");
+            ReloadFromDisk();
             EnsureCapacityFor(reference.Value);
             var candidate = new Dictionary<string, string>(_entries, StringComparer.Ordinal)
             {
@@ -127,6 +139,8 @@ internal sealed class ProtectedFileConnectionSecretStore : IConnectionSecretStor
     {
         lock (_gate)
         {
+            using var lease = CrossProcessFileLease.Acquire(_leasePath, "Protected SQL secret store");
+            ReloadFromDisk();
             return _entries.Keys
                 .Where(key => key.StartsWith(Prefix, StringComparison.Ordinal))
                 .OrderBy(key => key, StringComparer.Ordinal)
@@ -141,6 +155,8 @@ internal sealed class ProtectedFileConnectionSecretStore : IConnectionSecretStor
         if (!Owns(reference)) return ValueTask.CompletedTask;
         lock (_gate)
         {
+            using var lease = CrossProcessFileLease.Acquire(_leasePath, "Protected SQL secret store");
+            ReloadFromDisk();
             var candidate = new Dictionary<string, string>(_entries, StringComparer.Ordinal);
             if (candidate.Remove(reference.Value))
             {
@@ -150,6 +166,8 @@ internal sealed class ProtectedFileConnectionSecretStore : IConnectionSecretStor
         }
         return ValueTask.CompletedTask;
     }
+
+    private void ReloadFromDisk() => _entries = Load();
 
     private Dictionary<string, string> Load()
     {
