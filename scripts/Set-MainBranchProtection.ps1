@@ -70,16 +70,19 @@ function Get-ProtectionSnapshot {
 
     $bindings = @()
     if ($null -ne $protection -and $null -ne $protection.required_status_checks) {
-        if ($null -ne $protection.required_status_checks.checks) {
-            $bindings = @($protection.required_status_checks.checks | ForEach-Object {
+        $requiredStatusChecks = $protection.required_status_checks
+        $propertyNames = @($requiredStatusChecks.PSObject.Properties.Name)
+        if ($propertyNames -contains 'checks' -and $null -ne $requiredStatusChecks.checks) {
+            $bindings = @($requiredStatusChecks.checks | ForEach-Object {
+                $checkPropertyNames = @($_.PSObject.Properties.Name)
                 [pscustomobject]@{
                     Context = [string]$_.context
-                    AppId = if ($null -eq $_.app_id) { $null } else { [int64]$_.app_id }
+                    AppId = if ($checkPropertyNames -notcontains 'app_id' -or $null -eq $_.app_id) { $null } else { [int64]$_.app_id }
                 }
             })
         }
-        elseif ($null -ne $protection.required_status_checks.contexts) {
-            $bindings = @($protection.required_status_checks.contexts | ForEach-Object {
+        elseif ($propertyNames -contains 'contexts' -and $null -ne $requiredStatusChecks.contexts) {
+            $bindings = @($requiredStatusChecks.contexts | ForEach-Object {
                 [pscustomobject]@{
                     Context = [string]$_
                     AppId = $null
