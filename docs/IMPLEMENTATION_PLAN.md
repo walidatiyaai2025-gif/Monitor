@@ -2,6 +2,14 @@
 
 This is the canonical execution plan. Update it in the same PR as material implementation changes.
 
+## Programming closure — persistence and durable-state bounds — #378 / #379 / #381 / #382 / #383 / #386
+
+**Merged baseline:** PR #380 squash-merged to `main` as `0610ad3f4603e411953f1862507ec9896d4394ae`; issues #378/#379/#381/#382 are CLOSED / COMPLETED. Exact head `31412389bf93a080c1ad8caf20f5bed1a0fbb96c` passed normal CI `32129817542`, Real SQL `32129817657`, Windows production-candidate `32129817588`, protected-P0 commit guard `32129817596`, and protected-P0 metadata guards `32129817511` / `32129845549`.
+**Raw protected-credential file bound:** #383 / PR #385 is COMPLETE / MERGED as `38cf04a3fd4d73d926bde03bafb28feaa644541f`; exact head `e2b38972b25b49b049ac89538b531ff9162fb40a` passed CI `32130351982`, Real SQL `32130351950`, Windows production-candidate `32130351969`, protected commits `32130351960` and metadata `32130351952`, with zero unresolved review threads. The store now rejects files above 24 MiB before parsing, deserializes directly from a read-only sequential stream, and enforces the same serialized-output ceiling before durable replacement.
+**Current durable-registration closure:** #386 / draft PR #389 `agent/386-bound-registration-store-file`. Implementation and focused regression coverage are present: `registrations.json` is rejected above a 16 MiB raw ceiling before JSON/domain parsing; serialized candidates are bounded before atomic replacement; failed oversized `Upsert` preserves the last-good durable file and in-memory state. Restore/Build/Test passed on code head `f238267976bc692c71b0092b48eb2bf0fa66eb26`. This plan, `STATUS.md` and `FEATURE_CATALOG.md` are reconciled in the same PR; final completion requires the docs-inclusive exact head to be current with `main`, review-clean and Green on repository-selected CI, Real SQL, Windows production-candidate and protected-P0 guards.
+**Scope:** close fail-closed persistence/credential-policy and durable-file availability gaps without changing persistence schemas or monitored-SQL semantics.
+**Boundary:** no monitored-SQL permission expansion or collection change, secret disclosure, autonomous remediation, RC.61 publication/supersession, production IIS/SQL mutation, external acceptance PASS, protected P0 completion or branch-protection mutation. External/manual work remains `#162 -> #116 -> #111`; #353 remains repository-admin apply/readback.
+
 ## Post-closure security/control hardening — #368 / #370 / #371 / #372 / #373 / #374
 
 **PR:** #369 `agent/368-credential-policy-fail-closed`  
