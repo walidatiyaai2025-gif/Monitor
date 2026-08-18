@@ -164,7 +164,11 @@ builder.Services.AddSingleton<ICredentialLifecycleService>(provider => new Write
     provider.GetRequiredService<ServerRegistrationMutationGate>(),
     provider.GetRequiredService<IAuditStore>()));
 builder.Services.AddSingleton<ICredentialReadinessService, CredentialReadinessService>();
-builder.Services.AddSingleton<IServerTargetLifecycleService, ServerTargetLifecycleService>();
+builder.Services.AddSingleton<IServerTargetLifecycleService>(provider => new ServerTargetLifecycleService(
+    provider.GetRequiredService<IServerRegistrationRepository>(),
+    provider.GetRequiredService<IServerHealthSnapshotCache>(),
+    provider.GetRequiredService<ServerRegistrationMutationGate>(),
+    provider.GetRequiredService<IAuditStore>()));
 builder.Services.AddSingleton<ISqlSnapshotQuery, GovernedSqlSnapshotQuery>();
 builder.Services.AddSingleton<SqlServerSnapshotCollector>();
 builder.Services.AddSingleton<ISqlServerSnapshotCollector>(provider => new TelemetrySqlServerSnapshotCollector(
@@ -218,7 +222,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
     options.AccessDeniedPath = "/access-denied";
     options.Cookie.Name = "Monitor.Auth";
     options.Cookie.HttpOnly = true;
-    options.Cookie.SameSiteMode = SameSiteMode.Strict;
+    options.Cookie.SameSite = SameSiteMode.Strict;
     options.Cookie.SecurePolicy = builder.Environment.IsDevelopment() ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.Always;
     options.SlidingExpiration = true;
     options.ExpireTimeSpan = TimeSpan.FromMinutes(webSecurityOptions.SessionIdleMinutes);
