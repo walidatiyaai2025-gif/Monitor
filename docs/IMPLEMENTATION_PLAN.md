@@ -2,6 +2,14 @@
 
 This is the canonical execution plan. Update it in the same PR as material implementation changes.
 
+## Active programming closure — durable incident-note replay authority — #445/#446 complete · #447/PR #448
+
+**Tracking reconciliation:** #445 / PR #446 is COMPLETE / MERGED as `b4365058bd9809f080070f2d440f358083938262`; it made incident-note request idempotency durable outside the rolling audit window with bounded `Armed` / `Applied` SingleNode and SharedState stores, startup legacy-receipt materialization, fail-closed capacity bounds and restart/multi-node regressions. That material change omitted the required canonical plan/status/catalog update, so #447 / PR #448 reconciles it here without discarding historical plan content.  
+**Current programming gap:** when the note mutation succeeded and durable request state advanced to `Applied`, but the final `incident.note.request=applied` audit append failed, `IncidentCollaborationService` still inspected the older rolling audit first and could report false ambiguity from the retained armed receipt instead of honoring durable `Applied`.  
+**Implementation:** for `IIncidentNoteClaimAuditStore`, coordinated durable request state is authoritative over the legacy audit preflight; `AlreadyApplied` is an idempotent no-op, durable `Armed` remains fail-closed ambiguous, and plain non-coordinated `IAuditStore` implementations keep the legacy audit-preflight fallback. A deterministic regression forces final applied-audit failure after durable `Applied` and proves retry does not add a second note.  
+**Definition of done for #447:** exact docs-inclusive PR #448 head current with `main`; zero unresolved review threads; Linux CI, Windows production-candidate and both protected-P0 guards Green; SQL Server 2022 Real SQL Green when selected/required by repository policy. Only then mark ready and merge/close #447.  
+**Safety boundary:** no monitored-target SQL query/permission expansion, credentials, remediation, RC.61 publication, production IIS/SQL mutation, external P0 acceptance or branch-protection mutation. External/manual dependency remains `#162 -> #116 -> #111`; #353 remains repository-admin only.
+
 ## Programming closure — atomic SharedState schema/execution guard — #423 / PR #424
 
 **Base:** `main@3b5e60fef2fa41c6e627468850cf3cf8532b0524`.  
