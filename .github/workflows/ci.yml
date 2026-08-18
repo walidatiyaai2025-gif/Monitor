@@ -44,8 +44,8 @@ jobs:
                   elif code_line.count('"""') % 2 == 1:
                       triple = '"""'
               else:
-                  if line.startswith('          ' + triple) and line.strip() == triple:
-                      script_lines.append(line[10:])
+                  if line.strip() == triple:
+                      script_lines.append(line[10:] if line.startswith('          ') else line)
                       triple = None
                   else:
                       script_lines.append(line)
