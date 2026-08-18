@@ -258,25 +258,26 @@ public sealed class OperationsController : Controller
     [HttpPost("/alerts/{id}/acknowledge")]
     [ValidateAntiForgeryToken]
     [Authorize(Policy = MonitorPolicies.Operate)]
-    public IActionResult AcknowledgeIncident(string id) => Transition(id, workflow => workflow.Acknowledge(id));
+    public IActionResult AcknowledgeIncident(string id) => Transition(id, "acknowledge", workflow => workflow.Acknowledge(id));
 
     [HttpPost("/alerts/{id}/resolve")]
     [ValidateAntiForgeryToken]
     [Authorize(Policy = MonitorPolicies.Operate)]
-    public IActionResult ResolveIncident(string id) => Transition(id, workflow => workflow.Resolve(id));
+    public IActionResult ResolveIncident(string id) => Transition(id, "resolve", workflow => workflow.Resolve(id));
 
     [HttpPost("/alerts/{id}/reopen")]
     [ValidateAntiForgeryToken]
     [Authorize(Policy = MonitorPolicies.Operate)]
-    public IActionResult ReopenIncident(string id) => Transition(id, workflow => workflow.Reopen(id));
+    public IActionResult ReopenIncident(string id) => Transition(id, "reopen", workflow => workflow.Reopen(id));
 
-    private IActionResult Transition(string id, Func<IIncidentWorkflowService, bool> transition)
+    private IActionResult Transition(string id, string requestedTransition, Func<IIncidentWorkflowService, bool> transition)
     {
         if (_workflow is null) return NotFound();
         if (!TryActor(out var actor)) return Forbid();
         if (_audit is null) return StatusCode(StatusCodes.Status503ServiceUnavailable);
         var repositoryAvailable = _incidentRepository is not null;
         var before = _incidentRepository?.GetById(id);
+        _audit.Append(actor, "incident.transition.request", id, requestedTransition);
         var changed = transition(_workflow);
         var after = _incidentRepository?.GetById(id);
         var outcome = BuildTransitionAuditOutcome(changed, before, after, repositoryAvailable);
