@@ -1,3 +1,5 @@
+using System.Data;
+using Microsoft.Data.SqlClient;
 using Monitor.Web.Models;
 using Monitor.Web.Services;
 using Xunit;
@@ -68,4 +70,142 @@ public sealed class B800HaRealSqlTests
             if (database.SecondaryLagSeconds.HasValue) Assert.True(database.SecondaryLagSeconds.Value >= 0);
         });
     }
+
+    [Fact]
+    [Trait("Category", "RealSql")]
+    public async Task SharedStateBackend_OversizedRuntimeRowsAreRejectedOnReadAndConflict()
+    {
+        var required = string.Equals(Environment.GetEnvironmentVariable("MONITOR_REQUIRE_REAL_SQL"), "1", StringComparison.Ordinal);
+        if (!required) return;
+
+        var host = Environment.GetEnvironmentVariable("MONITOR_REAL_SQL_HOST");
+        var portText = Environment.GetEnvironmentVariable("MONITOR_REAL_SQL_PORT");
+        var runtimeUsername = Environment.GetEnvironmentVariable("MONITOR_REAL_SQL_USERNAME");
+        var runtimePassword = Environment.GetEnvironmentVariable("MONITOR_REAL_SQL_PASSWORD");
+        var saPassword = Environment.GetEnvironmentVariable("SQL_SA_PASSWORD");
+        Assert.False(string.IsNullOrWhiteSpace(host));
+        Assert.True(int.TryParse(portText, out var port));
+        Assert.False(string.IsNullOrWhiteSpace(runtimeUsername));
+        Assert.False(string.IsNullOrWhiteSpace(runtimePassword));
+        Assert.False(string.IsNullOrWhiteSpace(saPassword));
+
+        var database = $"MonitorStateAcceptance_{Guid.NewGuid():N}";
+        var masterConnectionString = ConnectionString(host!, port, "sa", saPassword!, "master");
+        var stateAdminConnectionString = ConnectionString(host!, port, "sa", saPassword!, database);
+        var runtimeConnectionString = ConnectionString(host!, port, runtimeUsername!, runtimePassword!, database);
+        var quotedDatabase = QuoteIdentifier(database);
+        var quotedRuntimeLogin = QuoteIdentifier(runtimeUsername!);
+
+        await ExecuteAsync(masterConnectionString, $"CREATE DATABASE {quotedDatabase};");
+        try
+        {
+            await ExecuteAsync(stateAdminConnectionString, """
+                SET NOCOUNT ON;
+                CREATE TABLE dbo.MonitorSharedStateSchema
+                (
+                    Id tinyint NOT NULL PRIMARY KEY,
+                    SchemaVersion int NOT NULL,
+                    InstalledAtUtc datetime2(7) NOT NULL DEFAULT SYSUTCDATETIME(),
+                    CONSTRAINT CK_MonitorSharedStateSchema_Id CHECK (Id = 1)
+                );
+                INSERT dbo.MonitorSharedStateSchema (Id, SchemaVersion) VALUES (1, 1);
+
+                CREATE TABLE dbo.MonitorSharedStateDocuments
+                (
+                    DocumentKey nvarchar(128) NOT NULL PRIMARY KEY,
+                    Version bigint NOT NULL,
+                    PayloadJson nvarchar(max) NOT NULL,
+                    UpdatedAtUtc datetime2(7) NOT NULL,
+                    CONSTRAINT CK_MonitorSharedStateDocuments_Version CHECK (Version >= 1),
+                    CONSTRAINT CK_MonitorSharedStateDocuments_PayloadJson CHECK (ISJSON(PayloadJson) = 1)
+                );
+
+                CREATE ROLE MonitorStateRuntime AUTHORIZATION dbo;
+                GRANT SELECT ON dbo.MonitorSharedStateSchema TO MonitorStateRuntime;
+                GRANT SELECT, INSERT, UPDATE ON dbo.MonitorSharedStateDocuments TO MonitorStateRuntime;
+                """);
+            await ExecuteAsync(
+                stateAdminConnectionString,
+                $"CREATE USER {quotedRuntimeLogin} FOR LOGIN {quotedRuntimeLogin}; ALTER ROLE MonitorStateRuntime ADD MEMBER {quotedRuntimeLogin};");
+
+            var backend = new SqlServerSharedStateSqlBackend();
+            var normal = await backend.CompareExchangeAsync(
+                runtimeConnectionString,
+                "shared-state:normal",
+                0,
+                "{\"value\":1}",
+                5,
+                CancellationToken.None);
+            var normalRead = await backend.ReadAsync(
+                runtimeConnectionString,
+                "shared-state:normal",
+                5,
+                CancellationToken.None);
+            Assert.True(normal.Applied);
+            Assert.Equal("{\"value\":1}", normalRead?.PayloadJson);
+
+            const string oversizedKey = "shared-state:oversized";
+            var oversizedPayload = "{\"value\":\"" +
+                new string('x', SqlServerSharedStateDocumentStore.MaximumPayloadBytes) +
+                "\"}";
+            await InsertRuntimeDocumentAsync(runtimeConnectionString, oversizedKey, oversizedPayload);
+
+            await Assert.ThrowsAsync<InvalidDataException>(() =>
+                backend.ReadAsync(runtimeConnectionString, oversizedKey, 5, CancellationToken.None));
+            await Assert.ThrowsAsync<InvalidDataException>(() =>
+                backend.CompareExchangeAsync(
+                    runtimeConnectionString,
+                    oversizedKey,
+                    0,
+                    "{}",
+                    5,
+                    CancellationToken.None));
+        }
+        finally
+        {
+            await ExecuteAsync(
+                masterConnectionString,
+                $"ALTER DATABASE {quotedDatabase} SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE {quotedDatabase};");
+        }
+    }
+
+    private static async Task InsertRuntimeDocumentAsync(string connectionString, string key, string payloadJson)
+    {
+        await using var connection = new SqlConnection(connectionString);
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT dbo.MonitorSharedStateDocuments (DocumentKey, Version, PayloadJson, UpdatedAtUtc)
+            VALUES (@DocumentKey, 1, @PayloadJson, SYSUTCDATETIME());
+            """;
+        command.Parameters.Add(new SqlParameter("@DocumentKey", SqlDbType.NVarChar, 128) { Value = key });
+        command.Parameters.Add(new SqlParameter("@PayloadJson", SqlDbType.NVarChar, -1) { Value = payloadJson });
+        await command.ExecuteNonQueryAsync();
+    }
+
+    private static async Task ExecuteAsync(string connectionString, string sql)
+    {
+        await using var connection = new SqlConnection(connectionString);
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        command.CommandTimeout = 30;
+        await command.ExecuteNonQueryAsync();
+    }
+
+    private static string ConnectionString(string host, int port, string username, string password, string database) =>
+        new SqlConnectionStringBuilder
+        {
+            DataSource = $"{host},{port}",
+            InitialCatalog = database,
+            UserID = username,
+            Password = password,
+            Encrypt = true,
+            TrustServerCertificate = true,
+            ConnectTimeout = 5,
+            Pooling = false,
+            ApplicationName = "Monitor.SharedState.RealSql.Tests"
+        }.ConnectionString;
+
+    private static string QuoteIdentifier(string value) => $"[{value.Replace("]", "]]", StringComparison.Ordinal)}]";
 }
