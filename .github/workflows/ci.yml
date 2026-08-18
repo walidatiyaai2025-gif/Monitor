@@ -51,6 +51,9 @@ jobs:
           foreach ($path in @(
             'scripts/Test-ExistingCandidatePromotion.ps1',
             'scripts/Test-ExistingCandidatePromotionSafety.ps1',
+            'scripts/Test-Rc61DurablePromotionPreflight.ps1',
+            'scripts/Invoke-Rc61DurablePromotion.ps1',
+            'scripts/Test-Rc61DurablePromotionOperatorSafety.ps1',
             'scripts/Test-Rc61CutoverReadiness.ps1',
             'scripts/Test-Rc61CutoverReadinessSafety.ps1'
           )) {
@@ -68,6 +71,9 @@ jobs:
       - name: Exercise promotion ZIP safety runtime
         shell: pwsh
         run: ./scripts/Test-ExistingCandidatePromotionSafety.ps1
+      - name: Exercise explicit RC.61 promotion operator fail-closed runtime
+        shell: pwsh
+        run: ./scripts/Test-Rc61DurablePromotionOperatorSafety.ps1
       - name: Exercise RC.61 cutover readiness fail-closed runtime
         shell: pwsh
         run: ./scripts/Test-Rc61CutoverReadinessSafety.ps1
