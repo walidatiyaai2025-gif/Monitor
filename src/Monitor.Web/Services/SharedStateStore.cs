@@ -627,6 +627,7 @@ public sealed class SqlServerSharedStateDocumentStore : ISharedStateDocumentStor
         var connectionString = ResolveConnectionString();
         try
         {
+            await EnsureSupportedSchemaAsync(connectionString, cancellationToken);
             var document = await _backend.ReadAsync(
                 connectionString,
                 key,
@@ -661,6 +662,7 @@ public sealed class SqlServerSharedStateDocumentStore : ISharedStateDocumentStor
         var connectionString = ResolveConnectionString();
         try
         {
+            await EnsureSupportedSchemaAsync(connectionString, cancellationToken);
             var result = await _backend.CompareExchangeAsync(
                 connectionString,
                 key,
@@ -698,6 +700,18 @@ public sealed class SqlServerSharedStateDocumentStore : ISharedStateDocumentStor
         catch
         {
             throw new SharedStateStoreUnavailableException();
+        }
+    }
+
+    private async Task EnsureSupportedSchemaAsync(string connectionString, CancellationToken cancellationToken)
+    {
+        var schemaVersion = await _backend.ReadSchemaVersionAsync(
+            connectionString,
+            _options.CommandTimeoutSeconds,
+            cancellationToken);
+        if (schemaVersion != SupportedSchemaVersion)
+        {
+            throw new InvalidDataException("Shared-state schema is not supported for document execution.");
         }
     }
 

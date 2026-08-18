@@ -82,6 +82,7 @@ public sealed class SharedStateProviderTests
 
         await Assert.ThrowsAsync<ArgumentException>(() => store.ReadAsync(key));
 
+        Assert.Equal(0, backend.SchemaCalls);
         Assert.Equal(0, backend.ReadCalls);
     }
 
@@ -94,6 +95,7 @@ public sealed class SharedStateProviderTests
         await Assert.ThrowsAsync<ArgumentException>(() =>
             store.ReadAsync(new string('a', SqlServerSharedStateDocumentStore.MaximumKeyLength + 1)));
 
+        Assert.Equal(0, backend.SchemaCalls);
         Assert.Equal(0, backend.ReadCalls);
     }
 
@@ -106,6 +108,7 @@ public sealed class SharedStateProviderTests
         await Assert.ThrowsAsync<ArgumentException>(() =>
             store.CompareExchangeAsync("audit:head", 0, "{ not-json"));
 
+        Assert.Equal(0, backend.SchemaCalls);
         Assert.Equal(0, backend.WriteCalls);
     }
 
@@ -119,6 +122,7 @@ public sealed class SharedStateProviderTests
         await Assert.ThrowsAsync<ArgumentException>(() =>
             store.CompareExchangeAsync("history:estate", 0, payload));
 
+        Assert.Equal(0, backend.SchemaCalls);
         Assert.Equal(0, backend.WriteCalls);
     }
 
@@ -131,6 +135,35 @@ public sealed class SharedStateProviderTests
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
             store.CompareExchangeAsync("registration:estate", -1, "{}"));
 
+        Assert.Equal(0, backend.SchemaCalls);
+        Assert.Equal(0, backend.WriteCalls);
+    }
+
+    [Fact]
+    public async Task Read_UnsupportedSchema_BlocksBackendRead()
+    {
+        var backend = new FakeBackend { SchemaVersion = 2 };
+        var store = Store(backend);
+
+        var exception = await Assert.ThrowsAsync<SharedStateStoreUnavailableException>(
+            () => store.ReadAsync("registration:estate"));
+
+        Assert.Equal("Shared state provider is unavailable.", exception.Message);
+        Assert.Equal(1, backend.SchemaCalls);
+        Assert.Equal(0, backend.ReadCalls);
+    }
+
+    [Fact]
+    public async Task CompareExchange_UnsupportedSchema_BlocksBackendWrite()
+    {
+        var backend = new FakeBackend { SchemaVersion = 2 };
+        var store = Store(backend);
+
+        var exception = await Assert.ThrowsAsync<SharedStateStoreUnavailableException>(
+            () => store.CompareExchangeAsync("registration:estate", 0, "{\"servers\":1}"));
+
+        Assert.Equal("Shared state provider is unavailable.", exception.Message);
+        Assert.Equal(1, backend.SchemaCalls);
         Assert.Equal(0, backend.WriteCalls);
     }
 
@@ -229,6 +262,7 @@ public sealed class SharedStateProviderTests
 
         public int? SchemaVersion { get; set; } = 1;
         public string? ThrowMessage { get; set; }
+        public int SchemaCalls { get; private set; }
         public int ReadCalls { get; private set; }
         public int WriteCalls { get; private set; }
         public string? LastConnectionString { get; private set; }
@@ -239,6 +273,7 @@ public sealed class SharedStateProviderTests
             CancellationToken cancellationToken)
         {
             LastConnectionString = connectionString;
+            SchemaCalls++;
             MaybeThrow();
             return Task.FromResult(SchemaVersion);
         }
