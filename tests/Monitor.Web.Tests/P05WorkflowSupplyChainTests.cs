@@ -254,7 +254,7 @@ public sealed class P05WorkflowSupplyChainTests
         var configPath = Path.Combine(root, "nuget.config");
         Assert.True(File.Exists(configPath), "Repository nuget.config must define restore provenance.");
 
-        var document = XDocument.Load(configPath, LoadOptions.None);
+        var document = XDocument.Load(File.ReadAllText(configPath));
         var configuration = Assert.IsType<XElement>(document.Root);
         Assert.Equal("configuration", configuration.Name.LocalName);
 
@@ -394,7 +394,7 @@ public sealed class P05WorkflowSupplyChainTests
 
         Assert.Contains("--filter \"Category=RealSql\"", realSql, StringComparison.Ordinal);
         Assert.Contains(RealSqlSerialCollectionsSwitch, realSql, StringComparison.Ordinal);
-        Assert.Equal(1, Regex.Matches(realSql, Regex.Escape(RealSqlSerialCollectionsSwitch), RegexOptions.CultureInvariant).Count);
+        Assert.Single(Regex.Matches(realSql, Regex.Escape(RealSqlSerialCollectionsSwitch), RegexOptions.CultureInvariant).Cast<Match>());
         Assert.DoesNotContain(RealSqlSerialCollectionsSwitch, normalCi, StringComparison.Ordinal);
     }
 
