@@ -295,4 +295,5 @@ try {
 finally {
     Remove-Item Function:\gh -ErrorAction SilentlyContinue
     Remove-Variable Rc61PromotionHelperMock -Scope Global -ErrorAction SilentlyContinue
+    $global:LASTEXITCODE = 0
 }
