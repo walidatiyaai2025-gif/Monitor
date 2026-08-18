@@ -44,13 +44,15 @@ jobs:
       - name: Exercise durable release verifier TOCTOU runtime
         shell: bash
         run: bash scripts/Test-DurableReleaseVerifierSafety.sh
-      - name: Parse promotion PowerShell safety tooling
+      - name: Parse promotion and cutover-readiness PowerShell safety tooling
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           foreach ($path in @(
             'scripts/Test-ExistingCandidatePromotion.ps1',
-            'scripts/Test-ExistingCandidatePromotionSafety.ps1'
+            'scripts/Test-ExistingCandidatePromotionSafety.ps1',
+            'scripts/Test-Rc61CutoverReadiness.ps1',
+            'scripts/Test-Rc61CutoverReadinessSafety.ps1'
           )) {
             $tokens = $null
             $errors = $null
@@ -66,3 +68,6 @@ jobs:
       - name: Exercise promotion ZIP safety runtime
         shell: pwsh
         run: ./scripts/Test-ExistingCandidatePromotionSafety.ps1
+      - name: Exercise RC.61 cutover readiness fail-closed runtime
+        shell: pwsh
+        run: ./scripts/Test-Rc61CutoverReadinessSafety.ps1
