@@ -36,7 +36,7 @@ public sealed class WriteAheadAuditMutationTests
     }
 
     [Fact]
-    public void IncidentNote_DurableIntentWithoutAppliedReceipt_FailsClosedOnRetry()
+    public void IncidentNote_RequestIntentAloneDoesNotSuppressSafeRetry()
     {
         var metadata = new InMemoryOperatorMetadataStore(TimeProvider.System);
         const string incidentId = "11111111111111111111111111111111:RULE-003";
@@ -44,42 +44,22 @@ public sealed class WriteAheadAuditMutationTests
         var audit = new RecordThenFailOnceAuditStore();
         var service = new IncidentCollaborationService(metadata, audit, TimeProvider.System);
 
-        var firstFailure = Assert.Throws<IOException>(() =>
-            service.TryAddNote(incidentId, "operator", "Ambiguous after durable intent.", requestKey));
+        var exception = Assert.Throws<IOException>(() =>
+            service.TryAddNote(incidentId, "operator", "Retry after durable intent only.", requestKey));
 
-        Assert.Contains("audit unavailable", firstFailure.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("audit unavailable", exception.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Empty(metadata.GetIncident(incidentId).Notes);
-        Assert.Single(audit.Read(0, 20), item =>
+        Assert.Contains(audit.Read(0, 20), item =>
             item.Action == "incident.note.write.request" && item.Outcome == "requested");
         Assert.DoesNotContain(audit.Read(0, 20), item =>
             item.Action == "incident.note.request" && item.Outcome == "applied");
 
-        var retryFailure = Assert.Throws<IncidentNoteRequestAmbiguousException>(() =>
-            service.TryAddNote(incidentId, "operator", "Ambiguous after durable intent.", requestKey));
-
-        Assert.Contains("unresolved outcome", retryFailure.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Empty(metadata.GetIncident(incidentId).Notes);
-        Assert.Single(audit.Read(0, 20), item =>
-            item.Action == "incident.note.write.request" && item.Outcome == "requested");
-    }
-
-    [Fact]
-    public void IncidentNote_AppliedReceipt_RemainsPositiveDedupeEvidence()
-    {
-        var metadata = new InMemoryOperatorMetadataStore(TimeProvider.System);
-        var audit = new InMemoryAuditStore(TimeProvider.System);
-        var service = new IncidentCollaborationService(metadata, audit, TimeProvider.System);
-        const string incidentId = "11111111111111111111111111111111:RULE-004";
-        const string requestKey = "request-applied-1234";
-
-        Assert.True(service.TryAddNote(incidentId, "operator", "Applied once.", requestKey));
-        Assert.False(service.TryAddNote(incidentId, "operator", "Applied once.", requestKey));
-
+        Assert.True(service.TryAddNote(incidentId, "operator", "Retry after durable intent only.", requestKey));
         Assert.Single(metadata.GetIncident(incidentId).Notes);
-        Assert.Single(audit.Read(0, 20), item =>
-            item.Action == "incident.note.write.request" && item.Outcome == "requested");
-        Assert.Single(audit.Read(0, 20), item =>
+        Assert.Contains(audit.Read(0, 20), item =>
             item.Action == "incident.note.request" && item.Outcome == "applied");
+        Assert.False(service.TryAddNote(incidentId, "operator", "Retry after durable intent only.", requestKey));
+        Assert.Single(metadata.GetIncident(incidentId).Notes);
     }
 
     [Fact]
