@@ -2,13 +2,19 @@
 
 This is the canonical execution plan. Update it in the same PR as material implementation changes.
 
-## Active programming closure — durable incident-note replay authority — #445/#446 complete · #447/PR #448
+## Active programming closure — SingleNode incident-note cross-process state — #449 / PR #450
 
-**Tracking reconciliation:** #445 / PR #446 is COMPLETE / MERGED as `b4365058bd9809f080070f2d440f358083938262`; it made incident-note request idempotency durable outside the rolling audit window with bounded `Armed` / `Applied` SingleNode and SharedState stores, startup legacy-receipt materialization, fail-closed capacity bounds and restart/multi-node regressions. That material change omitted the required canonical plan/status/catalog update, so #447 / PR #448 reconciles it here without discarding historical plan content.  
-**Current programming gap:** when the note mutation succeeded and durable request state advanced to `Applied`, but the final `incident.note.request=applied` audit append failed, `IncidentCollaborationService` still inspected the older rolling audit first and could report false ambiguity from the retained armed receipt instead of honoring durable `Applied`.  
-**Implementation:** for `IIncidentNoteClaimAuditStore`, coordinated durable request state is authoritative over the legacy audit preflight; `AlreadyApplied` is an idempotent no-op, durable `Armed` remains fail-closed ambiguous, and plain non-coordinated `IAuditStore` implementations keep the legacy audit-preflight fallback. A deterministic regression forces final applied-audit failure after durable `Applied` and proves retry does not add a second note.  
-**Definition of done for #447:** exact docs-inclusive PR #448 head current with `main`; zero unresolved review threads; Linux CI, Windows production-candidate and both protected-P0 guards Green; SQL Server 2022 Real SQL Green when selected/required by repository policy. Only then mark ready and merge/close #447.  
+**Base:** `main@c0d6472b522548a8cf4ad4d2d6271ad722dd0f86`.  
+**Programming gap:** `FileIncidentNoteRequestStateStore` protected durable request state only with an instance-local cache/lock. Independent workers sharing one SingleNode operational root could retain different shard revisions even though `AtomicJsonFile.Save` made each physical file replacement atomic; stale workers could double-claim Armed requests, lose peer entries or downgrade Applied state.  
+**Implementation:** one stable `incident-note-requests.lock` sidecar is acquired with `FileShare.None` and bounded retry before any file-ledger mutation. The lease covers authoritative disk reload, schema/bounds validation, policy mutation and atomic persist; shard caching is removed; legacy receipt materialization uses the same lease. Lease acquisition fails closed after five seconds. Existing 64 shards, 512 entries/shard, target bounds, `Armed -> Applied` policy, SharedState CAS behavior and atomic JSON replacement remain unchanged.  
+**Regression contract:** independent file-store instances cannot reclaim a peer Armed request, cannot lose same-shard peer entries, cannot overwrite Applied with stale Armed, and must wait while the shared mutation lease is held.  
+**Definition of done for #449:** exact docs-inclusive PR #450 head current with `main`; zero unresolved review threads; Linux CI, Windows production-candidate, SQL Server 2022 Real SQL when selected/required and both protected-P0 guards Green; then mark ready, squash-merge and close #449.  
 **Safety boundary:** no monitored-target SQL query/permission expansion, credentials, remediation, RC.61 publication, production IIS/SQL mutation, external P0 acceptance or branch-protection mutation. External/manual dependency remains `#162 -> #116 -> #111`; #353 remains repository-admin only.
+
+## Completed incident-note durability closures — #445/#446 and #447/#448
+
+**#445 / PR #446:** COMPLETE / MERGED as `b4365058bd9809f080070f2d440f358083938262`; bounded durable `Armed` / `Applied` SingleNode and SharedState request state survives rolling-audit eviction/restart, materializes retained legacy receipts, keeps `Applied` dominant and fails closed at capacity. Exact PR #446 head `367d1b929b64abcba28596289ac7a16cf2be72a1` passed Linux CI, Real SQL, Windows production-candidate and both protected-P0 guards.  
+**#447 / PR #448:** COMPLETE / MERGED as `c0d6472b522548a8cf4ad4d2d6271ad722dd0f86`; coordinated durable state is authoritative over stale legacy audit preflight, so a durably Applied request remains an idempotent no-op even when the final applied audit append previously failed. Exact PR #448 head `115848b9a14c720281b6faf17706064b007aba09` passed Linux CI, Real SQL, Windows production-candidate and both protected-P0 guards before squash merge. PR #450 reconciles the stale post-merge candidate wording left in the canonical documents.
 
 ## Programming closure — atomic SharedState schema/execution guard — #423 / PR #424
 
