@@ -17,7 +17,7 @@ public sealed class ConnectionLabController(
     CredentialPolicyOptions? credentialPolicy = null,
     IServerTargetLifecycleService? targetLifecycle = null) : Controller
 {
-    private bool AllowsLocalCredentialEntry => credentialPolicy?.AllowLocalOwnedCredentials ?? true;
+    private bool AllowsLocalCredentialEntry => credentialPolicy?.AllowLocalOwnedCredentials == true;
 
     [HttpGet("/servers/connections")]
     public IActionResult Index() => View(BuildPage(new ConnectionLabRegistrationInput()));
