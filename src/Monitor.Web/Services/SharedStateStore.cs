@@ -156,9 +156,85 @@ internal sealed class SqlServerSharedStateSqlBackend : ISharedStateSqlBackend
             RETURN;
         END;
 
-        IF OBJECT_ID(N'dbo.MonitorSharedStateDocuments', N'U') IS NULL
+        DECLARE @DocumentsObjectId int = OBJECT_ID(N'dbo.MonitorSharedStateDocuments', N'U');
+        IF @DocumentsObjectId IS NULL
         BEGIN
             THROW 51020, 'Monitor shared-state document store is unavailable.', 1;
+        END;
+
+        IF (SELECT COUNT(*) FROM sys.columns WHERE object_id = @DocumentsObjectId) <> 4
+           OR NOT EXISTS
+           (
+               SELECT 1
+               FROM sys.columns
+               WHERE object_id = @DocumentsObjectId
+                 AND name = N'DocumentKey'
+                 AND system_type_id = 231
+                 AND user_type_id = 231
+                 AND max_length = 256
+                 AND is_nullable = 0
+                 AND is_computed = 0
+           )
+           OR NOT EXISTS
+           (
+               SELECT 1
+               FROM sys.columns
+               WHERE object_id = @DocumentsObjectId
+                 AND name = N'Version'
+                 AND system_type_id = 127
+                 AND user_type_id = 127
+                 AND max_length = 8
+                 AND is_nullable = 0
+                 AND is_computed = 0
+           )
+           OR NOT EXISTS
+           (
+               SELECT 1
+               FROM sys.columns
+               WHERE object_id = @DocumentsObjectId
+                 AND name = N'PayloadJson'
+                 AND system_type_id = 231
+                 AND user_type_id = 231
+                 AND max_length = -1
+                 AND is_nullable = 0
+                 AND is_computed = 0
+           )
+           OR NOT EXISTS
+           (
+               SELECT 1
+               FROM sys.columns
+               WHERE object_id = @DocumentsObjectId
+                 AND name = N'UpdatedAtUtc'
+                 AND system_type_id = 42
+                 AND user_type_id = 42
+                 AND scale = 7
+                 AND is_nullable = 0
+                 AND is_computed = 0
+           )
+           OR NOT EXISTS
+           (
+               SELECT 1
+               FROM sys.indexes AS indexes
+               WHERE indexes.object_id = @DocumentsObjectId
+                 AND indexes.is_primary_key = 1
+                 AND indexes.is_unique = 1
+                 AND (SELECT COUNT(*) FROM sys.index_columns WHERE object_id = indexes.object_id AND index_id = indexes.index_id AND key_ordinal > 0) = 1
+                 AND EXISTS
+                 (
+                     SELECT 1
+                     FROM sys.index_columns AS index_columns
+                     INNER JOIN sys.columns AS columns
+                         ON columns.object_id = index_columns.object_id
+                        AND columns.column_id = index_columns.column_id
+                     WHERE index_columns.object_id = indexes.object_id
+                       AND index_columns.index_id = indexes.index_id
+                       AND index_columns.key_ordinal = 1
+                       AND index_columns.is_included_column = 0
+                       AND columns.name = N'DocumentKey'
+                 )
+           )
+        BEGIN
+            THROW 51022, 'Monitor shared-state schema-v1 document fingerprint is invalid.', 1;
         END;
 
         IF COALESCE(HAS_PERMS_BY_NAME(N'dbo.MonitorSharedStateDocuments', N'OBJECT', N'SELECT'), 0) <> 1
