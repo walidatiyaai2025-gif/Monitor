@@ -2,7 +2,7 @@
 
 Issue: #116  
 Dependency: P0.4 / #115 COMPLETE  
-Retention prerequisite: #162 — Step 0 fail-closed preflight + manual RC.61 promotion + separate read-only durable verification  
+Retention prerequisite: #162 — explicit acknowledged RC.61 promotion helper + separate read-only durable verification + deterministic run-ID readiness  
 Scope: first production activation only; `Deployment:Mode=SingleNode`.
 
 This document is the operator evidence record for the first IIS/HTTPS production cutover. Repository CI can prove package, configuration and recovery contracts, but it cannot truthfully close #116 without exercising the actual Windows/IIS environment. **#116 must remain OPEN until the external evidence pack validates 15/15 required production gates and the real operator explicitly finalizes that evidence.**
@@ -37,15 +37,35 @@ For RC.61 the selected identity is:
 
 Complete this **before** production backup/session/deployment steps. Durable retention is a repository/recoverability prerequisite; it is not one of the 15 real environment PASS gates.
 
-### 0. Run the read-only fail-closed RC.61 preflight
+The preferred operator sequence is deliberately narrow:
+
+`Invoke-Rc61DurablePromotion.ps1 preview -> explicit -AcknowledgePromotion -> exact captured promotion run -> separately execute returned IndependentVerificationCommand -> Test-Rc61CutoverReadiness.ps1 with explicit run IDs`
+
+The raw workflow inputs below remain authoritative for audit/troubleshooting, but they are not the preferred copy/paste execution path.
+
+### 0. Preview the fail-closed RC.61 promotion helper
 
 From an authenticated operator environment with GitHub CLI (`gh`) available, run:
 
 ```powershell
-./scripts/Test-Rc61DurablePromotionPreflight.ps1
+.\scripts\Invoke-Rc61DurablePromotion.ps1
 ```
 
-Proceed to the first publication attempt only when the returned state is exactly consistent with all four conditions:
+Without `-AcknowledgePromotion`, proceed no further unless the returned state is exactly consistent with:
+
+- `Status = READY_FOR_EXPLICIT_PROMOTION_ACKNOWLEDGEMENT`
+- `WorkflowDispatchPerformed = False`
+- `IndependentVerificationDispatched = False`
+- `ProductionMutationPerformed = False`
+- `MutatedGitHubState = False`
+
+The helper runs the lower-level fail-closed preflight before it can dispatch anything. For diagnosis, the lower-level check remains available directly:
+
+```powershell
+.\scripts\Test-Rc61DurablePromotionPreflight.ps1 | Format-List
+```
+
+For a first publication attempt, that diagnostic preflight must still report all four conditions:
 
 - `Status = READY_FOR_EXPLICIT_MANUAL_PROMOTION`
 - `MutatedGitHubState = False`
@@ -54,11 +74,29 @@ Proceed to the first publication attempt only when the returned state is exactly
 
 The preflight is pinned to the exact Monitor repository, RC.61 version, source run, artifact ID, outer artifact digest, product SHA-256, source head, tested merge and release tag. It verifies repository/default-branch identity plus source-run/artifact provenance and expiry without mutating GitHub state. Only an actual 404 is treated as tag/release absence; authentication, network or API ambiguity fails closed.
 
-If the preflight reports existing durable state, an expired artifact, provenance/digest drift, or ambiguous GitHub probing, **stop and investigate; do not dispatch promotion**.
+If either helper/preflight reports existing durable state, an expired artifact, provenance/digest drift, or ambiguous GitHub probing, **stop and investigate; do not dispatch or redispatch promotion**.
 
-### 1. Promote the exact existing candidate
+### 1. Execute the explicit acknowledged promotion
 
-Manually dispatch `.github/workflows/promote-existing-candidate.yml` **from `main`** using exactly the RC.61 inputs in `deploy/RC61_DURABLE_PROMOTION.md`:
+After reviewing the preview, run:
+
+```powershell
+.\scripts\Invoke-Rc61DurablePromotion.ps1 -AcknowledgePromotion
+```
+
+The helper reruns the locked preflight, requires explicit acknowledgement, dispatches **only** `.github/workflows/promote-existing-candidate.yml` from `main` with the exact locked RC.61 identity, captures the exact run ID, binds it to the authenticated operator/repository/branch/workflow, and monitors only that exact run. Ambiguous discovery, timeout, or failure is a **do not redispatch** condition.
+
+The helper never dispatches the independent verifier automatically. When the exact promotion run is Green, require:
+
+- `Status = PROMOTION_SUCCEEDED_INDEPENDENT_VERIFICATION_REQUIRED`
+- a retained `PromotionRunId` and `PromotionRunUrl`;
+- a returned `IndependentVerificationCommand` for the separate read-only verifier.
+
+The promotion operation must preserve the selected bytes. It does not build, publish, compress or repackage RC.61 and must fail closed on source-run/artifact/digest/hash/manifest/tag/release mismatch.
+
+#### Raw promotion inputs — audit/troubleshooting reference only
+
+These values remain authoritative for independent review and diagnosis; do not use them to bypass a helper/preflight failure:
 
 - `candidate_version=0.1.0-rc.61`
 - `source_run_id=31667721306`
@@ -70,22 +108,40 @@ Manually dispatch `.github/workflows/promote-existing-candidate.yml` **from `mai
 - `release_tag=v0.1.0-rc.61`
 - `acknowledge_promotion=true`
 
-The promotion operation must preserve the selected bytes. It does not build, publish, compress or repackage RC.61 and must fail closed on source-run/artifact/digest/hash/manifest/tag/release mismatch.
-
 ### 2. Run separate read-only durable verification
 
-After promotion is Green, separately dispatch `.github/workflows/verify-durable-release.yml` **from `main`** with:
+Only after the exact promotion run is Green, execute the exact `IndependentVerificationCommand` returned by the promotion helper. That command separately dispatches `.github/workflows/verify-durable-release.yml` **from `main`** with:
 
 - `release_version=0.1.0-rc.61`
 - `release_tag=v0.1.0-rc.61`
 - `expected_commit=158148d8bfd05f724014541bc7a0b1eab5dae1b5`
 - `expected_product_sha256=d0a71f8a5611621ee388a1109dedc76e1a6e70357404cb62c9c7aa188f49c3d5`
 
-The verifier is read-only (`contents: read`) and must independently confirm immutable tag provenance, exact-two release assets, asset metadata/digests/downloaded bytes and canonical checksum.
+The verifier is read-only (`contents: read`) and must independently confirm immutable tag provenance, exact-two release assets, asset metadata/digests/downloaded bytes and canonical checksum. Retain the exact Green verification run ID/URL and its Step Summary. Do not use promotion's own post-publication checks as a substitute for this separate run.
 
-Do not proceed to cutover until #162 is ready to close: the Step 0 preflight is clean, both workflow runs are Green, tag `v0.1.0-rc.61` resolves to the approved tested merge, the release contains exactly `Monitor-0.1.0-rc.61-win-x64.zip` plus `Monitor-0.1.0-rc.61-win-x64.zip.sha256`, and the durable ZIP hash matches the selected product hash.
+### 3. Bind the exact Green runs before #116 preparation
 
-**Neither successful preflight, successful promotion nor successful durable verification marks any external production gate PASS.** They do not deploy IIS, configure a trusted certificate/app-pool identity, exercise the production SQL target, prove recycle durability or validate rollback.
+After both exact workflow runs are Green, run:
+
+```powershell
+.\scripts\Test-Rc61CutoverReadiness.ps1 `
+  -PromotionRunId <PROMOTION_RUN_ID> `
+  -VerificationRunId <VERIFICATION_RUN_ID>
+```
+
+Require:
+
+- `Status = READY_FOR_P0_5_PRE_CUTOVER_PREPARATION`
+- `DurableReleasePrerequisiteSatisfied = True`
+- `ExternalGatesPassed = 0`
+- `ProductionMutationPerformed = False`
+- `MutatedGitHubState = False`
+
+The readiness helper is read-only. It rebinds the two explicit workflow runs and their order, tag/tested-merge provenance, exact-two release assets/product digest, and the locked Acceptance Control Toolkit source. It cannot manufacture a real #116 PASS.
+
+Do not proceed to cutover until #162 is ready to close: the helper/preflight is clean, both exact workflow runs are Green, tag `v0.1.0-rc.61` resolves to the approved tested merge, the release contains exactly `Monitor-0.1.0-rc.61-win-x64.zip` plus `Monitor-0.1.0-rc.61-win-x64.zip.sha256`, the durable ZIP hash matches the selected product hash, and the explicit run-ID readiness check succeeds.
+
+**Neither successful preflight, successful promotion nor successful durable verification marks any external production gate PASS.** The preview, promotion, verifier and readiness check do not deploy IIS, configure a trusted certificate/app-pool identity, exercise the production SQL target, prove recycle durability or validate rollback.
 
 ## Pre-cutover environment evidence
 
@@ -199,7 +255,7 @@ A pack-only, session-manifest, toolkit-manifest/lock, candidate-byte, modified-t
 
 ## Deployment procedure
 
-1. Confirm the Step 0 RC.61 preflight is clean and #162 durable promotion plus separate read-only durable verification are Green for the exact selected RC.61 identity.
+1. Confirm the #162 helper preview is clean, the exact acknowledged promotion and separate read-only verifier are Green, and `Test-Rc61CutoverReadiness.ps1` binds their explicit run IDs with `ExternalGatesPassed = 0` for the exact selected RC.61 identity.
 2. Obtain the exact selected candidate bytes and verify their SHA-256 against the independently verified durable release.
 3. Create and validate the operational backup and preserve the previous release as the rollback point.
 4. Export the exact reviewed Acceptance Control Toolkit from the independently selected commit, independently verify its toolkit-manifest SHA-256, preserve `$operatorToolingCommit` and `$operatorToolkitManifestSha256`, then create the immutable acceptance session above.
