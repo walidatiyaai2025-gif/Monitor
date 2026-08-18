@@ -139,9 +139,36 @@ internal sealed class SqlServerSharedStateSqlBackend : ISharedStateSqlBackend
             RETURN;
         END;
 
-        SELECT TOP (1) SchemaVersion
+        DECLARE @SchemaVersion int = NULL;
+        SELECT @SchemaVersion = SchemaVersion
         FROM dbo.MonitorSharedStateSchema
         WHERE Id = 1;
+
+        IF @SchemaVersion IS NULL
+        BEGIN
+            SELECT CAST(NULL AS int) AS SchemaVersion;
+            RETURN;
+        END;
+
+        IF @SchemaVersion <> @SupportedSchemaVersion
+        BEGIN
+            SELECT @SchemaVersion AS SchemaVersion;
+            RETURN;
+        END;
+
+        IF OBJECT_ID(N'dbo.MonitorSharedStateDocuments', N'U') IS NULL
+        BEGIN
+            THROW 51020, 'Monitor shared-state document store is unavailable.', 1;
+        END;
+
+        IF COALESCE(HAS_PERMS_BY_NAME(N'dbo.MonitorSharedStateDocuments', N'OBJECT', N'SELECT'), 0) <> 1
+           OR COALESCE(HAS_PERMS_BY_NAME(N'dbo.MonitorSharedStateDocuments', N'OBJECT', N'INSERT'), 0) <> 1
+           OR COALESCE(HAS_PERMS_BY_NAME(N'dbo.MonitorSharedStateDocuments', N'OBJECT', N'UPDATE'), 0) <> 1
+        BEGIN
+            THROW 51021, 'Monitor shared-state runtime permissions are incomplete.', 1;
+        END;
+
+        SELECT @SchemaVersion AS SchemaVersion;
         """;
 
     private const string ReadSql = """
@@ -259,6 +286,10 @@ internal sealed class SqlServerSharedStateSqlBackend : ISharedStateSqlBackend
         {
             CommandTimeout = commandTimeoutSeconds
         };
+        command.Parameters.Add(new SqlParameter("@SupportedSchemaVersion", SqlDbType.Int)
+        {
+            Value = SqlServerSharedStateDocumentStore.SupportedSchemaVersion
+        });
         var value = await command.ExecuteScalarAsync(cancellationToken);
         return value is null or DBNull
             ? null
