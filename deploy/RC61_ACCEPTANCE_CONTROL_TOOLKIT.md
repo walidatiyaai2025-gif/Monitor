@@ -28,14 +28,14 @@ Do not add a seventh acceptance-control script to the session identity and do no
 
 ## Source provenance rule
 
-After #261 / PR #262 completes, the authoritative tooling commit is the **exact final PR #262 head that passes all required exact-head Actions and is recorded on #261/#260/#258/#116**. The earlier PR #259 head remains historical evidence for the locked-session implementation, but the provenance-hardened cutover toolkit must use the later exact reviewed #262 commit.
+The authoritative cutover toolkit source is the **exact final PR #262 head `b422eaaee53d931a62a43b3c36a53b68cd4f3e27`**, recorded on #261/#260/#258/#116 after Green exact-head Actions. That head passed CI #1786 / run `31992503009` and Windows production-candidate #186 / run `31992502977`. The earlier PR #259 head remains historical evidence for the locked-session implementation, but the provenance-hardened cutover toolkit must use the later exact reviewed #262 commit.
 
 **Do not use `main`, `latest`, a moving branch name, or an unrecorded later commit at cutover time.**
 
 On an approved admin workstation, obtain one clean Git checkout at the independently supplied exact 40-hex tooling commit. Verify the tracked checkout is clean and export the toolkit to a fresh directory outside the checkout:
 
 ```powershell
-$operatorToolingCommit = '<exact-final-PR-262-head-recorded-on-261-260-258-116>'
+$operatorToolingCommit = 'b422eaaee53d931a62a43b3c36a53b68cd4f3e27'
 $acceptanceTools = "C:\ProgramData\Monitor\AcceptanceTooling\$operatorToolingCommit"
 
 $toolkit = .\scripts\Export-ProductionAcceptanceToolkit.ps1 `
@@ -116,7 +116,7 @@ Future Windows production candidates also generate and independently verify an e
 
 Do not create or advance an acceptance session when:
 
-- the exact final provenance-hardened tooling commit has not been recorded on #261/#260/#258/#116;
+- the exact final provenance-hardened tooling commit is not the independently recorded `b422eaaee53d931a62a43b3c36a53b68cd4f3e27`;
 - the source checkout is not the exact reviewed commit or tracked state is dirty;
 - toolkit export/independent verification did not succeed;
 - the independently preserved toolkit-manifest SHA-256 is missing or differs from the staged manifest/lock;
