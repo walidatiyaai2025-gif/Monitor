@@ -10,11 +10,10 @@ public sealed class IncidentNoteMultiNodeIdempotencyTests
     {
         var time = TimeProvider.System;
         var sharedState = new MemoryDocumentStore(time);
-        var options = CoordinationOptions();
         using var preflightBarrier = new Barrier(2);
 
-        var first = BuildNode("node-a", sharedState, time, options, preflightBarrier);
-        var second = BuildNode("node-b", sharedState, time, options, preflightBarrier);
+        var first = BuildNode(sharedState, time, preflightBarrier);
+        var second = BuildNode(sharedState, time, preflightBarrier);
         const string incidentId = "11111111111111111111111111111111:RULE-CONCURRENT";
         const string requestKey = "request-concurrent-12345678";
 
@@ -35,10 +34,8 @@ public sealed class IncidentNoteMultiNodeIdempotencyTests
     }
 
     private static IncidentCollaborationService BuildNode(
-        string nodeId,
         ISharedStateDocumentStore sharedState,
         TimeProvider time,
-        DistributedCoordinationOptions options,
         Barrier preflightBarrier)
     {
         IAuditStore audit = new SharedAuditStore(sharedState, time);
@@ -46,8 +43,9 @@ public sealed class IncidentNoteMultiNodeIdempotencyTests
         audit = new PerformanceBoundedAuditStore(audit, new PerformanceScaleOptions());
         audit = new CoordinatedIncidentNoteAuditStore(
             audit,
-            new SharedStateDistributedLeaseManager(sharedState, new NodeIdentity(nodeId), time, options),
-            options);
+            sharedState,
+            time,
+            useSharedOperationalState: true);
 
         return new IncidentCollaborationService(
             new SharedOperatorMetadataStore(sharedState, time),
@@ -72,16 +70,6 @@ public sealed class IncidentNoteMultiNodeIdempotencyTests
             return AttemptResult.Ambiguous;
         }
     }
-
-    private static DistributedCoordinationOptions CoordinationOptions() =>
-        new()
-        {
-            Enabled = true,
-            NodeIdEnvironmentVariable = "MONITOR_NODE_ID",
-            SchedulerLeaseSeconds = 90,
-            RefreshLeaseSeconds = 30,
-            MaxConflictRetries = 12
-        };
 
     private enum AttemptResult
     {
