@@ -58,7 +58,7 @@ jobs:
       - name: Exercise durable release verifier TOCTOU runtime
         shell: bash
         run: bash scripts/Test-DurableReleaseVerifierSafety.sh
-      - name: Parse promotion and cutover-readiness PowerShell safety tooling
+      - name: Parse promotion, cutover-readiness and branch-protection PowerShell safety tooling
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -69,7 +69,8 @@ jobs:
             'scripts/Invoke-Rc61DurablePromotion.ps1',
             'scripts/Test-Rc61DurablePromotionOperatorSafety.ps1',
             'scripts/Test-Rc61CutoverReadiness.ps1',
-            'scripts/Test-Rc61CutoverReadinessSafety.ps1'
+            'scripts/Test-Rc61CutoverReadinessSafety.ps1',
+            'scripts/Set-MainBranchProtection.ps1'
           )) {
             $tokens = $null
             $errors = $null
