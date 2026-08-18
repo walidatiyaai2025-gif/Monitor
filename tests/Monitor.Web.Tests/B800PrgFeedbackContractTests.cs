@@ -25,7 +25,8 @@ public sealed class B800PrgFeedbackContractTests
         var operations = Read("src/Monitor.Web/Controllers/OperationsController.cs");
         var transition = Slice(operations, "private IActionResult Transition", "private static string BuildTransitionAuditOutcome");
 
-        Assert.Contains("_audit?.Append", transition, StringComparison.Ordinal);
+        Assert.Contains("if (_audit is null) return StatusCode(StatusCodes.Status503ServiceUnavailable);", transition, StringComparison.Ordinal);
+        Assert.Contains("_audit.Append", transition, StringComparison.Ordinal);
         Assert.Contains("RedirectToAction(nameof(IncidentDetails)", transition, StringComparison.Ordinal);
         Assert.Contains("Conflict(new { message", transition, StringComparison.Ordinal);
 

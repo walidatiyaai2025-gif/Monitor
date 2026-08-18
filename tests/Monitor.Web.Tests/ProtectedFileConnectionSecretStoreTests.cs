@@ -58,11 +58,31 @@ public sealed class ProtectedFileConnectionSecretStoreTests
         Assert.Null(await store.ResolveAsync(reference));
     }
 
+    [Fact]
+    public async Task MissingCredentialPolicy_FailsClosedWithoutWriting()
+    {
+        using var directory = new TemporaryDirectory();
+        var file = Path.Combine(directory.Path, "secrets.json");
+        var store = new ProtectedFileConnectionSecretStore(
+            file,
+            new EphemeralDataProtectionProvider(),
+            new ConfigurationBuilder().Build(),
+            []);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await store.StoreAsync("reader", "secret"));
+
+        Assert.Contains("disabled", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.False(File.Exists(file));
+        Assert.False(new CredentialPolicyOptions().AllowLocalOwnedCredentials);
+    }
+
     private static ProtectedFileConnectionSecretStore Store(string file, IDataProtectionProvider provider) => new(
         file,
         provider,
         new ConfigurationBuilder().Build(),
-        []);
+        [],
+        new CredentialPolicyOptions { AllowLocalOwnedCredentials = true });
 
     private sealed class TemporaryDirectory : IDisposable
     {

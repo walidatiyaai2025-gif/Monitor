@@ -9,6 +9,8 @@ namespace Monitor.Web.Tests;
 
 public sealed class B800WriteSurfaceSecurityAcceptanceTests
 {
+    private static readonly string Root = FindRoot();
+
     private static readonly IReadOnlyDictionary<string, string> ExpectedNamedPolicies =
         new Dictionary<string, string>(StringComparer.Ordinal)
         {
@@ -139,6 +141,48 @@ public sealed class B800WriteSurfaceSecurityAcceptanceTests
         }
     }
 
+    [Fact]
+    public void OperatorMutationControllers_RequireAttributableActorBeforeStateChanges()
+    {
+        var enterprise = Read("src/Monitor.Web/Controllers/EnterpriseOperationsController.cs");
+        var collaboration = Read("src/Monitor.Web/Controllers/IncidentCollaborationController.cs");
+        var operations = Read("src/Monitor.Web/Controllers/OperationsController.cs");
+
+        Assert.DoesNotContain("? \"unknown\"", enterprise, StringComparison.Ordinal);
+        Assert.DoesNotContain("? \"unknown\"", collaboration, StringComparison.Ordinal);
+        Assert.DoesNotContain("?? \"unknown\"", operations, StringComparison.Ordinal);
+        Assert.Contains("if (!TryActor(out var actor)) return Forbid();", enterprise, StringComparison.Ordinal);
+        Assert.Contains("if (!TryActor(out var actor)) return Forbid();", collaboration, StringComparison.Ordinal);
+        Assert.Contains("if (!TryActor(out var actor)) return Forbid();", operations, StringComparison.Ordinal);
+
+        var profile = Slice(enterprise, "public IActionResult UpdateServerProfile", "[HttpPost(\"/alerts/{id}/owner\")]");
+        var actorIndex = profile.IndexOf("TryActor(out var actor)", StringComparison.Ordinal);
+        var mutationIndex = profile.IndexOf("_operatorMetadata.UpsertServer(metadata)", StringComparison.Ordinal);
+        Assert.True(actorIndex >= 0 && mutationIndex > actorIndex, "Server operator metadata must not mutate before attributable actor validation.");
+
+        var resolve = Slice(collaboration, "public IActionResult ResolveWithNote", "[HttpPost(\"/alerts/{id}/reopen-with-reason\")]");
+        actorIndex = resolve.IndexOf("TryActor(out var actor)", StringComparison.Ordinal);
+        mutationIndex = resolve.IndexOf("workflow.Resolve(id)", StringComparison.Ordinal);
+        Assert.True(actorIndex >= 0 && mutationIndex > actorIndex, "Incident resolution must not mutate before attributable actor validation.");
+
+        var refresh = Slice(operations, "public async Task<IActionResult> RefreshServer", "[HttpGet(\"/database-health\")]");
+        actorIndex = refresh.IndexOf("TryActor(out var actor)", StringComparison.Ordinal);
+        var auditIndex = refresh.IndexOf("_audit is null", StringComparison.Ordinal);
+        mutationIndex = refresh.IndexOf("_snapshotRefresh.RefreshAsync", StringComparison.Ordinal);
+        Assert.True(actorIndex >= 0 && auditIndex > actorIndex && mutationIndex > auditIndex, "Manual refresh must validate actor and audit availability before collection starts.");
+
+        var transition = Slice(operations, "private IActionResult Transition", "private static string BuildTransitionAuditOutcome");
+        actorIndex = transition.IndexOf("TryActor(out var actor)", StringComparison.Ordinal);
+        auditIndex = transition.IndexOf("_audit is null", StringComparison.Ordinal);
+        mutationIndex = transition.IndexOf("transition(_workflow)", StringComparison.Ordinal);
+        Assert.True(actorIndex >= 0 && auditIndex > actorIndex && mutationIndex > auditIndex, "Incident transitions must validate actor and audit availability before mutation.");
+
+        var advisor = Slice(operations, "public async Task<IActionResult> RequestAdvisor", "[HttpGet(\"/history/{registrationId:guid}\")]");
+        actorIndex = advisor.IndexOf("TryActor(out var actor)", StringComparison.Ordinal);
+        mutationIndex = advisor.IndexOf("_advisorRequests.RequestAsync(id, actor", StringComparison.Ordinal);
+        Assert.True(actorIndex >= 0 && mutationIndex > actorIndex, "Advisor requests must be attributable before service execution.");
+    }
+
     private static IReadOnlyList<PostAction> DiscoverPostActions() =>
         typeof(OperationsController).Assembly
             .GetTypes()
@@ -159,6 +203,24 @@ public sealed class B800WriteSurfaceSecurityAcceptanceTests
     private static bool HasAllowAnonymous(Type controller, MethodInfo method) =>
         controller.GetCustomAttributes<AllowAnonymousAttribute>(inherit: true).Any() ||
         method.GetCustomAttributes<AllowAnonymousAttribute>(inherit: true).Any();
+
+    private static string Slice(string value, string startToken, string endToken)
+    {
+        var start = value.IndexOf(startToken, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Start token not found: {startToken}");
+        var end = value.IndexOf(endToken, start, StringComparison.Ordinal);
+        Assert.True(end > start, $"End token not found after {startToken}: {endToken}");
+        return value[start..end];
+    }
+
+    private static string Read(string relative) => File.ReadAllText(Path.Combine(Root, relative));
+
+    private static string FindRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "Monitor.sln"))) directory = directory.Parent;
+        return directory?.FullName ?? throw new DirectoryNotFoundException("Repository root was not found.");
+    }
 
     private static string Key(Type controller, string methodName) => $"{controller.Name}.{methodName}";
 

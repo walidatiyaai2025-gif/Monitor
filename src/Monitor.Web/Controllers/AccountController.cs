@@ -40,14 +40,23 @@ public sealed class AccountController : Controller
     [HttpPost("/login")]
     public async Task<IActionResult> Login(string? username, string? password, string? returnUrl = null)
     {
+        if (_limiter is null || _audit is null)
+        {
+            Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+            _audit?.Append("anonymous", "login", "development-admin", "security-unavailable");
+            ModelState.AddModelError(string.Empty, "Authentication security controls are unavailable. Try again later.");
+            ViewData["ReturnUrl"] = returnUrl;
+            return View();
+        }
+
         var normalizedUsername = username ?? string.Empty;
         var normalizedPassword = password ?? string.Empty;
         var attemptKey = LoginAttemptKey.Create(HttpContext.Connection.RemoteIpAddress, normalizedUsername);
 
-        if (_limiter?.IsAllowed(attemptKey) == false)
+        if (!_limiter.IsAllowed(attemptKey))
         {
             Response.StatusCode = StatusCodes.Status429TooManyRequests;
-            _audit?.Append("anonymous", "login", "development-admin", "locked");
+            _audit.Append("anonymous", "login", "development-admin", "locked");
             ModelState.AddModelError(string.Empty, "Too many login attempts. Try again later.");
             ViewData["ReturnUrl"] = returnUrl;
             return View();
@@ -55,15 +64,15 @@ public sealed class AccountController : Controller
 
         if (!_credentialVerifier.Verify(normalizedUsername, normalizedPassword))
         {
-            _limiter?.RecordFailure(attemptKey);
-            _audit?.Append("anonymous", "login", "development-admin", "rejected");
+            _limiter.RecordFailure(attemptKey);
+            _audit.Append("anonymous", "login", "development-admin", "rejected");
             ModelState.AddModelError(string.Empty, "Invalid username or password.");
             ViewData["ReturnUrl"] = returnUrl;
             return View();
         }
 
-        _limiter?.RecordSuccess(attemptKey);
-        _audit?.Append(normalizedUsername, "login", "development-admin", "success");
+        _limiter.RecordSuccess(attemptKey);
+        _audit.Append(normalizedUsername, "login", "development-admin", "success");
 
         var claims = new[]
         {

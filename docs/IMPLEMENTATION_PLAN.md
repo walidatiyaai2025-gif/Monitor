@@ -2,11 +2,26 @@
 
 This is the canonical execution plan. Update it in the same PR as material implementation changes.
 
-## Programming closure tranche — #362 / #364 / #365 / #366 / #367
+## Post-closure security/control hardening — #368 / #370 / #371 / #372 / #373 / #374
 
-**PR:** #363 `agent/362-estate-evidence-truthfulness`  
-**Programming state:** implementation + regression coverage COMPLETE; canonical-doc commits are included and the final docs-inclusive head must pass the repository-selected CI/production-candidate/Real-SQL gates before this tranche is considered exact-head closed.  
-**Pre-doc exact code head:** `98043db45f22ad8efa0817a204c1a05507e71c6d`; normal CI `32116997876` Green.  
+**PR:** #369 `agent/368-credential-policy-fail-closed`  
+**Programming state:** implementation + regression coverage complete on the branch; `STATUS.md`, `FEATURE_CATALOG.md`, and this plan are reconciled in the same PR. Exact final closure requires the docs-inclusive head to pass repository-selected workflows before merge.  
+**Pre-doc Green evidence:** code/test head `6a8e55eb89f8bf39c868768d53a274379abe3d35`; normal CI `32121424138` passed Release build, 1341 tests and release/P0 safety runtimes; Windows production-candidate `32121424133` passed end-to-end; protected P0 metadata/commit guards `32121424301` / `32121424216` passed. Real SQL was not selected because this tranche changes no monitored-SQL query, collector or SQL-permission path.  
+**Scope closed:**
+1. Missing credential policy defaults to deny instead of enabling Monitor-owned local SQL credential creation implicitly; current SingleNode behavior remains an explicit configuration opt-in.
+2. Credential/secret-store deletion defaults fail closed instead of allowing a completed no-op to masquerade as successful compensation.
+3. Login POST cannot verify credentials when lockout or audit controls are unavailable.
+4. Login-attempt state is capacity-bounded, expired state is reclaimed with bounded-frequency pruning, and unseen keys fail closed at saturation while existing five-failure/five-minute semantics remain.
+5. Incident, enterprise, manual-refresh, transition and Advisor operator actions require attributable actor identity; refresh/transitions also require audit availability before collection/mutation.
+6. Canonical BATCH-800 closeout state is locked to the already-merged B800-100 result: Issue #287 is CLOSED/COMPLETED; PR #335 squash-merged as `a6832d99f629cdbd3a93887199fe608a3ae474ec` from exact head `4379dbc0e1b346cb51bebf8e7467823c58f2361c`, with CI `32093252549`, Real SQL `32093252670`, and Windows production-candidate `32093252563` Green.
+
+**Boundary:** no monitored-SQL permission expansion, secret disclosure, autonomous remediation, RC.61 publication/supersession, production IIS/SQL mutation, external acceptance PASS or branch-protection mutation. Remaining external/manual work remains `#162 -> #116 -> #111`, plus repository-admin branch-protection apply/readback #353.
+
+## Programming closure tranche — #362 / #364 / #365 / #366 / #367 — COMPLETE / MERGED
+
+**PR:** #363; squash-merged to `main` as `c8515f310091bcb62af488d9132c4f330c182bf8`.  
+**Exact implementation head:** `4fe2118f088219fbd7781a04ca77feebf352184b`.  
+**Validation:** normal CI `32118070289`, Real SQL `32118070315`, Windows production-candidate `32118070230`, protected P0 commit guard `32118070235` and metadata guard `32118070299` all passed.  
 **Scope closed:**
 1. Estate Intelligence no longer converts absent/partial domain evidence into healthy zero; genuine collected zero stays zero.
 2. Global Refresh uses explicit XHR auth semantics and rejects followed redirects/non-JSON success.
@@ -14,8 +29,7 @@ This is the canonical execution plan. Update it in the same PR as material imple
 4. Application credential readiness is topology-aware: valid SingleNode is not falsely negative; MultiNode remains fail-closed; backup remains informational under the existing control-plane-only readiness contract.
 5. Dashboard/Servers remove synthetic numeric health scores and unsupported reachability/connectivity/collector-live claims and use cache/evidence semantics instead.
 
-**Regression suites added/expanded:** `SystemWideIntelligenceExpansionTests`, `GlobalRefreshAuthenticationTests`, `SnapshotRefreshServiceTests`, `ServerConnectionsControllerTests`, `ApplicationReadinessTruthfulnessTests`, `OperatorSurfaceTruthfulnessTests`.  
-**Programming queue after this tranche:** no additional open programming issue is known from the current repository issue/TODO/FIXME/NotImplemented audit. Remaining open work is external/manual: #162 -> #116 -> #111, plus repository-admin branch-protection apply/readback #353. This tranche cannot publish/tag RC.61, mutate production IIS/SQL, manufacture any external gate PASS or close those issues.
+The five issues #362/#364/#365/#366/#367 are closed completed. This tranche did not publish/tag RC.61, mutate production IIS/SQL, manufacture any external gate PASS or alter `#162 -> #116 -> #111` / #353.
 
 ## CURRENT P0 — Real SQL Production MVP
 
@@ -28,7 +42,7 @@ This is the canonical execution plan. Update it in the same PR as material imple
 **Latest RC.61 read-only state check:** source run `31667721306` successful; artifact `9168574442` present/unexpired with exact outer digest `sha256:1c499b9eb0bfc4245716c14718381b71352df8392aafe430cc415b375b93f382` and expiry `2026-09-12T04:41:34Z`; fresh 2026-08-18 checks found tag `v0.1.0-rc.61` absent and no operator-supplied promotion/verification evidence recorded on #162. The connected agent surface has no workflow-dispatch action; explicit acknowledgement remains an external operator action.  
 **Required remaining dependency:** `#162 durable RC.61 publication + independent verification -> #116 real trusted-IIS 15/15 acceptance -> #111 closure`; canonical short form `#162 -> #116 -> #111`. **Do not begin #116 production mutation while #162 is OPEN.**  
 **Live selected candidate/evidence ledger:** Issue #116 — RC.61  
-**Project rule:** until P0.5 is accepted on the real environment, production-slice blockers outrank unrelated feature expansion. Repository/product work such as BATCH-800 may proceed only inside the documented non-production safety boundary and cannot manufacture P0 acceptance.
+**Project rule:** until P0.5 is accepted on the real environment, production-slice blockers outrank unrelated feature expansion. Repository/product work may proceed only inside the documented non-production safety boundary and cannot manufacture P0 acceptance.
 
 ### Current #162 operator contract
 
@@ -170,7 +184,7 @@ Repository candidate evidence is **not** production acceptance. It does not repl
 
 `Test-ProductionAcceptanceSessionBinding.ps1` and the session-bound recorder/finalizer close the post-initialization chain-of-custody gap without creating production evidence:
 
-1. the operator preserves the initializer-returned manifest SHA-256 outside the mutable session files; later code never silently derives a replacement expected value from the current manifest;
+1. the operator preserves the initializer-returned session-manifest SHA-256 outside the mutable session files; later code never silently derives a replacement expected value from the current manifest;
 2. the binding verifier requires the actual manifest hash and canonical `session-manifest.sha256` lock to equal that externally preserved value;
 3. manifest schema/status/SingleNode/0-of-15 anchor and candidate/evidence relative paths must remain exact and session-confined;
 4. the copied candidate ZIP is re-hashed and its companion checksum must still equal `selectedProductSha256`;
@@ -271,18 +285,20 @@ BATCH-700 has no browser/Playwright screenshot harness, so responsive/visual acc
 
 BATCH-700 does **not** change production priority or acceptance truth: monitored GETs remain cache/control-plane only; no autonomous remediation or SQL execution is added; #162 still governs durable RC.61 publication; #116/#111 still govern real IIS/HTTPS 15-gate production acceptance.
 
-## BATCH-800 — Full functional operator wiring — IN PROGRESS
+## BATCH-800 — Full functional operator wiring — COMPLETE
 
-**Umbrella:** Issue #287 — OPEN  
-**Current closeout:** B800-099 — cross-document exact-head consistency after B800-098 / PR #333 merged  
+**Umbrella:** Issue #287 — CLOSED / COMPLETED  
+**Final closeout:** B800-100 / PR #335 squash-merged as `a6832d99f629cdbd3a93887199fe608a3ae474ec`  
+**Exact closeout head:** `4379dbc0e1b346cb51bebf8e7467823c58f2361c`  
+**Exact closeout gates:** CI `32093252549`, Real SQL `32093252670`, Windows production-candidate `32093252563` — all Green  
 **Task range:** B800-001..100  
 **Execution ledger:** `docs/BATCH_800.md`
 
-BATCH-800 closes the gap between a visible route and a functionally wired operator workflow. The completion contract is:
+BATCH-800 closes the gap between a visible route and a functionally wired operator workflow. Its completion contract is:
 
 `UI control / route -> controller endpoint -> authorization + antiforgery boundary -> service/read model -> persisted or cached evidence -> explicit success/error/unavailable state -> regression evidence`
 
-Focused slices through B800-099 are merged and B800-100 completes the final docs/tests-only repository closeout. Current `main` contains the evidence-backed server/diagnostic/workflow slices, B800-071..080 Fleet/routing/maintenance decision support, the complete B800-081..090 report/export tranche, B800-091 report acceptance, B800-092 write-surface security acceptance, B800-093 no-fake-data hardening, B800-094 advanced-evidence accessibility hardening, and B800-095..099 fail-closed closeout/evidence/checklist/summary reconciliation. B800-098 / PR #333 squash-merged as `483b8ce2f14b62499d8751d22f1908511f981d10`; exact final head `e2c33c85becb40d4f0f639a178dd435c37578e01` passed CI #2908 / `32089818839`, Real SQL #376 / `32089818822`, and Windows production-candidate #544 / `32089818821`. B800-099 / PR #334 merged on `main` as `467078e111e57f208258acb3cb33d1208f359b19`; B800-100 repairs its stale transient closeout regression conflict and establishes the final canonical repository state. BATCH-800 is **COMPLETE (100/100)** in repository scope, bringing completed B100+B200+B300+B400+B500+B600+B700+B800 task accounting to **760**; Issue #287 remains OPEN until the final closeout PR merges.
+BATCH-800 repository scope is **COMPLETE (100/100)**. B800-100 / PR #335 repaired the stale transient closeout regression after B800-099, reconciled the canonical documents and merged. Current `main` contains the evidence-backed server/diagnostic/workflow slices, B800-071..080 Fleet/routing/maintenance decision support, the complete B800-081..090 report/export tranche, B800-091 report acceptance, B800-092 write-surface security acceptance, B800-093 no-fake-data hardening, B800-094 advanced-evidence accessibility hardening, and B800-095..100 fail-closed closeout/evidence/checklist/summary reconciliation. The completed B100+B200+B300+B400+B500+B600+B700+B800 task accounting remains **760**. BATCH-800 does not publish RC.61 or satisfy #162/#116/#111.
 
 Current evidence-backed state:
 
@@ -322,7 +338,7 @@ Current evidence-backed state:
 - B800-089 is complete and merged through PR #324 as `1f6a8465ca3bcfb388ad32394777cfdba883ef72`; exact final reconciled head `d2f14af13e57142f20c82587f29f94a8c801f329` passed CI #2799 / `32082435657`, Real SQL #365 / `32082435629`, and Windows production-candidate #518 / `32082435655`;
 - B800-089 exposes Viewer+ estate-wide `GET /reports/performance-health.csv` through enabled registration/control-plane state plus cache-only `Peek(...)`, preserves unavailable/zero truth and redacts concrete wait identity;
 - B800-090 is complete and merged through PR #325 as `50529decf66d83c81c646eb8219763d12b3095d6`; exact final reconciled head `2057a09364c09715685403a764845f430409ece6` passed CI #2818 / `32083366326`, Real SQL #367 / `32083366344`, and Windows production-candidate #524 / `32083366323`;
-- B800-090 exposes Viewer+ estate-wide `GET /reports/storage-health.csv` through enabled registration/control-plane state plus cache-only `Peek(...)`, keeps allocation independent from I/O evidence, reuses anonymous B400 `IoLatencyProjection`, preserves unavailable/zero truth and excludes logical file/database/path identity;
+- B800-090 exposes Viewer+ estate-wide `GET /reports/storage-health.csv` through enabled registrations plus snapshot-cache `Peek(...)`, keeps allocation independent from I/O evidence, reuses anonymous B400 `IoLatencyProjection`, preserves unavailable/zero truth and excludes logical file/database/path identity;
 - B800-091 is complete and merged through PR #326 as `500d4da98508ef1a96f1c29451317ff800143fc7`; exact final reconciled head `4ec5bf5970c5d7f32fd05e995f05c13ff73b740e` passed CI #2831 / `32084089512`, Real SQL #369 / `32084089440`, and Windows production-candidate #526 / `32084089450`;
 - B800-091 adds no production behavior: `B800ReportTrancheAcceptanceTests` matrix-locks report route/RBAC/discoverability/no-direct-collection truth;
 - B800-092 is complete and merged through PR #327 as `8bd5af0bc42f067f025cdcf1bb8b07c1677239dd`; exact final reconciled head `00c972baf28cbf6b261c8763d7db2d25aff9e709` passed CI #2844 / `32085001773`, Real SQL #371 / `32085002006`, and Windows production-candidate #528 / `32085001787`;
@@ -334,13 +350,13 @@ Current evidence-backed state:
 - B800-095 / PR #330 added a fail-closed closeout ledger guard and merged as `cda21b6ef5bbb8e34d32a186f44b3e45dc83bb23` after CI #2887 / `32088182623`;
 - B800-096 / PR #331 mapped stale historical task rows to explicit merged exact-head evidence and merged as `66c8303f57880e5d76a01dab5e5ef36a2efd455c` after CI #2892 / `32088656350`;
 - B800-097 / PR #332 mechanically reconciled the canonical B800 checklist against that evidence map and merged as `581980ef11d201747c23ed1df808edb494b597ae`; corrected exact head `cfc59786e8929b6412de997106ae9470fb85c83d` passed CI #2900 / `32089166149` with 1261/1261 tests and release/promotion safety tooling;
-- B800-098 / PR #333 reconciled the three canonical B800 summaries with the ledger and merged as `483b8ce2f14b62499d8751d22f1908511f981d10`; exact final head `e2c33c85becb40d4f0f639a178dd435c37578e01` passed CI #2908 / `32089818839`, Real SQL #376 / `32089818822`, and Windows production-candidate #544 / `32089818821`.
+- B800-098 / PR #333 reconciled the three canonical B800 summaries with the ledger and merged as `483b8ce2f14b62499d8751d22f1908511f981d10`; exact final head `e2c33c85becb40d4f0f639a178dd435c37578e01` passed CI #2908 / `32089818839`, Real SQL #376 / `32089818822`, and Windows production-candidate #544 / `32089818821`;
+- B800-099 / PR #334 merged as `467078e111e57f208258acb3cb33d1208f359b19`;
+- B800-100 / PR #335 completed final repository closeout, reconciled canonical state and durable closeout regression coverage, and squash-merged as `a6832d99f629cdbd3a93887199fe608a3ae474ec`; exact final head `4379dbc0e1b346cb51bebf8e7467823c58f2361c` passed CI `32093252549`, Real SQL `32093252670`, and Windows production-candidate `32093252563`.
 
 Safety/truth boundaries remain mandatory: monitored GETs never collect SQL; missing, truncated or unreadable decision evidence is never converted to zero/healthy/default except that an explicitly complete empty incident population may truthfully summarize as zero; wait/I/O counters are cumulative since SQL Server start rather than interval history; `AgentReliabilityProjection` keeps `ScheduleLatenessEvaluated=false` until canonical time-zone + recurrence/expected-run semantics exist; backup RPO compliance is not claimed without policy; bounded TempDB, transaction-log and HA evidence is available but unsupported composite growth/contention, governed recovery and quorum/RPO/RTO/failover-readiness conclusions remain explicit `NotEvaluated`/unavailable; query regression remains a privacy-safe contract only with no live collection, SQL text or query-plan collection; no client identity/table data/physical paths are collected; no autonomous remediation or AI-generated SQL execution is introduced.
 
 Least privilege remains read-only: SQL Server 2022+ uses `VIEW SERVER PERFORMANCE STATE` (older supported versions `VIEW SERVER STATE`) plus `VIEW ANY DEFINITION` and existing narrow metadata grants; Agent history/activity adds only read-only `SELECT` on `msdb.dbo.sysjobhistory` and `msdb.dbo.sysjobactivity`, with no SQLAgent execution/operator role. B800-071/072/073/074/075/076/077/078/079/080/081/082/083/084/085/086/087/088/089/090/091/092/093/094 add no monitored-SQL permission or query path.
-
-B800-099 is merged through PR #334. B800-100 is the final repository batch closeout and reconciles canonical state plus durable closeout regression coverage after static inspection exposed a stale transient B800-098 range assertion. B800-100 adds no runtime behavior and cannot publish/supersede RC.61, mutate real production IIS/SQL, satisfy production acceptance, or change the strict `#162 -> #116 -> #111` dependency. Final merge remains gated on one settled exact head with all repository-selected workflows Green, branch currency with `main`, and resolved review threads.
 
 ## Verified foundation
 
@@ -365,7 +381,7 @@ B800-099 is merged through PR #334. B800-100 is the final repository batch close
 - BATCH-500 — B500-001..100 COMPLETE.
 - BATCH-600 — B600-001..100 COMPLETE.
 - `docs/BATCH_700.md` — UI700-001..050 COMPLETE; PR #240 squash-merged as `fd33e79c6d19d7f9852417b9c35a11f91f21714c` after exact final head `0834db6b5d518fe5c52eec9b47c03e467929aa89` passed CI #1637, Real SQL #91 and production-candidate #142.
-- `docs/BATCH_800.md` — B800-001..100 **COMPLETE (100/100)** in repository scope under #287; B800-099 / PR #334 is merged and B800-100 is the final canonical/test closeout. Issue #287 remains open until final PR merge; the overall batch now contributes 100 task IDs to the **760** completed-task total and does not satisfy production acceptance.
+- `docs/BATCH_800.md` — B800-001..100 **COMPLETE (100/100)** in repository scope under closed Issue #287; B800-100 / PR #335 squash-merged as `a6832d99f629cdbd3a93887199fe608a3ae474ec` after exact final head `4379dbc0e1b346cb51bebf8e7467823c58f2361c` passed CI `32093252549`, Real SQL `32093252670`, and Windows production-candidate `32093252563`; the batch contributes 100 task IDs to the **760** completed-task total and does not satisfy production acceptance.
 
 The BATCH-200 reconciliation selectively restored retention governance, enterprise security hardening and bounded scale primitives plus mapped B200-051..090 regression coverage and an additional audit-pagination regression on RC.61-era current main. Legacy issues #87/#91/#93 are closed completed, while stale PRs #88/#92/#94/#104 are closed unmerged as superseded. This was baseline correction rather than feature expansion or new task accounting; it preserves `IServerTargetLifecycleService`, BATCH-300 and all P0 production/release boundaries and does not change #116 or selected RC.61.
 
@@ -401,7 +417,7 @@ Historical feature breadth remains available, but it does not outrank the remain
 
 ## Definition of done
 
-The production plan is complete only when P0-001..050 are reconciled, P0.1..P0.5 are accepted in order, #162 explicit acknowledged promotion/separate durable verification/run-ID readiness and tag/assets/product-hash checks are complete before #116 production mutation, the selected SingleNode release has actual trusted-HTTPS IIS/recycle/least-privilege/backup/rollback evidence, the real 15/15 evidence pack remains bound to the externally preserved session-manifest SHA-256 through recording/finalization/review, and the final required CI/acceptance gates are Green. BATCH-700 repository/UI completion and BATCH-800 functional-wiring work are independent of that external production acceptance and cannot satisfy it.
+The production plan is complete only when P0-001..050 are reconciled, P0.1..P0.5 are accepted in order, #162 explicit acknowledged promotion/separate durable verification/run-ID readiness and tag/assets/product-hash checks are complete before #116 production mutation, the selected SingleNode release has actual trusted-HTTPS IIS/recycle/least-privilege/backup/rollback evidence, the real 15/15 evidence pack remains bound to the externally preserved session-manifest SHA-256 through recording/finalization/review, and the final required CI/acceptance gates are Green. BATCH-700 repository/UI completion and BATCH-800 functional-wiring completion are independent of that external production acceptance and cannot satisfy it.
 
 ## Issue #276 / PR #279 — Idempotent IIS bootstrap installer and deploy entrypoint — COMPLETE
 

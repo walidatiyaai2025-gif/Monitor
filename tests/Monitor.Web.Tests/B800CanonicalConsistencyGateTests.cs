@@ -14,18 +14,15 @@ public sealed class B800CanonicalConsistencyGateTests
         var catalog = Read("docs/FEATURE_CATALOG.md");
         var plan = Read("docs/IMPLEMENTATION_PLAN.md");
 
-        foreach (var source in new[] { batch, status, catalog, plan })
-        {
-            Assert.Contains("B800-098", source, StringComparison.Ordinal);
-            Assert.Contains("483b8ce2f14b62499d8751d22f1908511f981d10", source, StringComparison.Ordinal);
-            Assert.Contains("B800-100", source, StringComparison.Ordinal);
-            Assert.Contains("#287", source, StringComparison.Ordinal);
-        }
-
         foreach (var source in new[] { status, catalog, plan })
         {
+            Assert.Contains("B800-100", source, StringComparison.Ordinal);
+            Assert.Contains("a6832d99f629cdbd3a93887199fe608a3ae474ec", source, StringComparison.Ordinal);
+            Assert.Contains("#287", source, StringComparison.Ordinal);
             Assert.DoesNotContain("B800-098..100", source, StringComparison.Ordinal);
             Assert.DoesNotContain("B800-099..100", source, StringComparison.Ordinal);
+            Assert.DoesNotContain("Issue #287 remains OPEN", source, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("Issue #287 remains open until the final closeout PR merges", source, StringComparison.OrdinalIgnoreCase);
         }
 
         Assert.Contains("**State:** COMPLETE", batch, StringComparison.Ordinal);
@@ -39,7 +36,7 @@ public sealed class B800CanonicalConsistencyGateTests
     }
 
     [Fact]
-    public void B800098_ExactHeadEvidence_IsConsistentAcrossCanonicalSummaries()
+    public void B800100_ExactHeadEvidence_IsConsistentAcrossCanonicalSummaries()
     {
         var status = Read("docs/STATUS.md");
         var catalog = Read("docs/FEATURE_CATALOG.md");
@@ -47,10 +44,10 @@ public sealed class B800CanonicalConsistencyGateTests
 
         foreach (var source in new[] { status, catalog, plan })
         {
-            Assert.Contains("e2c33c85becb40d4f0f639a178dd435c37578e01", source, StringComparison.Ordinal);
-            Assert.Contains("32089818839", source, StringComparison.Ordinal);
-            Assert.Contains("32089818822", source, StringComparison.Ordinal);
-            Assert.Contains("32089818821", source, StringComparison.Ordinal);
+            Assert.Contains("4379dbc0e1b346cb51bebf8e7467823c58f2361c", source, StringComparison.Ordinal);
+            Assert.Contains("32093252549", source, StringComparison.Ordinal);
+            Assert.Contains("32093252670", source, StringComparison.Ordinal);
+            Assert.Contains("32093252563", source, StringComparison.Ordinal);
         }
     }
 
