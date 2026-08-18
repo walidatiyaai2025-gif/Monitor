@@ -129,6 +129,8 @@ internal interface ISharedStateSqlBackend
 
 internal sealed class SqlServerSharedStateSqlBackend : ISharedStateSqlBackend
 {
+    internal const int MaximumTransportPayloadBytes = SqlServerSharedStateDocumentStore.MaximumPayloadBytes * 2;
+
     private const string SchemaVersionSql = """
         SET NOCOUNT ON;
         IF OBJECT_ID(N'dbo.MonitorSharedStateSchema', N'U') IS NULL
@@ -144,7 +146,15 @@ internal sealed class SqlServerSharedStateSqlBackend : ISharedStateSqlBackend
 
     private const string ReadSql = """
         SET NOCOUNT ON;
-        SELECT DocumentKey, Version, PayloadJson, UpdatedAtUtc
+        SELECT
+            DocumentKey,
+            Version,
+            CASE
+                WHEN DATALENGTH(PayloadJson) <= @MaximumTransportPayloadBytes THEN PayloadJson
+                ELSE NULL
+            END AS PayloadJson,
+            DATALENGTH(PayloadJson) AS PayloadStorageBytes,
+            UpdatedAtUtc
         FROM dbo.MonitorSharedStateDocuments
         WHERE DocumentKey = @DocumentKey;
         """;
@@ -161,6 +171,7 @@ internal sealed class SqlServerSharedStateSqlBackend : ISharedStateSqlBackend
             Applied bit NOT NULL,
             Version bigint NULL,
             PayloadJson nvarchar(max) NULL,
+            PayloadStorageBytes bigint NULL,
             UpdatedAtUtc datetime2(7) NULL
         );
 
@@ -172,24 +183,40 @@ internal sealed class SqlServerSharedStateSqlBackend : ISharedStateSqlBackend
         BEGIN
             IF @ExpectedVersion <> 0
             BEGIN
-                INSERT @Result (Applied, Version, PayloadJson, UpdatedAtUtc)
-                VALUES (0, NULL, NULL, NULL);
+                INSERT @Result (Applied, Version, PayloadJson, PayloadStorageBytes, UpdatedAtUtc)
+                VALUES (0, NULL, NULL, NULL, NULL);
             END
             ELSE
             BEGIN
                 INSERT dbo.MonitorSharedStateDocuments (DocumentKey, Version, PayloadJson, UpdatedAtUtc)
                 VALUES (@DocumentKey, 1, @PayloadJson, SYSUTCDATETIME());
 
-                INSERT @Result (Applied, Version, PayloadJson, UpdatedAtUtc)
-                SELECT 1, Version, PayloadJson, UpdatedAtUtc
+                INSERT @Result (Applied, Version, PayloadJson, PayloadStorageBytes, UpdatedAtUtc)
+                SELECT
+                    1,
+                    Version,
+                    CASE
+                        WHEN DATALENGTH(PayloadJson) <= @MaximumTransportPayloadBytes THEN PayloadJson
+                        ELSE NULL
+                    END,
+                    DATALENGTH(PayloadJson),
+                    UpdatedAtUtc
                 FROM dbo.MonitorSharedStateDocuments
                 WHERE DocumentKey = @DocumentKey;
             END;
         END
         ELSE IF @CurrentVersion <> @ExpectedVersion
         BEGIN
-            INSERT @Result (Applied, Version, PayloadJson, UpdatedAtUtc)
-            SELECT 0, Version, PayloadJson, UpdatedAtUtc
+            INSERT @Result (Applied, Version, PayloadJson, PayloadStorageBytes, UpdatedAtUtc)
+            SELECT
+                0,
+                Version,
+                CASE
+                    WHEN DATALENGTH(PayloadJson) <= @MaximumTransportPayloadBytes THEN PayloadJson
+                    ELSE NULL
+                END,
+                DATALENGTH(PayloadJson),
+                UpdatedAtUtc
             FROM dbo.MonitorSharedStateDocuments
             WHERE DocumentKey = @DocumentKey;
         END
@@ -201,15 +228,23 @@ internal sealed class SqlServerSharedStateSqlBackend : ISharedStateSqlBackend
                 UpdatedAtUtc = SYSUTCDATETIME()
             WHERE DocumentKey = @DocumentKey;
 
-            INSERT @Result (Applied, Version, PayloadJson, UpdatedAtUtc)
-            SELECT 1, Version, PayloadJson, UpdatedAtUtc
+            INSERT @Result (Applied, Version, PayloadJson, PayloadStorageBytes, UpdatedAtUtc)
+            SELECT
+                1,
+                Version,
+                CASE
+                    WHEN DATALENGTH(PayloadJson) <= @MaximumTransportPayloadBytes THEN PayloadJson
+                    ELSE NULL
+                END,
+                DATALENGTH(PayloadJson),
+                UpdatedAtUtc
             FROM dbo.MonitorSharedStateDocuments
             WHERE DocumentKey = @DocumentKey;
         END;
 
         COMMIT TRANSACTION;
 
-        SELECT Applied, Version, PayloadJson, UpdatedAtUtc
+        SELECT Applied, Version, PayloadJson, PayloadStorageBytes, UpdatedAtUtc
         FROM @Result;
         """;
 
@@ -243,6 +278,7 @@ internal sealed class SqlServerSharedStateSqlBackend : ISharedStateSqlBackend
             CommandTimeout = commandTimeoutSeconds
         };
         command.Parameters.Add(new SqlParameter("@DocumentKey", SqlDbType.NVarChar, 128) { Value = key });
+        command.Parameters.Add(new SqlParameter("@MaximumTransportPayloadBytes", SqlDbType.BigInt) { Value = MaximumTransportPayloadBytes });
 
         await using var reader = await command.ExecuteReaderAsync(CommandBehavior.SingleRow, cancellationToken);
         if (!await reader.ReadAsync(cancellationToken))
@@ -250,7 +286,13 @@ internal sealed class SqlServerSharedStateSqlBackend : ISharedStateSqlBackend
             return null;
         }
 
-        return ReadDocument(key, reader, versionOrdinal: 1, payloadOrdinal: 2, updatedOrdinal: 3);
+        return ReadDocument(
+            key,
+            reader,
+            versionOrdinal: 1,
+            payloadOrdinal: 2,
+            payloadStorageBytesOrdinal: 3,
+            updatedOrdinal: 4);
     }
 
     public async Task<SharedStateWriteResult> CompareExchangeAsync(
@@ -270,6 +312,7 @@ internal sealed class SqlServerSharedStateSqlBackend : ISharedStateSqlBackend
         command.Parameters.Add(new SqlParameter("@DocumentKey", SqlDbType.NVarChar, 128) { Value = key });
         command.Parameters.Add(new SqlParameter("@ExpectedVersion", SqlDbType.BigInt) { Value = expectedVersion });
         command.Parameters.Add(new SqlParameter("@PayloadJson", SqlDbType.NVarChar, -1) { Value = payloadJson });
+        command.Parameters.Add(new SqlParameter("@MaximumTransportPayloadBytes", SqlDbType.BigInt) { Value = MaximumTransportPayloadBytes });
 
         await using var reader = await command.ExecuteReaderAsync(CommandBehavior.SingleRow, cancellationToken);
         if (!await reader.ReadAsync(cancellationToken))
@@ -285,7 +328,13 @@ internal sealed class SqlServerSharedStateSqlBackend : ISharedStateSqlBackend
                 null);
         }
 
-        var document = ReadDocument(key, reader, versionOrdinal: 1, payloadOrdinal: 2, updatedOrdinal: 3);
+        var document = ReadDocument(
+            key,
+            reader,
+            versionOrdinal: 1,
+            payloadOrdinal: 2,
+            payloadStorageBytesOrdinal: 3,
+            updatedOrdinal: 4);
         return new SharedStateWriteResult(
             applied ? SharedStateWriteStatus.Applied : SharedStateWriteStatus.Conflict,
             document);
@@ -296,8 +345,22 @@ internal sealed class SqlServerSharedStateSqlBackend : ISharedStateSqlBackend
         SqlDataReader reader,
         int versionOrdinal,
         int payloadOrdinal,
+        int payloadStorageBytesOrdinal,
         int updatedOrdinal)
     {
+        if (reader.IsDBNull(payloadStorageBytesOrdinal))
+        {
+            throw new InvalidDataException("Shared-state payload length is unavailable.");
+        }
+
+        var payloadStorageBytes = reader.GetInt64(payloadStorageBytesOrdinal);
+        if (payloadStorageBytes < 0 ||
+            payloadStorageBytes > MaximumTransportPayloadBytes ||
+            reader.IsDBNull(payloadOrdinal))
+        {
+            throw new InvalidDataException("Shared-state payload exceeds its bounded transport size.");
+        }
+
         var updated = reader.GetDateTime(updatedOrdinal);
         return new SharedStateDocument(
             key,
@@ -339,7 +402,13 @@ public sealed class SqlServerSharedStateDocumentStore : ISharedStateDocumentStor
         var connectionString = ResolveConnectionString();
         try
         {
-            return await _backend.ReadAsync(connectionString, key, _options.CommandTimeoutSeconds, cancellationToken);
+            var document = await _backend.ReadAsync(
+                connectionString,
+                key,
+                _options.CommandTimeoutSeconds,
+                cancellationToken);
+            ValidateReturnedDocument(key, document);
+            return document;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -367,13 +436,15 @@ public sealed class SqlServerSharedStateDocumentStore : ISharedStateDocumentStor
         var connectionString = ResolveConnectionString();
         try
         {
-            return await _backend.CompareExchangeAsync(
+            var result = await _backend.CompareExchangeAsync(
                 connectionString,
                 key,
                 expectedVersion,
                 payloadJson,
                 _options.CommandTimeoutSeconds,
                 cancellationToken);
+            ValidateReturnedWriteResult(key, result);
+            return result;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -452,6 +523,42 @@ public sealed class SqlServerSharedStateDocumentStore : ISharedStateDocumentStor
         catch (JsonException exception)
         {
             throw new ArgumentException("Shared-state payload must be valid JSON.", nameof(payloadJson), exception);
+        }
+    }
+
+    private static void ValidateReturnedWriteResult(string expectedKey, SharedStateWriteResult result)
+    {
+        if (!Enum.IsDefined(result.Status) || (result.Applied && result.Document is null))
+        {
+            throw new InvalidDataException("Shared-state provider returned an invalid compare/exchange result.");
+        }
+
+        ValidateReturnedDocument(expectedKey, result.Document);
+    }
+
+    private static void ValidateReturnedDocument(string expectedKey, SharedStateDocument? document)
+    {
+        if (document is null)
+        {
+            return;
+        }
+
+        if (!string.Equals(document.Key, expectedKey, StringComparison.Ordinal) ||
+            document.Version < 1 ||
+            document.UpdatedAtUtc == default ||
+            string.IsNullOrWhiteSpace(document.PayloadJson) ||
+            System.Text.Encoding.UTF8.GetByteCount(document.PayloadJson) > MaximumPayloadBytes)
+        {
+            throw new InvalidDataException("Shared-state provider returned invalid bounded document state.");
+        }
+
+        try
+        {
+            using var _ = JsonDocument.Parse(document.PayloadJson);
+        }
+        catch (JsonException exception)
+        {
+            throw new InvalidDataException("Shared-state provider returned invalid JSON state.", exception);
         }
     }
 }
