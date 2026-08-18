@@ -34,8 +34,23 @@ jobs:
               raise SystemExit('guarded reconciliation step terminator was not found')
           raw = workflow[start:end]
           script_lines = []
+          triple = None
           for line in raw.splitlines():
-              script_lines.append(line[10:] if line.startswith('          ') else line)
+              if triple is None:
+                  code_line = line[10:] if line.startswith('          ') else line
+                  script_lines.append(code_line)
+                  if code_line.count("'''") % 2 == 1:
+                      triple = "'''"
+                  elif code_line.count('"""') % 2 == 1:
+                      triple = '"""'
+              else:
+                  if line.startswith('          ' + triple) and line.strip() == triple:
+                      script_lines.append(line[10:])
+                      triple = None
+                  else:
+                      script_lines.append(line)
+          if triple is not None:
+              raise SystemExit(f'unclosed reconciliation literal: {triple}')
           script = '\n'.join(script_lines) + '\n'
           script = script.replace('marker = "## Merge gate"', 'marker = "## Final merge gate"')
           exec(compile(script, 'b800-100-reconcile', 'exec'), {'__name__': '__main__'})
