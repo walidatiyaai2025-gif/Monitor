@@ -200,7 +200,7 @@ public sealed class IncidentNoteRequestStateTests
     }
 
     [Fact]
-    public void FileStore_WaitsForCrossInstanceMutationLeaseBeforeClaiming()
+    public async Task FileStore_WaitsForCrossInstanceMutationLeaseBeforeClaiming()
     {
         var directory = Path.Combine(Path.GetTempPath(), $"monitor-note-peer-lock-{Guid.NewGuid():N}");
         Directory.CreateDirectory(directory);
@@ -213,19 +213,22 @@ public sealed class IncidentNoteRequestStateTests
                 FileAccess.ReadWrite,
                 FileShare.None);
             var store = new FileIncidentNoteRequestStateStore(directory);
-            using var started = new ManualResetEventSlim();
+            var started = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             var claim = Task.Run(() =>
             {
-                started.Set();
+                started.TrySetResult(true);
                 return store.TryClaim("incident-lock-test:0123456789ABCDEF01234567");
             });
 
-            Assert.True(started.Wait(TimeSpan.FromSeconds(5)));
-            Assert.False(claim.Wait(TimeSpan.FromMilliseconds(150)));
+            await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            var completedWhileBlocked = await Task.WhenAny(claim, Task.Delay(TimeSpan.FromMilliseconds(150)));
+            Assert.NotSame(claim, completedWhileBlocked);
 
             blocker.Dispose();
             blocker = null;
-            Assert.Equal(IncidentNoteClaimResult.Claimed, claim.GetAwaiter().GetResult());
+            Assert.Equal(
+                IncidentNoteClaimResult.Claimed,
+                await claim.WaitAsync(TimeSpan.FromSeconds(5)));
         }
         finally
         {
