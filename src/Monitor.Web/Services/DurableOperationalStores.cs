@@ -18,6 +18,11 @@ public sealed class OperationalStoreOptions
 
     public void Validate()
     {
+        if (!Enum.IsDefined(Mode))
+        {
+            throw new InvalidOperationException("OperationalStore:Mode is not supported.");
+        }
+
         if (Mode == OperationalStoreMode.File && string.IsNullOrWhiteSpace(RootPath))
         {
             throw new InvalidOperationException("OperationalStore:RootPath is required when file persistence is enabled.");

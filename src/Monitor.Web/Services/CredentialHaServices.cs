@@ -285,7 +285,8 @@ internal sealed class CredentialLifecycleService(
     IServerRegistrationRepository registrations,
     IConnectionSecretStore secrets,
     IServerConnectionTester tester,
-    IAuditStore audit) : ICredentialLifecycleService
+    IAuditStore audit,
+    CredentialPolicyOptions? credentialPolicy = null) : ICredentialLifecycleService
 {
     private const string LocalPrefix = "local:v1:";
 
@@ -386,6 +387,12 @@ internal sealed class CredentialLifecycleService(
         CancellationToken cancellationToken = default)
     {
         actor = NormalizeActor(actor);
+        if (credentialPolicy?.AllowLocalOwnedCredentials != true)
+        {
+            Audit(actor, registrationId, "local-policy-disabled");
+            return new(CredentialReplacementStatus.Failed, "Local protected credential replacement is disabled by deployment policy.");
+        }
+
         var registration = registrations.GetById(registrationId);
         if (registration is null)
         {

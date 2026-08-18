@@ -18,6 +18,11 @@ public sealed class RegistrationStoreOptions
 
     public void Validate()
     {
+        if (!Enum.IsDefined(Mode))
+        {
+            throw new InvalidOperationException("RegistrationStore:Mode is not supported.");
+        }
+
         if (Mode == RegistrationStoreMode.File && string.IsNullOrWhiteSpace(Path))
         {
             throw new InvalidOperationException("RegistrationStore:Path is required when file persistence is enabled.");
