@@ -8,9 +8,10 @@ public sealed class P05MainBranchProtectionTests
     private static readonly string Root = FindRoot();
 
     [Fact]
-    public void MainProtectionHelper_IsExplicitFailClosedAndPinsStableCheckNames()
+    public void MainProtectionHelper_IsExplicitFailClosedAndProviderBindsStableCheckNames()
     {
         var helper = Read("scripts/Set-MainBranchProtection.ps1");
+        var safety = Read("scripts/Test-MainBranchProtectionSafety.ps1");
         var ci = Read(".github/workflows/ci.yml");
         var metadata = Read(".github/workflows/protected-p0-pr-metadata.yml");
         var commits = Read(".github/workflows/protected-p0-pr-commits.yml");
@@ -18,6 +19,7 @@ public sealed class P05MainBranchProtectionTests
         Assert.Contains("name: protected-p0-pr-metadata", metadata, StringComparison.Ordinal);
         Assert.Contains("name: protected-p0-pr-commits", commits, StringComparison.Ordinal);
         Assert.Contains("'scripts/Set-MainBranchProtection.ps1'", ci, StringComparison.Ordinal);
+        Assert.Contains("'scripts/Test-MainBranchProtectionSafety.ps1'", ci, StringComparison.Ordinal);
 
         Assert.Contains("[switch]$AcknowledgeProtection", helper, StringComparison.Ordinal);
         Assert.Contains("walidatiyaai2025-gif/Monitor", helper, StringComparison.Ordinal);
@@ -33,14 +35,25 @@ public sealed class P05MainBranchProtectionTests
         Assert.Contains("MutationPerformed = $false", helper, StringComparison.Ordinal);
         Assert.Contains("MutationPerformed = $true", helper, StringComparison.Ordinal);
 
+        Assert.Contains("pulls?state=closed&base=$Branch", helper, StringComparison.Ordinal);
+        Assert.Contains("merge_commit_sha", helper, StringComparison.Ordinal);
+        Assert.Contains("head.repo.id", helper, StringComparison.Ordinal);
+        Assert.Contains("check-runs?per_page=100", helper, StringComparison.Ordinal);
+        Assert.Contains("completed", helper, StringComparison.Ordinal);
+        Assert.Contains("success", helper, StringComparison.Ordinal);
+        Assert.Contains("provider identity is ambiguous", helper, StringComparison.Ordinal);
+        Assert.Contains("app_id = [int64]$_.AppId", helper, StringComparison.Ordinal);
+        Assert.Contains("checks = $payloadChecks", helper, StringComparison.Ordinal);
+        Assert.DoesNotContain("contexts = $expectedChecks", helper, StringComparison.Ordinal);
+
         Assert.Contains("strict = $true", helper, StringComparison.Ordinal);
         Assert.Contains("enforce_admins = $true", helper, StringComparison.Ordinal);
         Assert.Contains("required_pull_request_reviews = $null", helper, StringComparison.Ordinal);
         Assert.Contains("required_conversation_resolution = $true", helper, StringComparison.Ordinal);
         Assert.Contains("allow_force_pushes = $false", helper, StringComparison.Ordinal);
         Assert.Contains("allow_deletions = $false", helper, StringComparison.Ordinal);
-        Assert.Contains("Test-ProtectionExact -Snapshot $after", helper, StringComparison.Ordinal);
-        Assert.Contains("read-back verification did not match the exact required policy", helper, StringComparison.Ordinal);
+        Assert.Contains("Test-ProtectionExact -Snapshot $after -ExpectedBindings $observedBindings", helper, StringComparison.Ordinal);
+        Assert.Contains("read-back verification did not match the exact required provider-bound policy", helper, StringComparison.Ordinal);
 
         var acknowledgementIndex = helper.IndexOf("if (-not $AcknowledgeProtection)", StringComparison.Ordinal);
         var putIndex = helper.IndexOf("'--method', 'PUT'", StringComparison.Ordinal);
@@ -52,6 +65,14 @@ public sealed class P05MainBranchProtectionTests
         Assert.DoesNotContain("'DELETE'", helper, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("gh issue", helper, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Deploy-ProductionSingleNode", helper, StringComparison.OrdinalIgnoreCase);
+
+        Assert.Contains("ProviderBindingsObserved = 3", safety, StringComparison.Ordinal);
+        Assert.Contains("ProviderBoundPayload = $true", safety, StringComparison.Ordinal);
+        Assert.Contains("EvidenceFailClosedCases = 4", safety, StringComparison.Ordinal);
+        Assert.Contains("missing-check", safety, StringComparison.Ordinal);
+        Assert.Contains("failed-check", safety, StringComparison.Ordinal);
+        Assert.Contains("ambiguous-provider", safety, StringComparison.Ordinal);
+        Assert.Contains("main-head-mismatch", safety, StringComparison.Ordinal);
     }
 
     private static string Read(string relativePath) =>
