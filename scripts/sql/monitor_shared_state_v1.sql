@@ -29,8 +29,11 @@ END;
 
 /*
   Fail closed before stamping schema version 1 when a pre-existing table does
-  not match the core contract consumed by the v1 SQL backend. Keep this core
-  fingerprint aligned with SqlServerSharedStateSqlBackend readiness checks.
+  not match the full data-integrity contract consumed by the v1 SQL backend.
+  Keep this fingerprint aligned with SqlServerSharedStateSqlBackend readiness
+  checks. CHECK definitions are normalized only for incidental delimiters and
+  whitespace; the supported semantics, canonical names, enabled state and
+  trusted state remain mandatory.
 */
 DECLARE @DocumentsObjectId int = OBJECT_ID(N'dbo.MonitorSharedStateDocuments', N'U');
 IF @DocumentsObjectId IS NULL
@@ -111,8 +114,34 @@ IF @DocumentsObjectId IS NULL
                AND columns.name = N'DocumentKey'
          )
    )
+   OR NOT EXISTS
+   (
+       SELECT 1
+       FROM sys.check_constraints AS checks
+       WHERE checks.parent_object_id = @DocumentsObjectId
+         AND checks.name = N'CK_MonitorSharedStateDocuments_Version'
+         AND checks.is_disabled = 0
+         AND checks.is_not_trusted = 0
+         AND LOWER(
+             REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+                 checks.definition,
+                 N'[', N''), N']', N''), N'(', N''), N')', N''), N' ', N''), NCHAR(9), N''), NCHAR(13), N''), NCHAR(10), N'')) = N'version>=1'
+   )
+   OR NOT EXISTS
+   (
+       SELECT 1
+       FROM sys.check_constraints AS checks
+       WHERE checks.parent_object_id = @DocumentsObjectId
+         AND checks.name = N'CK_MonitorSharedStateDocuments_PayloadJson'
+         AND checks.is_disabled = 0
+         AND checks.is_not_trusted = 0
+         AND LOWER(
+             REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+                 checks.definition,
+                 N'[', N''), N']', N''), N'(', N''), N')', N''), N' ', N''), NCHAR(9), N''), NCHAR(13), N''), NCHAR(10), N'')) = N'isjsonpayloadjson=1'
+   )
 BEGIN
-    THROW 51001, 'Monitor shared-state v1 document table differs from the supported core schema. Apply the supported migration path instead of stamping v1.', 1;
+    THROW 51001, 'Monitor shared-state v1 document table differs from the supported integrity schema. Apply the supported migration path instead of stamping v1.', 1;
 END;
 
 IF NOT EXISTS (SELECT 1 FROM dbo.MonitorSharedStateSchema WHERE Id = 1)
