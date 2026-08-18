@@ -38,7 +38,7 @@ public sealed class B800ReportTrancheAcceptanceTests
         var action = controllerType.GetMethod(actionName);
 
         Assert.NotNull(action);
-        Assert.Equal([MonitorPolicies.Read], classPolicies);
+        Assert.Equal(new[] { MonitorPolicies.Read }, classPolicies);
         Assert.Equal(
             expectedTemplate,
             action!.GetCustomAttributes(typeof(HttpGetAttribute), true).Cast<HttpGetAttribute>().Single().Template);
@@ -63,7 +63,7 @@ public sealed class B800ReportTrancheAcceptanceTests
                 template,
                 action!.GetCustomAttributes(typeof(HttpGetAttribute), true).Cast<HttpGetAttribute>().Single().Template);
             Assert.Equal(
-                [MonitorPolicies.Manage],
+                new[] { MonitorPolicies.Manage },
                 action.GetCustomAttributes(typeof(AuthorizeAttribute), true).Cast<AuthorizeAttribute>().Select(attribute => attribute.Policy).ToArray());
         }
     }
