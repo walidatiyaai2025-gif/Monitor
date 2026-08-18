@@ -105,12 +105,12 @@ After the #162 retention prerequisite is satisfied, record these values before c
 
 Selected RC.61 predates the later selected-product-hash, locked-session and clean-commit toolkit-provenance hardening. **RC.61 product/deployment bytes remain unchanged**: do not rebuild or repackage the selected candidate to add newer acceptance controls.
 
-Use the Acceptance Control Toolkit procedure defined in `deploy/RC61_ACCEPTANCE_CONTROL_TOOLKIT.md`. After #261 / PR #262 completes, the authoritative cutover toolkit must come from the **exact final PR #262 head** recorded on #261/#260/#258/#116 after all required exact-head Actions are Green. Do not use `main`, `latest`, a moving branch ref, or an unrecorded later commit as the tooling identity.
+Use the Acceptance Control Toolkit procedure defined in `deploy/RC61_ACCEPTANCE_CONTROL_TOOLKIT.md`. The authoritative cutover toolkit source is the **exact final PR #262 head `b422eaaee53d931a62a43b3c36a53b68cd4f3e27`**, recorded on #261/#260/#258/#116 after Green exact-head Actions. That head passed CI #1786 / run `31992503009` and Windows production-candidate #186 / run `31992502977`. Do not use `main`, `latest`, a moving branch ref, or an unrecorded later commit as the tooling identity.
 
 The approved workstation must start from a clean exact Git checkout and export the toolkit rather than manually copying the six scripts:
 
 ```powershell
-$operatorToolingCommit = '<exact-final-PR-262-head-recorded-on-261-260-258-116>'
+$operatorToolingCommit = 'b422eaaee53d931a62a43b3c36a53b68cd4f3e27'
 $acceptanceTools = "C:\ProgramData\Monitor\AcceptanceTooling\$operatorToolingCommit"
 
 $toolkit = .\scripts\Export-ProductionAcceptanceToolkit.ps1 `
