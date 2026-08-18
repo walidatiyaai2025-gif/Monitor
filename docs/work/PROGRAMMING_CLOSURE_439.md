@@ -13,23 +13,22 @@ The operator metadata stores themselves are already serialized/CAS-safe. The mis
 ## Closure
 
 - Add `CoordinatedIncidentNoteAuditStore` as the production `IAuditStore` wrapper used for incident-note claims.
-- Preserve the existing audit schema and event names; no operational-store migration is introduced.
+- Preserve the existing `monitor:audit:v1` document key, format version, bounded event contract, and event names; no operational-store migration is introduced.
 - Preserve write-ahead semantics: `incident.note.write.request=requested` is still written before the claim and, by itself, remains safely retryable.
-- In SingleNode mode, the singleton audit wrapper serializes the short claim section with an in-process gate.
-- In MultiNode mode, the wrapper acquires a distributed lease whose resource is a SHA-256-derived identifier for the bounded receipt target.
-- After coordination is established, the wrapper re-reads the durable audit state. `applied` returns idempotently, an existing `armed` receipt fails closed as ambiguous, and only an empty receipt state may append the new `armed` receipt.
-- The distributed lease is released immediately after the durable claim. The `armed` receipt—not lease lifetime—is the safety boundary before `IOperatorMetadataStore.AddIncidentNote` executes.
-- If MultiNode exclusivity cannot be established, the request fails closed instead of writing a note without a claim.
-- Lease-release shared-state outages do not erase a successful durable claim; the lease can expire naturally while the `armed` receipt prevents a competing mutation.
+- In SingleNode in-memory/file modes, the singleton audit wrapper serializes the short claim section with an in-process gate.
+- When shared operational state is enabled, `applied/armed` evaluation and insertion of the new `armed` event execute inside one `SharedStateDocumentMutation.Mutate` compare/exchange loop on the shared audit document.
+- Every CAS retry re-deserializes the latest audit state before deciding whether the request can be armed. `applied` returns idempotently, an existing `armed` receipt fails closed as ambiguous, and only an empty receipt state may append the new `armed` receipt.
+- The durable `armed` audit receipt is the safety boundary before `IOperatorMetadataStore.AddIncidentNote` executes; no lease lifetime or cross-node clock comparison participates in correctness.
+- Shared-state unavailability or repeated CAS contention fails closed before the note mutation.
 
 ## Deterministic regression coverage
 
-`IncidentNoteMultiNodeIdempotencyTests` creates two independent collaboration-service instances representing `node-a` and `node-b`. Both use:
+`IncidentNoteMultiNodeIdempotencyTests` creates two independent collaboration-service instances representing separate application nodes. Both use:
 
 - separate `SharedAuditStore` / `SharedOperatorMetadataStore` instances;
 - one shared CAS document store;
-- separate `SharedStateDistributedLeaseManager` instances with different node identities;
-- a two-party preflight barrier that forces both requests to observe the pre-claim state before they compete for ownership.
+- separate `CoordinatedIncidentNoteAuditStore` instances configured for shared operational state;
+- a two-party preflight barrier that forces both requests to observe the pre-claim state before they compete for the same shared-audit CAS transition.
 
 For the same incident and request key, the regression requires exactly one successful add, exactly one persisted note, exactly one durable `armed` receipt, and exactly one final `applied` receipt. The losing request may resolve as already-applied or ambiguous, but it must never write a second note.
 
