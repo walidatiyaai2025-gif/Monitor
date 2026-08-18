@@ -57,6 +57,21 @@ public sealed class B800ConnectionLabWorkflowTests
     }
 
     [Fact]
+    public void MissingCredentialPolicy_DoesNotEnableLocalCredentialEntry()
+    {
+        var controller = Read("src/Monitor.Web/Controllers/ConnectionLabController.cs");
+
+        Assert.Contains(
+            "credentialPolicy?.AllowLocalOwnedCredentials == true",
+            controller,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "credentialPolicy?.AllowLocalOwnedCredentials ?? true",
+            controller,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void RegistrationFailure_ClearsPasswordAndDoesNotRenderExistingSecretValues()
     {
         var controller = Read("src/Monitor.Web/Controllers/ConnectionLabController.cs");
