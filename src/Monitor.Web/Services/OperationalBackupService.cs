@@ -478,6 +478,8 @@ internal sealed class OperationalBackupService : IOperationalBackupService
 
 internal sealed class OperationalRestoreWriter : IOperationalRestoreWriter
 {
+    private const int DefaultRegistrationRollbackSnapshotBytes = 16 * 1024 * 1024;
+    private const int DefaultOperationalRollbackSnapshotBytes = 128 * 1024 * 1024;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { WriteIndented = true };
     private readonly RegistrationStoreOptions _registrationOptions;
     private readonly OperationalStoreOptions _operationalOptions;
@@ -486,6 +488,8 @@ internal sealed class OperationalRestoreWriter : IOperationalRestoreWriter
     private readonly IServerRegistrationRepository _currentRegistrations;
     private readonly string _contentRoot;
     private readonly string? _webRoot;
+    private readonly int _registrationRollbackSnapshotBytes;
+    private readonly int _operationalRollbackSnapshotBytes;
 
     public OperationalRestoreWriter(
         RegistrationStoreOptions registrationOptions,
@@ -494,8 +498,12 @@ internal sealed class OperationalRestoreWriter : IOperationalRestoreWriter
         ISharedStateDocumentStore sharedState,
         IServerRegistrationRepository currentRegistrations,
         string contentRoot,
-        string? webRoot)
+        string? webRoot,
+        int registrationRollbackSnapshotBytes = DefaultRegistrationRollbackSnapshotBytes,
+        int operationalRollbackSnapshotBytes = DefaultOperationalRollbackSnapshotBytes)
     {
+        ValidateRollbackSnapshotBound(registrationRollbackSnapshotBytes, nameof(registrationRollbackSnapshotBytes));
+        ValidateRollbackSnapshotBound(operationalRollbackSnapshotBytes, nameof(operationalRollbackSnapshotBytes));
         _registrationOptions = registrationOptions;
         _operationalOptions = operationalOptions;
         _haState = haState;
@@ -503,6 +511,8 @@ internal sealed class OperationalRestoreWriter : IOperationalRestoreWriter
         _currentRegistrations = currentRegistrations;
         _contentRoot = contentRoot;
         _webRoot = webRoot;
+        _registrationRollbackSnapshotBytes = registrationRollbackSnapshotBytes;
+        _operationalRollbackSnapshotBytes = operationalRollbackSnapshotBytes;
     }
 
     public bool IsSupported =>
@@ -544,7 +554,7 @@ internal sealed class OperationalRestoreWriter : IOperationalRestoreWriter
         if (_haState.UseSharedRegistrations)
             operations.Add(Shared("monitor:registrations:v1", registrationsPayload, JsonSerializer.Serialize(new { version = 1, registrations = Array.Empty<BackupRegistration>() }, JsonOptions)));
         else
-            operations.Add(Local(ResolveRegistrationPath(), registrationsPayload));
+            operations.Add(Local(ResolveRegistrationPath(), registrationsPayload, _registrationRollbackSnapshotBytes));
 
         var auditPayload = JsonSerializer.Serialize(new { version = 1, events = bundle.Audit }, JsonOptions);
         var incidentsPayload = JsonSerializer.Serialize(new { version = 1, incidents = bundle.Incidents }, JsonOptions);
@@ -564,17 +574,17 @@ internal sealed class OperationalRestoreWriter : IOperationalRestoreWriter
         else
         {
             var root = ResolveOperationalRoot();
-            operations.Add(Local(Path.Combine(root, "audit.json"), auditPayload));
-            operations.Add(Local(Path.Combine(root, "incidents.json"), incidentsPayload));
-            operations.Add(Local(Path.Combine(root, "history.json"), JsonSerializer.Serialize(new { version = 1, points = bundle.History }, JsonOptions)));
+            operations.Add(Local(Path.Combine(root, "audit.json"), auditPayload, _operationalRollbackSnapshotBytes));
+            operations.Add(Local(Path.Combine(root, "incidents.json"), incidentsPayload, _operationalRollbackSnapshotBytes));
+            operations.Add(Local(Path.Combine(root, "history.json"), JsonSerializer.Serialize(new { version = 1, points = bundle.History }, JsonOptions), _operationalRollbackSnapshotBytes));
         }
         return operations;
     }
 
-    private RestoreOperation Local(string path, string payload) => new(async cancellationToken =>
+    private RestoreOperation Local(string path, string payload, int maxPreviousBytes) => new(async cancellationToken =>
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var previous = File.Exists(path) ? await File.ReadAllTextAsync(path, cancellationToken) : null;
+        var previous = await ReadRollbackSnapshotAsync(path, maxPreviousBytes, cancellationToken);
         WriteAtomicText(path, payload);
         return new AppliedOperation(async _ =>
         {
@@ -586,6 +596,31 @@ internal sealed class OperationalRestoreWriter : IOperationalRestoreWriter
             await Task.CompletedTask;
         });
     });
+
+    private static async Task<string?> ReadRollbackSnapshotAsync(string path, int maxBytes, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await using var stream = new FileStream(
+                path,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read,
+                16 * 1024,
+                FileOptions.Asynchronous | FileOptions.SequentialScan);
+            if (stream.Length > maxBytes)
+            {
+                throw new InvalidDataException("Existing restore target exceeds its bounded file size.");
+            }
+
+            using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 16 * 1024, leaveOpen: true);
+            return await reader.ReadToEndAsync(cancellationToken);
+        }
+        catch (Exception exception) when (exception is FileNotFoundException or DirectoryNotFoundException)
+        {
+            return null;
+        }
+    }
 
     private RestoreOperation Shared(string key, string payload, string emptyPayload) => new(async cancellationToken =>
     {
@@ -617,6 +652,14 @@ internal sealed class OperationalRestoreWriter : IOperationalRestoreWriter
         var relative = Path.GetRelativePath(webRoot, path);
         if (relative == "." || (!relative.StartsWith($"..{Path.DirectorySeparatorChar}", StringComparison.Ordinal) && relative != ".." && !Path.IsPathRooted(relative)))
             throw new InvalidOperationException("Restore target must be outside wwwroot.");
+    }
+
+    private static void ValidateRollbackSnapshotBound(int value, string parameterName)
+    {
+        if (value < 1024)
+        {
+            throw new ArgumentOutOfRangeException(parameterName, "Restore rollback snapshot bound must be at least 1024 bytes.");
+        }
     }
 
     private static void WriteAtomicText(string path, string payload)
