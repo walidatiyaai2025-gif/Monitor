@@ -19,7 +19,7 @@ public sealed class IncidentCollaborationController(
     {
         var incident = incidents.GetById(id);
         if (incident is null) return NotFound();
-        var actor = Actor();
+        if (!TryActor(out var actor)) return Forbid();
         try
         {
             _ = EnterpriseOperatorValidation.NormalizeNote(resolutionNote);
@@ -43,7 +43,7 @@ public sealed class IncidentCollaborationController(
     {
         var incident = incidents.GetById(id);
         if (incident is null) return NotFound();
-        var actor = Actor();
+        if (!TryActor(out var actor)) return Forbid();
         try
         {
             _ = EnterpriseOperatorValidation.NormalizeNote(reopenReason);
@@ -62,9 +62,16 @@ public sealed class IncidentCollaborationController(
 
     private IIncidentCollaborationService Collaboration() => new IncidentCollaborationService(metadata, audit, timeProvider);
 
-    private string Actor()
+    private bool TryActor(out string actor)
     {
-        var actor = User.Identity?.Name;
-        return string.IsNullOrWhiteSpace(actor) ? "unknown" : EnterpriseOperatorValidation.NormalizeActor(actor);
+        var identityName = User.Identity?.Name;
+        if (string.IsNullOrWhiteSpace(identityName))
+        {
+            actor = string.Empty;
+            return false;
+        }
+
+        actor = EnterpriseOperatorValidation.NormalizeActor(identityName);
+        return true;
     }
 }
