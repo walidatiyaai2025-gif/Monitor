@@ -8,6 +8,8 @@ public sealed class P05Rc61PromotionOperatorHelperTests
     private const string HelperPath = "scripts/Invoke-Rc61DurablePromotion.ps1";
     private const string SafetyPath = "scripts/Test-Rc61DurablePromotionOperatorSafety.ps1";
     private const string HandoffPath = "deploy/RC61_PROMOTION_OPERATOR.md";
+    private const string ShortCanonicalHandoffPath = "deploy/RC61_DURABLE_PROMOTION.md";
+    private const string ExpandedCanonicalHandoffPath = "docs/P05_EXISTING_CANDIDATE_PROMOTION.md";
 
     [Fact]
     public void Helper_RunsLockedPreflightBeforeAnyDispatchAndPinsSelectedRc61()
@@ -123,6 +125,29 @@ public sealed class P05Rc61PromotionOperatorHelperTests
         Assert.Contains("does not dispatch the independent verifier", handoff, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("do not redispatch", handoff, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("does not authorize IIS or SQL mutation", handoff, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void CanonicalPromotionHandoffs_PreferHelperAndKeepRawInputsAsReferenceOnly()
+    {
+        foreach (var path in new[] { ShortCanonicalHandoffPath, ExpandedCanonicalHandoffPath })
+        {
+            var handoff = Read(path);
+
+            Assert.Contains("Invoke-Rc61DurablePromotion.ps1", handoff, StringComparison.Ordinal);
+            Assert.Contains("-AcknowledgePromotion", handoff, StringComparison.Ordinal);
+            Assert.Contains("READY_FOR_EXPLICIT_PROMOTION_ACKNOWLEDGEMENT", handoff, StringComparison.Ordinal);
+            Assert.Contains("PROMOTION_SUCCEEDED_INDEPENDENT_VERIFICATION_REQUIRED", handoff, StringComparison.Ordinal);
+            Assert.Contains("IndependentVerificationCommand", handoff, StringComparison.Ordinal);
+            Assert.Contains("Test-Rc61CutoverReadiness.ps1", handoff, StringComparison.Ordinal);
+            Assert.Contains("-PromotionRunId", handoff, StringComparison.Ordinal);
+            Assert.Contains("-VerificationRunId", handoff, StringComparison.Ordinal);
+            Assert.Contains("audit/troubleshooting", handoff, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("do not redispatch", handoff, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("0.1.0-rc.61", handoff, StringComparison.Ordinal);
+            Assert.Contains("d0a71f8a5611621ee388a1109dedc76e1a6e70357404cb62c9c7aa188f49c3d5", handoff, StringComparison.Ordinal);
+            Assert.Contains("158148d8bfd05f724014541bc7a0b1eab5dae1b5", handoff, StringComparison.Ordinal);
+        }
     }
 
     private static string Read(string relativePath) =>
