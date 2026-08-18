@@ -28,9 +28,11 @@ SQL Server 2022 acceptance proves canonical `Ready`, then fail-closed readiness 
 
 A separate installer fixture creates a pre-existing metadata table with the three queryable columns but no PK/CHECK/default. Running the repository installer must fail with error `51002`, preserve the pre-existing row/table as-is, and leave `dbo.MonitorSharedStateDocuments` absent, proving validation happens before provisioning and without auto-repair.
 
+The first exact-head Real SQL run also exposed two older SharedState fixtures that hand-built a semantically equivalent metadata table while leaving the primary-key and InstalledAtUtc default constraints system-named. Because canonical constraint names are now deliberately part of the v1 fingerprint, those fixtures correctly became `Unavailable`. The fixtures were corrected—not the production fingerprint—by naming `PK_MonitorSharedStateSchema` and `DF_MonitorSharedStateSchema_InstalledAtUtc` exactly as the canonical installer does. The resulting diff in each legacy Real SQL file is only two additions/two deletions, preserving all existing test behavior while making the fixture truthful to schema v1.
+
 ## Workflow-selected gates
 
-Changed paths include `src/Monitor.Web/Services/SharedStateStore.cs`, schema-v1 SQL, a `Category=RealSql` regression, and this ledger. Exact-head DoD requires CI, Real SQL acceptance, Windows production-candidate, protected-P0 commit guard, and protected-P0 metadata guard.
+Changed paths include `src/Monitor.Web/Services/SharedStateStore.cs`, schema-v1 SQL, Real SQL regressions/fixture corrections, and this ledger. Exact-head DoD requires CI, Real SQL acceptance, Windows production-candidate, protected-P0 commit guard, and protected-P0 metadata guard. Any Green result from the pre-fixture-correction head is superseded.
 
 ## Safety boundary
 
