@@ -364,7 +364,7 @@ The validator fails on missing/false/unknown gates, malformed candidate/environm
 
 Repository CI proves validator mechanics only; real operations must still be performed on the intended Windows/IIS host.
 
-## mandatory restart/recycle acceptance
+## Mandatory restart/recycle acceptance
 
 After the first Green trusted-HTTPS smoke:
 
