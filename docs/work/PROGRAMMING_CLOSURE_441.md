@@ -12,7 +12,7 @@ The failure is cross-node relevant because shared operational state can update t
 
 ## Closure
 
-- Introduce one `GovernanceRetentionPolicy.ShouldPruneIncident` predicate for incident-retention eligibility.
+- Introduce one domain-level `IncidentRetentionPolicy.ShouldPruneOperatorMetadata` predicate for incident-retention eligibility.
 - Use that predicate in `GovernanceRetentionService.DryRun`, so candidate selection retains the existing orphan-or-old-resolved semantics.
 - Make `GovernanceRetentionService.IsIncidentPruned` state-aware: a receipt is effective only while the current incident still satisfies the retention predicate.
 - Make `IncidentCollaborationService.QueryByAssignee` evaluate the same predicate against the current incident before honoring a prune receipt.
