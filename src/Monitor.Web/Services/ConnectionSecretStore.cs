@@ -11,7 +11,8 @@ internal interface IConnectionSecretStore
         CancellationToken cancellationToken = default);
     ValueTask StoreAsync(ConnectionSecretReference reference, SqlLoginSecret secret, CancellationToken cancellationToken = default) =>
         ValueTask.FromException(new NotSupportedException("The secret store is read-only."));
-    ValueTask DeleteAsync(ConnectionSecretReference reference, CancellationToken cancellationToken = default) => ValueTask.CompletedTask;
+    ValueTask DeleteAsync(ConnectionSecretReference reference, CancellationToken cancellationToken = default) =>
+        ValueTask.FromException(new NotSupportedException("The secret store does not support deletion."));
 }
 
 internal interface IExternalConnectionSecretProvider
@@ -25,7 +26,8 @@ internal interface IExternalConnectionSecretProvider
 public interface IRuntimeCredentialWriter
 {
     ValueTask<ConnectionSecretReference> StoreAsync(string username, string password, CancellationToken cancellationToken = default);
-    ValueTask DeleteAsync(ConnectionSecretReference reference, CancellationToken cancellationToken = default) => ValueTask.CompletedTask;
+    ValueTask DeleteAsync(ConnectionSecretReference reference, CancellationToken cancellationToken = default) =>
+        ValueTask.FromException(new NotSupportedException("The credential writer does not support deletion."));
 }
 
 internal sealed class EnvironmentConnectionSecretProvider : IExternalConnectionSecretProvider
