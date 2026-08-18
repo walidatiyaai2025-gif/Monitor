@@ -64,7 +64,7 @@ public sealed class EnterpriseOperationsController : Controller
         _diagnostics = diagnostics;
         _audit = audit;
         _timeProvider = timeProvider;
-        _pruneState = pruneState ?? GovernancePruneStateMigration.CreateTransient(audit, operatorMetadata);
+        _pruneState = pruneState ?? new LazyLegacyGovernancePruneStateStore(audit, operatorMetadata);
     }
 
     [HttpGet("/enterprise")]
