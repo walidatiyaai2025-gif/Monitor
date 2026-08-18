@@ -14,15 +14,24 @@ public interface IServerTargetLifecycleService
 internal sealed class ServerTargetLifecycleService(
     IServerRegistrationRepository registrations,
     IServerHealthSnapshotCache cache,
+    ServerRegistrationMutationGate mutationGate,
     IAuditStore audit) : IServerTargetLifecycleService
 {
-    private readonly object _gate = new();
+    internal ServerTargetLifecycleService(
+        IServerRegistrationRepository registrations,
+        IServerHealthSnapshotCache cache,
+        IAuditStore audit)
+        : this(registrations, cache, new ServerRegistrationMutationGate(), audit)
+    {
+    }
 
     public ServerTargetLifecycleResult SetEnabled(Guid registrationId, bool enabled, string actor)
     {
         if (string.IsNullOrWhiteSpace(actor)) throw new ArgumentException("Actor is required.", nameof(actor));
         actor = actor.Trim();
-        lock (_gate)
+
+        mutationGate.Wait();
+        try
         {
             var current = registrations.GetById(registrationId);
             if (current is null) return new(ServerTargetLifecycleStatus.NotFound, "Server registration was not found.");
@@ -41,6 +50,10 @@ internal sealed class ServerTargetLifecycleService(
                 enabled
                     ? "Monitoring enabled. Test the connection before collecting a new snapshot."
                     : "Monitoring paused. Metadata and history are retained.");
+        }
+        finally
+        {
+            mutationGate.Release();
         }
     }
 }

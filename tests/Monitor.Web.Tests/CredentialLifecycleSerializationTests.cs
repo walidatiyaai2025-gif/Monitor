@@ -101,6 +101,69 @@ public sealed class CredentialLifecycleSerializationTests
         Assert.True(secrets.ContainsOwned(registrations.GetById(registration.Id)!.SecretReference!.Value));
     }
 
+    [Fact]
+    public async Task TargetDisable_WaitsForReplacementAndPreservesCommittedCredentialReference()
+    {
+        var registrations = new InMemoryServerRegistrationRepository();
+        var oldReference = new ConnectionSecretReference("local:v1:old");
+        var registration = Registration(oldReference);
+        registrations.Upsert(registration);
+
+        var secrets = new ControlledSecretStore();
+        secrets.AddOwned(oldReference, new SqlLoginSecret("old-user", "old-password"));
+        var tester = new BlockingTester();
+        var audit = new InMemoryAuditStore(TimeProvider.System);
+        var inner = new CredentialLifecycleService(
+            registrations,
+            secrets,
+            tester,
+            audit,
+            new CredentialPolicyOptions { AllowLocalOwnedCredentials = true });
+        var mutationGate = new ServerRegistrationMutationGate();
+        ICredentialLifecycleService credentials = new WriteAheadAuditedCredentialLifecycleService(
+            inner,
+            mutationGate,
+            audit);
+        var targets = new ServerTargetLifecycleService(
+            registrations,
+            new FakeCache(),
+            mutationGate,
+            audit);
+
+        var replacementTask = credentials.ReplaceWithLocalCredentialAsync(
+            registration.Id,
+            "new-user",
+            "new-password",
+            "Admin");
+        await tester.Started;
+        var candidateReference = tester.LastRegistration!.SecretReference!.Value;
+
+        var targetStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var disableTask = Task.Run(() =>
+        {
+            targetStarted.TrySetResult(true);
+            return targets.SetEnabled(registration.Id, false, "Admin");
+        });
+        await targetStarted.Task;
+        await Task.Delay(50);
+
+        Assert.False(disableTask.IsCompleted);
+        Assert.True(secrets.ContainsOwned(candidateReference));
+        Assert.True(registrations.GetById(registration.Id)!.IsEnabled);
+
+        tester.Release();
+        var replacement = await replacementTask;
+        var disabled = await disableTask;
+        var updated = registrations.GetById(registration.Id)!;
+
+        Assert.True(replacement.Applied);
+        Assert.Equal(ServerTargetLifecycleStatus.Disabled, disabled.Status);
+        Assert.False(updated.IsEnabled);
+        Assert.Equal(candidateReference, updated.SecretReference!.Value);
+        Assert.True(secrets.ContainsOwned(candidateReference));
+        Assert.False(secrets.ContainsOwned(oldReference));
+    }
+
     private static ServerRegistration Registration(ConnectionSecretReference reference) =>
         new(
             Guid.NewGuid(),
@@ -169,5 +232,22 @@ public sealed class CredentialLifecycleSerializationTests
             cancellationToken.ThrowIfCancellationRequested();
             return ValueTask.FromResult(owned.TryGetValue(reference.Value, out var secret) ? secret : null);
         }
+    }
+
+    private sealed class FakeCache : IServerHealthSnapshotCache
+    {
+        public void Evict(Guid registrationId)
+        {
+        }
+
+        public Task<SnapshotCacheResult> GetAsync(
+            ServerRegistration registration,
+            CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task<SnapshotCacheResult> RefreshAsync(
+            ServerRegistration registration,
+            CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
     }
 }

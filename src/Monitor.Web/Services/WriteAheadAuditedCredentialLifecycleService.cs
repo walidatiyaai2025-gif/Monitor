@@ -2,9 +2,15 @@ namespace Monitor.Web.Services;
 
 internal sealed class WriteAheadAuditedCredentialLifecycleService(
     CredentialLifecycleService inner,
+    ServerRegistrationMutationGate mutationGate,
     IAuditStore audit) : ICredentialLifecycleService
 {
-    private readonly SemaphoreSlim mutationGate = new(1, 1);
+    internal WriteAheadAuditedCredentialLifecycleService(
+        CredentialLifecycleService inner,
+        IAuditStore audit)
+        : this(inner, new ServerRegistrationMutationGate(), audit)
+    {
+    }
 
     public async Task<CredentialReplacementResult> ReplaceWithLocalCredentialAsync(
         Guid registrationId,

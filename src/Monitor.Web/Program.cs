@@ -97,6 +97,7 @@ builder.Services.AddSingleton<IServerRegistrationRepository>(provider =>
     }
     return registrationStoreOptions.Mode == RegistrationStoreMode.InMemory ? new InMemoryServerRegistrationRepository() : new FileServerRegistrationRepository(ResolveRegistrationStorePath());
 });
+builder.Services.AddSingleton<ServerRegistrationMutationGate>();
 
 var operationalStoreOptions = builder.Configuration.GetSection(OperationalStoreOptions.SectionName).Get<OperationalStoreOptions>() ?? new();
 operationalStoreOptions.Validate();
@@ -160,9 +161,14 @@ builder.Services.AddSingleton<IServerConnectionTester, ServerConnectionTester>()
 builder.Services.AddSingleton<CredentialLifecycleService>();
 builder.Services.AddSingleton<ICredentialLifecycleService>(provider => new WriteAheadAuditedCredentialLifecycleService(
     provider.GetRequiredService<CredentialLifecycleService>(),
+    provider.GetRequiredService<ServerRegistrationMutationGate>(),
     provider.GetRequiredService<IAuditStore>()));
 builder.Services.AddSingleton<ICredentialReadinessService, CredentialReadinessService>();
-builder.Services.AddSingleton<IServerTargetLifecycleService, ServerTargetLifecycleService>();
+builder.Services.AddSingleton<IServerTargetLifecycleService>(provider => new ServerTargetLifecycleService(
+    provider.GetRequiredService<IServerRegistrationRepository>(),
+    provider.GetRequiredService<IServerHealthSnapshotCache>(),
+    provider.GetRequiredService<ServerRegistrationMutationGate>(),
+    provider.GetRequiredService<IAuditStore>()));
 builder.Services.AddSingleton<ISqlSnapshotQuery, GovernedSqlSnapshotQuery>();
 builder.Services.AddSingleton<SqlServerSnapshotCollector>();
 builder.Services.AddSingleton<ISqlServerSnapshotCollector>(provider => new TelemetrySqlServerSnapshotCollector(
