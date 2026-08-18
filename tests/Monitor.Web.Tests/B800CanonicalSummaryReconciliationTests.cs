@@ -7,7 +7,7 @@ public sealed class B800CanonicalSummaryReconciliationTests
     private static readonly string Root = FindRoot();
 
     [Fact]
-    public void CanonicalSummaries_RecordCurrentCloseoutState()
+    public void CanonicalSummaries_RetainHistoricalEvidenceThroughFinalCloseout()
     {
         var status = Read("docs/STATUS.md");
         var catalog = Read("docs/FEATURE_CATALOG.md");
@@ -17,8 +17,11 @@ public sealed class B800CanonicalSummaryReconciliationTests
         {
             Assert.Contains("B800-097", source, StringComparison.Ordinal);
             Assert.Contains("581980ef11d201747c23ed1df808edb494b597ae", source, StringComparison.Ordinal);
-            Assert.Contains("B800-098..100", source, StringComparison.Ordinal);
+            Assert.Contains("B800-098", source, StringComparison.Ordinal);
+            Assert.Contains("B800-100", source, StringComparison.Ordinal);
             Assert.Contains("#287", source, StringComparison.Ordinal);
+            Assert.DoesNotContain("B800-098..100", source, StringComparison.Ordinal);
+            Assert.DoesNotContain("B800-099..100", source, StringComparison.Ordinal);
         }
     }
 
