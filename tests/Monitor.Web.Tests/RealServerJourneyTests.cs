@@ -1,4 +1,7 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Monitor.Web.Controllers;
 using Monitor.Web.Models;
 using Monitor.Web.Services;
@@ -16,7 +19,7 @@ public sealed class RealServerJourneyTests
         var cache = new FakeCache();
         var observer = new FakeObserver();
         var tester = new RecordingTester(repository, succeed: true);
-        var controller = new ConnectionLabController(
+        var controller = CreateController(
             repository, tester, writer, cache, observer,
             credentialPolicy: LocalCredentialPolicy());
         var input = SqlInput();
@@ -36,13 +39,89 @@ public sealed class RealServerJourneyTests
     }
 
     [Fact]
+    public async Task MissingActor_RegisterFailsClosedBeforeCredentialTestCommitOrCollection()
+    {
+        var repository = new InMemoryServerRegistrationRepository();
+        var writer = new FakeCredentialWriter();
+        var cache = new FakeCache();
+        var observer = new FakeObserver();
+        var tester = new RecordingTester(repository, succeed: true);
+        var audit = new InMemoryAuditStore(TimeProvider.System);
+        var controller = CreateController(
+            repository, tester, writer, cache, observer,
+            audit: audit,
+            actor: null,
+            credentialPolicy: LocalCredentialPolicy());
+
+        var action = await controller.Register(SqlInput(), default);
+
+        Assert.IsType<ForbidResult>(action);
+        Assert.Equal(0, writer.CallCount);
+        Assert.Equal(-1, tester.RegistrationCountObservedDuringTest);
+        Assert.Equal(0, cache.RefreshCount);
+        Assert.Equal(0, observer.CallCount);
+        Assert.Empty(repository.GetAll());
+        Assert.Empty(audit.Read(0, 100));
+    }
+
+    [Fact]
+    public async Task MissingActor_TestFailsClosedBeforeConnectionProbe()
+    {
+        var repository = new InMemoryServerRegistrationRepository();
+        var registration = Registration(Guid.NewGuid(), "SQL One");
+        repository.Upsert(registration);
+        var tester = new RecordingTester(repository, succeed: true);
+        var audit = new InMemoryAuditStore(TimeProvider.System);
+        var controller = CreateController(
+            repository, tester, new FakeCredentialWriter(), new FakeCache(), new FakeObserver(),
+            audit: audit,
+            actor: null);
+
+        var action = await controller.Test(registration.Id, default);
+
+        Assert.IsType<ForbidResult>(action);
+        Assert.Equal(-1, tester.RegistrationCountObservedDuringTest);
+        Assert.Empty(audit.Read(0, 100));
+    }
+
+    [Fact]
+    public async Task RegisterSuccess_AuditsAttributedRequestedAndConnectedWithoutSecretMaterial()
+    {
+        var repository = new InMemoryServerRegistrationRepository();
+        var audit = new InMemoryAuditStore(TimeProvider.System);
+        var controller = CreateController(
+            repository,
+            new RecordingTester(repository, succeed: true),
+            new FakeCredentialWriter(),
+            new FakeCache(),
+            new FakeObserver(),
+            audit: audit,
+            actor: " DBA Operator ",
+            credentialPolicy: LocalCredentialPolicy());
+
+        var action = await controller.Register(SqlInput(), default);
+
+        Assert.IsType<RedirectToActionResult>(action);
+        var events = audit.Read(0, 100).OrderBy(item => item.OccurredAtUtc).ToArray();
+        Assert.Equal(2, events.Length);
+        Assert.All(events, item => Assert.Equal("DBA Operator", item.Actor));
+        Assert.All(events, item => Assert.Equal("server.registration", item.Action));
+        Assert.Equal("requested", events[0].Outcome);
+        Assert.Equal("connected", events[1].Outcome);
+        var serialized = System.Text.Json.JsonSerializer.Serialize(events);
+        Assert.DoesNotContain("monitor_reader", serialized, StringComparison.Ordinal);
+        Assert.DoesNotContain("canary-password", serialized, StringComparison.Ordinal);
+        Assert.DoesNotContain("sql.internal", serialized, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task FailedInitialTest_DoesNotPersistCollectOrEchoPassword_AndDeletesCandidateCredential()
     {
         var repository = new InMemoryServerRegistrationRepository();
         var writer = new FakeCredentialWriter();
         var cache = new FakeCache();
         var tester = new RecordingTester(repository, succeed: false);
-        var controller = new ConnectionLabController(
+        var controller = CreateController(
             repository, tester, writer, cache, new FakeObserver(),
             credentialPolicy: LocalCredentialPolicy());
         var input = SqlInput();
@@ -64,7 +143,7 @@ public sealed class RealServerJourneyTests
         var repository = new InMemoryServerRegistrationRepository();
         var writer = new FakeCredentialWriter();
         var cache = new FakeCache();
-        var controller = new ConnectionLabController(
+        var controller = CreateController(
             repository, new CancelledTester(), writer, cache, new FakeObserver(),
             credentialPolicy: LocalCredentialPolicy());
         var input = SqlInput();
@@ -84,7 +163,7 @@ public sealed class RealServerJourneyTests
         var repository = new InMemoryServerRegistrationRepository();
         var writer = new FakeCredentialWriter();
         var cache = new FakeCache();
-        var controller = new ConnectionLabController(repository, new FailedTester(), writer, cache, new FakeObserver());
+        var controller = CreateController(repository, new FailedTester(), writer, cache, new FakeObserver());
         var input = SqlInput();
         input.SqlUsername = null;
         input.SqlPassword = null;
@@ -106,7 +185,7 @@ public sealed class RealServerJourneyTests
         var writer = new FakeCredentialWriter();
         var cache = new FakeCache();
         var tester = new RecordingTester(repository, succeed: true);
-        var controller = new ConnectionLabController(repository, tester, writer, cache, new FakeObserver());
+        var controller = CreateController(repository, tester, writer, cache, new FakeObserver());
         var input = IntegratedInput();
 
         var action = await controller.Register(input, default);
@@ -140,6 +219,33 @@ public sealed class RealServerJourneyTests
         Assert.Equal(2, dashboard.Servers.Count);
     }
 
+    private static ConnectionLabController CreateController(
+        IServerRegistrationRepository repository,
+        IServerConnectionTester tester,
+        IRuntimeCredentialWriter writer,
+        IServerHealthSnapshotCache cache,
+        ISnapshotObserver observer,
+        IAuditStore? audit = null,
+        string? actor = "administrator",
+        CredentialPolicyOptions? credentialPolicy = null)
+    {
+        audit ??= new InMemoryAuditStore(TimeProvider.System);
+        var httpContext = new DefaultHttpContext
+        {
+            User = new ClaimsPrincipal(actor is null
+                ? new ClaimsIdentity(Array.Empty<Claim>(), "Test")
+                : new ClaimsIdentity([new Claim(ClaimTypes.Name, actor)], "Test"))
+        };
+        var controller = new ConnectionLabController(
+            repository, tester, writer, cache, observer, audit,
+            credentialPolicy: credentialPolicy)
+        {
+            ControllerContext = new ControllerContext { HttpContext = httpContext },
+            TempData = new TempDataDictionary(httpContext, new TestTempDataProvider())
+        };
+        return controller;
+    }
+
     private static CredentialPolicyOptions LocalCredentialPolicy() => new()
     {
         AllowLocalOwnedCredentials = true
@@ -161,6 +267,12 @@ public sealed class RealServerJourneyTests
     private static ServerRegistration Registration(Guid id, string name) => new(
         id, name, new SqlServerEndpoint($"{name.Replace(" ", "").ToLowerInvariant()}.internal"),
         SqlAuthenticationMode.IntegratedSecurity, null, true, DateTimeOffset.UtcNow);
+
+    private sealed class TestTempDataProvider : ITempDataProvider
+    {
+        public IDictionary<string, object> LoadTempData(HttpContext context) => new Dictionary<string, object>();
+        public void SaveTempData(HttpContext context, IDictionary<string, object> values) { }
+    }
 
     private sealed class FakeCredentialWriter : IRuntimeCredentialWriter
     {

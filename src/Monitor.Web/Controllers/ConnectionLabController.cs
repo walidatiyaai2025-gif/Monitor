@@ -12,6 +12,7 @@ public sealed class ConnectionLabController(
     IRuntimeCredentialWriter credentialWriter,
     IServerHealthSnapshotCache cache,
     ISnapshotObserver observer,
+    IAuditStore audit,
     ICredentialLifecycleService? credentialLifecycle = null,
     ICredentialReadinessService? credentialReadiness = null,
     CredentialPolicyOptions? credentialPolicy = null,
@@ -26,6 +27,8 @@ public sealed class ConnectionLabController(
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Register(ConnectionLabRegistrationInput input, CancellationToken cancellationToken)
     {
+        if (!TryActor(out var actor)) return Forbid();
+
         Normalize(input);
         ValidateInput(input);
 
@@ -35,6 +38,7 @@ public sealed class ConnectionLabController(
             return View("Index", BuildPage(input));
         }
 
+        string? auditTarget = null;
         try
         {
             var endpoint = new SqlServerEndpoint(
@@ -50,6 +54,10 @@ public sealed class ConnectionLabController(
                 input.SqlPassword = null;
                 return View("Index", BuildPage(input));
             }
+
+            var registrationId = Guid.NewGuid();
+            auditTarget = registrationId.ToString("D");
+            audit.Append(actor, "server.registration", auditTarget, "requested");
 
             ConnectionSecretReference? secretReference = null;
             var createdCandidateCredential = false;
@@ -67,7 +75,7 @@ public sealed class ConnectionLabController(
             }
 
             var registration = new ServerRegistration(
-                Guid.NewGuid(),
+                registrationId,
                 input.DisplayName,
                 endpoint,
                 input.AuthenticationMode,
@@ -91,6 +99,7 @@ public sealed class ConnectionLabController(
             {
                 input.SqlPassword = null;
                 var cleanupSucceeded = await TryCleanupCandidateCredentialAsync(secretReference, createdCandidateCredential);
+                audit.Append(actor, "server.registration", auditTarget, $"test-{testResult.Status}");
                 ModelState.AddModelError(
                     string.Empty,
                     cleanupSucceeded
@@ -112,6 +121,7 @@ public sealed class ConnectionLabController(
             try
             {
                 observer.Observe(await cache.RefreshAsync(registration, cancellationToken));
+                audit.Append(actor, "server.registration", auditTarget, "connected");
                 if (ControllerContext.HttpContext is not null)
                 {
                     TempData["ConnectionLabMessage"] = $"{registration.DisplayName} connected and its first real snapshot was collected.";
@@ -120,6 +130,7 @@ public sealed class ConnectionLabController(
             }
             catch (SnapshotCollectionException exception)
             {
+                audit.Append(actor, "server.registration", auditTarget, $"snapshot-{exception.Failure}");
                 if (ControllerContext.HttpContext is not null)
                 {
                     TempData["ConnectionLabMessage"] = $"Connection succeeded, but monitoring data is not available yet ({exception.Failure}). Review SQL monitoring permissions.";
@@ -129,12 +140,14 @@ public sealed class ConnectionLabController(
         }
         catch (ArgumentException exception)
         {
+            if (auditTarget is not null) audit.Append(actor, "server.registration", auditTarget, "rejected");
             input.SqlPassword = null;
             ModelState.AddModelError(string.Empty, SafeDomainMessage(exception));
             return View("Index", BuildPage(input));
         }
         catch (InvalidOperationException)
         {
+            if (auditTarget is not null) audit.Append(actor, "server.registration", auditTarget, "policy-rejected");
             input.SqlPassword = null;
             ModelState.AddModelError(string.Empty, "The selected credential mode is disabled by the current deployment policy.");
             return View("Index", BuildPage(input));
@@ -145,6 +158,10 @@ public sealed class ConnectionLabController(
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Test(Guid id, CancellationToken cancellationToken)
     {
+        if (!TryActor(out var actor)) return Forbid();
+
+        var target = id.ToString("D");
+        audit.Append(actor, "server.connection.test", target, "requested");
         var registration = registrations.GetById(id);
         ConnectionTestResult result;
 
@@ -160,6 +177,7 @@ public sealed class ConnectionLabController(
             result = await tester.TestAsync(registration, cancellationToken);
         }
 
+        audit.Append(actor, "server.connection.test", target, result.Status.ToString());
         return View("Index", BuildPage(new ConnectionLabRegistrationInput(), result, id));
     }
 
@@ -175,11 +193,7 @@ public sealed class ConnectionLabController(
             return NotFound();
         }
 
-        var actor = User.Identity?.Name?.Trim();
-        if (string.IsNullOrWhiteSpace(actor))
-        {
-            return Forbid();
-        }
+        if (!TryActor(out var actor)) return Forbid();
 
         if (!ModelState.IsValid)
         {
@@ -204,8 +218,7 @@ public sealed class ConnectionLabController(
         CancellationToken cancellationToken)
     {
         if (credentialLifecycle is null || !AllowsLocalCredentialEntry) return NotFound();
-        var actor = User.Identity?.Name?.Trim();
-        if (string.IsNullOrWhiteSpace(actor)) return Forbid();
+        if (!TryActor(out var actor)) return Forbid();
         if (!ModelState.IsValid)
         {
             TempData["ConnectionLabMessage"] = "Provide a valid SQL username and password.";
@@ -227,11 +240,7 @@ public sealed class ConnectionLabController(
             return NotFound();
         }
 
-        var actor = User.Identity?.Name?.Trim();
-        if (string.IsNullOrWhiteSpace(actor))
-        {
-            return Forbid();
-        }
+        if (!TryActor(out var actor)) return Forbid();
 
         var removed = await credentialLifecycle.CleanupOrphanedOwnedSecretsAsync(actor, cancellationToken);
         TempData["ConnectionLabMessage"] = removed == 0
@@ -251,8 +260,7 @@ public sealed class ConnectionLabController(
     private IActionResult SetEnabled(Guid id, bool enabled)
     {
         if (targetLifecycle is null) return NotFound();
-        var actor = User.Identity?.Name?.Trim();
-        if (string.IsNullOrWhiteSpace(actor)) return Forbid();
+        if (!TryActor(out var actor)) return Forbid();
         var result = targetLifecycle.SetEnabled(id, enabled, actor);
         if (result.Status == ServerTargetLifecycleStatus.NotFound) return NotFound();
         TempData["ConnectionLabMessage"] = result.Message;
@@ -355,6 +363,19 @@ public sealed class ConnectionLabController(
             ? input.SecretReference.Trim()
             : null;
         input.SqlUsername = string.IsNullOrWhiteSpace(input.SqlUsername) ? null : input.SqlUsername.Trim();
+    }
+
+    private bool TryActor(out string actor)
+    {
+        var identityName = User.Identity?.Name;
+        if (string.IsNullOrWhiteSpace(identityName))
+        {
+            actor = string.Empty;
+            return false;
+        }
+
+        actor = EnterpriseOperatorValidation.NormalizeActor(identityName);
+        return true;
     }
 
     private static string SafeDomainMessage(ArgumentException exception) => exception.ParamName switch

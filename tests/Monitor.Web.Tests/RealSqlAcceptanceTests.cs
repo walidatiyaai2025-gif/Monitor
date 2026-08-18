@@ -1,8 +1,11 @@
 using System.Net;
 using System.Net.Sockets;
+using System.Security.Claims;
 using System.Text.Json;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.Extensions.Configuration;
 using Monitor.Web.Controllers;
 using Monitor.Web.Models;
@@ -95,13 +98,25 @@ public sealed class RealSqlAcceptanceTests
             var collector = new SqlServerSnapshotCollector(secrets, new SqlSnapshotQuery(), TimeProvider.System);
             var cache = new ServerHealthSnapshotCache(collector, TimeProvider.System);
             var observer = new RecordingObserver();
+            var audit = new InMemoryAuditStore(TimeProvider.System);
+            var httpContext = new DefaultHttpContext
+            {
+                User = new ClaimsPrincipal(new ClaimsIdentity(
+                    [new Claim(ClaimTypes.Name, "real-sql-acceptance")],
+                    "Test"))
+            };
             var connectionLab = new ConnectionLabController(
                 registrations,
                 tester,
                 secrets,
                 cache,
                 observer,
-                credentialPolicy: credentialPolicy);
+                audit,
+                credentialPolicy: credentialPolicy)
+            {
+                ControllerContext = new ControllerContext { HttpContext = httpContext },
+                TempData = new TempDataDictionary(httpContext, new TestTempDataProvider())
+            };
             var input = new ConnectionLabRegistrationInput
             {
                 DisplayName = "P0 real SQL journey",
@@ -123,6 +138,17 @@ public sealed class RealSqlAcceptanceTests
             Assert.StartsWith("local:v1:", registration.SecretReference?.Value ?? string.Empty, StringComparison.Ordinal);
             Assert.Equal(1, observer.CallCount);
             Assert.NotNull(cache.Peek(registration.Id));
+
+            var auditEvents = audit.Read(0, 100).OrderBy(item => item.OccurredAtUtc).ToArray();
+            Assert.Equal(2, auditEvents.Length);
+            Assert.All(auditEvents, item => Assert.Equal("real-sql-acceptance", item.Actor));
+            Assert.All(auditEvents, item => Assert.Equal("server.registration", item.Action));
+            Assert.Equal("requested", auditEvents[0].Outcome);
+            Assert.Equal("connected", auditEvents[1].Outcome);
+            var serializedAudit = JsonSerializer.Serialize(auditEvents);
+            Assert.DoesNotContain(environment.Username, serializedAudit, StringComparison.Ordinal);
+            Assert.DoesNotContain(environment.Password, serializedAudit, StringComparison.Ordinal);
+            Assert.DoesNotContain(environment.Host, serializedAudit, StringComparison.OrdinalIgnoreCase);
 
             var firstRead = new MonitorReadService(new DemoMonitorService(), registrations, cache);
             var firstOperations = new OperationsController(new DemoMonitorService(), firstRead);
@@ -313,6 +339,12 @@ public sealed class RealSqlAcceptanceTests
 
     private static ServerRegistration Registration(RealSqlEnvironment environment, bool trustServerCertificate, ConnectionSecretReference? reference = null) => new(
         Guid.Parse("40404040-4040-4040-4040-404040404040"), "P0 SQL Server 2022 Acceptance", new SqlServerEndpoint(environment.Host, environment.Port, encrypt: true, trustServerCertificate: trustServerCertificate), SqlAuthenticationMode.SqlLogin, reference ?? new ConnectionSecretReference(SecretReferenceValue), true, DateTimeOffset.UtcNow);
+
+    private sealed class TestTempDataProvider : ITempDataProvider
+    {
+        public IDictionary<string, object> LoadTempData(HttpContext context) => new Dictionary<string, object>();
+        public void SaveTempData(HttpContext context, IDictionary<string, object> values) { }
+    }
 
     private sealed class AcceptanceSecretStore(ConnectionSecretReference expectedReference, SqlLoginSecret secret) : IConnectionSecretStore
     {
