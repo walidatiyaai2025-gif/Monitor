@@ -1,10 +1,10 @@
 # RC.61 Durable Promotion Inputs
 
-Implementation status: **COMPLETE** via PR #163 / merge `43d8a193205495f155bb8866532a4e99ed93b655`, with subsequent durable-release hardening through PR #219 and the read-only operator preflight through #266 / PR #267.  
+Implementation status: **COMPLETE** via PR #163 / merge `43d8a193205495f155bb8866532a4e99ed93b655`, with subsequent durable-release hardening through PR #219, the read-only operator preflight through #266 / PR #267, deterministic post-verification readiness through PR #337, and the explicit promotion operator helper through #338 / PR #339.  
 Execution status: **PENDING MANUAL DISPATCH** under Issue #162.  
 Current release lookup: `v0.1.0-rc.61` is not yet present.
 
-This file is the short operator handoff for the selected existing-candidate retention operation. It must stay aligned with the current hardened preflight, promotion and independent-verification workflows.
+This file is the short operator handoff for the selected existing-candidate retention operation. It must stay aligned with the current hardened preflight, explicit promotion helper, promotion workflow and independent-verification workflow.
 
 ## Selected candidate identity — do not substitute
 
@@ -17,32 +17,62 @@ This file is the short operator handoff for the selected existing-candidate rete
 - tested merge: `158148d8bfd05f724014541bc7a0b1eab5dae1b5`
 - release tag: `v0.1.0-rc.61`
 
-## Step 0 — read-only fail-closed preflight
+## Step 0 — read-only fail-closed preview
 
-From a trusted authenticated operator checkout, run:
+The preferred operator entry point is the explicit helper introduced by PR #339:
 
 ```powershell
-./scripts/Test-Rc61DurablePromotionPreflight.ps1 | Format-List
+.\scripts\Invoke-Rc61DurablePromotion.ps1
 ```
 
-The helper is pinned to the exact repository and RC.61 identity above. It authenticates `gh`, requires the Monitor default branch to remain `main`, verifies the selected successful source run and exact artifact provenance/name/size/expiry/outer digest, and probes the durable tag/release without mutating GitHub state. Only an actual 404 is treated as resource absence; authentication, network, API or other ambiguous probe failures stop the preflight.
+The helper runs `Test-Rc61DurablePromotionPreflight.ps1` before it can dispatch anything. Without `-AcknowledgePromotion` it is read-only and must return:
 
-Before a **first publication attempt**, require all of these output values:
+- `Status=READY_FOR_EXPLICIT_PROMOTION_ACKNOWLEDGEMENT`
+- `WorkflowDispatchPerformed=False`
+- `IndependentVerificationDispatched=False`
+- `ProductionMutationPerformed=False`
+- `MutatedGitHubState=False`
+
+For lower-level diagnosis, the underlying preflight may also be run directly:
+
+```powershell
+.\scripts\Test-Rc61DurablePromotionPreflight.ps1 | Format-List
+```
+
+For a first publication attempt, that direct preflight must still report all of:
 
 - `Status=READY_FOR_EXPLICIT_MANUAL_PROMOTION`
 - `MutatedGitHubState=False`
 - `TagExists=False`
 - `ReleaseExists=False`
 
-Also verify the emitted `PromotionCommand` and `IndependentVerificationCommand` contain the exact locked values in this handoff. If the helper reports `DURABLE_STATE_EXISTS_VERIFY_OR_INVESTIGATE`, the artifact is expired, provenance/digest identity drifts, or any GitHub probe is ambiguous, **stop and investigate; do not dispatch a first publication attempt**.
+The preflight is pinned to the exact repository and RC.61 identity above. It authenticates `gh`, requires the Monitor default branch to remain `main`, verifies the selected successful source run and exact artifact provenance/name/size/expiry/outer digest, and probes the durable tag/release without mutating GitHub state. Only an actual 404 is treated as resource absence; authentication, network, API or other ambiguous probe failures stop the operation.
 
-The preflight itself is read-only and does not satisfy #162. A successful preflight authorizes only proceeding to the explicit manual workflow step below.
+If the helper/preflight reports existing durable state, artifact expiry, provenance/digest drift, authentication/API ambiguity, or any other failure, **stop and investigate; do not dispatch or redispatch**.
 
-## Step 1 — manual durable promotion
+A successful preview/preflight does not satisfy #162. It authorizes only the explicit acknowledged promotion step below.
 
-Dispatch `.github/workflows/promote-existing-candidate.yml` **from `main`**. The workflow fails closed for any other dispatch ref.
+## Step 1 — explicit manual durable promotion
 
-Use exactly these current workflow inputs:
+After reviewing the preview, use the preferred helper path:
+
+```powershell
+.\scripts\Invoke-Rc61DurablePromotion.ps1 -AcknowledgePromotion
+```
+
+The helper dispatches **only** `.github/workflows/promote-existing-candidate.yml` from `main`, using the exact locked RC.61 inputs. It captures and monitors the exact promotion run. If run discovery is ambiguous, the run times out, or the captured run fails, the helper fails closed with a **do not redispatch** instruction; inspect the exact run instead.
+
+A successful promotion helper returns:
+
+```text
+PROMOTION_SUCCEEDED_INDEPENDENT_VERIFICATION_REQUIRED
+```
+
+and includes `PromotionRunId`, `PromotionRunUrl`, `IndependentVerificationCommand`, and `PostVerificationReadinessCommand`.
+
+### Raw workflow input reference — audit/troubleshooting only
+
+These values remain the authoritative workflow contract and are retained for independent review. The preferred execution path is the helper above; do not retype these values merely to bypass it.
 
 - `candidate_version=0.1.0-rc.61`
 - `source_run_id=31667721306`
@@ -58,20 +88,42 @@ The promotion workflow requires the exact completed successful production-candid
 
 A Green promotion run is necessary but is **not sufficient** to close #162.
 
-## Step 2 — independent read-only verification
+## Step 2 — separate independent read-only verification
 
-After the promotion run is Green, separately dispatch `.github/workflows/verify-durable-release.yml` **from `main`**.
+Only after the exact promotion run is Green, execute the exact `IndependentVerificationCommand` returned by `Invoke-Rc61DurablePromotion.ps1`.
 
-Use exactly:
+That command separately dispatches `.github/workflows/verify-durable-release.yml` **from `main`** with exactly:
 
 - `release_version=0.1.0-rc.61`
 - `release_tag=v0.1.0-rc.61`
 - `expected_commit=158148d8bfd05f724014541bc7a0b1eab5dae1b5`
 - `expected_product_sha256=d0a71f8a5611621ee388a1109dedc76e1a6e70357404cb62c9c7aa188f49c3d5`
 
+The promotion helper deliberately does **not** dispatch this verifier automatically. Separate dispatch is part of #162's closure contract.
+
 This second workflow is read-only. It independently verifies tag provenance, release metadata, exact-two asset identity, REST asset metadata/digests/URLs, exact-ID downloaded bytes and the canonical checksum while detecting tag/release mutation across verification snapshots.
 
-Retain the Green promotion run and the separate Green verification run as #162 closure evidence.
+Retain the Green promotion run ID/URL and the separate Green verification run ID/URL as #162 closure evidence.
+
+## Step 3 — deterministic post-verification handoff
+
+After both workflow runs are Green, run:
+
+```powershell
+.\scripts\Test-Rc61CutoverReadiness.ps1 `
+  -PromotionRunId <PROMOTION_RUN_ID> `
+  -VerificationRunId <VERIFICATION_RUN_ID>
+```
+
+Require:
+
+- `Status=READY_FOR_P0_5_PRE_CUTOVER_PREPARATION`
+- `DurableReleasePrerequisiteSatisfied=True`
+- `ExternalGatesPassed=0`
+- `ProductionMutationPerformed=False`
+- `MutatedGitHubState=False`
+
+This readiness result is a deterministic handoff/verification aid only. It does not itself close #162 or authorize production mutation before the issue's full closure evidence is recorded and reviewed.
 
 ## #162 closure requirements
 
@@ -85,7 +137,7 @@ Keep #162 OPEN until all are independently true:
 - companion checksum line matches that exact hash and ZIP filename;
 - no alternate candidate, rebuild or repackaging was introduced.
 
-For the expanded contract and safety ceilings, see `docs/P05_EXISTING_CANDIDATE_PROMOTION.md`.
+For the expanded contract and safety ceilings, see `docs/P05_EXISTING_CANDIDATE_PROMOTION.md`. For the focused helper behavior and no-redispatch rules, see `deploy/RC61_PROMOTION_OPERATOR.md`.
 
 ## External production boundary
 
