@@ -1,0 +1,57 @@
+name: protected-p0-pr-commits
+
+on:
+  pull_request:
+    branches: [ main ]
+    types: [ opened, synchronize, reopened ]
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Reject protected P0 issue closing keywords in PR commit messages
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          EXPECTED_COMMITS: ${{ github.event.pull_request.commits }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$PR_NUMBER" in
+            ''|*[!0-9]*) echo '::error::PR number is missing or invalid.'; exit 1 ;;
+          esac
+          case "$EXPECTED_COMMITS" in
+            ''|*[!0-9]*) echo '::error::Expected PR commit count is missing or invalid.'; exit 1 ;;
+          esac
+          if [ "$EXPECTED_COMMITS" -lt 1 ]; then
+            echo '::error::Expected PR commit count must be positive.'
+            exit 1
+          fi
+
+          pattern='(^|[^[:alnum:]_])(close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)[[:space:]]*:?[[:space:]]*((walidatiyaai2025-gif/Monitor)?#)(111|116|162)([^0-9]|$)'
+          actual=0
+          while IFS= read -r encoded; do
+            [ -n "$encoded" ] || continue
+            actual=$((actual + 1))
+            message="$(printf '%s' "$encoded" | base64 --decode)"
+            normalized="$(printf '%s' "$message" | tr '\r\n' '  ')"
+            if printf '%s\n' "$normalized" | grep -Eiq "$pattern"; then
+              echo "::error::PR commit $actual contains a closing keyword targeting protected P0 parent #162, #116, or #111."
+              exit 1
+            fi
+          done < <(
+            gh api --paginate \
+              -H 'Accept: application/vnd.github+json' \
+              -H 'X-GitHub-Api-Version: 2022-11-28' \
+              "/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/commits?per_page=100" \
+              --jq '.[].commit.message | @base64'
+          )
+
+          if [ "$actual" -ne "$EXPECTED_COMMITS" ]; then
+            echo "::error::PR commit enumeration mismatch: expected $EXPECTED_COMMITS, observed $actual."
+            exit 1
+          fi
+          echo "Protected P0 PR commit-message guard passed for $actual commit(s)."
