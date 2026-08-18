@@ -71,7 +71,7 @@ public sealed class SystemWideIntelligenceExpansionTests
     public void Projection_MissingFocusedDomainEvidence_RemainsUnknownInsteadOfHealthyZero()
     {
         var result = EstateIntelligenceProjection.Build(1, [Server()], "/backups");
-        var backup = Assert.Single(result.Signals.Where(signal => signal.Label == "BACKUP GAPS"));
+        var backup = Assert.Single(result.Signals, signal => signal.Label == "BACKUP GAPS");
 
         Assert.Equal("unknown", result.Severity);
         Assert.Equal("Not collected", backup.Value);
@@ -85,9 +85,9 @@ public sealed class SystemWideIntelligenceExpansionTests
     {
         var result = EstateIntelligenceProjection.Build(1, [Server()], "/dashboard");
 
-        var backup = Assert.Single(result.Signals.Where(signal => signal.Label == "BACKUP GAPS"));
-        var memoryPerformance = Assert.Single(result.Signals.Where(signal => signal.Label == "MEMORY / PERF"));
-        var blockingJobs = Assert.Single(result.Signals.Where(signal => signal.Label == "BLOCKING / JOBS"));
+        var backup = Assert.Single(result.Signals, signal => signal.Label == "BACKUP GAPS");
+        var memoryPerformance = Assert.Single(result.Signals, signal => signal.Label == "MEMORY / PERF");
+        var blockingJobs = Assert.Single(result.Signals, signal => signal.Label == "BLOCKING / JOBS");
 
         Assert.Equal("Not collected", backup.Value);
         Assert.Equal("unknown", backup.State);
@@ -104,7 +104,7 @@ public sealed class SystemWideIntelligenceExpansionTests
         var withoutBackupEvidence = Server();
 
         var result = EstateIntelligenceProjection.Build(2, [withBackupEvidence, withoutBackupEvidence], "/backups");
-        var backup = Assert.Single(result.Signals.Where(signal => signal.Label == "BACKUP GAPS"));
+        var backup = Assert.Single(result.Signals, signal => signal.Label == "BACKUP GAPS");
 
         Assert.Equal("unknown", result.Severity);
         Assert.Equal("0 · 1/2", backup.Value);
@@ -121,13 +121,13 @@ public sealed class SystemWideIntelligenceExpansionTests
             storage: new StorageHealthSnapshot(0, 0, 0));
 
         var backupResult = EstateIntelligenceProjection.Build(1, [server], "/backups");
-        var backup = Assert.Single(backupResult.Signals.Where(signal => signal.Label == "BACKUP GAPS"));
+        var backup = Assert.Single(backupResult.Signals, signal => signal.Label == "BACKUP GAPS");
         Assert.Equal("healthy", backupResult.Severity);
         Assert.Equal("0", backup.Value);
         Assert.Equal("healthy", backup.State);
 
         var storageResult = EstateIntelligenceProjection.Build(1, [server], "/storage");
-        var allocated = Assert.Single(storageResult.Signals.Where(signal => signal.Label == "SQL ALLOCATED"));
+        var allocated = Assert.Single(storageResult.Signals, signal => signal.Label == "SQL ALLOCATED");
         Assert.Equal("healthy", storageResult.Severity);
         Assert.Equal("0 B", allocated.Value);
         Assert.Equal("healthy", allocated.State);
