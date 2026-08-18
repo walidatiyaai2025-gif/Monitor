@@ -116,9 +116,63 @@ public sealed class SharedStateSchemaFingerprintRealSqlTests
         }
         finally
         {
-            await ExecuteAsync(
-                masterConnectionString,
-                $"ALTER DATABASE {quotedDatabase} SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE {quotedDatabase};");
+            await DropDatabaseAsync(masterConnectionString, quotedDatabase);
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "RealSql")]
+    public async Task Installer_FreshAndCanonicalRerunSucceed_DriftedExistingTableFailsWithoutStampingV1()
+    {
+        var required = string.Equals(Environment.GetEnvironmentVariable("MONITOR_REQUIRE_REAL_SQL"), "1", StringComparison.Ordinal);
+        if (!required) return;
+
+        var host = Environment.GetEnvironmentVariable("MONITOR_REAL_SQL_HOST");
+        var portText = Environment.GetEnvironmentVariable("MONITOR_REAL_SQL_PORT");
+        var saPassword = Environment.GetEnvironmentVariable("SQL_SA_PASSWORD");
+        Assert.False(string.IsNullOrWhiteSpace(host));
+        Assert.True(int.TryParse(portText, out var port));
+        Assert.False(string.IsNullOrWhiteSpace(saPassword));
+
+        var installerSql = ReadRepositoryFile("scripts", "sql", "monitor_shared_state_v1.sql");
+        var masterConnectionString = ConnectionString(host!, port, "sa", saPassword!, "master");
+        var canonicalDatabase = $"MonitorStateInstaller_{Guid.NewGuid():N}";
+        var driftDatabase = $"MonitorStateInstallerDrift_{Guid.NewGuid():N}";
+        var quotedCanonicalDatabase = QuoteIdentifier(canonicalDatabase);
+        var quotedDriftDatabase = QuoteIdentifier(driftDatabase);
+
+        await ExecuteAsync(masterConnectionString, $"CREATE DATABASE {quotedCanonicalDatabase}; CREATE DATABASE {quotedDriftDatabase};");
+        try
+        {
+            var canonicalConnectionString = ConnectionString(host!, port, "sa", saPassword!, canonicalDatabase);
+            await ExecuteAsync(canonicalConnectionString, installerSql);
+            Assert.Equal(1, await ReadSchemaVersionAsync(canonicalConnectionString));
+            Assert.Equal(7, await ReadUpdatedAtScaleAsync(canonicalConnectionString));
+
+            await ExecuteAsync(canonicalConnectionString, installerSql);
+            Assert.Equal(1, await ReadSchemaVersionAsync(canonicalConnectionString));
+            Assert.Equal(7, await ReadUpdatedAtScaleAsync(canonicalConnectionString));
+
+            var driftConnectionString = ConnectionString(host!, port, "sa", saPassword!, driftDatabase);
+            await ExecuteAsync(driftConnectionString, """
+                CREATE TABLE dbo.MonitorSharedStateDocuments
+                (
+                    DocumentKey nvarchar(128) NOT NULL CONSTRAINT PK_MonitorSharedStateDocuments PRIMARY KEY,
+                    Version bigint NOT NULL,
+                    PayloadJson nvarchar(max) NOT NULL,
+                    UpdatedAtUtc datetime2(3) NOT NULL
+                );
+                """);
+
+            var exception = await Assert.ThrowsAsync<SqlException>(() => ExecuteAsync(driftConnectionString, installerSql));
+            Assert.Equal(51001, exception.Number);
+            Assert.Equal(3, await ReadUpdatedAtScaleAsync(driftConnectionString));
+            Assert.False(await TableExistsAsync(driftConnectionString, "dbo.MonitorSharedStateSchema"));
+        }
+        finally
+        {
+            await DropDatabaseAsync(masterConnectionString, quotedCanonicalDatabase);
+            await DropDatabaseAsync(masterConnectionString, quotedDriftDatabase);
         }
     }
 
@@ -140,12 +194,47 @@ public sealed class SharedStateSchemaFingerprintRealSqlTests
 
     private static async Task<int> CountDocumentsAsync(string connectionString)
     {
+        var value = await ExecuteScalarAsync(connectionString, "SELECT COUNT(*) FROM dbo.MonitorSharedStateDocuments;");
+        return Convert.ToInt32(value, System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    private static async Task<int?> ReadSchemaVersionAsync(string connectionString)
+    {
+        var value = await ExecuteScalarAsync(
+            connectionString,
+            "SELECT SchemaVersion FROM dbo.MonitorSharedStateSchema WHERE Id = 1;");
+        return value is null or DBNull
+            ? null
+            : Convert.ToInt32(value, System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    private static async Task<int> ReadUpdatedAtScaleAsync(string connectionString)
+    {
+        var value = await ExecuteScalarAsync(
+            connectionString,
+            "SELECT scale FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.MonitorSharedStateDocuments') AND name = N'UpdatedAtUtc';");
+        return Convert.ToInt32(value, System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    private static async Task<bool> TableExistsAsync(string connectionString, string tableName)
+    {
         await using var connection = new SqlConnection(connectionString);
         await connection.OpenAsync();
         await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT COUNT(*) FROM dbo.MonitorSharedStateDocuments;";
+        command.CommandText = "SELECT CASE WHEN OBJECT_ID(@TableName, N'U') IS NULL THEN 0 ELSE 1 END;";
+        command.Parameters.AddWithValue("@TableName", tableName);
         var value = await command.ExecuteScalarAsync();
-        return Convert.ToInt32(value, System.Globalization.CultureInfo.InvariantCulture);
+        return Convert.ToInt32(value, System.Globalization.CultureInfo.InvariantCulture) == 1;
+    }
+
+    private static async Task<object?> ExecuteScalarAsync(string connectionString, string sql)
+    {
+        await using var connection = new SqlConnection(connectionString);
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        command.CommandTimeout = 30;
+        return await command.ExecuteScalarAsync();
     }
 
     private static async Task ExecuteAsync(string connectionString, string sql)
@@ -156,6 +245,27 @@ public sealed class SharedStateSchemaFingerprintRealSqlTests
         command.CommandText = sql;
         command.CommandTimeout = 30;
         await command.ExecuteNonQueryAsync();
+    }
+
+    private static async Task DropDatabaseAsync(string masterConnectionString, string quotedDatabase)
+    {
+        await ExecuteAsync(
+            masterConnectionString,
+            $"ALTER DATABASE {quotedDatabase} SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE {quotedDatabase};");
+    }
+
+    private static string ReadRepositoryFile(params string[] pathSegments)
+    {
+        for (var directory = new DirectoryInfo(Directory.GetCurrentDirectory()); directory is not null; directory = directory.Parent)
+        {
+            var candidate = Path.Combine(new[] { directory.FullName }.Concat(pathSegments).ToArray());
+            if (File.Exists(candidate))
+            {
+                return File.ReadAllText(candidate);
+            }
+        }
+
+        throw new FileNotFoundException($"Repository file was not found: {string.Join('/', pathSegments)}");
     }
 
     private static string ConnectionString(string host, int port, string username, string password, string database) =>
