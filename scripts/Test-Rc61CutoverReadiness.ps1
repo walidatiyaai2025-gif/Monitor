@@ -125,7 +125,7 @@ if (-not [bool]$release.prerelease) { throw 'RC.61 durable release must be marke
 $assets = @($release.assets)
 if ($assets.Count -ne 2) { throw 'Durable release must contain exactly two assets.' }
 $assetNames = @($assets | ForEach-Object { [string]$_.name } | Sort-Object)
-$expectedNames = @($checksumName, $zipName | Sort-Object)
+$expectedNames = @($checksumName, $zipName) | Sort-Object
 if (($assetNames -join "`n") -cne ($expectedNames -join "`n")) {
     throw 'Durable release asset names do not match the exact RC.61 ZIP/checksum contract.'
 }
