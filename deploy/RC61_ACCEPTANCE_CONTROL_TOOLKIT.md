@@ -30,6 +30,8 @@ Do not add a seventh acceptance-control script to the session identity and do no
 
 The authoritative cutover toolkit source is the **exact final PR #262 head `b422eaaee53d931a62a43b3c36a53b68cd4f3e27`**, recorded on #261/#260/#258/#116 after Green exact-head Actions. That head passed CI #1786 / run `31992503009` and Windows production-candidate #186 / run `31992502977`. The earlier PR #259 head remains historical evidence for the locked-session implementation, but the provenance-hardened cutover toolkit must use the later exact reviewed #262 commit.
 
+Treat `b422eaaee53d931a62a43b3c36a53b68cd4f3e27` as an independently supplied immutable operator anchor; do not derive it from the current `main` tip at cutover time.
+
 **Do not use `main`, `latest`, a moving branch name, or an unrecorded later commit at cutover time.**
 
 On an approved admin workstation, obtain one clean Git checkout at the independently supplied exact 40-hex tooling commit. Verify the tracked checkout is clean and export the toolkit to a fresh directory outside the checkout:
