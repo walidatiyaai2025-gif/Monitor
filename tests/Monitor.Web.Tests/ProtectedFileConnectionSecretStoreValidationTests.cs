@@ -11,6 +11,7 @@ public sealed class ProtectedFileConnectionSecretStoreValidationTests
 {
     private const int MaxEntries = 1024;
     private const int MaxProtectedPayloadLength = 16 * 1024;
+    private const int MaxStoreFileBytes = 20 * 1024 * 1024;
 
     [Fact]
     public void BoundedLocalState_LoadsWithoutDecryptingPersistedPayloads()
@@ -26,6 +27,23 @@ public sealed class ProtectedFileConnectionSecretStoreValidationTests
 
         var reference = Assert.Single(store.GetOwnedReferences());
         Assert.Equal("local:v1:11111111111111111111111111111111", reference.Value);
+    }
+
+    [Fact]
+    public void OversizedRawStore_FailsClosedBeforeJsonParsing()
+    {
+        using var directory = new TemporaryDirectory();
+        var path = Path.Combine(directory.Path, "secrets.json");
+        using (var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+        {
+            stream.SetLength(MaxStoreFileBytes + 1L);
+        }
+
+        var exception = Assert.Throws<InvalidOperationException>(() => CreateStore(path));
+
+        Assert.Equal("The protected SQL secret store is invalid.", exception.Message);
+        Assert.IsType<InvalidOperationException>(exception.InnerException);
+        Assert.Contains("file size", exception.InnerException!.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -114,6 +132,7 @@ public sealed class ProtectedFileConnectionSecretStoreValidationTests
         Assert.NotNull(resolved);
         Assert.Equal("replacement-user", resolved!.Username);
         Assert.Equal("replacement-password", resolved.Password);
+        Assert.InRange(new FileInfo(path).Length, 1, MaxStoreFileBytes);
     }
 
     [Fact]
