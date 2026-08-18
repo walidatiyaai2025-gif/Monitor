@@ -15,7 +15,7 @@ public sealed class GlobalRefreshAuthenticationTests
     {
         var http = new DefaultHttpContext();
         http.Request.Headers["X-Requested-With"] = "XMLHttpRequest";
-        var context = RedirectContext(http, "/login");
+        var context = CreateRedirectContext(http, "/login");
 
         await Events().RedirectToLogin(context);
 
@@ -28,7 +28,7 @@ public sealed class GlobalRefreshAuthenticationTests
     {
         var http = new DefaultHttpContext();
         http.Request.Headers["X-Requested-With"] = "XMLHttpRequest";
-        var context = RedirectContext(http, "/access-denied");
+        var context = CreateRedirectContext(http, "/access-denied");
 
         await Events().RedirectToAccessDenied(context);
 
@@ -40,7 +40,7 @@ public sealed class GlobalRefreshAuthenticationTests
     public async Task CookieEvents_NormalBrowserChallenge_PreservesCookieRedirectBehavior()
     {
         var http = new DefaultHttpContext();
-        var context = RedirectContext(http, "/login?returnUrl=%2Fdashboard");
+        var context = CreateRedirectContext(http, "/login?returnUrl=%2Fdashboard");
 
         await Events().RedirectToLogin(context);
 
@@ -49,7 +49,7 @@ public sealed class GlobalRefreshAuthenticationTests
     }
 
     [Fact]
-    public void GlobalRefreshClient_RejectsAuthRedirectAndNonJsonSuccess()
+    public void GlobalRefreshClient_RejectsAuthRedirectNonJsonSuccessAndSeparatesStaleFallback()
     {
         var script = File.ReadAllText(Path.Combine(Root, "src", "Monitor.Web", "wwwroot", "js", "site.js"));
 
@@ -58,6 +58,9 @@ public sealed class GlobalRefreshAuthenticationTests
         Assert.Contains("response.status === 401 || response.status === 403", script, StringComparison.Ordinal);
         Assert.Contains("response.redirected", script, StringComparison.Ordinal);
         Assert.Contains("contentType.includes('application/json')", script, StringComparison.Ordinal);
+        Assert.Contains("response.status === 503 && isJson", script, StringComparison.Ordinal);
+        Assert.Contains("retainedStale += 1", script, StringComparison.Ordinal);
+        Assert.Contains("stale retained ${retainedStale}", script, StringComparison.Ordinal);
         Assert.Contains("authorizationFailure", script, StringComparison.Ordinal);
         Assert.Contains("Session expired or authentication is required", script, StringComparison.Ordinal);
         Assert.Contains("Administrator permission is required", script, StringComparison.Ordinal);
@@ -71,7 +74,7 @@ public sealed class GlobalRefreshAuthenticationTests
         },
         TimeProvider.System);
 
-    private static RedirectContext<CookieAuthenticationOptions> RedirectContext(DefaultHttpContext http, string redirectUri)
+    private static RedirectContext<CookieAuthenticationOptions> CreateRedirectContext(DefaultHttpContext http, string redirectUri)
     {
         var scheme = new AuthenticationScheme(
             CookieAuthenticationDefaults.AuthenticationScheme,
