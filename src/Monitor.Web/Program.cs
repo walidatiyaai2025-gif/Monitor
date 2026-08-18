@@ -5,6 +5,7 @@ using Monitor.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 ProductionAdminCredentialGuard.Validate(builder.Environment);
+DemoDataEnvironmentGuard.Validate(builder.Environment, builder.Configuration);
 builder.Host.UseWindowsService(options => options.ServiceName = "Monitor");
 
 builder.Services.AddControllersWithViews();
