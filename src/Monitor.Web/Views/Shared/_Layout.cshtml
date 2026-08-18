@@ -1,3 +1,7 @@
+@using Monitor.Web.Models
+@using Monitor.Web.Services
+@inject IMonitorReadService SystemMonitorRead
+@inject IServerRegistrationRepository SystemRegistrations
 @{
     var path = Context.Request.Path.Value?.ToLowerInvariant() ?? string.Empty;
     string Active(string value, bool exact = false)
@@ -9,7 +13,33 @@
     }
     var serverNavClass = path == "/servers" || (path.StartsWith("/servers/", StringComparison.Ordinal) && !path.StartsWith("/servers/connections", StringComparison.Ordinal)) ? "nav-link active" : "nav-link";
     var bodyClass = path.StartsWith("/dashboard", StringComparison.Ordinal) ? "app-body wallboard-ready" : "app-body";
-    var isConnectionsPage = path == "/servers/connections" || path == "/servers/connections/";
+    var isAuthenticated = User.Identity?.IsAuthenticated == true;
+    var isAdministrator = User.IsInRole(MonitorRoles.Administrator);
+
+    ServerRegistration[] activeRegistrations = [];
+    var estateIntelligence = EstateIntelligenceSummary.Unavailable(path);
+    if (isAuthenticated)
+    {
+        try
+        {
+            activeRegistrations = SystemRegistrations.GetAll()
+                .Where(registration => registration.IsEnabled)
+                .OrderBy(registration => registration.CreatedAtUtc)
+                .ThenBy(registration => registration.Id)
+                .ToArray();
+            var healthModules = await SystemMonitorRead.GetHealthModulesAsync(Context.RequestAborted);
+            estateIntelligence = EstateIntelligenceProjection.Build(activeRegistrations.Length, healthModules, path);
+        }
+        catch (OperationCanceledException) when (Context.RequestAborted.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch
+        {
+            estateIntelligence = EstateIntelligenceSummary.Unavailable(path);
+        }
+    }
+
     var versionAttribute = (System.Reflection.AssemblyInformationalVersionAttribute?)Attribute.GetCustomAttribute(
         typeof(Monitor.Web.Controllers.OperationsController).Assembly,
         typeof(System.Reflection.AssemblyInformationalVersionAttribute));
@@ -36,6 +66,7 @@
     <link rel="stylesheet" href="~/css/dba-operations.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/portal.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/b700-admin.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/intelligence-expansion.css" asp-append-version="true" />
 </head>
 <body class="@bodyClass">
     <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -70,7 +101,7 @@
             <a class="@Active("/recommendations")" asp-controller="Portal" asp-action="Recommendations"><span class="nav-icon" aria-hidden="true">⌘</span>Recommendations</a>
             <a class="@Active("/reports", exact: true)" asp-controller="Portal" asp-action="Reports"><span class="nav-icon" aria-hidden="true">▤</span>Reports</a>
 
-            @if (User.IsInRole(Monitor.Web.Services.MonitorRoles.Administrator))
+            @if (isAdministrator)
             {
                 <span class="nav-section">ADMINISTRATION</span>
                 <a class="@Active("/servers/connections")" asp-controller="ConnectionLab" asp-action="Index"><span class="nav-icon" aria-hidden="true">＋</span>Connections</a>
@@ -95,18 +126,29 @@
                 <h1>@ViewData["Title"]</h1>
             </div>
             <div class="topbar-actions">
-                @if (isConnectionsPage && User.IsInRole(Monitor.Web.Services.MonitorRoles.Administrator))
+                @if (isAdministrator)
                 {
-                    <div class="collector-state" role="group" aria-label="Refresh all registered connections">
-                        <button class="primary-button" type="button" data-refresh-all-connections>Refresh all connections</button>
-                        <small data-refresh-all-status role="status" aria-live="polite">Preparing connections…</small>
+                    <div class="collector-state global-refresh-control" role="group" aria-label="Refresh all active registered connections">
+                        <button class="primary-button" type="button" data-refresh-all-connections disabled="@(activeRegistrations.Length == 0)">Refresh all connections</button>
+                        <small data-refresh-all-status role="status" aria-live="polite">@(activeRegistrations.Length == 0 ? "No active connections" : $"{activeRegistrations.Length} active connection(s)")</small>
                     </div>
+                    <form class="global-refresh-runtime" data-refresh-all-runtime aria-hidden="true">
+                        @Html.AntiForgeryToken()
+                        @foreach (var registration in activeRegistrations)
+                        {
+                            <input type="hidden" data-refresh-registration-id value="@registration.Id.ToString("D")" />
+                        }
+                    </form>
                 }
                 <div class="collector-state" role="status" aria-live="polite"><span class="live-dot" aria-hidden="true"></span><div><strong>Collector</strong><small data-scan-phase>Snapshot cache active</small></div></div>
-                <div class="user-chip"><span aria-hidden="true">AD</span><div><strong>@User.Identity?.Name</strong><small>@(User.IsInRole("Administrator") ? "Administrator" : User.IsInRole("Operator") ? "Operator" : "Viewer")</small></div></div>
+                <div class="user-chip"><span aria-hidden="true">AD</span><div><strong>@User.Identity?.Name</strong><small>@(isAdministrator ? "Administrator" : User.IsInRole("Operator") ? "Operator" : "Viewer")</small></div></div>
                 <form asp-controller="Account" asp-action="Logout" method="post"><button class="icon-button" aria-label="Sign out" title="Sign out" type="submit">↗</button></form>
             </div>
         </header>
+        @if (isAuthenticated)
+        {
+            <partial name="_EstateIntelligenceStrip" model="estateIntelligence" />
+        }
         <section class="page-content">
             @RenderBody()
         </section>

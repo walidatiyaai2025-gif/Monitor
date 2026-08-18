@@ -116,7 +116,8 @@ public sealed class B700EnterpriseAdminTests
         Assert.Contains("var canManage = User.IsInRole(MonitorRoles.Administrator)", enterprise, StringComparison.Ordinal);
         Assert.Contains("@if (canManage)", enterprise, StringComparison.Ordinal);
         Assert.Contains("@if (canOperate)", enterprise, StringComparison.Ordinal);
-        Assert.Contains("User.IsInRole(Monitor.Web.Services.MonitorRoles.Administrator)", layout, StringComparison.Ordinal);
+        Assert.Contains("var isAdministrator = User.IsInRole(MonitorRoles.Administrator);", layout, StringComparison.Ordinal);
+        Assert.Contains("@if (isAdministrator)", layout, StringComparison.Ordinal);
     }
 
     [Fact]

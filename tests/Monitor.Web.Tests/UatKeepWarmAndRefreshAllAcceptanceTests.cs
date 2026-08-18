@@ -7,22 +7,25 @@ public sealed class UatKeepWarmAndRefreshAllAcceptanceTests
     private static readonly string Root = FindRoot();
 
     [Fact]
-    public void ConnectionLab_RefreshAllControl_IsStaticAndUsesExistingProtectedRefreshEndpointSequentially()
+    public void GlobalHeader_RefreshAllControl_UsesServerSideActiveTargetsAndProtectedRefreshEndpointSequentially()
     {
-        var view = File.ReadAllText(Path.Combine(Root, "src", "Monitor.Web", "Views", "ConnectionLab", "Index.cshtml"));
         var layout = File.ReadAllText(Path.Combine(Root, "src", "Monitor.Web", "Views", "Shared", "_Layout.cshtml"));
         var script = File.ReadAllText(Path.Combine(Root, "src", "Monitor.Web", "wwwroot", "js", "site.js"));
 
-        Assert.Contains("id=\"target-@registration.Id\"", view, StringComparison.Ordinal);
         Assert.Contains("data-refresh-all-connections", layout, StringComparison.Ordinal);
         Assert.Contains("data-refresh-all-status", layout, StringComparison.Ordinal);
-        Assert.Contains("Refresh all connections", layout, StringComparison.Ordinal);
-        Assert.Contains("isConnectionsPage && User.IsInRole", layout, StringComparison.Ordinal);
+        Assert.Contains("data-refresh-all-runtime", layout, StringComparison.Ordinal);
+        Assert.Contains("data-refresh-registration-id", layout, StringComparison.Ordinal);
+        Assert.Contains("@Html.AntiForgeryToken()", layout, StringComparison.Ordinal);
+        Assert.Contains("registration.IsEnabled", layout, StringComparison.Ordinal);
+        Assert.Contains("var isAdministrator = User.IsInRole(MonitorRoles.Administrator);", layout, StringComparison.Ordinal);
+        Assert.DoesNotContain("isConnectionsPage", layout, StringComparison.Ordinal);
 
         Assert.Contains("setupRefreshAllConnections", script, StringComparison.Ordinal);
         Assert.Contains("[data-refresh-all-connections]", script, StringComparison.Ordinal);
         Assert.Contains("[data-refresh-all-status]", script, StringComparison.Ordinal);
-        Assert.Contains("article[id^=\"target-\"]", script, StringComparison.Ordinal);
+        Assert.Contains("[data-refresh-all-runtime]", script, StringComparison.Ordinal);
+        Assert.Contains("[data-refresh-registration-id]", script, StringComparison.Ordinal);
         Assert.Contains("input[name=\"__RequestVerificationToken\"]", script, StringComparison.Ordinal);
         Assert.Contains("for (let index = 0; index < registrationIds.length; index += 1)", script, StringComparison.Ordinal);
         Assert.Contains("/refresh-snapshot`,", script, StringComparison.Ordinal);
@@ -31,6 +34,7 @@ public sealed class UatKeepWarmAndRefreshAllAcceptanceTests
         Assert.Contains("__RequestVerificationToken: tokenInput.value", script, StringComparison.Ordinal);
         Assert.Contains("response.status === 409", script, StringComparison.Ordinal);
         Assert.Contains("response.status === 429", script, StringComparison.Ordinal);
+        Assert.DoesNotContain("article[id^=\"target-\"]", script, StringComparison.Ordinal);
         Assert.DoesNotContain("document.createElement('button')", script, StringComparison.Ordinal);
     }
 

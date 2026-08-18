@@ -48,16 +48,22 @@
   const setupRefreshAllConnections = () => {
     const button = document.querySelector('[data-refresh-all-connections]');
     const status = document.querySelector('[data-refresh-all-status]');
-    if (!button || !status) return;
+    const runtime = document.querySelector('[data-refresh-all-runtime]');
+    if (!button || !status || !runtime) return;
 
-    const targetCards = Array.from(document.querySelectorAll('article[id^="target-"]'));
-    const tokenInput = document.querySelector('input[name="__RequestVerificationToken"]');
-    const registrationIds = targetCards
-      .map(card => card.id.slice('target-'.length))
+    const tokenInput = runtime.querySelector('input[name="__RequestVerificationToken"]');
+    const registrationIds = Array.from(runtime.querySelectorAll('[data-refresh-registration-id]'))
+      .map(input => input.value?.trim() ?? '')
       .filter(id => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id));
 
+    const previousResult = window.sessionStorage.getItem('monitor.refreshAll.result');
+    if (previousResult) {
+      status.textContent = previousResult;
+      window.sessionStorage.removeItem('monitor.refreshAll.result');
+    }
+
     if (registrationIds.length === 0) {
-      status.textContent = 'No registered connections';
+      status.textContent = 'No active connections';
       button.disabled = true;
       return;
     }
@@ -68,7 +74,7 @@
       return;
     }
 
-    status.textContent = `${registrationIds.length} connection(s) ready`;
+    if (!previousResult) status.textContent = `${registrationIds.length} active connection(s)`;
 
     button.addEventListener('click', async () => {
       if (button.disabled) return;
@@ -110,9 +116,16 @@
         }
       }
 
-      status.textContent = `Done · refreshed ${refreshed} · skipped ${skipped} · throttled ${throttled} · failed ${failed}`;
+      const result = `Done · refreshed ${refreshed} · skipped ${skipped} · throttled ${throttled} · failed ${failed}`;
+      status.textContent = result;
       button.textContent = 'Refresh all again';
       button.disabled = false;
+
+      if (refreshed > 0) {
+        window.sessionStorage.setItem('monitor.refreshAll.result', result);
+        status.textContent = `${result} · updating intelligence…`;
+        window.setTimeout(() => window.location.reload(), 900);
+      }
     });
   };
 
