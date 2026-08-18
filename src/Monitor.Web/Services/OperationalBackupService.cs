@@ -232,20 +232,21 @@ internal sealed class OperationalBackupService : IOperationalBackupService
 
         string path;
         lock (_fileGate) path = PathFor(normalized);
-        if (!File.Exists(path))
-        {
-            return new(BackupValidationStatus.NotFound, "Backup was not found.");
-        }
 
         try
         {
-            var info = new FileInfo(path);
-            if (info.Length <= 0 || info.Length > _options.MaxBundleBytes)
+            await using var stream = new FileStream(
+                path,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read,
+                32 * 1024,
+                FileOptions.Asynchronous | FileOptions.SequentialScan);
+            if (stream.Length <= 0 || stream.Length > _options.MaxBundleBytes)
             {
                 return new(BackupValidationStatus.Invalid, "Backup file size is invalid.");
             }
 
-            await using var stream = File.OpenRead(path);
             var bundle = await JsonSerializer.DeserializeAsync<MonitorBackupBundle>(stream, FileJson, cancellationToken)
                 ?? throw new InvalidDataException("Backup is empty or invalid.");
             if (!string.Equals(bundle.BackupId, normalized, StringComparison.Ordinal))
@@ -255,6 +256,10 @@ internal sealed class OperationalBackupService : IOperationalBackupService
 
             ValidateBundle(bundle);
             return new(BackupValidationStatus.Valid, "Backup validation succeeded.", bundle);
+        }
+        catch (Exception exception) when (exception is FileNotFoundException or DirectoryNotFoundException)
+        {
+            return new(BackupValidationStatus.NotFound, "Backup was not found.");
         }
         catch (Exception exception) when (exception is JsonException or InvalidDataException or IOException or ArgumentException or InvalidOperationException)
         {
