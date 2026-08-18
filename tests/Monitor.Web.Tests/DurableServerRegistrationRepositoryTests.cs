@@ -30,6 +30,68 @@ public sealed class DurableServerRegistrationRepositoryTests : IDisposable
     }
 
     [Fact]
+    public void GetById_RefreshesStateWrittenByAnotherRepositoryInstance()
+    {
+        var path = StorePath();
+        var staleReader = new FileServerRegistrationRepository(path);
+        var writer = new FileServerRegistrationRepository(path);
+        var registration = Integrated("Fresh SQL", "fresh.internal");
+
+        writer.Upsert(registration);
+
+        var loaded = staleReader.GetById(registration.Id);
+        Assert.NotNull(loaded);
+        Assert.Equal(registration.Id, loaded!.Id);
+    }
+
+    [Fact]
+    public void Upsert_PreservesRegistrationWrittenByAnotherRepositoryInstance()
+    {
+        var path = StorePath();
+        var firstWorker = new FileServerRegistrationRepository(path);
+        var secondWorker = new FileServerRegistrationRepository(path);
+        var first = Integrated("SQL One", "sql-one.internal");
+        var second = Integrated("SQL Two", "sql-two.internal");
+
+        firstWorker.Upsert(first);
+        secondWorker.Upsert(second);
+
+        var restarted = new FileServerRegistrationRepository(path);
+        var loaded = restarted.GetAll();
+        Assert.Equal(2, loaded.Count);
+        Assert.Contains(loaded, item => item.Id == first.Id);
+        Assert.Contains(loaded, item => item.Id == second.Id);
+    }
+
+    [Fact]
+    public void TryReplaceSecretReference_RejectsStaleExpectedReferenceAcrossRepositoryInstances()
+    {
+        var path = StorePath();
+        var oldReference = new ConnectionSecretReference("env:OLD");
+        var winnerReference = new ConnectionSecretReference("env:WINNER");
+        var staleReference = new ConnectionSecretReference("env:STALE");
+        var registration = SqlLogin("Finance SQL", "finance.internal", oldReference.Value);
+        var seed = new FileServerRegistrationRepository(path);
+        seed.Upsert(registration);
+        var winner = new FileServerRegistrationRepository(path);
+        var staleWorker = new FileServerRegistrationRepository(path);
+
+        Assert.True(winner.TryReplaceSecretReference(
+            registration.Id,
+            oldReference,
+            winnerReference).Applied);
+
+        var staleResult = staleWorker.TryReplaceSecretReference(
+            registration.Id,
+            oldReference,
+            staleReference);
+
+        Assert.Equal(ServerRegistrationFieldMutationStatus.Conflict, staleResult.Status);
+        var restarted = new FileServerRegistrationRepository(path);
+        Assert.Equal(winnerReference, restarted.GetById(registration.Id)!.SecretReference);
+    }
+
+    [Fact]
     public void SqlLogin_PersistsOnlyOpaqueReferenceAndNeverCredentialValues()
     {
         var path = StorePath();

@@ -41,6 +41,7 @@ public sealed class FileServerRegistrationRepository : IServerRegistrationReposi
 
     private readonly object _gate = new();
     private readonly string _path;
+    private readonly string _leasePath;
     private readonly int _maxStoreFileBytes;
     private readonly Dictionary<Guid, ServerRegistration> _registrations;
 
@@ -62,7 +63,9 @@ public sealed class FileServerRegistrationRepository : IServerRegistrationReposi
         }
 
         _path = System.IO.Path.GetFullPath(path);
+        _leasePath = $"{_path}.lock";
         _maxStoreFileBytes = maxStoreFileBytes;
+        using var lease = CrossProcessFileLease.Acquire(_leasePath, "Server registration store");
         _registrations = Load(_path, _maxStoreFileBytes);
     }
 
@@ -70,6 +73,8 @@ public sealed class FileServerRegistrationRepository : IServerRegistrationReposi
     {
         lock (_gate)
         {
+            using var lease = CrossProcessFileLease.Acquire(_leasePath, "Server registration store");
+            ReloadFromDisk();
             return Ordered(_registrations.Values).ToArray();
         }
     }
@@ -78,6 +83,8 @@ public sealed class FileServerRegistrationRepository : IServerRegistrationReposi
     {
         lock (_gate)
         {
+            using var lease = CrossProcessFileLease.Acquire(_leasePath, "Server registration store");
+            ReloadFromDisk();
             return _registrations.TryGetValue(id, out var registration) ? registration : null;
         }
     }
@@ -88,6 +95,8 @@ public sealed class FileServerRegistrationRepository : IServerRegistrationReposi
 
         lock (_gate)
         {
+            using var lease = CrossProcessFileLease.Acquire(_leasePath, "Server registration store");
+            ReloadFromDisk();
             var hadPrevious = _registrations.TryGetValue(registration.Id, out var previous);
             _registrations[registration.Id] = registration;
             try
@@ -117,6 +126,8 @@ public sealed class FileServerRegistrationRepository : IServerRegistrationReposi
     {
         lock (_gate)
         {
+            using var lease = CrossProcessFileLease.Acquire(_leasePath, "Server registration store");
+            ReloadFromDisk();
             if (!_registrations.TryGetValue(id, out var current))
             {
                 return new(ServerRegistrationFieldMutationStatus.NotFound, null);
@@ -158,6 +169,8 @@ public sealed class FileServerRegistrationRepository : IServerRegistrationReposi
     {
         lock (_gate)
         {
+            using var lease = CrossProcessFileLease.Acquire(_leasePath, "Server registration store");
+            ReloadFromDisk();
             if (!_registrations.TryGetValue(id, out var current))
             {
                 return new(ServerRegistrationFieldMutationStatus.NotFound, null);
@@ -194,6 +207,8 @@ public sealed class FileServerRegistrationRepository : IServerRegistrationReposi
     {
         lock (_gate)
         {
+            using var lease = CrossProcessFileLease.Acquire(_leasePath, "Server registration store");
+            ReloadFromDisk();
             if (!_registrations.Remove(id, out var previous))
             {
                 return false;
@@ -209,6 +224,16 @@ public sealed class FileServerRegistrationRepository : IServerRegistrationReposi
                 _registrations[id] = previous;
                 throw;
             }
+        }
+    }
+
+    private void ReloadFromDisk()
+    {
+        var latest = Load(_path, _maxStoreFileBytes);
+        _registrations.Clear();
+        foreach (var pair in latest)
+        {
+            _registrations.Add(pair.Key, pair.Value);
         }
     }
 
