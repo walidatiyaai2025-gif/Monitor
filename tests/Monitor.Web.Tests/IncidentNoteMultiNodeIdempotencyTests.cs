@@ -45,7 +45,8 @@ public sealed class IncidentNoteMultiNodeIdempotencyTests
             audit,
             sharedState,
             time,
-            useSharedOperationalState: true);
+            useSharedOperationalState: true,
+            new SharedIncidentNoteRequestStateStore(sharedState));
 
         return new IncidentCollaborationService(
             new SharedOperatorMetadataStore(sharedState, time),

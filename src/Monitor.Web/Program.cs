@@ -106,6 +106,12 @@ var operationalRoot = !haStateOptions.UseSharedOperationalState && operationalSt
     ? OperationalStorePath.ResolveOutsideWebRoot(operationalStoreOptions.RootPath, builder.Environment.ContentRootPath, builder.Environment.WebRootPath)
     : null;
 
+builder.Services.AddSingleton<IIncidentNoteRequestStateStore>(provider => haStateOptions.UseSharedOperationalState
+    ? new SharedIncidentNoteRequestStateStore(provider.GetRequiredService<ISharedStateDocumentStore>())
+    : operationalRoot is null
+        ? new InMemoryIncidentNoteRequestStateStore()
+        : new FileIncidentNoteRequestStateStore(operationalRoot));
+
 builder.Services.AddSingleton<IAuditStore>(provider =>
 {
     IAuditStore inner = haStateOptions.UseSharedOperationalState
@@ -118,7 +124,8 @@ builder.Services.AddSingleton<IAuditStore>(provider =>
         bounded,
         provider.GetRequiredService<ISharedStateDocumentStore>(),
         provider.GetRequiredService<TimeProvider>(),
-        haStateOptions.UseSharedOperationalState);
+        haStateOptions.UseSharedOperationalState,
+        provider.GetRequiredService<IIncidentNoteRequestStateStore>());
 });
 builder.Services.AddSingleton<IHealthIncidentRepository>(provider =>
 {
@@ -256,6 +263,10 @@ builder.Services.AddAuthorization(options =>
 });
 
 var app = builder.Build();
+var incidentNoteRequestState = app.Services.GetRequiredService<IIncidentNoteRequestStateStore>();
+IncidentNoteRequestStateMigration.MaterializeRetainedAuditReceipts(
+    incidentNoteRequestState,
+    app.Services.GetRequiredService<IAuditStore>());
 _ = app.Services.GetRequiredService<IGovernancePruneStateStore>();
 var configuredRegistration = ConfiguredServerRegistrationLoader.Load(app.Configuration, app.Services.GetRequiredService<TimeProvider>());
 if (configuredRegistration is not null) app.Services.GetRequiredService<IServerRegistrationRepository>().Upsert(configuredRegistration);
