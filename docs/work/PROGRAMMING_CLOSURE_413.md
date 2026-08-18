@@ -37,6 +37,17 @@ A Real SQL Server 2022 regression creates an ephemeral canonical v1 state databa
 
 Existing unit readiness redaction/schema-mismatch regressions remain applicable because structural failures travel through the same fail-closed provider boundary.
 
+## Real SQL gate contract
+
+During the PR, the repository path filter was found not to select `real-sql-acceptance` for SharedState SQL changes. The workflow trigger is corrected in the same closure so future changes to the SharedState SQL contract cannot silently bypass the Real SQL gate. The pull-request path set now includes:
+
+- `scripts/sql/monitor_shared_state_v1.sql`;
+- `scripts/sql/monitor_state_least_privilege.sql`;
+- `src/Monitor.Web/Services/SharedStateStore.cs`;
+- `tests/Monitor.Web.Tests/SharedStateSchemaFingerprintRealSqlTests.cs`.
+
+The workflow behavior, credentials, permissions and test command are otherwise unchanged.
+
 ## Safety boundary
 
 Read-only SharedState schema/readiness hardening only. No monitored-target query or permission expansion, shared-state schema-version change, migration, probe writes, secret disclosure, autonomous remediation, release promotion, production IIS/SQL mutation, external production acceptance, protected-P0 completion, or branch-protection mutation. External/manual dependency order remains `#162 -> #116 -> #111`; #353 remains a separate repository-admin action.
