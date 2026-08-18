@@ -137,6 +137,19 @@ builder.Services.AddSingleton<IOperatorMetadataStore>(provider => haStateOptions
     : operationalRoot is null
         ? new InMemoryOperatorMetadataStore(provider.GetRequiredService<TimeProvider>())
         : new FileOperatorMetadataStore(Path.Combine(operationalRoot, "operator-metadata.json"), provider.GetRequiredService<TimeProvider>()));
+builder.Services.AddSingleton<IGovernancePruneStateStore>(provider =>
+{
+    IGovernancePruneStateStore store = haStateOptions.UseSharedOperationalState
+        ? new SharedGovernancePruneStateStore(provider.GetRequiredService<ISharedStateDocumentStore>())
+        : operationalRoot is null
+            ? new InMemoryGovernancePruneStateStore()
+            : new FileGovernancePruneStateStore(operationalRoot);
+    GovernancePruneStateMigration.MaterializeRetainedAuditReceipts(
+        store,
+        provider.GetRequiredService<IAuditStore>(),
+        provider.GetRequiredService<IOperatorMetadataStore>());
+    return store;
+});
 builder.Services.AddSingleton<ISafeCsvReportService, SafeCsvReportService>();
 builder.Services.AddSingleton<IRedactedDiagnosticsPackageService, RedactedDiagnosticsPackageService>();
 
@@ -243,6 +256,7 @@ builder.Services.AddAuthorization(options =>
 });
 
 var app = builder.Build();
+_ = app.Services.GetRequiredService<IGovernancePruneStateStore>();
 var configuredRegistration = ConfiguredServerRegistrationLoader.Load(app.Configuration, app.Services.GetRequiredService<TimeProvider>());
 if (configuredRegistration is not null) app.Services.GetRequiredService<IServerRegistrationRepository>().Upsert(configuredRegistration);
 if (deploymentTopologyOptions.Mode == DeploymentTopology.MultiNode && !app.Services.GetRequiredService<ICredentialReadinessService>().Get().MultiNodeCredentialReady)
