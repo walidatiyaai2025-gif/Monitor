@@ -51,7 +51,7 @@ public sealed class IncidentCollaborationService(
     private static readonly TimeSpan AgingAfter = TimeSpan.FromMinutes(30);
     private static readonly TimeSpan BreachAfter = TimeSpan.FromHours(2);
     private readonly GovernanceRetentionOptions _retentionOptions = ValidateRetentionOptions(retentionOptions ?? new GovernanceRetentionOptions());
-    private readonly IGovernancePruneStateStore _pruneState = pruneState ?? GovernancePruneStateMigration.CreateTransient(audit, metadata);
+    private readonly IGovernancePruneStateStore _pruneState = pruneState ?? new LazyLegacyGovernancePruneStateStore(audit, metadata);
 
     public IReadOnlyList<IncidentCollaborationProjection> QueryByAssignee(IEnumerable<HealthIncident> incidents, string? assignee)
     {
