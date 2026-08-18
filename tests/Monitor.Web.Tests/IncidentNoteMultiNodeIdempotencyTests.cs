@@ -29,8 +29,8 @@ public sealed class IncidentNoteMultiNodeIdempotencyTests
         Assert.Equal("Concurrent investigation note.", metadata.Notes[0].Text);
 
         var audit = new SharedAuditStore(sharedState, time).Read(0, 1000);
-        Assert.Single(audit.Where(item => item.Action == "incident.note.write.commit" && item.Outcome == "armed"));
-        Assert.Single(audit.Where(item => item.Action == "incident.note.request" && item.Outcome == "applied"));
+        Assert.Single(audit, item => item.Action == "incident.note.write.commit" && item.Outcome == "armed");
+        Assert.Single(audit, item => item.Action == "incident.note.request" && item.Outcome == "applied");
     }
 
     private static IncidentCollaborationService BuildNode(
