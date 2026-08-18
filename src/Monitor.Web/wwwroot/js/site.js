@@ -46,39 +46,34 @@
   }
 
   const setupRefreshAllConnections = () => {
+    const button = document.querySelector('[data-refresh-all-connections]');
+    const status = document.querySelector('[data-refresh-all-status]');
+    if (!button || !status) return;
+
     const targetCards = Array.from(document.querySelectorAll('article[id^="target-"]'));
-    if (targetCards.length === 0) return;
-
-    const heading = Array.from(document.querySelectorAll('.section-heading')).find(section =>
-      section.querySelector('.eyebrow')?.textContent?.trim() === 'REGISTERED TARGETS');
     const tokenInput = document.querySelector('input[name="__RequestVerificationToken"]');
-    if (!heading || !tokenInput?.value) return;
-
     const registrationIds = targetCards
       .map(card => card.id.slice('target-'.length))
       .filter(id => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id));
-    if (registrationIds.length === 0) return;
 
-    const controls = document.createElement('div');
-    controls.className = 'lab-actions';
+    if (registrationIds.length === 0) {
+      status.textContent = 'No registered connections';
+      button.disabled = true;
+      return;
+    }
 
-    const status = document.createElement('span');
-    status.className = 'snapshot-note';
-    status.setAttribute('role', 'status');
-    status.setAttribute('aria-live', 'polite');
+    if (!tokenInput?.value) {
+      status.textContent = 'Security token unavailable · reload page';
+      button.disabled = true;
+      return;
+    }
+
     status.textContent = `${registrationIds.length} connection(s) ready`;
-
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'primary-button';
-    button.textContent = 'Refresh all connections';
-
-    controls.append(status, button);
-    heading.appendChild(controls);
 
     button.addEventListener('click', async () => {
       if (button.disabled) return;
       button.disabled = true;
+      button.textContent = 'Refreshing…';
 
       let refreshed = 0;
       let skipped = 0;
