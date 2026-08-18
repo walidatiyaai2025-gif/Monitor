@@ -21,6 +21,20 @@ public sealed class GovernanceRetentionOptions
     }
 }
 
+internal static class GovernanceRetentionPolicy
+{
+    public static bool ShouldPruneIncident(
+        HealthIncident? incident,
+        DateTimeOffset now,
+        GovernanceRetentionOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        if (incident is null) return true;
+        if (incident.Status != IncidentStatus.Resolved) return false;
+        return incident.LastSeenUtc < now.AddDays(-options.ResolvedIncidentMetadataDays);
+    }
+}
+
 public sealed record GovernanceCleanupCandidate(string Kind, string Key, string Reason);
 public sealed record GovernanceCleanupPlan(DateTimeOffset EvaluatedAtUtc, IReadOnlyList<GovernanceCleanupCandidate> Candidates)
 {
@@ -69,14 +83,15 @@ public sealed class GovernanceRetentionService(
                 candidates.Add(new("server", key, "Operator metadata has no active registration."));
         }
 
-        var incidentCutoff = now.AddDays(-_options.ResolvedIncidentMetadataDays);
         var noteCutoff = now.AddDays(-_options.OperatorNoteRetentionDays);
         foreach (var item in operatorSnapshot.Incidents)
         {
-            var shouldPruneIncident = !incidentById.TryGetValue(item.IncidentId, out var incident) ||
-                incident.Status == IncidentStatus.Resolved && incident.LastSeenUtc < incidentCutoff;
-            if (shouldPruneIncident && !receiptIndex.Contains($"governance.prune.incident:{item.IncidentId}"))
+            incidentById.TryGetValue(item.IncidentId, out var incident);
+            if (GovernanceRetentionPolicy.ShouldPruneIncident(incident, now, _options) &&
+                !receiptIndex.Contains($"governance.prune.incident:{item.IncidentId}"))
+            {
                 candidates.Add(new("incident", item.IncidentId, "Incident metadata is orphaned or beyond resolved retention."));
+            }
 
             foreach (var note in item.Notes.Where(note => note.OccurredAtUtc < noteCutoff))
             {
@@ -111,7 +126,9 @@ public sealed class GovernanceRetentionService(
     public bool IsIncidentPruned(string incidentId)
     {
         incidentId = EnterpriseOperatorValidation.NormalizeIncidentId(incidentId);
-        return HasReceipt("governance.prune.incident", incidentId);
+        var current = incidents.GetById(incidentId);
+        return GovernanceRetentionPolicy.ShouldPruneIncident(current, timeProvider.GetUtcNow(), _options) &&
+            HasReceipt("governance.prune.incident", incidentId);
     }
 
     public bool IsNotePruned(Guid noteId) => noteId != Guid.Empty && HasReceipt("governance.prune.note", noteId.ToString("D"));
