@@ -139,7 +139,7 @@ Promotion rejects candidates exceeding any of these conservative limits:
 
 The selected RC.61 package is far below these ceilings: 95 entries, about 12.7 MB total uncompressed, largest entry about 1.85 MB, longest path 62 characters, and observed maximum ratio about 3.3:1.
 
-## Step 2 — independent read-only verification after promotion
+## Independent read-only verification after promotion
 
 After the exact promotion run is Green, execute the exact `IndependentVerificationCommand` returned by `Invoke-Rc61DurablePromotion.ps1`.
 
@@ -163,7 +163,7 @@ A Green independent run proves, through the shared fail-closed verifier, that:
 - exact-ID downloaded ZIP/checksum bytes match the approved product SHA-256 and canonical checksum line;
 - tag/release security metadata remains unchanged across the verifier's second snapshots.
 
-Retain the Green verification run ID/URL and its Step Summary as the independent #162 closure evidence. Do not use the promotion run's own post-publication verification as a substitute for this separate read-only run.
+Retain the Green verification run URL and its Step Summary as the independent #162 closure evidence. Also preserve the exact verification run ID for the deterministic readiness handoff. Do not use the promotion run's own post-publication verification as a substitute for this separate read-only run.
 
 ## Step 3 — deterministic post-verification readiness handoff
 
