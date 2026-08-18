@@ -2,7 +2,7 @@
 
 **Umbrella:** Issue #287  
 **Task range:** B800-001..100  
-**State:** IN PROGRESS  
+**State:** COMPLETE
 **Goal:** move from route/UI completeness to real UI → controller → service → state/evidence wiring across the visible product.
 
 ## Completion definition
@@ -237,7 +237,8 @@ B800-098 reconciles `STATUS`, `FEATURE_CATALOG` and `IMPLEMENTATION_PLAN` with t
 - [x] B800-096 map all stale historical checklist rows to explicit merged exact-head evidence before rewriting the canonical ledger (`docs/work/B800-096.md`, PR #331 merged as `66c8303f57880e5d76a01dab5e5ef36a2efd455c`).
 - [x] B800-097 reconcile the canonical task ledger against the explicit historical exact-head evidence map while keeping the batch fail-closed (`docs/work/B800-097.md`, PR #332 merged as `581980ef11d201747c23ed1df808edb494b597ae`).
 - [x] B800-098 reconcile STATUS/FEATURE_CATALOG/IMPLEMENTATION_PLAN with the authoritative task ledger and lock known stale summary regressions (`docs/work/B800-098.md`, PR #333 merged as `483b8ce2f14b62499d8751d22f1908511f981d10`).
-- [ ] B800-099..100 complete final cross-document exact-head consistency and repository closeout without adding unsupported production behavior.
+- [x] B800-099 reconcile final cross-document consistency after B800-098 while preserving production boundaries (`docs/work/B800-099.md`, PR #334 merged as `467078e111e57f208258acb3cb33d1208f359b19`).
+- [x] B800-100 complete the final docs/tests-only repository closeout, repair transient closeout regressions, and lock the final canonical state (`docs/work/B800-100.md`).
 
 ## Implementation evidence
 
@@ -542,6 +543,10 @@ Bounded cached Performance Health estate export slice:
 - B800-097 corrected exact head `cfc59786e8929b6412de997106ae9470fb85c83d` passed CI #2900 / `32089166149` with 1261/1261; PR #332 squash-merged as `581980ef11d201747c23ed1df808edb494b597ae`.
 - B800-098 exact final head `e2c33c85becb40d4f0f639a178dd435c37578e01` passed CI #2908 / `32089818839`, Real SQL #376 / `32089818822`, and Windows production-candidate #544 / `32089818821`; PR #333 squash-merged as `483b8ce2f14b62499d8751d22f1908511f981d10`.
 
-## Current B800-099 consistency gate
+## Final B800-100 repository closeout
 
-B800-099 is the current focused documentation/test-only cross-document consistency slice. It records B800-097/B800-098 completion, requires `docs/BATCH_800.md`, `docs/STATUS.md`, `docs/FEATURE_CATALOG.md` and `docs/IMPLEMENTATION_PLAN.md` to agree that focused slices are merged through B800-098, keeps BATCH-800 `IN PROGRESS`, and leaves B800-099..100 pending. Before B800-099 merges, every repository-selected workflow must be Green on one exact settled head, the branch must remain current with `main`, review threads must be resolved, and the effective diff must remain bounded to the four canonical documents plus B800-099 work-note/consistency regression coverage. B800-100 remains the sole final repository closeout step. B800-099 does not publish/supersede RC.61, mutate real production IIS/SQL or satisfy #162/#116/#111.
+B800-099 / PR #334 is merged on `main` as `467078e111e57f208258acb3cb33d1208f359b19`. Exact-head review after that merge exposed a stale transient B800-098 regression assertion that still required `B800-098..100`; B800-100 repairs that contradiction by converting the closeout regression gates to durable invariants before final repository completion.
+
+BATCH-800 repository scope is **100/100 COMPLETE**. The 100 B800 task IDs are included in completed task accounting, taking the B100+B200+B300+B400+B500+B600+B700+B800 total to **760**. Issue #287 remains OPEN until this final closeout PR merges; no pre-merge document claims that the umbrella issue is already closed.
+
+This repository closeout does not publish or supersede selected RC.61, mutate real production IIS/SQL, satisfy production acceptance, or alter the strict `#162 -> #116 -> #111` dependency. Bounded TempDB, transaction-log and HA evidence remains evidence-backed with unsupported composite conclusions explicit; query regression remains privacy-safe and has no live SQL-text/query-plan collection. Final merge remains fail-closed until the current exact head has all repository-selected workflows Green, is current with `main`, and has no unresolved review threads.

@@ -7,7 +7,7 @@ public sealed class B800CanonicalConsistencyGateTests
     private static readonly string Root = FindRoot();
 
     [Fact]
-    public void CanonicalDocuments_AgreeOnPreCloseoutState()
+    public void CanonicalDocuments_AgreeOnFinalRepositoryCloseoutState()
     {
         var batch = Read("docs/BATCH_800.md");
         var status = Read("docs/STATUS.md");
@@ -18,15 +18,24 @@ public sealed class B800CanonicalConsistencyGateTests
         {
             Assert.Contains("B800-098", source, StringComparison.Ordinal);
             Assert.Contains("483b8ce2f14b62499d8751d22f1908511f981d10", source, StringComparison.Ordinal);
-            Assert.Contains("B800-099..100", source, StringComparison.Ordinal);
+            Assert.Contains("B800-100", source, StringComparison.Ordinal);
             Assert.Contains("#287", source, StringComparison.Ordinal);
-            Assert.DoesNotContain("B800-098..100", source, StringComparison.Ordinal);
         }
 
-        Assert.Contains("**State:** IN PROGRESS", batch, StringComparison.Ordinal);
-        Assert.DoesNotContain("**State:** COMPLETE", batch, StringComparison.Ordinal);
+        foreach (var source in new[] { status, catalog, plan })
+        {
+            Assert.DoesNotContain("B800-098..100", source, StringComparison.Ordinal);
+            Assert.DoesNotContain("B800-099..100", source, StringComparison.Ordinal);
+        }
+
+        Assert.Contains("**State:** COMPLETE", batch, StringComparison.Ordinal);
+        Assert.DoesNotContain("**State:** IN PROGRESS", batch, StringComparison.Ordinal);
         Assert.Contains("- [x] B800-098", batch, StringComparison.Ordinal);
-        Assert.Contains("- [ ] B800-099..100", batch, StringComparison.Ordinal);
+        Assert.Contains("- [x] B800-099", batch, StringComparison.Ordinal);
+        Assert.Contains("- [x] B800-100", batch, StringComparison.Ordinal);
+        Assert.DoesNotContain("- [ ] B800-", batch, StringComparison.Ordinal);
+        Assert.DoesNotContain("## Current B800-099 consistency gate", batch, StringComparison.Ordinal);
+        Assert.Contains("## Final B800-100 repository closeout", batch, StringComparison.Ordinal);
     }
 
     [Fact]

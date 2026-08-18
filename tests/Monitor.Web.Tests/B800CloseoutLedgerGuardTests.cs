@@ -7,14 +7,16 @@ public sealed class B800CloseoutLedgerGuardTests
     private static readonly string Root = FindRoot();
 
     [Fact]
-    public void Batch800_RemainsFailClosedWhileFinalCloseoutContinues()
+    public void Batch800_FinalRepositoryCloseoutPreservesSafetyBoundary()
     {
         var batch = Read("docs/BATCH_800.md");
 
-        Assert.Contains("**State:** IN PROGRESS", batch, StringComparison.Ordinal);
-        Assert.DoesNotContain("**State:** COMPLETE", batch, StringComparison.Ordinal);
+        Assert.Contains("**State:** COMPLETE", batch, StringComparison.Ordinal);
+        Assert.DoesNotContain("**State:** IN PROGRESS", batch, StringComparison.Ordinal);
         Assert.Contains("- [x] B800-096", batch, StringComparison.Ordinal);
-        Assert.Contains("- [ ] B800-097..100 continue final canonical exact-head and closeout acceptance", batch, StringComparison.Ordinal);
+        Assert.Contains("- [x] B800-099", batch, StringComparison.Ordinal);
+        Assert.Contains("- [x] B800-100", batch, StringComparison.Ordinal);
+        Assert.DoesNotContain("- [ ] B800-", batch, StringComparison.Ordinal);
         Assert.Contains("BATCH-800 repository/product work does not publish or supersede selected RC.61 and cannot satisfy #162/#116/#111.", batch, StringComparison.Ordinal);
     }
 
