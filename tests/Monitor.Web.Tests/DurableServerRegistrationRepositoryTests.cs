@@ -6,6 +6,8 @@ namespace Monitor.Web.Tests;
 
 public sealed class DurableServerRegistrationRepositoryTests : IDisposable
 {
+    private const int DefaultMaxStoreFileBytes = 16 * 1024 * 1024;
+    private const int TestMaxStoreFileBytes = 2 * 1024;
     private readonly string _directory = Path.Combine(Path.GetTempPath(), $"monitor-registration-tests-{Guid.NewGuid():N}");
 
     [Fact]
@@ -92,6 +94,60 @@ public sealed class DurableServerRegistrationRepositoryTests : IDisposable
         var exception = Assert.Throws<InvalidDataException>(() => new FileServerRegistrationRepository(path));
 
         Assert.Contains("corrupt", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void OversizedRawStore_FailsClosedBeforeJsonParsing()
+    {
+        var path = StorePath();
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        using (var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+        {
+            stream.SetLength(DefaultMaxStoreFileBytes + 1L);
+        }
+
+        var exception = Assert.Throws<InvalidDataException>(() => new FileServerRegistrationRepository(path));
+
+        Assert.Contains("bounded file size", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void OversizedPersistCandidate_RollsBackMemoryAndPreservesLastGoodFile()
+    {
+        var path = StorePath();
+        var repository = new FileServerRegistrationRepository(path, TestMaxStoreFileBytes);
+        var stable = Integrated("Stable SQL", "stable.internal");
+        repository.Upsert(stable);
+        var lastGoodBytes = File.ReadAllBytes(path);
+        ServerRegistration? rejected = null;
+
+        for (var index = 0; index < 12; index++)
+        {
+            var candidate = SqlLogin(
+                new string((char)('A' + index), 120),
+                new string((char)('a' + index), 255),
+                $"external:{new string('s', 240)}:{index:D2}");
+            try
+            {
+                repository.Upsert(candidate);
+                lastGoodBytes = File.ReadAllBytes(path);
+            }
+            catch (InvalidOperationException exception)
+            {
+                Assert.Contains("bounded file size", exception.Message, StringComparison.OrdinalIgnoreCase);
+                rejected = candidate;
+                break;
+            }
+        }
+
+        Assert.NotNull(rejected);
+        Assert.Equal(lastGoodBytes, File.ReadAllBytes(path));
+        Assert.Null(repository.GetById(rejected!.Id));
+        Assert.NotNull(repository.GetById(stable.Id));
+
+        var restarted = new FileServerRegistrationRepository(path, TestMaxStoreFileBytes);
+        Assert.Null(restarted.GetById(rejected.Id));
+        Assert.NotNull(restarted.GetById(stable.Id));
     }
 
     [Fact]
