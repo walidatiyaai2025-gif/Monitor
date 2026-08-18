@@ -28,12 +28,15 @@ internal sealed class ServerTargetLifecycleService(
             if (current.IsEnabled == enabled)
                 return new(ServerTargetLifecycleStatus.AlreadyInState, enabled ? "Monitoring is already enabled." : "Monitoring is already paused.");
 
+            var auditActor = actor.Trim();
+            var auditTarget = current.Id.ToString("D");
+            audit.Append(auditActor, "server.monitoring", auditTarget, "requested");
             registrations.Upsert(new ServerRegistration(
                 current.Id, current.DisplayName, current.Endpoint, current.AuthenticationMode,
                 current.SecretReference, enabled, current.CreatedAtUtc));
             if (!enabled) cache.Evict(current.Id);
             var outcome = enabled ? "enabled" : "disabled";
-            audit.Append(actor.Trim(), "server.monitoring", current.Id.ToString("D"), outcome);
+            audit.Append(auditActor, "server.monitoring", auditTarget, outcome);
             return new(
                 enabled ? ServerTargetLifecycleStatus.Enabled : ServerTargetLifecycleStatus.Disabled,
                 enabled
