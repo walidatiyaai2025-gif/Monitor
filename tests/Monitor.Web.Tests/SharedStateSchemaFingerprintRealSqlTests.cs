@@ -39,9 +39,9 @@ public sealed class SharedStateSchemaFingerprintRealSqlTests
                 SET NOCOUNT ON;
                 CREATE TABLE dbo.MonitorSharedStateSchema
                 (
-                    Id tinyint NOT NULL PRIMARY KEY,
+                    Id tinyint NOT NULL CONSTRAINT PK_MonitorSharedStateSchema PRIMARY KEY,
                     SchemaVersion int NOT NULL,
-                    InstalledAtUtc datetime2(7) NOT NULL DEFAULT SYSUTCDATETIME(),
+                    InstalledAtUtc datetime2(7) NOT NULL CONSTRAINT DF_MonitorSharedStateSchema_InstalledAtUtc DEFAULT SYSUTCDATETIME(),
                     CONSTRAINT CK_MonitorSharedStateSchema_Id CHECK (Id = 1)
                 );
                 INSERT dbo.MonitorSharedStateSchema (Id, SchemaVersion) VALUES (1, 1);
