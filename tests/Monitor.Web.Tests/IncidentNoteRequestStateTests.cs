@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using Monitor.Web.Services;
 using Xunit;
 
@@ -126,6 +128,113 @@ public sealed class IncidentNoteRequestStateTests
     }
 
     [Fact]
+    public void IndependentFileStores_CannotReclaimPeerArmedRequest()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"monitor-note-peer-claim-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var targets = FindTargetsInSameShard(2);
+            var first = new FileIncidentNoteRequestStateStore(directory);
+            var second = new FileIncidentNoteRequestStateStore(directory);
+
+            Assert.Equal(IncidentNoteClaimResult.Claimed, first.TryClaim(targets[0]));
+            Assert.Equal(IncidentNoteClaimResult.Claimed, second.TryClaim(targets[1]));
+            Assert.Equal(IncidentNoteClaimResult.Ambiguous, first.TryClaim(targets[1]));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void IndependentFileStores_DoNotLosePeerShardEntries()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"monitor-note-peer-entry-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var targets = FindTargetsInSameShard(3);
+            var first = new FileIncidentNoteRequestStateStore(directory);
+            var second = new FileIncidentNoteRequestStateStore(directory);
+
+            Assert.Equal(IncidentNoteClaimResult.Claimed, first.TryClaim(targets[0]));
+            Assert.Equal(IncidentNoteClaimResult.Claimed, second.TryClaim(targets[1]));
+            Assert.Equal(IncidentNoteClaimResult.Claimed, first.TryClaim(targets[2]));
+
+            var restarted = new FileIncidentNoteRequestStateStore(directory);
+            Assert.Equal(IncidentNoteClaimResult.Ambiguous, restarted.TryClaim(targets[0]));
+            Assert.Equal(IncidentNoteClaimResult.Ambiguous, restarted.TryClaim(targets[1]));
+            Assert.Equal(IncidentNoteClaimResult.Ambiguous, restarted.TryClaim(targets[2]));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void IndependentFileStores_CannotDowngradeAppliedState()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"monitor-note-peer-applied-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var targets = FindTargetsInSameShard(3);
+            var first = new FileIncidentNoteRequestStateStore(directory);
+            var second = new FileIncidentNoteRequestStateStore(directory);
+
+            Assert.Equal(IncidentNoteClaimResult.Claimed, first.TryClaim(targets[0]));
+            Assert.Equal(IncidentNoteClaimResult.Claimed, second.TryClaim(targets[1]));
+            second.MarkApplied(targets[0]);
+            Assert.Equal(IncidentNoteClaimResult.Claimed, first.TryClaim(targets[2]));
+
+            var restarted = new FileIncidentNoteRequestStateStore(directory);
+            Assert.Equal(IncidentNoteClaimResult.AlreadyApplied, restarted.TryClaim(targets[0]));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void FileStore_WaitsForCrossInstanceMutationLeaseBeforeClaiming()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"monitor-note-peer-lock-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        FileStream? blocker = null;
+        try
+        {
+            blocker = new FileStream(
+                Path.Combine(directory, "incident-note-requests.lock"),
+                FileMode.OpenOrCreate,
+                FileAccess.ReadWrite,
+                FileShare.None);
+            var store = new FileIncidentNoteRequestStateStore(directory);
+            using var started = new ManualResetEventSlim();
+            var claim = Task.Run(() =>
+            {
+                started.Set();
+                return store.TryClaim("incident-lock-test:0123456789ABCDEF01234567");
+            });
+
+            Assert.True(started.Wait(TimeSpan.FromSeconds(5)));
+            Assert.False(claim.Wait(TimeSpan.FromMilliseconds(150)));
+
+            blocker.Dispose();
+            blocker = null;
+            Assert.Equal(IncidentNoteClaimResult.Claimed, claim.GetAwaiter().GetResult());
+        }
+        finally
+        {
+            blocker?.Dispose();
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
     public void LegacyAuditReceipts_MaterializeWithAppliedWinningOverArmed()
     {
         var time = new FixedTimeProvider(new DateTimeOffset(2026, 8, 18, 19, 0, 0, TimeSpan.Zero));
@@ -142,6 +251,28 @@ public sealed class IncidentNoteRequestStateTests
 
         Assert.Equal(IncidentNoteClaimResult.AlreadyApplied, state.TryClaim(appliedTarget));
         Assert.Equal(IncidentNoteClaimResult.Ambiguous, state.TryClaim(armedTarget));
+    }
+
+    private static string[] FindTargetsInSameShard(int count)
+    {
+        var byShard = new Dictionary<int, List<string>>();
+        for (var index = 0; index < 10000; index++)
+        {
+            var target = $"incident-peer-{index:D5}:0123456789ABCDEF01234567";
+            var hash = SHA256.HashData(Encoding.UTF8.GetBytes(target));
+            var shard = hash[0] & 63;
+            if (!byShard.TryGetValue(shard, out var targets))
+            {
+                targets = [];
+                byShard[shard] = targets;
+            }
+
+            targets.Add(target);
+            if (targets.Count == count)
+                return targets.ToArray();
+        }
+
+        throw new InvalidOperationException("Unable to find deterministic incident-note targets in one shard.");
     }
 
     private static IReadOnlyList<AuditEvent> ReadAll(IAuditStore audit)
