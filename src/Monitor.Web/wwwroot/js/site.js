@@ -45,6 +45,82 @@
     });
   }
 
+  const setupRefreshAllConnections = () => {
+    const targetCards = Array.from(document.querySelectorAll('article[id^="target-"]'));
+    if (targetCards.length === 0) return;
+
+    const heading = Array.from(document.querySelectorAll('.section-heading')).find(section =>
+      section.querySelector('.eyebrow')?.textContent?.trim() === 'REGISTERED TARGETS');
+    const tokenInput = document.querySelector('input[name="__RequestVerificationToken"]');
+    if (!heading || !tokenInput?.value) return;
+
+    const registrationIds = targetCards
+      .map(card => card.id.slice('target-'.length))
+      .filter(id => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id));
+    if (registrationIds.length === 0) return;
+
+    const controls = document.createElement('div');
+    controls.className = 'lab-actions';
+
+    const status = document.createElement('span');
+    status.className = 'snapshot-note';
+    status.setAttribute('role', 'status');
+    status.setAttribute('aria-live', 'polite');
+    status.textContent = `${registrationIds.length} connection(s) ready`;
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'primary-button';
+    button.textContent = 'Refresh all connections';
+
+    controls.append(status, button);
+    heading.appendChild(controls);
+
+    button.addEventListener('click', async () => {
+      if (button.disabled) return;
+      button.disabled = true;
+
+      let refreshed = 0;
+      let skipped = 0;
+      let throttled = 0;
+      let failed = 0;
+
+      for (let index = 0; index < registrationIds.length; index += 1) {
+        const id = registrationIds[index];
+        status.textContent = `Refreshing ${index + 1} of ${registrationIds.length}…`;
+
+        try {
+          const body = new URLSearchParams({ __RequestVerificationToken: tokenInput.value });
+          const response = await fetch(`/servers/${encodeURIComponent(id)}/refresh-snapshot`, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+              'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: body.toString()
+          });
+
+          if (response.ok) {
+            refreshed += 1;
+          } else if (response.status === 409) {
+            skipped += 1;
+          } else if (response.status === 429) {
+            throttled += 1;
+          } else {
+            failed += 1;
+          }
+        } catch {
+          failed += 1;
+        }
+      }
+
+      status.textContent = `Done · refreshed ${refreshed} · skipped ${skipped} · throttled ${throttled} · failed ${failed}`;
+      button.textContent = 'Refresh all again';
+      button.disabled = false;
+    });
+  };
+
   const tick = () => {
     const now = new Date();
     const time = now.toLocaleTimeString([], { hour12: false });
@@ -65,6 +141,7 @@
     scanPhases.forEach(label => { label.textContent = phase; });
   };
 
+  setupRefreshAllConnections();
   tick();
   window.setInterval(tick, 1000);
 })();
