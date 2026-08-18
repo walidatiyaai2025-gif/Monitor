@@ -16,7 +16,9 @@ public sealed class RealServerJourneyTests
         var cache = new FakeCache();
         var observer = new FakeObserver();
         var tester = new RecordingTester(repository, succeed: true);
-        var controller = new ConnectionLabController(repository, tester, writer, cache, observer);
+        var controller = new ConnectionLabController(
+            repository, tester, writer, cache, observer,
+            credentialPolicy: LocalCredentialPolicy());
         var input = SqlInput();
 
         var action = await controller.Register(input, default);
@@ -40,7 +42,9 @@ public sealed class RealServerJourneyTests
         var writer = new FakeCredentialWriter();
         var cache = new FakeCache();
         var tester = new RecordingTester(repository, succeed: false);
-        var controller = new ConnectionLabController(repository, tester, writer, cache, new FakeObserver());
+        var controller = new ConnectionLabController(
+            repository, tester, writer, cache, new FakeObserver(),
+            credentialPolicy: LocalCredentialPolicy());
         var input = SqlInput();
 
         var action = await controller.Register(input, default);
@@ -60,7 +64,9 @@ public sealed class RealServerJourneyTests
         var repository = new InMemoryServerRegistrationRepository();
         var writer = new FakeCredentialWriter();
         var cache = new FakeCache();
-        var controller = new ConnectionLabController(repository, new CancelledTester(), writer, cache, new FakeObserver());
+        var controller = new ConnectionLabController(
+            repository, new CancelledTester(), writer, cache, new FakeObserver(),
+            credentialPolicy: LocalCredentialPolicy());
         var input = SqlInput();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => controller.Register(input, default));
@@ -133,6 +139,11 @@ public sealed class RealServerJourneyTests
         Assert.DoesNotContain(servers, item => item.Source == ServerDataSource.Demo);
         Assert.Equal(2, dashboard.Servers.Count);
     }
+
+    private static CredentialPolicyOptions LocalCredentialPolicy() => new()
+    {
+        AllowLocalOwnedCredentials = true
+    };
 
     private static ConnectionLabRegistrationInput SqlInput() => new()
     {
