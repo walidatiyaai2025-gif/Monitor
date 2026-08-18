@@ -48,7 +48,7 @@ public sealed class GovernanceRetentionService(
     IGovernancePruneStateStore? pruneState = null) : IGovernanceRetentionService
 {
     private readonly GovernanceRetentionOptions _options = Validate(options ?? new GovernanceRetentionOptions());
-    private readonly IGovernancePruneStateStore _pruneState = pruneState ?? GovernancePruneStateMigration.CreateTransient(audit, metadata);
+    private readonly IGovernancePruneStateStore _pruneState = pruneState ?? new LazyLegacyGovernancePruneStateStore(audit, metadata);
 
     public GovernanceCleanupPlan DryRun()
     {
