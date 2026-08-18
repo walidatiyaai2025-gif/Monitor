@@ -31,6 +31,55 @@ public sealed class DurableOperationalStoresTests : IDisposable
     }
 
     [Fact]
+    public void Audit_IndependentInstancesPreservePeerAppendsAndRefreshReads()
+    {
+        var path = Path.Combine(_directory, "audit.json");
+        var clock = new MutableClock(Now);
+        var first = new FileAuditStore(path, clock);
+        var second = new FileAuditStore(path, clock);
+
+        first.Append("worker.one", "incident.transition", "incident-1", "Open->Acknowledged");
+        clock.Now = Now.AddMinutes(1);
+        second.Append("worker.two", "advisor.request", "incident-2", "Ready");
+
+        var events = first.Read(0, 100);
+
+        Assert.Equal(2, events.Count);
+        Assert.Equal(["worker.two", "worker.one"], events.Select(item => item.Actor).ToArray());
+    }
+
+    [Fact]
+    public async Task Audit_MutationWaitsForHeldCrossProcessLease()
+    {
+        var path = Path.Combine(_directory, "audit.json");
+        var clock = new MutableClock(Now);
+        var store = new FileAuditStore(path, clock);
+        var leasePath = $"{Path.GetFullPath(path)}.lock";
+        Task appendTask;
+
+        using (var heldLease = new FileStream(
+            leasePath,
+            FileMode.OpenOrCreate,
+            FileAccess.ReadWrite,
+            FileShare.None))
+        {
+            var started = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            appendTask = Task.Run(() =>
+            {
+                started.SetResult(true);
+                store.Append("worker.one", "incident.transition", "incident-1", "Open->Acknowledged");
+            });
+
+            await started.Task;
+            await Task.Delay(100);
+            Assert.False(appendTask.IsCompleted);
+        }
+
+        await appendTask;
+        Assert.Single(store.Read(0, 100));
+    }
+
+    [Fact]
     public void History_RestartPreservesDedupeRetentionAndAllowlistedAggregates()
     {
         var path = Path.Combine(_directory, "history.json");
@@ -52,17 +101,30 @@ public sealed class DurableOperationalStoresTests : IDisposable
     }
 
     [Fact]
+    public void History_IndependentInstancesPreservePeerPointsAndRefreshReads()
+    {
+        var path = Path.Combine(_directory, "history.json");
+        var clock = new MutableClock(Now);
+        var first = new FileSnapshotHistoryStore(path, clock);
+        var second = new FileSnapshotHistoryStore(path, clock);
+        var firstAt = Now.AddMinutes(-2);
+        var secondAt = Now.AddMinutes(-1);
+
+        first.Append(Result(firstAt));
+        second.Append(Result(secondAt));
+
+        var points = first.Read(RegistrationId, TimeSpan.FromHours(24));
+
+        Assert.Equal(2, points.Count);
+        Assert.Equal([firstAt, secondAt], points.Select(item => item.CollectedAtUtc).ToArray());
+    }
+
+    [Fact]
     public void Incidents_RestartPreservesIdentityStatusAndFreshReconciliation()
     {
         var path = Path.Combine(_directory, "incidents.json");
         var first = new FileHealthIncidentRepository(path);
-        var finding = new HealthFinding(
-            RegistrationId,
-            "backup.full-gap",
-            FindingSeverity.Warning,
-            "Full backup gap",
-            "2 database(s) have no full backup in 24 hours.",
-            Now);
+        var finding = Finding("backup.full-gap", Now);
         first.Apply([finding]);
         var incident = Assert.Single(first.GetAll());
         Assert.True(first.TrySetStatus(incident.Id, IncidentStatus.Open, IncidentStatus.Acknowledged));
@@ -77,6 +139,38 @@ public sealed class DurableOperationalStoresTests : IDisposable
         restarted.Reconcile(RegistrationId, Now.AddMinutes(1), [], canResolve: true);
         var restartedAgain = new FileHealthIncidentRepository(path);
         Assert.Equal(IncidentStatus.Resolved, Assert.Single(restartedAgain.GetAll()).Status);
+    }
+
+    [Fact]
+    public void Incidents_IndependentInstancesPreservePeerFindingsAndRefreshReads()
+    {
+        var path = Path.Combine(_directory, "incidents.json");
+        var first = new FileHealthIncidentRepository(path);
+        var second = new FileHealthIncidentRepository(path);
+
+        first.Apply([Finding("backup.full-gap", Now)]);
+        second.Apply([Finding("memory.pressure", Now.AddSeconds(1))]);
+
+        var incidents = first.GetAll();
+
+        Assert.Equal(2, incidents.Count);
+        Assert.Contains(incidents, item => item.RuleId == "backup.full-gap");
+        Assert.Contains(incidents, item => item.RuleId == "memory.pressure");
+    }
+
+    [Fact]
+    public void Incidents_IndependentInstancesEvaluateStatusCasAgainstFreshState()
+    {
+        var path = Path.Combine(_directory, "incidents.json");
+        var seed = new FileHealthIncidentRepository(path);
+        seed.Apply([Finding("backup.full-gap", Now)]);
+        var id = Assert.Single(seed.GetAll()).Id;
+        var first = new FileHealthIncidentRepository(path);
+        var second = new FileHealthIncidentRepository(path);
+
+        Assert.True(first.TrySetStatus(id, IncidentStatus.Open, IncidentStatus.Acknowledged));
+        Assert.False(second.TrySetStatus(id, IncidentStatus.Open, IncidentStatus.Resolved));
+        Assert.Equal(IncidentStatus.Acknowledged, second.GetById(id)?.Status);
     }
 
     [Theory]
@@ -119,6 +213,14 @@ public sealed class DurableOperationalStoresTests : IDisposable
             Directory.Delete(_directory, recursive: true);
         }
     }
+
+    private static HealthFinding Finding(string ruleId, DateTimeOffset observedAtUtc) => new(
+        RegistrationId,
+        ruleId,
+        FindingSeverity.Warning,
+        $"Finding {ruleId}",
+        $"Evidence for {ruleId}.",
+        observedAtUtc);
 
     private static SnapshotCacheResult Result(DateTimeOffset collectedAt) => new(
         new ServerHealthSnapshot(
