@@ -23,6 +23,7 @@ public sealed class IncidentCollaborationController(
         try
         {
             _ = EnterpriseOperatorValidation.NormalizeNote(resolutionNote);
+            audit.Append(actor, "incident.transition.request", id, "resolve-with-note");
             if (!workflow.Resolve(id)) return Conflict(new { message = "Incident state changed or resolution is not allowed." });
             Collaboration().AddResolutionNote(id, actor, resolutionNote);
             audit.Append(actor, "incident.transition", id, $"{incident.Status}->Resolved");
@@ -47,6 +48,7 @@ public sealed class IncidentCollaborationController(
         try
         {
             _ = EnterpriseOperatorValidation.NormalizeNote(reopenReason);
+            audit.Append(actor, "incident.transition.request", id, "reopen-with-reason");
             if (!workflow.Reopen(id)) return Conflict(new { message = "Incident state changed or reopen is not allowed." });
             Collaboration().AddReopenReason(id, actor, reopenReason);
             audit.Append(actor, "incident.transition", id, $"{incident.Status}->Open");
