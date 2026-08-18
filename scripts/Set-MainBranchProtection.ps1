@@ -62,15 +62,29 @@ function Get-ProtectionSnapshot {
     }
 
     $branchInfo = Invoke-GhJson -Arguments @('api', "repos/$Repository/branches/$Branch")
+    if ([string]::IsNullOrWhiteSpace([string]$branchInfo.commit.sha)) {
+        throw 'Default branch head SHA is missing or ambiguous.'
+    }
+
     $protection = Invoke-GhJson -Arguments @('api', "repos/$Repository/branches/$Branch/protection") -AllowNotFound
 
-    $contexts = @()
+    $bindings = @()
     if ($null -ne $protection -and $null -ne $protection.required_status_checks) {
-        if ($null -ne $protection.required_status_checks.contexts) {
-            $contexts = @($protection.required_status_checks.contexts | ForEach-Object { [string]$_ })
+        if ($null -ne $protection.required_status_checks.checks) {
+            $bindings = @($protection.required_status_checks.checks | ForEach-Object {
+                [pscustomobject]@{
+                    Context = [string]$_.context
+                    AppId = if ($null -eq $_.app_id) { $null } else { [int64]$_.app_id }
+                }
+            })
         }
-        elseif ($null -ne $protection.required_status_checks.checks) {
-            $contexts = @($protection.required_status_checks.checks | ForEach-Object { [string]$_.context })
+        elseif ($null -ne $protection.required_status_checks.contexts) {
+            $bindings = @($protection.required_status_checks.contexts | ForEach-Object {
+                [pscustomobject]@{
+                    Context = [string]$_
+                    AppId = $null
+                }
+            })
         }
     }
 
@@ -79,12 +93,98 @@ function Get-ProtectionSnapshot {
         BranchInfo = $branchInfo
         Protection = $protection
         Protected = [bool]$branchInfo.protected
-        RequiredChecks = @($contexts | Sort-Object -Unique)
+        RequiredCheckBindings = @($bindings | Sort-Object Context -Unique)
     }
 }
 
+function Get-ObservedRequiredCheckBindings {
+    param([Parameter(Mandatory)]$BranchInfo)
+
+    $branchHeadSha = [string]$BranchInfo.commit.sha
+    $pulls = Invoke-GhJson -Arguments @(
+        'api',
+        '-H', 'Accept: application/vnd.github+json',
+        '-H', 'X-GitHub-Api-Version: 2022-11-28',
+        "repos/$Repository/pulls?state=closed&base=$Branch&sort=updated&direction=desc&per_page=20"
+    )
+
+    $evidencePulls = @($pulls | Where-Object {
+        $null -ne $_.merged_at -and
+        [string]$_.merge_commit_sha -ceq $branchHeadSha -and
+        $null -ne $_.head -and
+        $null -ne $_.head.repo -and
+        [int64]$_.head.repo.id -eq $expectedRepositoryId
+    })
+
+    if ($evidencePulls.Count -ne 1) {
+        throw "Current '$Branch' head $branchHeadSha must resolve to exactly one recently merged same-repository PR before protection can be changed; observed $($evidencePulls.Count)."
+    }
+
+    $evidencePull = $evidencePulls[0]
+    $evidenceHeadSha = [string]$evidencePull.head.sha
+    if ([string]::IsNullOrWhiteSpace($evidenceHeadSha)) {
+        throw 'Evidence PR head SHA is missing.'
+    }
+
+    $checkRuns = Invoke-GhJson -Arguments @(
+        'api',
+        '-H', 'Accept: application/vnd.github+json',
+        '-H', 'X-GitHub-Api-Version: 2022-11-28',
+        "repos/$Repository/commits/$evidenceHeadSha/check-runs?per_page=100"
+    )
+
+    if ($null -eq $checkRuns -or $null -eq $checkRuns.check_runs) {
+        throw "Check-run evidence is missing for PR #$($evidencePull.number) head $evidenceHeadSha."
+    }
+
+    $bindings = @()
+    foreach ($checkName in $expectedChecks) {
+        $matching = @($checkRuns.check_runs | Where-Object { [string]$_.name -ceq $checkName })
+        if ($matching.Count -lt 1) {
+            throw "Required check '$checkName' was not observed on PR #$($evidencePull.number) head $evidenceHeadSha."
+        }
+
+        $successful = @($matching | Where-Object {
+            [string]$_.status -ceq 'completed' -and [string]$_.conclusion -ceq 'success'
+        })
+        if ($successful.Count -lt 1) {
+            throw "Required check '$checkName' has no completed/successful run on PR #$($evidencePull.number) head $evidenceHeadSha."
+        }
+
+        $appIds = @($successful | ForEach-Object {
+            if ($null -eq $_.app -or $null -eq $_.app.id) {
+                throw "Required check '$checkName' has no GitHub App provider identity."
+            }
+            [int64]$_.app.id
+        } | Sort-Object -Unique)
+
+        if ($appIds.Count -ne 1 -or $appIds[0] -le 0) {
+            throw "Required check '$checkName' provider identity is ambiguous."
+        }
+
+        $selected = $successful | Where-Object { [int64]$_.app.id -eq $appIds[0] } | Select-Object -First 1
+        $bindings += [pscustomobject]@{
+            Context = $checkName
+            AppId = [int64]$appIds[0]
+            EvidencePullRequest = [int]$evidencePull.number
+            EvidenceHeadSha = $evidenceHeadSha
+            EvidenceCheckRunId = [int64]$selected.id
+        }
+    }
+
+    $providerIds = @($bindings | ForEach-Object { [int64]$_.AppId } | Sort-Object -Unique)
+    if ($providerIds.Count -ne 1) {
+        throw "The required checks are not emitted by one unambiguous GitHub App provider; observed app IDs: $($providerIds -join ', ')."
+    }
+
+    return @($bindings | Sort-Object Context)
+}
+
 function Test-ProtectionExact {
-    param([Parameter(Mandatory)]$Snapshot)
+    param(
+        [Parameter(Mandatory)]$Snapshot,
+        [Parameter(Mandatory)][object[]]$ExpectedBindings
+    )
 
     if (-not $Snapshot.Protected -or $null -eq $Snapshot.Protection) { return $false }
     if ($Snapshot.Protection.required_status_checks.strict -ne $true) { return $false }
@@ -93,18 +193,21 @@ function Test-ProtectionExact {
     if ($Snapshot.Protection.allow_force_pushes.enabled -ne $false) { return $false }
     if ($Snapshot.Protection.allow_deletions.enabled -ne $false) { return $false }
 
-    $observed = @($Snapshot.RequiredChecks | Sort-Object)
-    $expected = @($expectedChecks | Sort-Object)
+    $observed = @($Snapshot.RequiredCheckBindings | Sort-Object Context)
+    $expected = @($ExpectedBindings | Sort-Object Context)
     if ($observed.Count -ne $expected.Count) { return $false }
+
     for ($i = 0; $i -lt $expected.Count; $i++) {
-        if ($observed[$i] -cne $expected[$i]) { return $false }
+        if ([string]$observed[$i].Context -cne [string]$expected[$i].Context) { return $false }
+        if ($null -eq $observed[$i].AppId -or [int64]$observed[$i].AppId -ne [int64]$expected[$i].AppId) { return $false }
     }
 
     return $true
 }
 
 $before = Get-ProtectionSnapshot
-$alreadyExact = Test-ProtectionExact -Snapshot $before
+$observedBindings = @(Get-ObservedRequiredCheckBindings -BranchInfo $before.BranchInfo)
+$alreadyExact = Test-ProtectionExact -Snapshot $before -ExpectedBindings $observedBindings
 
 if ($alreadyExact) {
     [pscustomobject]@{
@@ -112,7 +215,7 @@ if ($alreadyExact) {
         Repository = $Repository
         RepositoryId = $expectedRepositoryId
         Branch = $Branch
-        RequiredChecks = $expectedChecks
+        RequiredCheckBindings = $observedBindings
         StrictRequiredChecks = $true
         EnforceAdmins = $true
         ConversationResolutionRequired = $true
@@ -131,8 +234,8 @@ if (-not $AcknowledgeProtection) {
         RepositoryId = $expectedRepositoryId
         Branch = $Branch
         CurrentProtected = $before.Protected
-        CurrentRequiredChecks = $before.RequiredChecks
-        RequiredChecks = $expectedChecks
+        CurrentRequiredCheckBindings = $before.RequiredCheckBindings
+        RequiredCheckBindings = $observedBindings
         StrictRequiredChecks = $true
         EnforceAdmins = $true
         ConversationResolutionRequired = $true
@@ -145,10 +248,17 @@ if (-not $AcknowledgeProtection) {
     return
 }
 
+$payloadChecks = @($observedBindings | ForEach-Object {
+    [ordered]@{
+        context = [string]$_.Context
+        app_id = [int64]$_.AppId
+    }
+})
+
 $payload = [ordered]@{
     required_status_checks = [ordered]@{
         strict = $true
-        contexts = $expectedChecks
+        checks = $payloadChecks
     }
     enforce_admins = $true
     required_pull_request_reviews = $null
@@ -175,8 +285,8 @@ finally {
 }
 
 $after = Get-ProtectionSnapshot
-if (-not (Test-ProtectionExact -Snapshot $after)) {
-    throw 'Branch protection mutation returned but read-back verification did not match the exact required policy.'
+if (-not (Test-ProtectionExact -Snapshot $after -ExpectedBindings $observedBindings)) {
+    throw 'Branch protection mutation returned but read-back verification did not match the exact required provider-bound policy.'
 }
 
 [pscustomobject]@{
@@ -184,7 +294,7 @@ if (-not (Test-ProtectionExact -Snapshot $after)) {
     Repository = $Repository
     RepositoryId = $expectedRepositoryId
     Branch = $Branch
-    RequiredChecks = $after.RequiredChecks
+    RequiredCheckBindings = $observedBindings
     StrictRequiredChecks = $true
     EnforceAdmins = $true
     ConversationResolutionRequired = $true
