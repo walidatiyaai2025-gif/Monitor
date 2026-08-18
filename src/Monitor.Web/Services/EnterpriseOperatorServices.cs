@@ -351,31 +351,8 @@ public sealed class FileOperatorMetadataStore : IOperatorMetadataStore
         _state = candidate;
     }
 
-    private static EnterpriseOperatorSnapshot ValidateSnapshot(EnterpriseOperatorSnapshot state)
-    {
-        if (state.Servers.Length > 5000 || state.Incidents.Length > 1000) throw new InvalidDataException("Operator metadata store exceeds bounded capacity.");
-        var serverIds = new HashSet<Guid>();
-        foreach (var server in state.Servers)
-        {
-            if (!serverIds.Add(server.RegistrationId)) throw new InvalidDataException("Operator metadata contains duplicate server records.");
-            EnterpriseOperatorValidation.NormalizeServer(server, server.UpdatedAtUtc);
-        }
-        var incidentIds = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var incident in state.Incidents)
-        {
-            if (!incidentIds.Add(EnterpriseOperatorValidation.NormalizeIncidentId(incident.IncidentId)) || incident.Notes.Length > EnterpriseOperatorValidation.MaxNotesPerIncident || incident.AcknowledgedRecommendationKeys.Length > 20)
-                throw new InvalidDataException("Operator metadata contains invalid incident state.");
-            _ = EnterpriseOperatorValidation.NormalizeAssignee(incident.Assignee);
-            foreach (var note in incident.Notes)
-            {
-                if (note.Id == Guid.Empty || note.OccurredAtUtc == default) throw new InvalidDataException("Operator note metadata is invalid.");
-                EnterpriseOperatorValidation.NormalizeActor(note.Actor);
-                EnterpriseOperatorValidation.NormalizeNote(note.Text);
-            }
-            foreach (var key in incident.AcknowledgedRecommendationKeys) EnterpriseOperatorValidation.NormalizeRecommendationKey(key);
-        }
-        return state;
-    }
+    private static EnterpriseOperatorSnapshot ValidateSnapshot(EnterpriseOperatorSnapshot state) =>
+        OperatorMetadataSnapshotValidator.Validate(state);
 
     private sealed record Envelope(int Version, EnterpriseOperatorSnapshot? State);
 }
@@ -443,7 +420,7 @@ public sealed class SharedOperatorMetadataStore(ISharedStateDocumentStore store,
         for (var attempt = 0; attempt < MaxRetries; attempt++)
         {
             var loaded = Load();
-            var candidate = mutation(loaded.State);
+            var candidate = OperatorMetadataSnapshotValidator.Validate(mutation(loaded.State));
             var payload = JsonSerializer.Serialize(candidate, AtomicJsonFile.Options);
             var result = store.CompareExchangeAsync(StateKey, loaded.Version, payload).GetAwaiter().GetResult();
             if (result.Applied) return;
@@ -460,7 +437,7 @@ public sealed class SharedOperatorMetadataStore(ISharedStateDocumentStore store,
         {
             var state = JsonSerializer.Deserialize<EnterpriseOperatorSnapshot>(document.PayloadJson, AtomicJsonFile.Options)
                 ?? throw new InvalidDataException("Shared operator metadata is empty.");
-            return (document.Version, state);
+            return (document.Version, OperatorMetadataSnapshotValidator.Validate(state));
         }
         catch (JsonException exception)
         {
