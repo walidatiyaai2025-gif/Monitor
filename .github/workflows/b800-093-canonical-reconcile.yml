@@ -1,0 +1,88 @@
+name: b800-093-canonical-reconcile
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/b800-093-canonical-reconcile.yml
+
+permissions:
+  contents: write
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: agent/b800-093-no-fake-data-guard
+          fetch-depth: 0
+      - name: Reconcile B800-093 canonical documentation with guarded replacements
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              p = Path(path)
+              text = p.read_text(encoding="utf-8")
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{path}: expected exactly one guarded match, found {count}")
+              p.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+          batch = "docs/BATCH_800.md"
+          replace_once(
+              batch,
+              "- [x] B800-092 lock every MVC POST behind controller-side antiforgery plus explicit authorization: login is the sole anonymous POST, logout remains authenticated, and every non-account mutation is deliberately mapped to `Monitor.Manage`, `Monitor.Operate` or `Monitor.Advisor` with future unknown POSTs failing CI (`docs/work/B800-092.md`, PR #327).\n- [ ] B800-093..100 continue no-fake-data, responsive/accessibility, canonical exact-head and final closeout acceptance without adding unsupported production behavior.",
+              "- [x] B800-092 lock every MVC POST behind controller-side antiforgery plus explicit authorization: login is the sole anonymous POST, logout remains authenticated, and every non-account mutation is deliberately mapped to `Monitor.Manage`, `Monitor.Operate` or `Monitor.Advisor` with future unknown POSTs failing CI (`docs/work/B800-092.md`, PR #327 merged as `8bd5af0bc42f067f025cdcf1bb8b07c1677239dd`).\n- [x] B800-093 harden no-fake-data deployment behavior: keep the explicit Development demo estate, but fail startup whenever `DemoData:Enabled=true` outside Development; default deployed configuration remains false, disabled demo returns empty/null, and the guard adds no SQL/query/collector/refresh dependency (`docs/work/B800-093.md`, PR #328).\n- [ ] B800-094..100 continue responsive/accessibility, canonical exact-head and final closeout acceptance without adding unsupported production behavior.")
+          replace_once(
+              batch,
+              "\n\n## Task program",
+              "\n\nB800-093 closes a real deployed no-fake-data gap while preserving local Development demo behavior. `DemoDataEnvironmentGuard.Validate(...)` permits `DemoData:Enabled=true` only when `environment.IsDevelopment()`; Production, Staging and every other non-Development environment fail startup when demo is enabled. Default `appsettings.json` stays false, Development explicitly opts in, and disabled `DemoMonitorService` returns empty/null rather than synthetic estate rows. The startup hook runs before demo-service registration and has no monitored-SQL/query/collector/refresh/registration dependency. Corrected implementation head `57a7f159b5a03279c9581c77ca969ab03ac8d49e` passed CI #2856 / `32085709937` and Windows production-candidate #532 / `32085709940`; Real SQL was not selected because no monitored-SQL query/collector/permission path changed.\n\n## Task program")
+          replace_once(
+              batch,
+              "- B800-092 implementation head `f5ef7b33ed0414ae36c721cf146164d717fb9e10` passed CI #2837 / `32084794120`, including full tests and repository safety tooling. Real SQL and Windows production-candidate were not selected because the slice changes tests/documentation only. Exact final post-canonical-reconciliation validation remains required.\n\n## Current B800-092 merge gate\n\nPR #327 is the current focused B800 slice and closes B800-092 only. B800-091 / PR #326 is merged; B800-092 adds write-surface role/antiforgery acceptance coverage only. Before PR #327 is marked Ready or merged, every repository-selected required workflow must be Green on the same exact final reconciled head, the branch must remain current with `main`, review threads must remain resolved, and the effective diff must stay bounded to the B800-092 test/work-note plus canonical reconciliation. Real SQL/Windows are required only if repository path policy selects them. Issue #287 remains OPEN for B800-093..100 final acceptance/closeout work.",
+              "- B800-092 implementation head `f5ef7b33ed0414ae36c721cf146164d717fb9e10` passed CI #2837 / `32084794120`; exact final reconciled head `00c972baf28cbf6b261c8763d7db2d25aff9e709` passed CI #2844 / `32085001773`, Real SQL #371 / `32085002006`, and Windows production-candidate #528 / `32085001787`; PR #327 squash-merged as `8bd5af0bc42f067f025cdcf1bb8b07c1677239dd`.\n- B800-093 first clean head `c890d4b0b89f10dee8afd92f855d475780ef4c73` compiled production but CI #2854 exposed a test-only non-constant `InlineData` argument; corrected implementation head `57a7f159b5a03279c9581c77ca969ab03ac8d49e` passed CI #2856 / `32085709937` and Windows production-candidate #532 / `32085709940` end-to-end. Real SQL was not selected because no monitored-SQL query, collector or permission path changed. Exact final post-canonical-reconciliation validation remains required.\n\n## Current B800-093 merge gate\n\nPR #328 is the current focused B800 slice and closes B800-093 only. B800-092 / PR #327 is merged; B800-093 adds one startup configuration guard plus no-fake-data acceptance tests/documentation. Before PR #328 is marked Ready or merged, every repository-selected required workflow must be Green on the same exact final reconciled head, the branch must remain current with `main`, review threads must remain resolved, and the effective diff must stay bounded to B800-093 implementation/tests/work-note plus canonical reconciliation. Real SQL is required only if repository path policy selects it. Issue #287 remains OPEN for B800-094..100 final acceptance/closeout work.")
+
+          catalog = "docs/FEATURE_CATALOG.md"
+          replace_once(
+              catalog,
+              "| Functional operator screen wiring | BATCH-800 | In progress / PR #327 | Issue #287 remains OPEN. Evidence-backed production/report slices are merged through B800-090 and B800-091 cross-layer report acceptance is merged. PR #327 carries B800-092 test/documentation-only write-surface role/antiforgery acceptance. B800-093..100 final acceptance/closeout remains pending; unsupported dimensions remain explicit and there is no RC.61/#116/#111 implication |",
+              "| Functional operator screen wiring | BATCH-800 | In progress / PR #328 | Issue #287 remains OPEN. Evidence-backed production/report slices are merged through B800-090; B800-091 report acceptance and B800-092 write-surface security acceptance are merged. PR #328 carries B800-093 no-fake-data deployment hardening. B800-094..100 final acceptance/closeout remains pending; unsupported dimensions remain explicit and there is no RC.61/#116/#111 implication |")
+          replace_once(
+              catalog,
+              "| Write-surface role + antiforgery acceptance | BATCH-800 / B800-092 | In validation / PR #327 | Test/documentation-only reflection matrix discovers every public MVC POST, requires `ValidateAntiForgeryToken`, permits anonymous POST only for `/login`, requires authorization everywhere else, locks every non-account mutation to the deliberate `Manage`/`Operate`/`Advisor` policy map, and keeps sensitive administration controllers class-level `Manage`. Implementation head `f5ef7b33ed0414ae36c721cf146164d717fb9e10` passed CI #2837 / `32084794120`; Real SQL and Windows were not selected because no production/runtime path changed |",
+              "| Write-surface role + antiforgery acceptance | BATCH-800 / B800-092 | Complete / merged | Test/documentation-only reflection matrix discovers every public MVC POST, requires `ValidateAntiForgeryToken`, permits anonymous POST only for `/login`, requires authorization everywhere else, locks every non-account mutation to the deliberate `Manage`/`Operate`/`Advisor` policy map, and keeps sensitive administration controllers class-level `Manage`. Exact final reconciled head `00c972baf28cbf6b261c8763d7db2d25aff9e709` passed CI #2844 / `32085001773`, Real SQL #371 / `32085002006`, and Windows production-candidate #528 / `32085001787`; PR #327 squash-merged as `8bd5af0bc42f067f025cdcf1bb8b07c1677239dd` |")
+          replace_once(
+              catalog,
+              "\n\n## BATCH-200 Enterprise Operations Expansion",
+              "\n| No-fake-data environment hardening | BATCH-800 / B800-093 | In validation / PR #328 | `DemoDataEnvironmentGuard` allows enabled synthetic demo estate data only in Development and fails startup for enabled demo data in Production, Staging or any other non-Development environment. Default deployed config stays false; Development explicitly opts in; disabled demo returns empty/null. Startup guard has no monitored-SQL/query/collector/refresh/registration dependency. Corrected implementation head `57a7f159b5a03279c9581c77ca969ab03ac8d49e` passed CI #2856 / `32085709937` and Windows production-candidate #532 / `32085709940`; Real SQL was not selected because no monitored-SQL path changed |\n\n## BATCH-200 Enterprise Operations Expansion")
+
+          status = "docs/STATUS.md"
+          replace_once(
+              status,
+              "PR #327 carries B800-092. The test/documentation-only `B800WriteSurfaceSecurityAcceptanceTests` reflection matrix discovers every public MVC POST, requires controller-side antiforgery on each, permits anonymous POST only for `/login`, keeps `/logout` authenticated, and locks every non-account mutation to the existing `Monitor.Manage` / `Monitor.Operate` / `Monitor.Advisor` tiers; sensitive administration controllers remain class-level `Manage`. Implementation head `f5ef7b33ed0414ae36c721cf146164d717fb9e10` passed CI #2837 / `32084794120`; Real SQL and Windows production-candidate were not selected because no production/runtime path changed.\n\n**Ready/merge for B800-092 requires all four canonical files reconciled and every repository-selected required workflow Green on the same exact final post-reconciliation head**, no unresolved review threads, branch current with `main`, and a diff bounded to the B800-092 test/work-note/canonical reconciliation. #287 remains OPEN for B800-093..100 final acceptance/closeout work.",
+              "B800-092 is complete and merged through PR #327 as `8bd5af0bc42f067f025cdcf1bb8b07c1677239dd`. The test/documentation-only `B800WriteSurfaceSecurityAcceptanceTests` reflection matrix locks every public MVC POST behind controller-side antiforgery and deliberate authorization tiers. Exact final reconciled head `00c972baf28cbf6b261c8763d7db2d25aff9e709` passed CI #2844 / `32085001773`, Real SQL #371 / `32085002006`, and Windows production-candidate #528 / `32085001787`.\n\nPR #328 carries B800-093. `DemoDataEnvironmentGuard` now fails startup whenever `DemoData:Enabled=true` outside Development, while preserving the intentional Development-only demo estate. Default deployed config remains false; disabled `DemoMonitorService` returns empty/null rather than synthetic estate data; the startup hook runs before demo registration and adds no SQL/query/collector/refresh dependency. Corrected implementation head `57a7f159b5a03279c9581c77ca969ab03ac8d49e` passed CI #2856 / `32085709937` and Windows production-candidate #532 / `32085709940`; Real SQL was not selected because no monitored-SQL query, collector or permission path changed.\n\n**Ready/merge for B800-093 requires all four canonical files reconciled and every repository-selected required workflow Green on the same exact final post-reconciliation head**, no unresolved review threads, branch current with `main`, and a diff bounded to B800-093 implementation/tests/work-note/canonical reconciliation. #287 remains OPEN for B800-094..100 final acceptance/closeout work.")
+
+          plan = "docs/IMPLEMENTATION_PLAN.md"
+          replace_once(
+              plan,
+              "- B800-092 adds no production behavior: `B800WriteSurfaceSecurityAcceptanceTests` reflection-locks every MVC POST behind antiforgery, limits anonymous POST to login, keeps logout authenticated, requires named `Manage`/`Operate`/`Advisor` elevation for every non-account mutation, and fails CI for future unknown POSTs;\n- B800-092 implementation head `f5ef7b33ed0414ae36c721cf146164d717fb9e10` passed CI #2837 / `32084794120`; Real SQL and Windows production-candidate were not selected because no production/runtime path changed. Exact final post-canonical-reconciliation validation remains required.",
+              "- B800-092 is complete and merged through PR #327 as `8bd5af0bc42f067f025cdcf1bb8b07c1677239dd`; exact final reconciled head `00c972baf28cbf6b261c8763d7db2d25aff9e709` passed CI #2844 / `32085001773`, Real SQL #371 / `32085002006`, and Windows production-candidate #528 / `32085001787`;\n- B800-092 adds no production behavior: `B800WriteSurfaceSecurityAcceptanceTests` reflection-locks every MVC POST behind antiforgery and deliberate `Manage`/`Operate`/`Advisor` elevation;\n- B800-093 adds one startup hardening guard: enabled synthetic demo data is Development-only; any non-Development `DemoData:Enabled=true` fails startup, while disabled demo remains empty/null and Development demo behavior remains intentionally available;\n- B800-093 corrected implementation head `57a7f159b5a03279c9581c77ca969ab03ac8d49e` passed CI #2856 / `32085709937` and Windows production-candidate #532 / `32085709940`; Real SQL was not selected because no monitored-SQL query, collector or permission path changed. Exact final post-canonical-reconciliation validation remains required.")
+          replace_once(
+              plan,
+              "Least privilege remains read-only: SQL Server 2022+ uses `VIEW SERVER PERFORMANCE STATE` (older supported versions `VIEW SERVER STATE`) plus `VIEW ANY DEFINITION` and existing narrow metadata grants; Agent history/activity adds only read-only `SELECT` on `msdb.dbo.sysjobhistory` and `msdb.dbo.sysjobactivity`, with no SQLAgent execution/operator role. B800-071/072/073/074/075/076/077/078/079/080/081/082/083/084/085/086/087/088/089/090/091/092 add no monitored-SQL permission or query path.\n\nPR #327 becomes eligible for Ready/merge only after `BATCH_800`, `FEATURE_CATALOG`, `STATUS` and this plan are reconciled on one exact head, every repository-selected required workflow is Green on that same head, review threads are resolved, the branch is current with `main`, and the effective diff remains bounded to B800-092 plus canonical reconciliation. Real SQL/Windows are required only if repository path policy selects them. Merging #327 closes B800-092 only; #287 remains OPEN for B800-093..100 final acceptance/closeout.",
+              "Least privilege remains read-only: SQL Server 2022+ uses `VIEW SERVER PERFORMANCE STATE` (older supported versions `VIEW SERVER STATE`) plus `VIEW ANY DEFINITION` and existing narrow metadata grants; Agent history/activity adds only read-only `SELECT` on `msdb.dbo.sysjobhistory` and `msdb.dbo.sysjobactivity`, with no SQLAgent execution/operator role. B800-071/072/073/074/075/076/077/078/079/080/081/082/083/084/085/086/087/088/089/090/091/092/093 add no monitored-SQL permission or query path.\n\nPR #328 becomes eligible for Ready/merge only after `BATCH_800`, `FEATURE_CATALOG`, `STATUS` and this plan are reconciled on one exact head, every repository-selected required workflow is Green on that same head, review threads are resolved, the branch is current with `main`, and the effective diff remains bounded to B800-093 plus canonical reconciliation. Real SQL is required only if repository path policy selects it. Merging #328 closes B800-093 only; #287 remains OPEN for B800-094..100 final acceptance/closeout.")
+
+          print("B800-093 canonical reconciliation completed with guarded one-match replacements.")
+          PY
+
+          git diff --check
+          git diff -- docs/BATCH_800.md docs/FEATURE_CATALOG.md docs/STATUS.md docs/IMPLEMENTATION_PLAN.md
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/BATCH_800.md docs/FEATURE_CATALOG.md docs/STATUS.md docs/IMPLEMENTATION_PLAN.md
+          git commit -m "B800-093: reconcile canonical tracking"
+          git push origin HEAD:agent/b800-093-no-fake-data-guard
