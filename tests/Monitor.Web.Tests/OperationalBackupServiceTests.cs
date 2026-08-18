@@ -166,6 +166,32 @@ public sealed class OperationalBackupServiceTests
     }
 
     [Fact]
+    public async Task OversizedBackupFile_IsRejectedBeforeDeserialization()
+    {
+        using var temp = new TempDirectory();
+        const int maxBundleBytes = 64 * 1024;
+        const string backupId = "202608101200000-aaaaaaaaaaaaaa";
+        var service = CreateService(
+            temp.Path,
+            CreateState(),
+            new UnsupportedRestoreWriter(),
+            maxBundleBytes: maxBundleBytes);
+        var backupRoot = Path.Combine(temp.Path, "backups");
+        Directory.CreateDirectory(backupRoot);
+        var path = Path.Combine(backupRoot, $"monitor-backup-{backupId}.json");
+        await using (var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+        {
+            stream.SetLength(maxBundleBytes + 1L);
+        }
+
+        var validation = await service.ValidateAsync(backupId);
+
+        Assert.Equal(BackupValidationStatus.Invalid, validation.Status);
+        Assert.Equal("Backup file size is invalid.", validation.Message);
+        Assert.Null(validation.Bundle);
+    }
+
+    [Fact]
     public void BackupOptions_EnforceRetentionAndBundleBounds()
     {
         Assert.Throws<InvalidOperationException>(() => new BackupStoreOptions { RetentionCount = 0 }.Validate());
@@ -205,14 +231,15 @@ public sealed class OperationalBackupServiceTests
         TestState state,
         IOperationalRestoreWriter writer,
         TimeProvider? clock = null,
-        int retention = 10) =>
+        int retention = 10,
+        int maxBundleBytes = 8 * 1024 * 1024) =>
         new(
             state.Registrations,
             state.Incidents,
             state.History,
             state.Audit,
             writer,
-            new BackupStoreOptions { RootPath = "unused", RetentionCount = retention, MaxBundleBytes = 8 * 1024 * 1024 },
+            new BackupStoreOptions { RootPath = "unused", RetentionCount = retention, MaxBundleBytes = maxBundleBytes },
             Path.Combine(root, "backups"),
             clock ?? TimeProvider.System);
 
