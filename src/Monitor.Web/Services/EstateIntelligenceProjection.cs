@@ -67,6 +67,14 @@ public static class EstateIntelligenceProjection
             ? 0
             : Math.Clamp((int)Math.Round(observed * 100d / registeredTargets), 0, 100);
 
+        var databaseEvidenceTargets = servers.Count(server => server.DatabaseTotal > 0 || server.Databases is not null);
+        var backupEvidenceTargets = servers.Count(server => server.Backups is not null);
+        var jobEvidenceTargets = servers.Count(server => server.Jobs is not null);
+        var memoryEvidenceTargets = servers.Count(server => server.Memory is not null);
+        var blockingEvidenceTargets = servers.Count(server => server.Blocking is not null);
+        var performanceEvidenceTargets = servers.Count(server => server.Performance is not null);
+        var storageEvidenceTargets = servers.Count(server => server.Storage is not null);
+
         var databaseOnline = servers.Sum(server => Math.Max(0, server.DatabaseOnline));
         var databaseTotal = servers.Sum(server => Math.Max(0, server.DatabaseTotal));
         var databaseRisk = servers.Sum(server =>
@@ -81,20 +89,36 @@ public static class EstateIntelligenceProjection
             return Math.Max(aggregateOffline, explicitRisk);
         });
 
-        var backupGap = servers.Sum(server => Math.Max(0, server.Backups?.MissingFullBackupLast24Hours ?? 0));
-        var jobsFailed = servers.Sum(server => Math.Max(0, server.Jobs?.FailedLastRun ?? 0));
+        var backupGap = servers
+            .Where(server => server.Backups is not null)
+            .Sum(server => Math.Max(0, server.Backups!.MissingFullBackupLast24Hours));
+        var jobsFailed = servers
+            .Where(server => server.Jobs is not null)
+            .Sum(server => Math.Max(0, server.Jobs!.FailedLastRun));
         var memoryPressure = servers.Count(server =>
             server.Memory is not null && MemoryIntelligenceProjection.Build(server.Memory).NeedsAttention);
         var blockingServers = servers.Count(server => server.Blocking?.BlockedRequests is > 0);
-        var blockedRequests = servers.Sum(server => Math.Max(0, server.Blocking?.BlockedRequests ?? 0));
+        var blockedRequests = servers
+            .Where(server => server.Blocking is not null)
+            .Sum(server => Math.Max(0, server.Blocking!.BlockedRequests));
         var performancePressure = servers.Count(server =>
             server.Performance is not null
             && (server.Performance.RunnableTasks > 4 || server.Performance.PendingIoRequests > 0));
-        var runnableTasks = servers.Sum(server => Math.Max(0, server.Performance?.RunnableTasks ?? 0));
-        var pendingIo = servers.Sum(server => Math.Max(0, server.Performance?.PendingIoRequests ?? 0));
-        var totalAllocated = servers.Sum(server => Math.Max(0L, server.Storage?.TotalAllocatedBytes ?? 0L));
-        var dataAllocated = servers.Sum(server => Math.Max(0L, server.Storage?.DataAllocatedBytes ?? 0L));
-        var logAllocated = servers.Sum(server => Math.Max(0L, server.Storage?.LogAllocatedBytes ?? 0L));
+        var runnableTasks = servers
+            .Where(server => server.Performance is not null)
+            .Sum(server => Math.Max(0, server.Performance!.RunnableTasks));
+        var pendingIo = servers
+            .Where(server => server.Performance is not null)
+            .Sum(server => Math.Max(0, server.Performance!.PendingIoRequests));
+        var totalAllocated = servers
+            .Where(server => server.Storage is not null)
+            .Sum(server => Math.Max(0L, server.Storage!.TotalAllocatedBytes));
+        var dataAllocated = servers
+            .Where(server => server.Storage is not null)
+            .Sum(server => Math.Max(0L, server.Storage!.DataAllocatedBytes));
+        var logAllocated = servers
+            .Where(server => server.Storage is not null)
+            .Sum(server => Math.Max(0L, server.Storage!.LogAllocatedBytes));
         int? oldestAge = observed == 0 ? null : servers.Max(server => Math.Max(0, server.AgeSeconds));
 
         var severity = registeredTargets == 0 || observed == 0
@@ -110,7 +134,18 @@ public static class EstateIntelligenceProjection
                     || blockedRequests > 0
                     || performancePressure > 0
                         ? "warning"
-                        : "healthy";
+                        : FocusedEvidenceComplete(
+                            path,
+                            observed,
+                            databaseEvidenceTargets,
+                            backupEvidenceTargets,
+                            jobEvidenceTargets,
+                            memoryEvidenceTargets,
+                            blockingEvidenceTargets,
+                            performanceEvidenceTargets,
+                            storageEvidenceTargets)
+                            ? "healthy"
+                            : "unknown";
 
         var headline = severity switch
         {
@@ -118,11 +153,14 @@ public static class EstateIntelligenceProjection
             "warning" => "Estate evidence contains conditions that need attention",
             "healthy" => "Collected estate evidence is within current intelligence thresholds",
             _ when registeredTargets == 0 => "No active SQL targets are registered",
-            _ => "Registered targets do not yet have usable cached evidence"
+            _ when observed == 0 => "Registered targets do not yet have usable cached evidence",
+            _ => "Focused intelligence is incomplete for one or more observed targets"
         };
 
         var nextAction = BuildNextAction(
+            path,
             registeredTargets,
+            observed,
             unavailable,
             stale,
             databaseRisk,
@@ -130,7 +168,14 @@ public static class EstateIntelligenceProjection
             jobsFailed,
             memoryPressure,
             blockedRequests,
-            performancePressure);
+            performancePressure,
+            databaseEvidenceTargets,
+            backupEvidenceTargets,
+            jobEvidenceTargets,
+            memoryEvidenceTargets,
+            blockingEvidenceTargets,
+            performanceEvidenceTargets,
+            storageEvidenceTargets);
 
         var context = ContextFor(path);
         var message = ContextMessage(path, coverage, fresh, stale, unavailable);
@@ -145,17 +190,24 @@ public static class EstateIntelligenceProjection
             databaseOnline,
             databaseTotal,
             databaseRisk,
+            databaseEvidenceTargets,
             backupGap,
+            backupEvidenceTargets,
             jobsFailed,
+            jobEvidenceTargets,
             memoryPressure,
+            memoryEvidenceTargets,
             blockingServers,
             blockedRequests,
+            blockingEvidenceTargets,
             performancePressure,
             runnableTasks,
             pendingIo,
+            performanceEvidenceTargets,
             totalAllocated,
             dataAllocated,
             logAllocated,
+            storageEvidenceTargets,
             oldestAge);
 
         return new(
@@ -234,7 +286,9 @@ public static class EstateIntelligenceProjection
             return $"Recommendations remain evidence-backed and advisory; no automatic SQL configuration change is authorized. {evidence}";
         if (normalized.StartsWith("/reports", StringComparison.Ordinal))
             return $"Reports inherit the same cached-evidence truth used by operational pages. {evidence}";
-        if (normalized.StartsWith("/observability", StringComparison.Ordinal) || normalized.StartsWith("/audit", StringComparison.Ordinal) || normalized.StartsWith("/settings", StringComparison.Ordinal))
+        if (normalized.StartsWith("/observability", StringComparison.Ordinal)
+            || normalized.StartsWith("/audit", StringComparison.Ordinal)
+            || normalized.StartsWith("/settings", StringComparison.Ordinal))
             return $"Operational readiness is shown together with monitored-estate evidence quality. {evidence}";
         return $"Cross-estate intelligence is derived from cached real SQL snapshots only. {evidence}";
     }
@@ -250,17 +304,24 @@ public static class EstateIntelligenceProjection
         int databaseOnline,
         int databaseTotal,
         int databaseRisk,
+        int databaseEvidenceTargets,
         int backupGap,
+        int backupEvidenceTargets,
         int jobsFailed,
+        int jobEvidenceTargets,
         int memoryPressure,
+        int memoryEvidenceTargets,
         int blockingServers,
         int blockedRequests,
+        int blockingEvidenceTargets,
         int performancePressure,
         int runnableTasks,
         int pendingIo,
+        int performanceEvidenceTargets,
         long totalAllocated,
         long dataAllocated,
         long logAllocated,
+        int storageEvidenceTargets,
         int? oldestAge)
     {
         var normalized = Normalize(path);
@@ -275,9 +336,9 @@ public static class EstateIntelligenceProjection
         {
             return
             [
-                new("DATABASES ONLINE", databaseTotal > 0 ? $"{databaseOnline}/{databaseTotal}" : "Not collected", "Latest cached aggregate database state", databaseRisk > 0 ? "warning" : databaseTotal > 0 ? "healthy" : "unknown"),
-                new("DATABASE RISK", databaseRisk.ToString(), "Offline/non-online or retained actionable state evidence", databaseRisk > 0 ? "critical" : databaseTotal > 0 ? "healthy" : "unknown"),
-                new("BACKUP GAPS", backupGap.ToString(), "Missing full backup in current 24h evidence", backupGap > 0 ? "warning" : "healthy"),
+                new("DATABASES ONLINE", FormatRatio(databaseOnline, databaseTotal, databaseEvidenceTargets, observed), WithCoverage("Latest cached aggregate database state", databaseEvidenceTargets, observed), MetricState(databaseEvidenceTargets, observed, databaseRisk > 0)),
+                new("DATABASE RISK", FormatCount(databaseRisk, databaseEvidenceTargets, observed), WithCoverage("Offline/non-online or retained actionable state evidence", databaseEvidenceTargets, observed), MetricState(databaseEvidenceTargets, observed, databaseRisk > 0, "critical")),
+                new("BACKUP GAPS", FormatCount(backupGap, backupEvidenceTargets, observed), WithCoverage("Missing full backup in current 24h evidence", backupEvidenceTargets, observed), MetricState(backupEvidenceTargets, observed, backupGap > 0)),
                 new("STALE TARGETS", stale.ToString(), "Cached snapshot freshness", stale > 0 ? "warning" : observed > 0 ? "healthy" : "unknown"),
                 evidenceSignal
             ];
@@ -287,9 +348,9 @@ public static class EstateIntelligenceProjection
         {
             return
             [
-                new("MEMORY PRESSURE", memoryPressure.ToString(), "Servers crossing collected memory-pressure rules", memoryPressure > 0 ? "warning" : observed > 0 ? "healthy" : "unknown"),
-                new("BLOCKING", blockedRequests.ToString(), $"Blocked requests across {blockingServers} server(s)", blockedRequests > 0 ? "warning" : "healthy"),
-                new("PERF PRESSURE", performancePressure.ToString(), "Servers with runnable queue or pending I/O pressure", performancePressure > 0 ? "warning" : "healthy"),
+                new("MEMORY PRESSURE", FormatCount(memoryPressure, memoryEvidenceTargets, observed), WithCoverage("Servers crossing collected memory-pressure rules", memoryEvidenceTargets, observed), MetricState(memoryEvidenceTargets, observed, memoryPressure > 0)),
+                new("BLOCKING", FormatCount(blockedRequests, blockingEvidenceTargets, observed), WithCoverage($"Blocked requests across {blockingServers} server(s)", blockingEvidenceTargets, observed), MetricState(blockingEvidenceTargets, observed, blockedRequests > 0)),
+                new("PERF PRESSURE", FormatCount(performancePressure, performanceEvidenceTargets, observed), WithCoverage("Servers with runnable queue or pending I/O pressure", performanceEvidenceTargets, observed), MetricState(performanceEvidenceTargets, observed, performancePressure > 0)),
                 new("STALE TARGETS", stale.ToString(), "Refresh stale evidence before a tuning decision", stale > 0 ? "warning" : observed > 0 ? "healthy" : "unknown"),
                 evidenceSignal
             ];
@@ -299,10 +360,10 @@ public static class EstateIntelligenceProjection
         {
             return
             [
-                new("PRESSURED SERVERS", performancePressure.ToString(), "Runnable tasks > 4 or pending I/O > 0", performancePressure > 0 ? "warning" : observed > 0 ? "healthy" : "unknown"),
-                new("RUNNABLE TASKS", runnableTasks.ToString(), "Aggregate cached scheduler queue evidence", runnableTasks > 0 ? "warning" : "healthy"),
-                new("PENDING I/O", pendingIo.ToString(), "Aggregate current pending-I/O evidence", pendingIo > 0 ? "warning" : "healthy"),
-                new("BLOCKED REQUESTS", blockedRequests.ToString(), "Bounded blocking evidence", blockedRequests > 0 ? "warning" : "healthy"),
+                new("PRESSURED SERVERS", FormatCount(performancePressure, performanceEvidenceTargets, observed), WithCoverage("Runnable tasks > 4 or pending I/O > 0", performanceEvidenceTargets, observed), MetricState(performanceEvidenceTargets, observed, performancePressure > 0)),
+                new("RUNNABLE TASKS", FormatCount(runnableTasks, performanceEvidenceTargets, observed), WithCoverage("Aggregate cached scheduler queue evidence", performanceEvidenceTargets, observed), MetricState(performanceEvidenceTargets, observed, runnableTasks > 0)),
+                new("PENDING I/O", FormatCount(pendingIo, performanceEvidenceTargets, observed), WithCoverage("Aggregate current pending-I/O evidence", performanceEvidenceTargets, observed), MetricState(performanceEvidenceTargets, observed, pendingIo > 0)),
+                new("BLOCKED REQUESTS", FormatCount(blockedRequests, blockingEvidenceTargets, observed), WithCoverage("Bounded blocking evidence", blockingEvidenceTargets, observed), MetricState(blockingEvidenceTargets, observed, blockedRequests > 0)),
                 evidenceSignal
             ];
         }
@@ -311,9 +372,9 @@ public static class EstateIntelligenceProjection
         {
             return
             [
-                new("BACKUP GAPS", backupGap.ToString(), "Missing full backup in current 24h evidence", backupGap > 0 ? "warning" : observed > 0 ? "healthy" : "unknown"),
-                new("DATABASE RISK", databaseRisk.ToString(), "Database-state risk that can affect recovery posture", databaseRisk > 0 ? "critical" : "healthy"),
-                new("UNAVAILABLE", unavailable.ToString(), "Registered targets with no usable cached snapshot", unavailable > 0 ? "warning" : "healthy"),
+                new("BACKUP GAPS", FormatCount(backupGap, backupEvidenceTargets, observed), WithCoverage("Missing full backup in current 24h evidence", backupEvidenceTargets, observed), MetricState(backupEvidenceTargets, observed, backupGap > 0)),
+                new("DATABASE RISK", FormatCount(databaseRisk, databaseEvidenceTargets, observed), WithCoverage("Database-state risk that can affect recovery posture", databaseEvidenceTargets, observed), MetricState(databaseEvidenceTargets, observed, databaseRisk > 0, "critical")),
+                new("UNAVAILABLE", unavailable.ToString(), "Registered targets with no usable cached snapshot", unavailable > 0 ? "warning" : registered > 0 ? "healthy" : "unknown"),
                 new("OLDEST SNAPSHOT", age, "Evidence age, not backup age", stale > 0 ? "warning" : observed > 0 ? "healthy" : "unknown"),
                 evidenceSignal
             ];
@@ -323,9 +384,9 @@ public static class EstateIntelligenceProjection
         {
             return
             [
-                new("FAILED LAST RUN", jobsFailed.ToString(), "Aggregate SQL Agent failure evidence", jobsFailed > 0 ? "warning" : observed > 0 ? "healthy" : "unknown"),
-                new("BLOCKING", blockedRequests.ToString(), "Current blocking can affect scheduled work", blockedRequests > 0 ? "warning" : "healthy"),
-                new("PERF PRESSURE", performancePressure.ToString(), "Current workload-pressure servers", performancePressure > 0 ? "warning" : "healthy"),
+                new("FAILED LAST RUN", FormatCount(jobsFailed, jobEvidenceTargets, observed), WithCoverage("Aggregate SQL Agent failure evidence", jobEvidenceTargets, observed), MetricState(jobEvidenceTargets, observed, jobsFailed > 0)),
+                new("BLOCKING", FormatCount(blockedRequests, blockingEvidenceTargets, observed), WithCoverage("Current blocking can affect scheduled work", blockingEvidenceTargets, observed), MetricState(blockingEvidenceTargets, observed, blockedRequests > 0)),
+                new("PERF PRESSURE", FormatCount(performancePressure, performanceEvidenceTargets, observed), WithCoverage("Current workload-pressure servers", performanceEvidenceTargets, observed), MetricState(performanceEvidenceTargets, observed, performancePressure > 0)),
                 new("STALE TARGETS", stale.ToString(), "Refresh before interpreting current job posture", stale > 0 ? "warning" : observed > 0 ? "healthy" : "unknown"),
                 evidenceSignal
             ];
@@ -335,10 +396,10 @@ public static class EstateIntelligenceProjection
         {
             return
             [
-                new("SQL ALLOCATED", FormatBytes(totalAllocated), "Database allocation only; not disk capacity", totalAllocated > 0 ? "healthy" : "unknown"),
-                new("DATA ALLOCATED", FormatBytes(dataAllocated), "Allocated database data bytes", dataAllocated > 0 ? "healthy" : "unknown"),
-                new("LOG ALLOCATED", FormatBytes(logAllocated), "Allocated transaction-log bytes", logAllocated > 0 ? "healthy" : "unknown"),
-                new("PERF PRESSURE", performancePressure.ToString(), "Use I/O evidence with allocation; free disk is not collected", performancePressure > 0 ? "warning" : "healthy"),
+                new("SQL ALLOCATED", FormatBytes(totalAllocated, storageEvidenceTargets, observed), WithCoverage("Database allocation only; not disk capacity", storageEvidenceTargets, observed), MetricState(storageEvidenceTargets, observed, false)),
+                new("DATA ALLOCATED", FormatBytes(dataAllocated, storageEvidenceTargets, observed), WithCoverage("Allocated database data bytes", storageEvidenceTargets, observed), MetricState(storageEvidenceTargets, observed, false)),
+                new("LOG ALLOCATED", FormatBytes(logAllocated, storageEvidenceTargets, observed), WithCoverage("Allocated transaction-log bytes", storageEvidenceTargets, observed), MetricState(storageEvidenceTargets, observed, false)),
+                new("PERF PRESSURE", FormatCount(performancePressure, performanceEvidenceTargets, observed), WithCoverage("Use I/O evidence with allocation; free disk is not collected", performanceEvidenceTargets, observed), MetricState(performanceEvidenceTargets, observed, performancePressure > 0)),
                 evidenceSignal
             ];
         }
@@ -347,9 +408,9 @@ public static class EstateIntelligenceProjection
         {
             return
             [
-                new("BLOCKED REQUESTS", blockedRequests.ToString(), $"Across {blockingServers} server(s)", blockedRequests > 0 ? "warning" : observed > 0 ? "healthy" : "unknown"),
-                new("PERF PRESSURE", performancePressure.ToString(), "Scheduler or pending-I/O pressure servers", performancePressure > 0 ? "warning" : "healthy"),
-                new("MEMORY PRESSURE", memoryPressure.ToString(), "Memory-pressure servers", memoryPressure > 0 ? "warning" : "healthy"),
+                new("BLOCKED REQUESTS", FormatCount(blockedRequests, blockingEvidenceTargets, observed), WithCoverage($"Across {blockingServers} server(s)", blockingEvidenceTargets, observed), MetricState(blockingEvidenceTargets, observed, blockedRequests > 0)),
+                new("PERF PRESSURE", FormatCount(performancePressure, performanceEvidenceTargets, observed), WithCoverage("Scheduler or pending-I/O pressure servers", performanceEvidenceTargets, observed), MetricState(performanceEvidenceTargets, observed, performancePressure > 0)),
+                new("MEMORY PRESSURE", FormatCount(memoryPressure, memoryEvidenceTargets, observed), WithCoverage("Memory-pressure servers", memoryEvidenceTargets, observed), MetricState(memoryEvidenceTargets, observed, memoryPressure > 0)),
                 new("STALE TARGETS", stale.ToString(), "Blocking evidence should be current before escalation", stale > 0 ? "warning" : observed > 0 ? "healthy" : "unknown"),
                 evidenceSignal
             ];
@@ -358,15 +419,17 @@ public static class EstateIntelligenceProjection
         return
         [
             new("ESTATE COVERAGE", registered == 0 ? "No targets" : $"{observed}/{registered}", "Registered active targets with cached evidence", evidenceState),
-            new("DATABASE RISK", databaseRisk.ToString(), databaseTotal > 0 ? $"{databaseOnline}/{databaseTotal} online" : "Database evidence not collected", databaseRisk > 0 ? "critical" : databaseTotal > 0 ? "healthy" : "unknown"),
-            new("BACKUP GAPS", backupGap.ToString(), "Missing full backup in current 24h evidence", backupGap > 0 ? "warning" : observed > 0 ? "healthy" : "unknown"),
-            new("MEMORY / PERF", $"{memoryPressure} / {performancePressure}", "Memory-pressure / workload-pressure server count", memoryPressure > 0 || performancePressure > 0 ? "warning" : observed > 0 ? "healthy" : "unknown"),
-            new("BLOCKING / JOBS", $"{blockedRequests} / {jobsFailed}", "Blocked requests / SQL Agent failed last run", blockedRequests > 0 || jobsFailed > 0 ? "warning" : observed > 0 ? "healthy" : "unknown")
+            new("DATABASE RISK", FormatCount(databaseRisk, databaseEvidenceTargets, observed), WithCoverage(databaseTotal > 0 ? $"{databaseOnline}/{databaseTotal} online" : "Database evidence not collected", databaseEvidenceTargets, observed), MetricState(databaseEvidenceTargets, observed, databaseRisk > 0, "critical")),
+            new("BACKUP GAPS", FormatCount(backupGap, backupEvidenceTargets, observed), WithCoverage("Missing full backup in current 24h evidence", backupEvidenceTargets, observed), MetricState(backupEvidenceTargets, observed, backupGap > 0)),
+            new("MEMORY / PERF", $"{FormatCount(memoryPressure, memoryEvidenceTargets, observed)} / {FormatCount(performancePressure, performanceEvidenceTargets, observed)}", $"Memory-pressure / workload-pressure server count · memory evidence {memoryEvidenceTargets}/{observed} · performance evidence {performanceEvidenceTargets}/{observed}", CombinedMetricState(memoryEvidenceTargets, performanceEvidenceTargets, observed, memoryPressure > 0 || performancePressure > 0)),
+            new("BLOCKING / JOBS", $"{FormatCount(blockedRequests, blockingEvidenceTargets, observed)} / {FormatCount(jobsFailed, jobEvidenceTargets, observed)}", $"Blocked requests / SQL Agent failed last run · blocking evidence {blockingEvidenceTargets}/{observed} · job evidence {jobEvidenceTargets}/{observed}", CombinedMetricState(blockingEvidenceTargets, jobEvidenceTargets, observed, blockedRequests > 0 || jobsFailed > 0))
         ];
     }
 
     private static string BuildNextAction(
+        string? path,
         int registered,
+        int observed,
         int unavailable,
         int stale,
         int databaseRisk,
@@ -374,7 +437,14 @@ public static class EstateIntelligenceProjection
         int jobsFailed,
         int memoryPressure,
         int blockedRequests,
-        int performancePressure)
+        int performancePressure,
+        int databaseEvidenceTargets,
+        int backupEvidenceTargets,
+        int jobEvidenceTargets,
+        int memoryEvidenceTargets,
+        int blockingEvidenceTargets,
+        int performanceEvidenceTargets,
+        int storageEvidenceTargets)
     {
         if (registered == 0) return "Register at least one real SQL target from Connections, then collect the first bounded snapshot.";
         if (databaseRisk > 0) return "Open Database Health first and review retained non-online/actionable database-state evidence.";
@@ -385,7 +455,109 @@ public static class EstateIntelligenceProjection
         if (blockedRequests > 0) return "Open Blocking and correlate current blocked-request evidence with workload pressure.";
         if (jobsFailed > 0) return "Open SQL Agent and review failed-last-run evidence before the next schedule window.";
         if (stale > 0) return "Use Refresh All Connections to replace stale snapshots before interpreting current health.";
+
+        var missingFocused = MissingFocusedEvidenceAction(
+            path,
+            observed,
+            databaseEvidenceTargets,
+            backupEvidenceTargets,
+            jobEvidenceTargets,
+            memoryEvidenceTargets,
+            blockingEvidenceTargets,
+            performanceEvidenceTargets,
+            storageEvidenceTargets);
+        if (missingFocused is not null) return missingFocused;
+
         return "No current collected threshold is crossed. Continue trend, incident and backup-policy review.";
+    }
+
+    private static bool FocusedEvidenceComplete(
+        string? path,
+        int observed,
+        int databaseEvidenceTargets,
+        int backupEvidenceTargets,
+        int jobEvidenceTargets,
+        int memoryEvidenceTargets,
+        int blockingEvidenceTargets,
+        int performanceEvidenceTargets,
+        int storageEvidenceTargets)
+    {
+        if (observed <= 0) return false;
+        var normalized = Normalize(path);
+        if (normalized.StartsWith("/database-health", StringComparison.Ordinal)) return databaseEvidenceTargets == observed;
+        if (normalized.StartsWith("/memory-health", StringComparison.Ordinal)) return memoryEvidenceTargets == observed;
+        if (normalized.StartsWith("/performance-health", StringComparison.Ordinal)) return performanceEvidenceTargets == observed;
+        if (normalized.StartsWith("/backups", StringComparison.Ordinal)) return backupEvidenceTargets == observed;
+        if (normalized.StartsWith("/jobs", StringComparison.Ordinal)) return jobEvidenceTargets == observed;
+        if (normalized.StartsWith("/storage", StringComparison.Ordinal)) return storageEvidenceTargets == observed;
+        if (normalized.StartsWith("/blocking", StringComparison.Ordinal)) return blockingEvidenceTargets == observed;
+        return true;
+    }
+
+    private static string? MissingFocusedEvidenceAction(
+        string? path,
+        int observed,
+        int databaseEvidenceTargets,
+        int backupEvidenceTargets,
+        int jobEvidenceTargets,
+        int memoryEvidenceTargets,
+        int blockingEvidenceTargets,
+        int performanceEvidenceTargets,
+        int storageEvidenceTargets)
+    {
+        if (observed <= 0) return null;
+        var normalized = Normalize(path);
+        if (normalized.StartsWith("/database-health", StringComparison.Ordinal) && databaseEvidenceTargets < observed)
+            return MissingEvidenceAction("Database Health", databaseEvidenceTargets, observed);
+        if (normalized.StartsWith("/memory-health", StringComparison.Ordinal) && memoryEvidenceTargets < observed)
+            return MissingEvidenceAction("Memory Health", memoryEvidenceTargets, observed);
+        if (normalized.StartsWith("/performance-health", StringComparison.Ordinal) && performanceEvidenceTargets < observed)
+            return MissingEvidenceAction("Performance Health", performanceEvidenceTargets, observed);
+        if (normalized.StartsWith("/backups", StringComparison.Ordinal) && backupEvidenceTargets < observed)
+            return MissingEvidenceAction("Backup Health", backupEvidenceTargets, observed);
+        if (normalized.StartsWith("/jobs", StringComparison.Ordinal) && jobEvidenceTargets < observed)
+            return MissingEvidenceAction("SQL Agent", jobEvidenceTargets, observed);
+        if (normalized.StartsWith("/storage", StringComparison.Ordinal) && storageEvidenceTargets < observed)
+            return MissingEvidenceAction("Storage", storageEvidenceTargets, observed);
+        if (normalized.StartsWith("/blocking", StringComparison.Ordinal) && blockingEvidenceTargets < observed)
+            return MissingEvidenceAction("Blocking", blockingEvidenceTargets, observed);
+        return null;
+    }
+
+    private static string MissingEvidenceAction(string domain, int evidenceTargets, int observed) =>
+        $"{domain} evidence is available for {evidenceTargets}/{observed} observed target(s). Use Refresh All Connections, then review collection permissions/diagnostics for targets that remain uncollected.";
+
+    private static string FormatCount(int value, int evidenceTargets, int observed)
+    {
+        if (evidenceTargets <= 0) return "Not collected";
+        return evidenceTargets < observed ? $"{value} · {evidenceTargets}/{observed}" : value.ToString();
+    }
+
+    private static string FormatRatio(int numerator, int denominator, int evidenceTargets, int observed)
+    {
+        if (evidenceTargets <= 0) return "Not collected";
+        var value = $"{numerator}/{denominator}";
+        return evidenceTargets < observed ? $"{value} · {evidenceTargets}/{observed}" : value;
+    }
+
+    private static string MetricState(int evidenceTargets, int observed, bool attention, string attentionState = "warning")
+    {
+        if (attention) return attentionState;
+        if (evidenceTargets <= 0 || observed <= 0 || evidenceTargets < observed) return "unknown";
+        return "healthy";
+    }
+
+    private static string CombinedMetricState(int firstEvidenceTargets, int secondEvidenceTargets, int observed, bool attention)
+    {
+        if (attention) return "warning";
+        if (observed <= 0 || firstEvidenceTargets < observed || secondEvidenceTargets < observed) return "unknown";
+        return "healthy";
+    }
+
+    private static string WithCoverage(string detail, int evidenceTargets, int observed)
+    {
+        if (observed <= 0) return detail;
+        return $"{detail} · evidence {evidenceTargets}/{observed} targets";
     }
 
     private static string Normalize(string? path) => (path ?? string.Empty).Trim().ToLowerInvariant();
@@ -398,10 +570,23 @@ public static class EstateIntelligenceProjection
         return $"{seconds / 86400}d";
     }
 
-    private static string FormatBytes(long bytes)
+    private static string FormatBytes(long bytes, int evidenceTargets, int observed)
     {
-        if (bytes <= 0) return "Not collected";
-        const double gb = 1024d * 1024d * 1024d;
-        return bytes >= gb ? $"{bytes / gb:0.0} GB" : $"{bytes / (1024d * 1024d):0.0} MB";
+        if (evidenceTargets <= 0) return "Not collected";
+
+        string value;
+        if (bytes <= 0)
+        {
+            value = "0 B";
+        }
+        else
+        {
+            const double gb = 1024d * 1024d * 1024d;
+            value = bytes >= gb
+                ? $"{bytes / gb:0.0} GB"
+                : $"{bytes / (1024d * 1024d):0.0} MB";
+        }
+
+        return evidenceTargets < observed ? $"{value} · {evidenceTargets}/{observed}" : value;
     }
 }
