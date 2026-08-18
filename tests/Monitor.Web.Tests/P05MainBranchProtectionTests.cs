@@ -46,7 +46,9 @@ public sealed class P05MainBranchProtectionTests
         var putIndex = helper.IndexOf("'--method', 'PUT'", StringComparison.Ordinal);
         Assert.True(acknowledgementIndex >= 0 && putIndex > acknowledgementIndex,
             "The branch-protection mutation must remain after the explicit acknowledgement gate.");
-        Assert.Equal(1, Regex.Matches(helper, Regex.Escape("'--method', 'PUT'"), RegexOptions.CultureInvariant).Count);
+        Assert.True(
+            Regex.Matches(helper, Regex.Escape("'--method', 'PUT'"), RegexOptions.CultureInvariant).Count == 1,
+            "The helper must contain exactly one branch-protection PUT mutation path.");
         Assert.DoesNotContain("'DELETE'", helper, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("gh issue", helper, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Deploy-ProductionSingleNode", helper, StringComparison.OrdinalIgnoreCase);
