@@ -368,29 +368,47 @@ internal sealed class SqlServerSharedStateSqlBackend : ISharedStateSqlBackend
     private const string ReadExecutionLockSql = """
         SET NOCOUNT ON;
         DECLARE @LockedSchemaVersion int = NULL;
+        DECLARE @LockedDocumentKey nvarchar(128) = NULL;
         DECLARE @LockedDocumentVersion bigint = NULL;
 
         SELECT @LockedSchemaVersion = SchemaVersion
         FROM dbo.MonitorSharedStateSchema WITH (HOLDLOCK)
         WHERE Id = 1;
 
-        SELECT @LockedDocumentVersion = Version
+        SELECT
+            @LockedDocumentKey = DocumentKey,
+            @LockedDocumentVersion = Version
         FROM dbo.MonitorSharedStateDocuments WITH (HOLDLOCK)
         WHERE DocumentKey = @DocumentKey;
+
+        IF @LockedDocumentKey IS NOT NULL
+           AND CONVERT(varbinary(256), @LockedDocumentKey) <> CONVERT(varbinary(256), @DocumentKey)
+        BEGIN
+            THROW 51024, 'Monitor shared-state document key identity is not exact.', 1;
+        END;
         """;
 
     private const string WriteExecutionLockSql = """
         SET NOCOUNT ON;
         DECLARE @LockedSchemaVersion int = NULL;
+        DECLARE @LockedDocumentKey nvarchar(128) = NULL;
         DECLARE @LockedDocumentVersion bigint = NULL;
 
         SELECT @LockedSchemaVersion = SchemaVersion
         FROM dbo.MonitorSharedStateSchema WITH (HOLDLOCK)
         WHERE Id = 1;
 
-        SELECT @LockedDocumentVersion = Version
+        SELECT
+            @LockedDocumentKey = DocumentKey,
+            @LockedDocumentVersion = Version
         FROM dbo.MonitorSharedStateDocuments WITH (UPDLOCK, HOLDLOCK)
         WHERE DocumentKey = @DocumentKey;
+
+        IF @LockedDocumentKey IS NOT NULL
+           AND CONVERT(varbinary(256), @LockedDocumentKey) <> CONVERT(varbinary(256), @DocumentKey)
+        BEGIN
+            THROW 51024, 'Monitor shared-state document key identity is not exact.', 1;
+        END;
         """;
 
     private const string ReadSql = """
@@ -416,6 +434,7 @@ internal sealed class SqlServerSharedStateSqlBackend : ISharedStateSqlBackend
         DECLARE @Result TABLE
         (
             Applied bit NOT NULL,
+            DocumentKey nvarchar(128) NULL,
             Version bigint NULL,
             PayloadJson nvarchar(max) NULL,
             PayloadStorageBytes bigint NULL,
@@ -430,17 +449,18 @@ internal sealed class SqlServerSharedStateSqlBackend : ISharedStateSqlBackend
         BEGIN
             IF @ExpectedVersion <> 0
             BEGIN
-                INSERT @Result (Applied, Version, PayloadJson, PayloadStorageBytes, UpdatedAtUtc)
-                VALUES (0, NULL, NULL, NULL, NULL);
+                INSERT @Result (Applied, DocumentKey, Version, PayloadJson, PayloadStorageBytes, UpdatedAtUtc)
+                VALUES (0, NULL, NULL, NULL, NULL, NULL);
             END
             ELSE
             BEGIN
                 INSERT dbo.MonitorSharedStateDocuments (DocumentKey, Version, PayloadJson, UpdatedAtUtc)
                 VALUES (@DocumentKey, 1, @PayloadJson, SYSUTCDATETIME());
 
-                INSERT @Result (Applied, Version, PayloadJson, PayloadStorageBytes, UpdatedAtUtc)
+                INSERT @Result (Applied, DocumentKey, Version, PayloadJson, PayloadStorageBytes, UpdatedAtUtc)
                 SELECT
                     1,
+                    DocumentKey,
                     Version,
                     CASE
                         WHEN DATALENGTH(PayloadJson) <= @MaximumTransportPayloadBytes THEN PayloadJson
@@ -454,9 +474,10 @@ internal sealed class SqlServerSharedStateSqlBackend : ISharedStateSqlBackend
         END
         ELSE IF @CurrentVersion <> @ExpectedVersion
         BEGIN
-            INSERT @Result (Applied, Version, PayloadJson, PayloadStorageBytes, UpdatedAtUtc)
+            INSERT @Result (Applied, DocumentKey, Version, PayloadJson, PayloadStorageBytes, UpdatedAtUtc)
             SELECT
                 0,
+                DocumentKey,
                 Version,
                 CASE
                     WHEN DATALENGTH(PayloadJson) <= @MaximumTransportPayloadBytes THEN PayloadJson
@@ -475,9 +496,10 @@ internal sealed class SqlServerSharedStateSqlBackend : ISharedStateSqlBackend
                 UpdatedAtUtc = SYSUTCDATETIME()
             WHERE DocumentKey = @DocumentKey;
 
-            INSERT @Result (Applied, Version, PayloadJson, PayloadStorageBytes, UpdatedAtUtc)
+            INSERT @Result (Applied, DocumentKey, Version, PayloadJson, PayloadStorageBytes, UpdatedAtUtc)
             SELECT
                 1,
+                DocumentKey,
                 Version,
                 CASE
                     WHEN DATALENGTH(PayloadJson) <= @MaximumTransportPayloadBytes THEN PayloadJson
@@ -489,7 +511,7 @@ internal sealed class SqlServerSharedStateSqlBackend : ISharedStateSqlBackend
             WHERE DocumentKey = @DocumentKey;
         END;
 
-        SELECT Applied, Version, PayloadJson, PayloadStorageBytes, UpdatedAtUtc
+        SELECT Applied, DocumentKey, Version, PayloadJson, PayloadStorageBytes, UpdatedAtUtc
         FROM @Result;
         """;
 
@@ -549,8 +571,8 @@ internal sealed class SqlServerSharedStateSqlBackend : ISharedStateSqlBackend
             else
             {
                 document = ReadDocument(
-                    key,
                     reader,
+                    keyOrdinal: 0,
                     versionOrdinal: 1,
                     payloadOrdinal: 2,
                     payloadStorageBytesOrdinal: 3,
@@ -558,6 +580,7 @@ internal sealed class SqlServerSharedStateSqlBackend : ISharedStateSqlBackend
             }
         }
 
+        EnsureExactPersistedKey(key, document);
         await transaction.CommitAsync(cancellationToken);
         return document;
     }
@@ -607,7 +630,7 @@ internal sealed class SqlServerSharedStateSqlBackend : ISharedStateSqlBackend
             }
 
             var applied = reader.GetBoolean(0);
-            if (reader.IsDBNull(1))
+            if (reader.IsDBNull(2))
             {
                 result = new SharedStateWriteResult(
                     applied ? SharedStateWriteStatus.Applied : SharedStateWriteStatus.Conflict,
@@ -616,18 +639,19 @@ internal sealed class SqlServerSharedStateSqlBackend : ISharedStateSqlBackend
             else
             {
                 var document = ReadDocument(
-                    key,
                     reader,
-                    versionOrdinal: 1,
-                    payloadOrdinal: 2,
-                    payloadStorageBytesOrdinal: 3,
-                    updatedOrdinal: 4);
+                    keyOrdinal: 1,
+                    versionOrdinal: 2,
+                    payloadOrdinal: 3,
+                    payloadStorageBytesOrdinal: 4,
+                    updatedOrdinal: 5);
                 result = new SharedStateWriteResult(
                     applied ? SharedStateWriteStatus.Applied : SharedStateWriteStatus.Conflict,
                     document);
             }
         }
 
+        EnsureExactPersistedKey(key, result.Document);
         await transaction.CommitAsync(cancellationToken);
         return result;
     }
@@ -690,14 +714,27 @@ internal sealed class SqlServerSharedStateSqlBackend : ISharedStateSqlBackend
             : Convert.ToInt32(value, System.Globalization.CultureInfo.InvariantCulture);
     }
 
+    private static void EnsureExactPersistedKey(string expectedKey, SharedStateDocument? document)
+    {
+        if (document is not null && !string.Equals(document.Key, expectedKey, StringComparison.Ordinal))
+        {
+            throw new InvalidDataException("Shared-state persisted document key identity does not match the request.");
+        }
+    }
+
     private static SharedStateDocument ReadDocument(
-        string key,
         SqlDataReader reader,
+        int keyOrdinal,
         int versionOrdinal,
         int payloadOrdinal,
         int payloadStorageBytesOrdinal,
         int updatedOrdinal)
     {
+        if (reader.IsDBNull(keyOrdinal))
+        {
+            throw new InvalidDataException("Shared-state document key is unavailable.");
+        }
+
         if (reader.IsDBNull(payloadStorageBytesOrdinal))
         {
             throw new InvalidDataException("Shared-state payload length is unavailable.");
@@ -713,7 +750,7 @@ internal sealed class SqlServerSharedStateSqlBackend : ISharedStateSqlBackend
 
         var updated = reader.GetDateTime(updatedOrdinal);
         return new SharedStateDocument(
-            key,
+            reader.GetString(keyOrdinal),
             reader.GetInt64(versionOrdinal),
             reader.GetString(payloadOrdinal),
             new DateTimeOffset(DateTime.SpecifyKind(updated, DateTimeKind.Utc)));
