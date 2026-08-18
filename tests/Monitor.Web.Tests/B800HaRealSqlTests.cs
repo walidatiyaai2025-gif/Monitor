@@ -128,6 +128,24 @@ public sealed class B800HaRealSqlTests
                 stateAdminConnectionString,
                 $"CREATE USER {quotedRuntimeLogin} FOR LOGIN {quotedRuntimeLogin}; ALTER ROLE MonitorStateRuntime ADD MEMBER {quotedRuntimeLogin};");
 
+            var options = new SharedStateOptions
+            {
+                Provider = SharedStateProviderKind.SqlServer,
+                ConnectionStringEnvironmentVariable = "MONITOR_SHARED_STATE_SQL_CONNECTION",
+                CommandTimeoutSeconds = 5
+            };
+            var store = new SqlServerSharedStateDocumentStore(
+                options,
+                new SqlServerSharedStateSqlBackend(),
+                _ => runtimeConnectionString);
+            var readinessService = new SharedStateReadinessService(options, store);
+
+            var ready = await readinessService.GetAsync();
+            Assert.Equal(SharedStateReadinessStatus.Ready, ready.Status);
+            Assert.True(ready.SharedStorageReady);
+            Assert.Equal(SqlServerSharedStateDocumentStore.SupportedSchemaVersion, ready.SchemaVersion);
+            Assert.Equal(0, await CountDocumentsAsync(runtimeConnectionString));
+
             var backend = new SqlServerSharedStateSqlBackend();
             var normal = await backend.CompareExchangeAsync(
                 runtimeConnectionString,
@@ -160,6 +178,17 @@ public sealed class B800HaRealSqlTests
                     "{}",
                     5,
                     CancellationToken.None));
+
+            var documentCountBeforePermissionDrift = await CountDocumentsAsync(runtimeConnectionString);
+            await ExecuteAsync(
+                stateAdminConnectionString,
+                $"DENY UPDATE ON dbo.MonitorSharedStateDocuments TO {quotedRuntimeLogin};");
+
+            var unavailable = await readinessService.GetAsync();
+            Assert.Equal(SharedStateReadinessStatus.Unavailable, unavailable.Status);
+            Assert.False(unavailable.SharedStorageReady);
+            Assert.Null(unavailable.SchemaVersion);
+            Assert.Equal(documentCountBeforePermissionDrift, await CountDocumentsAsync(runtimeConnectionString));
         }
         finally
         {
@@ -181,6 +210,16 @@ public sealed class B800HaRealSqlTests
         command.Parameters.Add(new SqlParameter("@DocumentKey", SqlDbType.NVarChar, 128) { Value = key });
         command.Parameters.Add(new SqlParameter("@PayloadJson", SqlDbType.NVarChar, -1) { Value = payloadJson });
         await command.ExecuteNonQueryAsync();
+    }
+
+    private static async Task<int> CountDocumentsAsync(string connectionString)
+    {
+        await using var connection = new SqlConnection(connectionString);
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(*) FROM dbo.MonitorSharedStateDocuments;";
+        var value = await command.ExecuteScalarAsync();
+        return Convert.ToInt32(value, System.Globalization.CultureInfo.InvariantCulture);
     }
 
     private static async Task ExecuteAsync(string connectionString, string sql)
