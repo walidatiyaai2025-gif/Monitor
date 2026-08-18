@@ -36,6 +36,33 @@ public sealed class WriteAheadAuditMutationTests
     }
 
     [Fact]
+    public void IncidentNote_RequestIntentAloneDoesNotSuppressSafeRetry()
+    {
+        var metadata = new InMemoryOperatorMetadataStore(TimeProvider.System);
+        const string incidentId = "11111111111111111111111111111111:RULE-003";
+        const string requestKey = "request-87654321";
+        var audit = new RecordThenFailOnceAuditStore();
+        var service = new IncidentCollaborationService(metadata, audit, TimeProvider.System);
+
+        var exception = Assert.Throws<IOException>(() =>
+            service.TryAddNote(incidentId, "operator", "Retry after durable intent only.", requestKey));
+
+        Assert.Contains("audit unavailable", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(metadata.GetIncident(incidentId).Notes);
+        Assert.Contains(audit.Read(0, 20), item =>
+            item.Action == "incident.note.write.request" && item.Outcome == "requested");
+        Assert.DoesNotContain(audit.Read(0, 20), item =>
+            item.Action == "incident.note.request" && item.Outcome == "applied");
+
+        Assert.True(service.TryAddNote(incidentId, "operator", "Retry after durable intent only.", requestKey));
+        Assert.Single(metadata.GetIncident(incidentId).Notes);
+        Assert.Contains(audit.Read(0, 20), item =>
+            item.Action == "incident.note.request" && item.Outcome == "applied");
+        Assert.False(service.TryAddNote(incidentId, "operator", "Retry after durable intent only.", requestKey));
+        Assert.Single(metadata.GetIncident(incidentId).Notes);
+    }
+
+    [Fact]
     public async Task CredentialLocalReplacement_AuditFailurePreventsSecretWriteTestAndRegistrationMutation()
     {
         var registrations = new InMemoryServerRegistrationRepository();
@@ -101,6 +128,24 @@ public sealed class WriteAheadAuditMutationTests
             throw new IOException("audit unavailable");
 
         public IReadOnlyList<AuditEvent> Read(int offset, int limit) => [];
+    }
+
+    private sealed class RecordThenFailOnceAuditStore : IAuditStore
+    {
+        private readonly InMemoryAuditStore _inner = new(TimeProvider.System);
+        private bool _failed;
+
+        public void Append(string actor, string action, string target, string outcome)
+        {
+            _inner.Append(actor, action, target, outcome);
+            if (!_failed)
+            {
+                _failed = true;
+                throw new IOException("audit unavailable after durable intent write");
+            }
+        }
+
+        public IReadOnlyList<AuditEvent> Read(int offset, int limit) => _inner.Read(offset, limit);
     }
 
     private sealed class TrackingTester : IServerConnectionTester
