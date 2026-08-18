@@ -2,6 +2,16 @@
 
 This is the canonical execution plan. Update it in the same PR as material implementation changes.
 
+## Programming closure — SingleNode operator metadata cross-process state — #459 / PR #460
+
+**Base:** `main@34613f419466f159f86a8499f5de69f1628e4875`.  
+**Programming gap:** file-backed operator metadata persisted servers and incidents in one JSON envelope but cached that envelope per process, so overlapping IIS workers could read stale metadata or overwrite a peer server, incident assignment/acknowledgment, or note when saving the whole file.  
+**Implementation:** acquire the existing bounded `CrossProcessFileLease` on one stable `operator-metadata.json.lock`, then reload + validate authoritative disk state before `GetServer`, `GetIncident`, `Snapshot`, `UpsertServer` and every incident mutation. The whole envelope intentionally shares one lease; existing `OperatorMetadataSnapshotValidator`, normalization, capacity/note bounds and `AtomicJsonFile.Save` remain authoritative. MultiNode compare/exchange state is unchanged.  
+**Regression contract:** independent pre-created store instances must see peer reads, retain cross-entity envelope mutations and retain both peer notes after restart.  
+**Pre-canonical-doc evidence:** head `f26b7f6a86b75713fe8ffed0ccdb401070a1b19f` passed Linux CI, SQL Server 2022 Real SQL, Windows production-candidate and both protected-P0 guards. The exact final docs-inclusive head must rerun every selected gate.  
+**Definition of done for #459:** final PR #460 head current with `main`; zero unresolved review threads; Linux CI, Windows production-candidate, Real SQL if selected/required and both protected-P0 guards Green; then Ready, squash merge and close #459 completed.  
+**Safety boundary:** no monitored-SQL permission/query expansion, secret/credential behavior change, SharedState contract change, autonomous remediation, RC.61 publication, production mutation, external acceptance or branch-protection mutation. Remaining external/manual dependency stays `#162 -> #116 -> #111`; #353 remains repository-admin only.
+
 ## Programming closure — SingleNode core operational file cross-process state — #451 / PR #452
 
 **Base:** `main@e3e8942ee624426bc1481de4908e4022a09caac8`.  

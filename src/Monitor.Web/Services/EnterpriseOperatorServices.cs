@@ -273,18 +273,19 @@ public sealed class FileOperatorMetadataStore : IOperatorMetadataStore
     {
         _path = Path.GetFullPath(path);
         _timeProvider = timeProvider;
-        var envelope = AtomicJsonFile.Load<Envelope>(_path);
-        if (envelope is null) _state = new([], []);
-        else
-        {
-            if (envelope.Version != FormatVersion || envelope.State is null) throw new InvalidDataException("Operator metadata store format is invalid.");
-            _state = ValidateSnapshot(envelope.State);
-        }
+        using var lease = CrossProcessFileLease.Acquire(LeasePath, "Operator metadata");
+        _state = Load();
     }
 
     public ServerOperatorMetadata GetServer(Guid registrationId)
     {
-        lock (_gate) return _state.Servers.FirstOrDefault(item => item.RegistrationId == registrationId) ?? InMemoryOperatorMetadataStore.EmptyServer(registrationId, _timeProvider.GetUtcNow());
+        lock (_gate)
+        {
+            using var lease = CrossProcessFileLease.Acquire(LeasePath, "Operator metadata");
+            ReloadFromDisk();
+            return _state.Servers.FirstOrDefault(item => item.RegistrationId == registrationId)
+                ?? InMemoryOperatorMetadataStore.EmptyServer(registrationId, _timeProvider.GetUtcNow());
+        }
     }
 
     public void UpsertServer(ServerOperatorMetadata metadata)
@@ -292,6 +293,8 @@ public sealed class FileOperatorMetadataStore : IOperatorMetadataStore
         var normalized = EnterpriseOperatorValidation.NormalizeServer(metadata, _timeProvider.GetUtcNow());
         lock (_gate)
         {
+            using var lease = CrossProcessFileLease.Acquire(LeasePath, "Operator metadata");
+            ReloadFromDisk();
             var servers = _state.Servers.Where(item => item.RegistrationId != normalized.RegistrationId).Append(normalized).OrderBy(item => item.RegistrationId).ToArray();
             Commit(new(servers, _state.Incidents));
         }
@@ -300,7 +303,13 @@ public sealed class FileOperatorMetadataStore : IOperatorMetadataStore
     public IncidentOperatorMetadata GetIncident(string incidentId)
     {
         incidentId = EnterpriseOperatorValidation.NormalizeIncidentId(incidentId);
-        lock (_gate) return _state.Incidents.FirstOrDefault(item => item.IncidentId == incidentId) ?? InMemoryOperatorMetadataStore.EmptyIncident(incidentId, _timeProvider.GetUtcNow());
+        lock (_gate)
+        {
+            using var lease = CrossProcessFileLease.Acquire(LeasePath, "Operator metadata");
+            ReloadFromDisk();
+            return _state.Incidents.FirstOrDefault(item => item.IncidentId == incidentId)
+                ?? InMemoryOperatorMetadataStore.EmptyIncident(incidentId, _timeProvider.GetUtcNow());
+        }
     }
 
     public void AssignIncident(string incidentId, string? assignee) => MutateIncident(incidentId, current => current with { Assignee = EnterpriseOperatorValidation.NormalizeAssignee(assignee) });
@@ -329,7 +338,12 @@ public sealed class FileOperatorMetadataStore : IOperatorMetadataStore
 
     public EnterpriseOperatorSnapshot Snapshot()
     {
-        lock (_gate) return new(_state.Servers.ToArray(), _state.Incidents.ToArray());
+        lock (_gate)
+        {
+            using var lease = CrossProcessFileLease.Acquire(LeasePath, "Operator metadata");
+            ReloadFromDisk();
+            return new(_state.Servers.ToArray(), _state.Incidents.ToArray());
+        }
     }
 
     private void MutateIncident(string incidentId, Func<IncidentOperatorMetadata, IncidentOperatorMetadata> mutation)
@@ -337,11 +351,24 @@ public sealed class FileOperatorMetadataStore : IOperatorMetadataStore
         incidentId = EnterpriseOperatorValidation.NormalizeIncidentId(incidentId);
         lock (_gate)
         {
+            using var lease = CrossProcessFileLease.Acquire(LeasePath, "Operator metadata");
+            ReloadFromDisk();
             var current = _state.Incidents.FirstOrDefault(item => item.IncidentId == incidentId) ?? InMemoryOperatorMetadataStore.EmptyIncident(incidentId, _timeProvider.GetUtcNow());
             var updated = mutation(current) with { UpdatedAtUtc = _timeProvider.GetUtcNow() };
             var incidents = _state.Incidents.Where(item => item.IncidentId != incidentId).Append(updated).OrderBy(item => item.IncidentId, StringComparer.Ordinal).ToArray();
             Commit(new(_state.Servers, incidents));
         }
+    }
+
+    private void ReloadFromDisk() => _state = Load();
+
+    private EnterpriseOperatorSnapshot Load()
+    {
+        var envelope = AtomicJsonFile.Load<Envelope>(_path);
+        if (envelope is null) return new([], []);
+        if (envelope.Version != FormatVersion || envelope.State is null)
+            throw new InvalidDataException("Operator metadata store format is invalid.");
+        return ValidateSnapshot(envelope.State);
     }
 
     private void Commit(EnterpriseOperatorSnapshot candidate)
@@ -350,6 +377,8 @@ public sealed class FileOperatorMetadataStore : IOperatorMetadataStore
         AtomicJsonFile.Save(_path, new Envelope(FormatVersion, candidate));
         _state = candidate;
     }
+
+    private string LeasePath => $"{_path}.lock";
 
     private static EnterpriseOperatorSnapshot ValidateSnapshot(EnterpriseOperatorSnapshot state) =>
         OperatorMetadataSnapshotValidator.Validate(state);
