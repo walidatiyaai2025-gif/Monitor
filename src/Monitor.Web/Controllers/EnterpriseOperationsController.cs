@@ -133,6 +133,7 @@ public sealed class EnterpriseOperationsController : Controller
         DateTimeOffset? suppressionEndUtc,
         string? suppressionReason)
     {
+        if (!TryActor(out var actor)) return Forbid();
         if (!_registrations.GetAll().Any(item => item.Id == id)) return NotFound();
 
         try
@@ -147,13 +148,13 @@ public sealed class EnterpriseOperationsController : Controller
                 EnterpriseOperatorValidation.BuildWindow(suppressionStartUtc, suppressionEndUtc, suppressionReason),
                 _timeProvider.GetUtcNow());
             _operatorMetadata.UpsertServer(metadata);
-            _audit.Append(Actor(), "server.operator-profile", id.ToString("D"), "updated");
+            _audit.Append(actor, "server.operator-profile", id.ToString("D"), "updated");
             TempData["OperatorStatus"] = "Server operations metadata updated.";
             return RedirectToAction(nameof(Overview));
         }
         catch (ArgumentException exception)
         {
-            return Reject("server.operator-profile", id.ToString("D"), exception);
+            return Reject(actor, "server.operator-profile", id.ToString("D"), exception);
         }
     }
 
@@ -162,6 +163,7 @@ public sealed class EnterpriseOperationsController : Controller
     [Authorize(Policy = MonitorPolicies.Operate)]
     public IActionResult AssignIncident(string id, string? assignee)
     {
+        if (!TryActor(out var actor)) return Forbid();
         try
         {
             id = EnterpriseSecurityPolicy.NormalizeIncidentRouteId(id);
@@ -169,18 +171,18 @@ public sealed class EnterpriseOperationsController : Controller
         }
         catch (ArgumentException exception)
         {
-            return Reject("incident.owner", id, exception);
+            return Reject(actor, "incident.owner", id, exception);
         }
         if (_incidents.GetById(id) is null) return NotFound();
         try
         {
-            Collaboration().Assign(id, assignee, Actor());
+            Collaboration().Assign(id, assignee, actor);
             TempData["OperatorStatus"] = "Incident owner updated.";
             return RedirectToAction(nameof(Overview));
         }
         catch (ArgumentException exception)
         {
-            return Reject("incident.owner", id, exception);
+            return Reject(actor, "incident.owner", id, exception);
         }
     }
 
@@ -189,6 +191,7 @@ public sealed class EnterpriseOperationsController : Controller
     [Authorize(Policy = MonitorPolicies.Operate)]
     public IActionResult AddIncidentNote(string id, string note, string requestKey)
     {
+        if (!TryActor(out var actor)) return Forbid();
         try
         {
             id = EnterpriseSecurityPolicy.NormalizeIncidentRouteId(id);
@@ -196,18 +199,18 @@ public sealed class EnterpriseOperationsController : Controller
         }
         catch (ArgumentException exception)
         {
-            return Reject("incident.note", id, exception);
+            return Reject(actor, "incident.note", id, exception);
         }
         if (_incidents.GetById(id) is null) return NotFound();
         try
         {
-            var added = Collaboration().TryAddNote(id, Actor(), note, requestKey);
+            var added = Collaboration().TryAddNote(id, actor, note, requestKey);
             TempData[added ? "OperatorStatus" : "OperatorError"] = added ? "Incident note added." : "This note request was already applied.";
             return RedirectToAction(nameof(Overview));
         }
         catch (ArgumentException exception)
         {
-            return Reject("incident.note", id, exception);
+            return Reject(actor, "incident.note", id, exception);
         }
     }
 
@@ -216,6 +219,7 @@ public sealed class EnterpriseOperationsController : Controller
     [Authorize(Policy = MonitorPolicies.Operate)]
     public IActionResult AcknowledgeRecommendation(string id, string recommendationKey, bool acknowledged = true)
     {
+        if (!TryActor(out var actor)) return Forbid();
         try
         {
             id = EnterpriseSecurityPolicy.NormalizeIncidentRouteId(id);
@@ -223,7 +227,7 @@ public sealed class EnterpriseOperationsController : Controller
         }
         catch (ArgumentException exception)
         {
-            return Reject("recommendation.acknowledgment", id, exception);
+            return Reject(actor, "recommendation.acknowledgment", id, exception);
         }
         var incident = _incidents.GetById(id);
         if (incident is null) return NotFound();
@@ -231,7 +235,7 @@ public sealed class EnterpriseOperationsController : Controller
         var recommendation = _recommendations.Build(incident);
         if (recommendation is null)
         {
-            _audit.Append(Actor(), "recommendation.acknowledgment", id, "rejected:no-current-recommendation");
+            _audit.Append(actor, "recommendation.acknowledgment", id, "rejected:no-current-recommendation");
             TempData["OperatorError"] = "The incident has no current deterministic recommendation.";
             return RedirectToAction(nameof(Overview));
         }
@@ -239,7 +243,7 @@ public sealed class EnterpriseOperationsController : Controller
         var currentKey = RecommendationAcknowledgmentKey.Create(recommendation);
         if (!string.Equals(currentKey, recommendationKey, StringComparison.Ordinal))
         {
-            _audit.Append(Actor(), "recommendation.acknowledgment", id, "rejected:stale-recommendation");
+            _audit.Append(actor, "recommendation.acknowledgment", id, "rejected:stale-recommendation");
             TempData["OperatorError"] = "The recommendation changed. Reloaded state is required before acknowledgment.";
             return RedirectToAction(nameof(Overview));
         }
@@ -247,13 +251,13 @@ public sealed class EnterpriseOperationsController : Controller
         try
         {
             _operatorMetadata.SetRecommendationAcknowledged(id, currentKey, acknowledged);
-            _audit.Append(Actor(), "recommendation.acknowledgment", id, acknowledged ? "acknowledged" : "reopened");
+            _audit.Append(actor, "recommendation.acknowledgment", id, acknowledged ? "acknowledged" : "reopened");
             TempData["OperatorStatus"] = acknowledged ? "Recommendation acknowledged." : "Recommendation review reopened.";
             return RedirectToAction(nameof(Overview));
         }
         catch (ArgumentException exception)
         {
-            return Reject("recommendation.acknowledgment", id, exception);
+            return Reject(actor, "recommendation.acknowledgment", id, exception);
         }
     }
 
@@ -269,25 +273,33 @@ public sealed class EnterpriseOperationsController : Controller
     [Authorize(Policy = MonitorPolicies.Manage)]
     public async Task<IActionResult> Diagnostics(CancellationToken cancellationToken)
     {
+        if (!TryActor(out var actor)) return Forbid();
         var bytes = await new BoundedDiagnosticsRunner(_diagnostics).BuildAsync(cancellationToken);
-        _audit.Append(Actor(), "diagnostics.package", "application", "generated");
+        _audit.Append(actor, "diagnostics.package", "application", "generated");
         EnterpriseSecurityPolicy.ApplySecureDownloadHeaders(Response);
         return File(bytes, "application/zip", EnterpriseSecurityPolicy.SafeDownloadFileName(EnterpriseDownloadSubject.Diagnostics, _timeProvider.GetUtcNow(), "zip"));
     }
 
-    private IActionResult Reject(string action, string target, ArgumentException exception)
+    private IActionResult Reject(string actor, string action, string target, ArgumentException exception)
     {
-        _audit.Append(Actor(), action, SecurityInput.NormalizeAuditField(target, 160), "rejected");
+        _audit.Append(actor, action, SecurityInput.NormalizeAuditField(target, 160), "rejected");
         TempData["OperatorError"] = SecurityInput.NormalizeAuditField(exception.Message, 180);
         return RedirectToAction(nameof(Overview));
     }
 
     private IIncidentCollaborationService Collaboration() => new IncidentCollaborationService(_operatorMetadata, _audit, _timeProvider);
 
-    private string Actor()
+    private bool TryActor(out string actor)
     {
-        var actor = User.Identity?.Name;
-        return string.IsNullOrWhiteSpace(actor) ? "unknown" : EnterpriseOperatorValidation.NormalizeActor(actor);
+        var identityName = User.Identity?.Name;
+        if (string.IsNullOrWhiteSpace(identityName))
+        {
+            actor = string.Empty;
+            return false;
+        }
+
+        actor = EnterpriseOperatorValidation.NormalizeActor(identityName);
+        return true;
     }
 
     private static string? NormalizeFilter(string? value, int maxLength)
