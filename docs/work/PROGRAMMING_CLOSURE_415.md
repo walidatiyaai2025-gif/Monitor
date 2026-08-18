@@ -37,14 +37,28 @@ The SQL Server 2022 acceptance test reads and executes the repository's actual `
 
 The Real SQL workflow path contract already includes the installer script and this existing regression file, so this closure is selected automatically.
 
+## Exact-head blocker found during validation
+
+The first exact-head Real SQL runs exposed a pre-existing production-query race in `TransactionLogSnapshotQuery`: `TotalDatabases` counted `sys.databases` in one scalar subquery while the bounded JSON evidence independently re-read `sys.databases` and `sys.dm_db_log_stats`. The new SharedState acceptance tests create and drop fixture databases concurrently, so the two reads could observe different estate membership and produce a row that the evidence mapper correctly rejected as internally inconsistent.
+
+The blocker is closed in the same PR because project policy requires CI/Real SQL failures to be fixed before the programming closure is complete:
+
+- transaction-log evidence is materialized once into a session-local table variable;
+- `TotalDatabases` and the bounded `TOP (50)` JSON projection are derived from that same materialized rowset;
+- `OUTER APPLY` preserves a database row when detailed log stats are temporarily unavailable, allowing the existing partial-evidence contract to remain truthful instead of changing row cardinality;
+- the monitored estate remains read-only: the only insert is into the session-local table variable, with no DML against monitored databases;
+- a unit query-shape regression prevents reintroducing an independent `sys.databases` count path.
+
+This keeps the mapper's cardinality invariant truthful even while databases are created or removed concurrently.
+
 ## Workflow-selected gates
 
-The changed paths are the standalone SharedState SQL installer, its Real SQL regression, and this work ledger. They select repository CI, Real SQL acceptance, and the protected-P0 guards. They do not select `production-candidate`: the installer is not under `src/Monitor.Web/**`, deployment/PowerShell paths, or any file staged into the SingleNode production-candidate operations bundle. This is an intentional workflow boundary, not a skipped or failed Windows result.
+The final changed paths now include `src/Monitor.Web/Services/TransactionLogSnapshotQuery.cs` in addition to the SharedState installer, regressions, and ledger. Therefore the exact final head must pass repository CI, Real SQL acceptance, Windows production-candidate, and both protected-P0 guards. No prior Green result from a pre-fix head counts toward final DoD.
 
 ## Safety boundary
 
-SharedState provisioning/data-integrity hardening only. No monitored-target query or permission expansion, schema-version bump, migration/repair, runtime probe writes, secret disclosure, autonomous remediation, release promotion, production IIS/SQL mutation, external production acceptance, protected-P0 completion, or branch-protection mutation. External/manual dependency order remains `#162 -> #116 -> #111`; #353 remains a separate repository-admin action.
+SharedState provisioning/data-integrity hardening plus the minimum production-query correction required by the exact-head Real SQL blocker. No monitored-target permission expansion, schema-version bump, migration/repair, runtime probe writes, secret disclosure, autonomous remediation, release promotion, production IIS/SQL mutation, external production acceptance, protected-P0 completion, or branch-protection mutation. External/manual dependency order remains `#162 -> #116 -> #111`; #353 remains a separate repository-admin action.
 
 ## Definition of Done
 
-The exact final PR head must be current with `main`, have zero unresolved review threads, and pass every workflow selected by the changed paths: repository CI, Real SQL acceptance, and protected-P0 guards. Windows production-candidate is additionally required only when selected by its path contract.
+The exact final PR head must be current with `main`, have zero unresolved review threads, and pass repository CI, Real SQL acceptance, Windows production-candidate, protected-P0 commit guard, and protected-P0 metadata guard.
