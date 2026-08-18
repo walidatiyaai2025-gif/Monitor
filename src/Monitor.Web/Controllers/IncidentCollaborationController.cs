@@ -10,7 +10,8 @@ public sealed class IncidentCollaborationController(
     IHealthIncidentRepository incidents,
     IOperatorMetadataStore metadata,
     IAuditStore audit,
-    TimeProvider timeProvider) : Controller
+    TimeProvider timeProvider,
+    IGovernancePruneStateStore? pruneState = null) : Controller
 {
     [HttpPost("/alerts/{id}/resolve-with-note")]
     [ValidateAntiForgeryToken]
@@ -62,7 +63,11 @@ public sealed class IncidentCollaborationController(
         }
     }
 
-    private IIncidentCollaborationService Collaboration() => new IncidentCollaborationService(metadata, audit, timeProvider);
+    private IIncidentCollaborationService Collaboration() => new IncidentCollaborationService(
+        metadata,
+        audit,
+        timeProvider,
+        pruneState: pruneState ?? GovernancePruneStateMigration.CreateTransient(audit, metadata));
 
     private bool TryActor(out string actor)
     {
