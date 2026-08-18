@@ -20,19 +20,19 @@
             }
             else
             {
-                <div class="responsive-table" role="region" aria-label="@server.Name transaction log evidence" tabindex="0">
-                    <div class="table-head health-detail-grid" role="row"><span>Database</span><span>Recovery</span><span>Used</span><span>VLF</span><span>Reuse wait</span><span>Log backup age</span><span>Detail</span></div>
+                <div class="responsive-table" role="table" aria-label="@server.Name transaction log evidence" tabindex="0">
+                    <div class="table-head health-detail-grid" role="row"><span role="columnheader">Database</span><span role="columnheader">Recovery</span><span role="columnheader">Used</span><span role="columnheader">VLF</span><span role="columnheader">Reuse wait</span><span role="columnheader">Log backup age</span><span role="columnheader">Detail</span></div>
                     @foreach (var row in displayed)
                     {
                         var warning = row.TruncationBlocked == true || row.VlfBand is LogVlfBand.High or LogVlfBand.Extreme;
                         <div class="table-row health-detail-grid" role="row">
-                            <strong>@row.DatabaseKey</strong>
-                            <span>@row.RecoveryModel</span>
-                            <span>@(row.UsedPercent.HasValue ? $"{row.UsedPercent.Value:0.##}%" : "Unavailable")</span>
-                            <span class="@(warning ? "state-warning" : string.Empty)">@(row.VlfBand?.ToString() ?? "Unavailable")</span>
-                            <span>@(row.ReuseWait ?? "Unavailable")</span>
-                            <span>@(row.LogBackupAgeSeconds.HasValue ? TimeSpan.FromSeconds(row.LogBackupAgeSeconds.Value).ToString("c") : "Unavailable")</span>
-                            <span>@(row.HasDetailedStats ? (row.TruncationBlocked == true ? "Reuse blocked" : "Observed") : "Partial evidence")</span>
+                            <strong role="cell">@row.DatabaseKey</strong>
+                            <span role="cell">@row.RecoveryModel</span>
+                            <span role="cell">@(row.UsedPercent.HasValue ? $"{row.UsedPercent.Value:0.##}%" : "Unavailable")</span>
+                            <span role="cell" class="@(warning ? "state-warning" : string.Empty)">@(row.VlfBand?.ToString() ?? "Unavailable")</span>
+                            <span role="cell">@(row.ReuseWait ?? "Unavailable")</span>
+                            <span role="cell">@(row.LogBackupAgeSeconds.HasValue ? TimeSpan.FromSeconds(row.LogBackupAgeSeconds.Value).ToString("c") : "Unavailable")</span>
+                            <span role="cell">@(row.HasDetailedStats ? (row.TruncationBlocked == true ? "Reuse blocked" : "Observed") : "Partial evidence")</span>
                         </div>
                     }
                 </div>
@@ -70,19 +70,19 @@
                 </div>
                 @if (databaseRows.Length > 0)
                 {
-                    <div class="responsive-table" role="region" aria-label="@server.Name HA database replica evidence" tabindex="0">
-                        <div class="table-head health-detail-grid" role="row"><span>Database</span><span>Replica</span><span>Sync state</span><span>Health</span><span>Suspended</span><span>Lag</span><span>Queues</span></div>
+                    <div class="responsive-table" role="table" aria-label="@server.Name HA database replica evidence" tabindex="0">
+                        <div class="table-head health-detail-grid" role="row"><span role="columnheader">Database</span><span role="columnheader">Replica</span><span role="columnheader">Sync state</span><span role="columnheader">Health</span><span role="columnheader">Suspended</span><span role="columnheader">Lag</span><span role="columnheader">Queues</span></div>
                         @foreach (var row in databaseRows)
                         {
                             var rowWarning = row.IsSuspended == true || string.Equals(row.SynchronizationHealth, "NOT_HEALTHY", StringComparison.OrdinalIgnoreCase);
                             <div class="table-row health-detail-grid" role="row">
-                                <strong>@row.DatabaseKey</strong>
-                                <span>@row.ReplicaKey</span>
-                                <span>@(row.SynchronizationState ?? "Unavailable")</span>
-                                <span class="@(rowWarning ? "state-warning" : string.Empty)">@(row.SynchronizationHealth ?? "Unavailable")</span>
-                                <span>@(row.IsSuspended.HasValue ? (row.IsSuspended.Value ? "YES" : "NO") : "Unavailable")</span>
-                                <span>@(row.SecondaryLagSeconds.HasValue ? $"{row.SecondaryLagSeconds.Value}s" : "Unavailable")</span>
-                                <span>send @(row.LogSendQueueKb.HasValue ? $"{row.LogSendQueueKb.Value} KB" : "n/a") · redo @(row.RedoQueueKb.HasValue ? $"{row.RedoQueueKb.Value} KB" : "n/a")</span>
+                                <strong role="cell">@row.DatabaseKey</strong>
+                                <span role="cell">@row.ReplicaKey</span>
+                                <span role="cell">@(row.SynchronizationState ?? "Unavailable")</span>
+                                <span role="cell" class="@(rowWarning ? "state-warning" : string.Empty)">@(row.SynchronizationHealth ?? "Unavailable")</span>
+                                <span role="cell">@(row.IsSuspended.HasValue ? (row.IsSuspended.Value ? "YES" : "NO") : "Unavailable")</span>
+                                <span role="cell">@(row.SecondaryLagSeconds.HasValue ? $"{row.SecondaryLagSeconds.Value}s" : "Unavailable")</span>
+                                <span role="cell">send @(row.LogSendQueueKb.HasValue ? $"{row.LogSendQueueKb.Value} KB" : "n/a") · redo @(row.RedoQueueKb.HasValue ? $"{row.RedoQueueKb.Value} KB" : "n/a")</span>
                             </div>
                         }
                     </div>

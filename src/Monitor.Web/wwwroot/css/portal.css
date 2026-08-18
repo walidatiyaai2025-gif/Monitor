@@ -45,6 +45,7 @@
 .recommendation-filter-panel input:focus-visible,
 .recommendation-filter-panel select:focus-visible,
 .recommendation-actions a:focus-visible,
+.responsive-table:focus-visible,
 .report-card a:focus-visible {
   outline: 2px solid currentColor;
   outline-offset: 3px;
