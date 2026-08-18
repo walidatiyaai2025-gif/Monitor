@@ -69,6 +69,11 @@ public sealed class B800TransactionLogSnapshotTests
         Assert.Contains("active_log_size_mb", sql, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("log_truncation_holdup_reason", sql, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("DATEDIFF_BIG(SECOND, ls.log_backup_time, SYSDATETIME())", sql, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("DECLARE @TransactionLogEvidence TABLE", sql, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("INSERT INTO @TransactionLogEvidence", sql, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("(SELECT COUNT(*) FROM @TransactionLogEvidence)", sql, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("(SELECT COUNT(*) FROM sys.databases", sql, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(1, sql.Split("FROM sys.databases AS d", StringSplitOptions.None).Length - 1);
         Assert.DoesNotContain("physical_name", sql, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("backupset", sql, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("dm_tran_database_transactions", sql, StringComparison.OrdinalIgnoreCase);
