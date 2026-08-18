@@ -14,6 +14,111 @@ BEGIN
     );
 END;
 
+/*
+  The schema-version table is part of the v1 contract, not merely a place from
+  which to read one integer. Reject a pre-existing metadata table whose shape,
+  key, Id invariant, or installation timestamp default differs from canonical
+  v1 before any document-table provisioning or schema stamping occurs.
+*/
+DECLARE @SchemaObjectId int = OBJECT_ID(N'dbo.MonitorSharedStateSchema', N'U');
+IF @SchemaObjectId IS NULL
+   OR (SELECT COUNT(*) FROM sys.columns WHERE object_id = @SchemaObjectId) <> 3
+   OR NOT EXISTS
+   (
+       SELECT 1
+       FROM sys.columns
+       WHERE object_id = @SchemaObjectId
+         AND name = N'Id'
+         AND system_type_id = 48
+         AND user_type_id = 48
+         AND max_length = 1
+         AND is_nullable = 0
+         AND is_computed = 0
+   )
+   OR NOT EXISTS
+   (
+       SELECT 1
+       FROM sys.columns
+       WHERE object_id = @SchemaObjectId
+         AND name = N'SchemaVersion'
+         AND system_type_id = 56
+         AND user_type_id = 56
+         AND max_length = 4
+         AND is_nullable = 0
+         AND is_computed = 0
+   )
+   OR NOT EXISTS
+   (
+       SELECT 1
+       FROM sys.columns
+       WHERE object_id = @SchemaObjectId
+         AND name = N'InstalledAtUtc'
+         AND system_type_id = 42
+         AND user_type_id = 42
+         AND scale = 7
+         AND is_nullable = 0
+         AND is_computed = 0
+   )
+   OR NOT EXISTS
+   (
+       SELECT 1
+       FROM sys.indexes AS indexes
+       WHERE indexes.object_id = @SchemaObjectId
+         AND indexes.is_primary_key = 1
+         AND indexes.is_unique = 1
+         AND (
+             SELECT COUNT(*)
+             FROM sys.index_columns
+             WHERE object_id = indexes.object_id
+               AND index_id = indexes.index_id
+               AND key_ordinal > 0
+         ) = 1
+         AND EXISTS
+         (
+             SELECT 1
+             FROM sys.index_columns AS index_columns
+             INNER JOIN sys.columns AS columns
+                 ON columns.object_id = index_columns.object_id
+                AND columns.column_id = index_columns.column_id
+             WHERE index_columns.object_id = indexes.object_id
+               AND index_columns.index_id = indexes.index_id
+               AND index_columns.key_ordinal = 1
+               AND index_columns.is_included_column = 0
+               AND columns.name = N'Id'
+         )
+   )
+   OR NOT EXISTS
+   (
+       SELECT 1
+       FROM sys.check_constraints AS checks
+       WHERE checks.parent_object_id = @SchemaObjectId
+         AND checks.name = N'CK_MonitorSharedStateSchema_Id'
+         AND checks.is_disabled = 0
+         AND checks.is_not_trusted = 0
+         AND LOWER(
+             REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+                 checks.definition,
+                 N'[', N''), N']', N''), N'(', N''), N')', N''), N' ', N''), NCHAR(9), N''), NCHAR(13), N''), NCHAR(10), N'')) = N'id=1'
+   )
+   OR NOT EXISTS
+   (
+       SELECT 1
+       FROM sys.default_constraints AS defaults
+       INNER JOIN sys.columns AS columns
+           ON columns.object_id = defaults.parent_object_id
+          AND columns.column_id = defaults.parent_column_id
+       WHERE defaults.parent_object_id = @SchemaObjectId
+         AND defaults.name = N'DF_MonitorSharedStateSchema_InstalledAtUtc'
+         AND columns.name = N'InstalledAtUtc'
+         AND LOWER(
+             REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+                 defaults.definition,
+                 N'[', N''), N']', N''), N'(', N''), N')', N''), N' ', N''), NCHAR(9), N''), NCHAR(13), N''), NCHAR(10), N'')) = N'sysutcdatetime'
+   )
+BEGIN
+    THROW 51002, 'Monitor shared-state schema metadata table differs from the supported v1 contract. Apply the supported migration path instead of provisioning v1.', 1;
+END;
+
 IF OBJECT_ID(N'dbo.MonitorSharedStateDocuments', N'U') IS NULL
 BEGIN
     CREATE TABLE dbo.MonitorSharedStateDocuments
