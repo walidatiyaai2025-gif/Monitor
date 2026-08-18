@@ -142,7 +142,7 @@ public sealed class DurableOperationalStoresTests : IDisposable
     }
 
     [Fact]
-    public void Incidents_IndependentInstancesPreservePeerFindingsAndRefreshReads()
+    public void Incidents_IndependentInstancesPreservePeerFindingsAndRefreshBoundedReads()
     {
         var path = Path.Combine(_directory, "incidents.json");
         var first = new FileHealthIncidentRepository(path);
@@ -151,11 +151,12 @@ public sealed class DurableOperationalStoresTests : IDisposable
         first.Apply([Finding("backup.full-gap", Now)]);
         second.Apply([Finding("memory.pressure", Now.AddSeconds(1))]);
 
-        var incidents = first.GetAll();
+        var read = first.Read(new IncidentRepositoryQuery(Limit: 10));
 
-        Assert.Equal(2, incidents.Count);
-        Assert.Contains(incidents, item => item.RuleId == "backup.full-gap");
-        Assert.Contains(incidents, item => item.RuleId == "memory.pressure");
+        Assert.Equal(2, read.TotalMatched);
+        Assert.Equal(2, read.Items.Count);
+        Assert.Contains(read.Items, item => item.RuleId == "backup.full-gap");
+        Assert.Contains(read.Items, item => item.RuleId == "memory.pressure");
     }
 
     [Fact]
