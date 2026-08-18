@@ -61,13 +61,19 @@ public static class OperationalStorePath
 
 internal static class AtomicJsonFile
 {
+    private const int DefaultMaxDocumentBytes = 128 * 1024 * 1024;
+
     internal static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web)
     {
         WriteIndented = true
     };
 
-    public static T? Load<T>(string path) where T : class
+    public static T? Load<T>(string path) where T : class =>
+        Load<T>(path, DefaultMaxDocumentBytes);
+
+    internal static T? Load<T>(string path, int maxDocumentBytes) where T : class
     {
+        ValidateDocumentBound(maxDocumentBytes);
         if (!File.Exists(path))
         {
             return null;
@@ -75,7 +81,18 @@ internal static class AtomicJsonFile
 
         try
         {
-            using var stream = File.OpenRead(path);
+            using var stream = new FileStream(
+                path,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read,
+                bufferSize: 16 * 1024,
+                FileOptions.SequentialScan);
+            if (stream.Length > maxDocumentBytes)
+            {
+                throw new InvalidDataException("Operational state file exceeds its bounded file size.");
+            }
+
             return JsonSerializer.Deserialize<T>(stream, Options)
                 ?? throw new InvalidDataException("Operational state file is empty or invalid.");
         }
@@ -89,11 +106,21 @@ internal static class AtomicJsonFile
         }
     }
 
-    public static void Save<T>(string path, T value)
+    public static void Save<T>(string path, T value) =>
+        Save(path, value, DefaultMaxDocumentBytes);
+
+    internal static void Save<T>(string path, T value, int maxDocumentBytes)
     {
+        ValidateDocumentBound(maxDocumentBytes);
         var directory = Path.GetDirectoryName(path)
             ?? throw new InvalidOperationException("Operational state directory could not be resolved.");
         Directory.CreateDirectory(directory);
+
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(value, Options);
+        if (bytes.Length > maxDocumentBytes)
+        {
+            throw new InvalidDataException("Operational state file exceeds its bounded file size.");
+        }
 
         var tempPath = $"{path}.{Guid.NewGuid():N}.tmp";
         try
@@ -106,7 +133,7 @@ internal static class AtomicJsonFile
                 bufferSize: 4096,
                 FileOptions.WriteThrough))
             {
-                JsonSerializer.Serialize(stream, value, Options);
+                stream.Write(bytes);
                 stream.Flush(flushToDisk: true);
             }
 
@@ -118,6 +145,14 @@ internal static class AtomicJsonFile
             {
                 File.Delete(tempPath);
             }
+        }
+    }
+
+    private static void ValidateDocumentBound(int maxDocumentBytes)
+    {
+        if (maxDocumentBytes < 1024)
+        {
+            throw new ArgumentOutOfRangeException(nameof(maxDocumentBytes), "Operational state file bound must be at least 1024 bytes.");
         }
     }
 }
