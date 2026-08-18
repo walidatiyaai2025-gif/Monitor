@@ -224,7 +224,7 @@ BATCH-700 does **not** change production priority or acceptance truth: monitored
 ## BATCH-800 — Full functional operator wiring — IN PROGRESS
 
 **Umbrella:** Issue #287 — OPEN  
-**Current closeout:** B800-098 — canonical summary reconciliation after B800-097 / PR #332 merged  
+**Current closeout:** B800-099 — cross-document exact-head consistency after B800-098 / PR #333 merged  
 **Task range:** B800-001..100  
 **Execution ledger:** `docs/BATCH_800.md`
 
@@ -232,7 +232,7 @@ BATCH-800 closes the gap between a visible route and a functionally wired operat
 
 `UI control / route -> controller endpoint -> authorization + antiforgery boundary -> service/read model -> persisted or cached evidence -> explicit success/error/unavailable state -> regression evidence`
 
-Focused slices through B800-097 are merged. Current `main` contains the evidence-backed server/diagnostic/workflow slices, B800-071..080 Fleet/routing/maintenance decision support, the complete B800-081..090 report/export tranche, B800-091 report acceptance, B800-092 write-surface security acceptance, B800-093 no-fake-data hardening, B800-094 advanced-evidence accessibility hardening, and B800-095..097 fail-closed closeout/evidence/checklist reconciliation. B800-097 / PR #332 squash-merged as `581980ef11d201747c23ed1df808edb494b597ae`; corrected exact head `cfc59786e8929b6412de997106ae9470fb85c83d` passed CI #2900 / `32089166149` with 1261/1261 tests. B800-098..100 remain final canonical/exact-head closeout work.
+Focused slices through B800-098 are merged. Current `main` contains the evidence-backed server/diagnostic/workflow slices, B800-071..080 Fleet/routing/maintenance decision support, the complete B800-081..090 report/export tranche, B800-091 report acceptance, B800-092 write-surface security acceptance, B800-093 no-fake-data hardening, B800-094 advanced-evidence accessibility hardening, and B800-095..098 fail-closed closeout/evidence/checklist/summary reconciliation. B800-098 / PR #333 squash-merged as `483b8ce2f14b62499d8751d22f1908511f981d10`; exact final head `e2c33c85becb40d4f0f639a178dd435c37578e01` passed CI #2908 / `32089818839`, Real SQL #376 / `32089818822`, and Windows production-candidate #544 / `32089818821`. B800-099..100 remain final exact-head consistency/final closeout work.
 
 Current evidence-backed state:
 
@@ -283,13 +283,14 @@ Current evidence-backed state:
 - B800-094 changes UI semantics only: TempDB/transaction-log/HA advanced evidence keeps responsive horizontal scrolling but gains complete ARIA table/header/cell structure and explicit focus-visible styling for the focusable responsive table;
 - B800-095 / PR #330 added a fail-closed closeout ledger guard and merged as `cda21b6ef5bbb8e34d32a186f44b3e45dc83bb23` after CI #2887 / `32088182623`;
 - B800-096 / PR #331 mapped stale historical task rows to explicit merged exact-head evidence and merged as `66c8303f57880e5d76a01dab5e5ef36a2efd455c` after CI #2892 / `32088656350`;
-- B800-097 / PR #332 mechanically reconciled the canonical B800 checklist against that evidence map and merged as `581980ef11d201747c23ed1df808edb494b597ae`; corrected exact head `cfc59786e8929b6412de997106ae9470fb85c83d` passed CI #2900 / `32089166149` with 1261/1261 tests and release/promotion safety tooling.
+- B800-097 / PR #332 mechanically reconciled the canonical B800 checklist against that evidence map and merged as `581980ef11d201747c23ed1df808edb494b597ae`; corrected exact head `cfc59786e8929b6412de997106ae9470fb85c83d` passed CI #2900 / `32089166149` with 1261/1261 tests and release/promotion safety tooling;
+- B800-098 / PR #333 reconciled the three canonical B800 summaries with the ledger and merged as `483b8ce2f14b62499d8751d22f1908511f981d10`; exact final head `e2c33c85becb40d4f0f639a178dd435c37578e01` passed CI #2908 / `32089818839`, Real SQL #376 / `32089818822`, and Windows production-candidate #544 / `32089818821`.
 
 Safety/truth boundaries remain mandatory: monitored GETs never collect SQL; missing, truncated or unreadable decision evidence is never converted to zero/healthy/default except that an explicitly complete empty incident population may truthfully summarize as zero; wait/I/O counters are cumulative since SQL Server start rather than interval history; `AgentReliabilityProjection` keeps `ScheduleLatenessEvaluated=false` until canonical time-zone + recurrence/expected-run semantics exist; backup RPO compliance is not claimed without policy; bounded TempDB, transaction-log and HA evidence is available but unsupported composite growth/contention, governed recovery and quorum/RPO/RTO/failover-readiness conclusions remain explicit `NotEvaluated`/unavailable; query regression remains a privacy-safe contract only with no live collection, SQL text or query-plan collection; no client identity/table data/physical paths are collected; no autonomous remediation or AI-generated SQL execution is introduced.
 
 Least privilege remains read-only: SQL Server 2022+ uses `VIEW SERVER PERFORMANCE STATE` (older supported versions `VIEW SERVER STATE`) plus `VIEW ANY DEFINITION` and existing narrow metadata grants; Agent history/activity adds only read-only `SELECT` on `msdb.dbo.sysjobhistory` and `msdb.dbo.sysjobactivity`, with no SQLAgent execution/operator role. B800-071/072/073/074/075/076/077/078/079/080/081/082/083/084/085/086/087/088/089/090/091/092/093/094 add no monitored-SQL permission or query path.
 
-B800-098 reconciles the three canonical B800 summaries against the B800-097 ledger. B800-099 must then lock cross-document consistency on one exact head, and B800-100 may perform final repository batch closeout only after that consistency gate is Green, the branch is current with `main`, and review threads are resolved. B800-098..100 do not add runtime behavior and cannot publish/supersede RC.61, mutate real production IIS/SQL, satisfy #162/#116/#111, or change the strict production dependency.
+B800-099 is the cross-document exact-head consistency gate over the reconciled ledger and summaries. B800-100 may perform final repository batch closeout only after B800-099 is Green on one settled exact head, the branch is current with `main`, and review threads are resolved. B800-099..100 do not add runtime behavior and cannot publish/supersede RC.61, mutate real production IIS/SQL, satisfy #162/#116/#111, or change the strict production dependency.
 
 ## Verified foundation
 
@@ -314,7 +315,7 @@ B800-098 reconciles the three canonical B800 summaries against the B800-097 ledg
 - BATCH-500 — B500-001..100 COMPLETE.
 - BATCH-600 — B600-001..100 COMPLETE.
 - `docs/BATCH_700.md` — UI700-001..050 COMPLETE; PR #240 squash-merged as `fd33e79c6d19d7f9852417b9c35a11f91f21714c` after exact final head `0834db6b5d518fe5c52eec9b47c03e467929aa89` passed CI #1637, Real SQL #91 and production-candidate #142.
-- `docs/BATCH_800.md` — B800-001..100 IN PROGRESS under #287; focused slices are merged through B800-097 / PR #332 (`581980ef11d201747c23ed1df808edb494b597ae`), with B800-098..100 canonical/exact-head closeout still pending. The overall batch is not counted as complete.
+- `docs/BATCH_800.md` — B800-001..100 IN PROGRESS under #287; focused slices are merged through B800-098 / PR #333 (`483b8ce2f14b62499d8751d22f1908511f981d10`), with B800-099..100 exact-head consistency/final closeout still pending. The overall batch is not counted as complete.
 
 The BATCH-200 reconciliation selectively restored retention governance, enterprise security hardening and bounded scale primitives plus mapped B200-051..090 regression coverage and an additional audit-pagination regression on RC.61-era current main. Legacy issues #87/#91/#93 are closed completed, while stale PRs #88/#92/#94/#104 are closed unmerged as superseded. This was baseline correction rather than feature expansion or new task accounting; it preserves `IServerTargetLifecycleService`, BATCH-300 and all P0 production/release boundaries and does not change #116 or selected RC.61.
 
