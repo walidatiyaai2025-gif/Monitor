@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
@@ -129,12 +130,19 @@ public sealed class DbaOperationsUxTests
             SnapshotRefreshStatus.Throttled,
             "Manual refresh capacity is busy.",
             RetryAfterSeconds: 2));
+        var httpContext = new DefaultHttpContext
+        {
+            User = new ClaimsPrincipal(new ClaimsIdentity(
+                [new Claim(ClaimTypes.Name, "operator")],
+                authenticationType: "test"))
+        };
         var controller = new OperationsController(
             new DemoMonitorService(),
             new FakeReadService(),
+            audit: new InMemoryAuditStore(TimeProvider.System),
             snapshotRefresh: refresh)
         {
-            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() }
+            ControllerContext = new ControllerContext { HttpContext = httpContext }
         };
         controller.TempData = new TempDataDictionary(controller.HttpContext, new MemoryTempDataProvider());
 
