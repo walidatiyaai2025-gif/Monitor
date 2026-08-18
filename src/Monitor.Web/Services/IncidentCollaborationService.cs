@@ -78,6 +78,7 @@ public sealed class IncidentCollaborationService(
         if (AuditAny(item => item.Action == "incident.note.request" && item.Target == receiptTarget && item.Outcome == "applied"))
             return false;
 
+        audit.Append(actor, "incident.note.request", receiptTarget, "requested");
         metadata.AddIncidentNote(incidentId, actor, note);
         audit.Append(actor, "incident.note.request", receiptTarget, "applied");
         return true;
@@ -90,6 +91,7 @@ public sealed class IncidentCollaborationService(
         var before = metadata.GetIncident(incidentId).Assignee;
         var next = EnterpriseOperatorValidation.NormalizeAssignee(assignee);
         if (string.Equals(before, next, StringComparison.OrdinalIgnoreCase)) return;
+        audit.Append(actor, "incident.owner.change", incidentId, "requested");
         metadata.AssignIncident(incidentId, next);
         audit.Append(actor, "incident.owner.change", incidentId, $"{DisplayOwner(before)}->{DisplayOwner(next)}");
     }
@@ -126,8 +128,10 @@ public sealed class IncidentCollaborationService(
         var bounded = $"[{category}] {text}";
         if (bounded.Length > EnterpriseOperatorValidation.MaxNoteLength)
             bounded = bounded[..EnterpriseOperatorValidation.MaxNoteLength];
+        var action = $"incident.{category.ToLowerInvariant()}.note";
+        audit.Append(actor, action, incidentId, "requested");
         metadata.AddIncidentNote(incidentId, actor, bounded);
-        audit.Append(actor, $"incident.{category.ToLowerInvariant()}.note", incidentId, "added");
+        audit.Append(actor, action, incidentId, "added");
     }
 
     private bool HasPruneReceipt(string action, string target) =>
