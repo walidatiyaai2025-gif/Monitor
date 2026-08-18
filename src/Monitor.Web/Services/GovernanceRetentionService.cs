@@ -69,14 +69,15 @@ public sealed class GovernanceRetentionService(
                 candidates.Add(new("server", key, "Operator metadata has no active registration."));
         }
 
-        var incidentCutoff = now.AddDays(-_options.ResolvedIncidentMetadataDays);
         var noteCutoff = now.AddDays(-_options.OperatorNoteRetentionDays);
         foreach (var item in operatorSnapshot.Incidents)
         {
-            var shouldPruneIncident = !incidentById.TryGetValue(item.IncidentId, out var incident) ||
-                incident.Status == IncidentStatus.Resolved && incident.LastSeenUtc < incidentCutoff;
-            if (shouldPruneIncident && !receiptIndex.Contains($"governance.prune.incident:{item.IncidentId}"))
+            incidentById.TryGetValue(item.IncidentId, out var incident);
+            if (IncidentRetentionPolicy.ShouldPruneOperatorMetadata(incident, now, _options.ResolvedIncidentMetadataDays) &&
+                !receiptIndex.Contains($"governance.prune.incident:{item.IncidentId}"))
+            {
                 candidates.Add(new("incident", item.IncidentId, "Incident metadata is orphaned or beyond resolved retention."));
+            }
 
             foreach (var note in item.Notes.Where(note => note.OccurredAtUtc < noteCutoff))
             {
@@ -111,7 +112,9 @@ public sealed class GovernanceRetentionService(
     public bool IsIncidentPruned(string incidentId)
     {
         incidentId = EnterpriseOperatorValidation.NormalizeIncidentId(incidentId);
-        return HasReceipt("governance.prune.incident", incidentId);
+        var current = incidents.GetById(incidentId);
+        return IncidentRetentionPolicy.ShouldPruneOperatorMetadata(current, timeProvider.GetUtcNow(), _options.ResolvedIncidentMetadataDays) &&
+            HasReceipt("governance.prune.incident", incidentId);
     }
 
     public bool IsNotePruned(Guid noteId) => noteId != Guid.Empty && HasReceipt("governance.prune.note", noteId.ToString("D"));

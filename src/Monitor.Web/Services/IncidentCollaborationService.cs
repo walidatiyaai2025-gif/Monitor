@@ -43,18 +43,21 @@ public interface IIncidentCollaborationService
 public sealed class IncidentCollaborationService(
     IOperatorMetadataStore metadata,
     IAuditStore audit,
-    TimeProvider timeProvider) : IIncidentCollaborationService
+    TimeProvider timeProvider,
+    GovernanceRetentionOptions? retentionOptions = null) : IIncidentCollaborationService
 {
     private const int MaxPageSize = 20;
     private static readonly TimeSpan AgingAfter = TimeSpan.FromMinutes(30);
     private static readonly TimeSpan BreachAfter = TimeSpan.FromHours(2);
+    private readonly GovernanceRetentionOptions _retentionOptions = ValidateRetentionOptions(retentionOptions ?? new GovernanceRetentionOptions());
 
     public IReadOnlyList<IncidentCollaborationProjection> QueryByAssignee(IEnumerable<HealthIncident> incidents, string? assignee)
     {
         ArgumentNullException.ThrowIfNull(incidents);
         var normalized = EnterpriseOperatorValidation.NormalizeAssignee(assignee);
+        var now = timeProvider.GetUtcNow();
         return incidents
-            .Where(incident => !HasPruneReceipt("governance.prune.incident", incident.Id))
+            .Where(incident => !IsIncidentPruned(incident, now))
             .Select(incident => new IncidentCollaborationProjection(
                 incident,
                 metadata.GetIncident(incident.Id).Assignee,
@@ -159,6 +162,10 @@ public sealed class IncidentCollaborationService(
         audit.Append(actor, $"incident.{category.ToLowerInvariant()}.note", incidentId, "added");
     }
 
+    private bool IsIncidentPruned(HealthIncident incident, DateTimeOffset now) =>
+        IncidentRetentionPolicy.ShouldPruneOperatorMetadata(incident, now, _retentionOptions.ResolvedIncidentMetadataDays) &&
+        HasPruneReceipt("governance.prune.incident", incident.Id);
+
     private bool HasPruneReceipt(string action, string target) =>
         AuditAny(item => item.Action == action && item.Target == target && item.Outcome == "applied");
 
@@ -185,4 +192,10 @@ public sealed class IncidentCollaborationService(
     }
 
     private static string DisplayOwner(string? value) => string.IsNullOrWhiteSpace(value) ? "unassigned" : value;
+
+    private static GovernanceRetentionOptions ValidateRetentionOptions(GovernanceRetentionOptions options)
+    {
+        options.Validate();
+        return options;
+    }
 }
