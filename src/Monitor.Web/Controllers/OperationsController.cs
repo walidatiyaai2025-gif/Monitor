@@ -139,23 +139,25 @@ public sealed class OperationsController : Controller
     public async Task<IActionResult> RefreshServer(Guid id, CancellationToken cancellationToken)
     {
         if (_snapshotRefresh is null) return NotFound();
+        if (!TryActor(out var actor)) return Forbid();
+        if (_audit is null) return StatusCode(StatusCodes.Status503ServiceUnavailable);
 
         var policyState = PolicyService()?.GetServer(id);
         var maintenanceOverride = policyState is { PolicyReadable: true, MaintenanceActive: true };
         var policyUnavailable = policyState is { PolicyReadable: false };
         if (maintenanceOverride)
         {
-            _audit?.Append(Actor(), "snapshot.refresh.maintenance-override", id.ToString("D"), "requested");
+            _audit.Append(actor, "snapshot.refresh.maintenance-override", id.ToString("D"), "requested");
         }
         else if (policyUnavailable)
         {
-            _audit?.Append(Actor(), "snapshot.refresh.policy-unavailable", id.ToString("D"), "manual-requested");
+            _audit.Append(actor, "snapshot.refresh.policy-unavailable", id.ToString("D"), "manual-requested");
         }
 
         var result = await _snapshotRefresh.RefreshAsync(id, cancellationToken);
         if (maintenanceOverride)
         {
-            _audit?.Append(Actor(), "snapshot.refresh.maintenance-override", id.ToString("D"), result.Status.ToString());
+            _audit.Append(actor, "snapshot.refresh.maintenance-override", id.ToString("D"), result.Status.ToString());
             TempData["SnapshotMaintenanceOverride"] = "Manual refresh was explicitly requested during an active maintenance window.";
         }
 
@@ -271,14 +273,14 @@ public sealed class OperationsController : Controller
     private IActionResult Transition(string id, Func<IIncidentWorkflowService, bool> transition)
     {
         if (_workflow is null) return NotFound();
-        var actor = User.Identity?.Name?.Trim();
-        if (string.IsNullOrWhiteSpace(actor)) return Forbid();
+        if (!TryActor(out var actor)) return Forbid();
+        if (_audit is null) return StatusCode(StatusCodes.Status503ServiceUnavailable);
         var repositoryAvailable = _incidentRepository is not null;
         var before = _incidentRepository?.GetById(id);
         var changed = transition(_workflow);
         var after = _incidentRepository?.GetById(id);
         var outcome = BuildTransitionAuditOutcome(changed, before, after, repositoryAvailable);
-        _audit?.Append(actor, "incident.transition", id, outcome);
+        _audit.Append(actor, "incident.transition", id, outcome);
         return changed
             ? RedirectToAction(nameof(IncidentDetails), new { id })
             : Conflict(new { message = "Incident state changed or the transition is not allowed." });
@@ -304,7 +306,8 @@ public sealed class OperationsController : Controller
     public async Task<IActionResult> RequestAdvisor(string id, CancellationToken cancellationToken)
     {
         if (_advisorRequests is null) return NotFound();
-        var result = await _advisorRequests.RequestAsync(id, User.Identity?.Name ?? "unknown", cancellationToken);
+        if (!TryActor(out var actor)) return Forbid();
+        var result = await _advisorRequests.RequestAsync(id, actor, cancellationToken);
         TempData["AdvisorStatus"] = result.Message;
         return RedirectToAction(nameof(IncidentDetails), new { id });
     }
@@ -339,10 +342,17 @@ public sealed class OperationsController : Controller
     private IOperatorPolicyReadService? PolicyService() =>
         _operatorMetadata is null ? null : new OperatorPolicyReadService(_operatorMetadata, _timeProvider);
 
-    private string Actor()
+    private bool TryActor(out string actor)
     {
-        var actor = User.Identity?.Name?.Trim();
-        return string.IsNullOrWhiteSpace(actor) ? "unknown" : EnterpriseOperatorValidation.NormalizeActor(actor);
+        var identityName = User.Identity?.Name;
+        if (string.IsNullOrWhiteSpace(identityName))
+        {
+            actor = string.Empty;
+            return false;
+        }
+
+        actor = EnterpriseOperatorValidation.NormalizeActor(identityName);
+        return true;
     }
 
     private static string? NormalizeRuleId(string? ruleId) => SecurityInput.NormalizeOptionalToken(ruleId, 80);
