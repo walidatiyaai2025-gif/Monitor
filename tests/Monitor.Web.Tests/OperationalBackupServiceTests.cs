@@ -7,7 +7,7 @@ using Xunit;
 
 namespace Monitor.Web.Tests;
 
-public sealed class OperationalBackupServiceTests : IDisposable
+public sealed class OperationalBackupServiceTests
 {
     [Fact]
     public async Task CreateAndValidate_ExportsAllSafeSections_WithChecksumsAndNoSecretPayloads()
