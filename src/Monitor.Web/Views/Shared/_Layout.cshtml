@@ -9,6 +9,16 @@
     }
     var serverNavClass = path == "/servers" || (path.StartsWith("/servers/", StringComparison.Ordinal) && !path.StartsWith("/servers/connections", StringComparison.Ordinal)) ? "nav-link active" : "nav-link";
     var bodyClass = path.StartsWith("/dashboard", StringComparison.Ordinal) ? "app-body wallboard-ready" : "app-body";
+    var isConnectionsPage = path == "/servers/connections" || path == "/servers/connections/";
+    var versionAttribute = (System.Reflection.AssemblyInformationalVersionAttribute?)Attribute.GetCustomAttribute(
+        typeof(Monitor.Web.Controllers.OperationsController).Assembly,
+        typeof(System.Reflection.AssemblyInformationalVersionAttribute));
+    var releaseVersion = versionAttribute?.InformationalVersion;
+    if (string.IsNullOrWhiteSpace(releaseVersion))
+    {
+        releaseVersion = typeof(Monitor.Web.Controllers.OperationsController).Assembly.GetName().Version?.ToString() ?? "unknown";
+    }
+    releaseVersion = releaseVersion.Split('+', 2)[0];
 }
 <!DOCTYPE html>
 <html lang="en">
@@ -73,6 +83,7 @@
 
         <div class="sidebar-footer">
             <div class="environment-badge"><span aria-hidden="true"></span> SQL SNAPSHOT MODE</div>
+            <div class="environment-badge" title="Exact deployed Monitor build"><span aria-hidden="true"></span> BUILD @releaseVersion</div>
             <a class="@Active("/enterprise/help")" asp-controller="EnterpriseHelp" asp-action="Help"><span class="nav-icon" aria-hidden="true">?</span>Operator Help</a>
         </div>
     </aside>
@@ -84,6 +95,13 @@
                 <h1>@ViewData["Title"]</h1>
             </div>
             <div class="topbar-actions">
+                @if (isConnectionsPage && User.IsInRole(Monitor.Web.Services.MonitorRoles.Administrator))
+                {
+                    <div class="collector-state" role="group" aria-label="Refresh all registered connections">
+                        <button class="primary-button" type="button" data-refresh-all-connections>Refresh all connections</button>
+                        <small data-refresh-all-status role="status" aria-live="polite">Preparing connections…</small>
+                    </div>
+                }
                 <div class="collector-state" role="status" aria-live="polite"><span class="live-dot" aria-hidden="true"></span><div><strong>Collector</strong><small data-scan-phase>Snapshot cache active</small></div></div>
                 <div class="user-chip"><span aria-hidden="true">AD</span><div><strong>@User.Identity?.Name</strong><small>@(User.IsInRole("Administrator") ? "Administrator" : User.IsInRole("Operator") ? "Operator" : "Viewer")</small></div></div>
                 <form asp-controller="Account" asp-action="Logout" method="post"><button class="icon-button" aria-label="Sign out" title="Sign out" type="submit">↗</button></form>
