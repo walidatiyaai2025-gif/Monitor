@@ -139,7 +139,7 @@ function global:gh {
     }
 
     $global:LASTEXITCODE = 1
-    "unexpected mock gh command: $command" >&2
+    [Console]::Error.WriteLine("unexpected mock gh command: $command")
 }
 
 function Assert-FailsClosed {
