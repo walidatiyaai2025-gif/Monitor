@@ -21,20 +21,6 @@ public sealed class GovernanceRetentionOptions
     }
 }
 
-internal static class GovernanceRetentionPolicy
-{
-    public static bool ShouldPruneIncident(
-        HealthIncident? incident,
-        DateTimeOffset now,
-        GovernanceRetentionOptions options)
-    {
-        ArgumentNullException.ThrowIfNull(options);
-        if (incident is null) return true;
-        if (incident.Status != IncidentStatus.Resolved) return false;
-        return incident.LastSeenUtc < now.AddDays(-options.ResolvedIncidentMetadataDays);
-    }
-}
-
 public sealed record GovernanceCleanupCandidate(string Kind, string Key, string Reason);
 public sealed record GovernanceCleanupPlan(DateTimeOffset EvaluatedAtUtc, IReadOnlyList<GovernanceCleanupCandidate> Candidates)
 {
@@ -87,7 +73,7 @@ public sealed class GovernanceRetentionService(
         foreach (var item in operatorSnapshot.Incidents)
         {
             incidentById.TryGetValue(item.IncidentId, out var incident);
-            if (GovernanceRetentionPolicy.ShouldPruneIncident(incident, now, _options) &&
+            if (IncidentRetentionPolicy.ShouldPruneOperatorMetadata(incident, now, _options.ResolvedIncidentMetadataDays) &&
                 !receiptIndex.Contains($"governance.prune.incident:{item.IncidentId}"))
             {
                 candidates.Add(new("incident", item.IncidentId, "Incident metadata is orphaned or beyond resolved retention."));
@@ -127,7 +113,7 @@ public sealed class GovernanceRetentionService(
     {
         incidentId = EnterpriseOperatorValidation.NormalizeIncidentId(incidentId);
         var current = incidents.GetById(incidentId);
-        return GovernanceRetentionPolicy.ShouldPruneIncident(current, timeProvider.GetUtcNow(), _options) &&
+        return IncidentRetentionPolicy.ShouldPruneOperatorMetadata(current, timeProvider.GetUtcNow(), _options.ResolvedIncidentMetadataDays) &&
             HasReceipt("governance.prune.incident", incidentId);
     }
 
