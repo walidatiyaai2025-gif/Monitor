@@ -85,6 +85,7 @@
       let skipped = 0;
       let throttled = 0;
       let failed = 0;
+      let authorizationFailure = null;
 
       for (let index = 0; index < registrationIds.length; index += 1) {
         const id = registrationIds[index];
@@ -96,14 +97,30 @@
             method: 'POST',
             credentials: 'same-origin',
             headers: {
+              'Accept': 'application/json',
               'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
               'X-Requested-With': 'XMLHttpRequest'
             },
             body: body.toString()
           });
 
+          if (response.status === 401 || response.status === 403) {
+            authorizationFailure = response.status;
+            break;
+          }
+
+          if (response.redirected) {
+            authorizationFailure = 'redirect';
+            break;
+          }
+
+          const contentType = response.headers.get('content-type')?.toLowerCase() ?? '';
           if (response.ok) {
-            refreshed += 1;
+            if (contentType.includes('application/json')) {
+              refreshed += 1;
+            } else {
+              failed += 1;
+            }
           } else if (response.status === 409) {
             skipped += 1;
           } else if (response.status === 429) {
@@ -114,6 +131,16 @@
         } catch {
           failed += 1;
         }
+      }
+
+      if (authorizationFailure !== null) {
+        const message = authorizationFailure === 403
+          ? 'Administrator permission is required to refresh snapshots.'
+          : 'Session expired or authentication is required before refreshing snapshots.';
+        status.textContent = `${message} Partial result · refreshed ${refreshed} · skipped ${skipped} · throttled ${throttled} · failed ${failed}`;
+        button.textContent = 'Refresh unavailable';
+        button.disabled = true;
+        return;
       }
 
       const result = `Done · refreshed ${refreshed} · skipped ${skipped} · throttled ${throttled} · failed ${failed}`;
