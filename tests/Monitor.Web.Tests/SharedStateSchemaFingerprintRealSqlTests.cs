@@ -79,6 +79,7 @@ public sealed class SharedStateSchemaFingerprintRealSqlTests
 
             await AssertReadyAsync(readiness);
             Assert.Equal(0, await CountDocumentsAsync(runtimeConnectionString));
+            Assert.Equal(2, await CountTrustedCanonicalIntegrityChecksAsync(adminConnectionString));
 
             await ExecuteAsync(
                 adminConnectionString,
@@ -112,7 +113,44 @@ public sealed class SharedStateSchemaFingerprintRealSqlTests
                 adminConnectionString,
                 "ALTER TABLE dbo.MonitorSharedStateDocuments DROP COLUMN DriftMarker;");
             await AssertReadyAsync(readiness);
+
+            await ExecuteAsync(
+                adminConnectionString,
+                "ALTER TABLE dbo.MonitorSharedStateDocuments DROP CONSTRAINT CK_MonitorSharedStateDocuments_Version;");
+            await AssertUnavailableAsync(readiness);
             Assert.Equal(0, await CountDocumentsAsync(runtimeConnectionString));
+
+            await ExecuteAsync(
+                adminConnectionString,
+                "ALTER TABLE dbo.MonitorSharedStateDocuments ADD CONSTRAINT CK_MonitorSharedStateDocuments_Version CHECK (Version >= 0);");
+            await AssertUnavailableAsync(readiness);
+
+            await ExecuteAsync(
+                adminConnectionString,
+                """
+                ALTER TABLE dbo.MonitorSharedStateDocuments DROP CONSTRAINT CK_MonitorSharedStateDocuments_Version;
+                ALTER TABLE dbo.MonitorSharedStateDocuments WITH CHECK ADD CONSTRAINT CK_MonitorSharedStateDocuments_Version CHECK (Version >= 1);
+                """);
+            await AssertReadyAsync(readiness);
+
+            await ExecuteAsync(
+                adminConnectionString,
+                "ALTER TABLE dbo.MonitorSharedStateDocuments NOCHECK CONSTRAINT CK_MonitorSharedStateDocuments_PayloadJson;");
+            await AssertUnavailableAsync(readiness);
+
+            await ExecuteAsync(
+                adminConnectionString,
+                "ALTER TABLE dbo.MonitorSharedStateDocuments CHECK CONSTRAINT CK_MonitorSharedStateDocuments_PayloadJson;");
+            Assert.Equal((false, true), await ReadCheckStateAsync(adminConnectionString, "CK_MonitorSharedStateDocuments_PayloadJson"));
+            await AssertUnavailableAsync(readiness);
+
+            await ExecuteAsync(
+                adminConnectionString,
+                "ALTER TABLE dbo.MonitorSharedStateDocuments WITH CHECK CHECK CONSTRAINT CK_MonitorSharedStateDocuments_PayloadJson;");
+            Assert.Equal((false, false), await ReadCheckStateAsync(adminConnectionString, "CK_MonitorSharedStateDocuments_PayloadJson"));
+            await AssertReadyAsync(readiness);
+            Assert.Equal(0, await CountDocumentsAsync(runtimeConnectionString));
+            Assert.Equal(2, await CountTrustedCanonicalIntegrityChecksAsync(adminConnectionString));
         }
         finally
         {
@@ -138,20 +176,26 @@ public sealed class SharedStateSchemaFingerprintRealSqlTests
         var masterConnectionString = ConnectionString(host!, port, "sa", saPassword!, "master");
         var canonicalDatabase = $"MonitorStateInstaller_{Guid.NewGuid():N}";
         var driftDatabase = $"MonitorStateInstallerDrift_{Guid.NewGuid():N}";
+        var integrityDriftDatabase = $"MonitorStateInstallerChecks_{Guid.NewGuid():N}";
         var quotedCanonicalDatabase = QuoteIdentifier(canonicalDatabase);
         var quotedDriftDatabase = QuoteIdentifier(driftDatabase);
+        var quotedIntegrityDriftDatabase = QuoteIdentifier(integrityDriftDatabase);
 
-        await ExecuteAsync(masterConnectionString, $"CREATE DATABASE {quotedCanonicalDatabase}; CREATE DATABASE {quotedDriftDatabase};");
+        await ExecuteAsync(
+            masterConnectionString,
+            $"CREATE DATABASE {quotedCanonicalDatabase}; CREATE DATABASE {quotedDriftDatabase}; CREATE DATABASE {quotedIntegrityDriftDatabase};");
         try
         {
             var canonicalConnectionString = ConnectionString(host!, port, "sa", saPassword!, canonicalDatabase);
             await ExecuteAsync(canonicalConnectionString, installerSql);
             Assert.Equal(1, await ReadSchemaVersionAsync(canonicalConnectionString));
             Assert.Equal(7, await ReadUpdatedAtScaleAsync(canonicalConnectionString));
+            Assert.Equal(2, await CountTrustedCanonicalIntegrityChecksAsync(canonicalConnectionString));
 
             await ExecuteAsync(canonicalConnectionString, installerSql);
             Assert.Equal(1, await ReadSchemaVersionAsync(canonicalConnectionString));
             Assert.Equal(7, await ReadUpdatedAtScaleAsync(canonicalConnectionString));
+            Assert.Equal(2, await CountTrustedCanonicalIntegrityChecksAsync(canonicalConnectionString));
 
             var driftConnectionString = ConnectionString(host!, port, "sa", saPassword!, driftDatabase);
             await ExecuteAsync(driftConnectionString, """
@@ -164,15 +208,33 @@ public sealed class SharedStateSchemaFingerprintRealSqlTests
                 );
                 """);
 
-            var exception = await Assert.ThrowsAsync<SqlException>(() => ExecuteAsync(driftConnectionString, installerSql));
-            Assert.Equal(51001, exception.Number);
+            var structuralException = await Assert.ThrowsAsync<SqlException>(() => ExecuteAsync(driftConnectionString, installerSql));
+            Assert.Equal(51001, structuralException.Number);
             Assert.Equal(3, await ReadUpdatedAtScaleAsync(driftConnectionString));
             Assert.False(await TableExistsAsync(driftConnectionString, "dbo.MonitorSharedStateSchema"));
+
+            var integrityDriftConnectionString = ConnectionString(host!, port, "sa", saPassword!, integrityDriftDatabase);
+            await ExecuteAsync(integrityDriftConnectionString, """
+                CREATE TABLE dbo.MonitorSharedStateDocuments
+                (
+                    DocumentKey nvarchar(128) NOT NULL CONSTRAINT PK_MonitorSharedStateDocuments PRIMARY KEY,
+                    Version bigint NOT NULL,
+                    PayloadJson nvarchar(max) NOT NULL,
+                    UpdatedAtUtc datetime2(7) NOT NULL
+                );
+                """);
+
+            var integrityException = await Assert.ThrowsAsync<SqlException>(() => ExecuteAsync(integrityDriftConnectionString, installerSql));
+            Assert.Equal(51001, integrityException.Number);
+            Assert.Equal(7, await ReadUpdatedAtScaleAsync(integrityDriftConnectionString));
+            Assert.Equal(0, await CountTrustedCanonicalIntegrityChecksAsync(integrityDriftConnectionString));
+            Assert.False(await TableExistsAsync(integrityDriftConnectionString, "dbo.MonitorSharedStateSchema"));
         }
         finally
         {
             await DropDatabaseAsync(masterConnectionString, quotedCanonicalDatabase);
             await DropDatabaseAsync(masterConnectionString, quotedDriftDatabase);
+            await DropDatabaseAsync(masterConnectionString, quotedIntegrityDriftDatabase);
         }
     }
 
@@ -196,6 +258,38 @@ public sealed class SharedStateSchemaFingerprintRealSqlTests
     {
         var value = await ExecuteScalarAsync(connectionString, "SELECT COUNT(*) FROM dbo.MonitorSharedStateDocuments;");
         return Convert.ToInt32(value, System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    private static async Task<int> CountTrustedCanonicalIntegrityChecksAsync(string connectionString)
+    {
+        var value = await ExecuteScalarAsync(
+            connectionString,
+            """
+            SELECT COUNT(*)
+            FROM sys.check_constraints
+            WHERE parent_object_id = OBJECT_ID(N'dbo.MonitorSharedStateDocuments')
+              AND name IN (N'CK_MonitorSharedStateDocuments_Version', N'CK_MonitorSharedStateDocuments_PayloadJson')
+              AND is_disabled = 0
+              AND is_not_trusted = 0;
+            """);
+        return Convert.ToInt32(value, System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    private static async Task<(bool Disabled, bool NotTrusted)> ReadCheckStateAsync(string connectionString, string constraintName)
+    {
+        await using var connection = new SqlConnection(connectionString);
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT is_disabled, is_not_trusted
+            FROM sys.check_constraints
+            WHERE parent_object_id = OBJECT_ID(N'dbo.MonitorSharedStateDocuments')
+              AND name = @ConstraintName;
+            """;
+        command.Parameters.AddWithValue("@ConstraintName", constraintName);
+        await using var reader = await command.ExecuteReaderAsync();
+        Assert.True(await reader.ReadAsync());
+        return (reader.GetBoolean(0), reader.GetBoolean(1));
     }
 
     private static async Task<int?> ReadSchemaVersionAsync(string connectionString)
