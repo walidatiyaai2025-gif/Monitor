@@ -34,6 +34,66 @@ public sealed class ProtectedFileConnectionSecretStoreTests
     }
 
     [Fact]
+    public async Task ResolveAsync_RefreshesSecretStoredByAnotherStoreInstance()
+    {
+        using var directory = new TemporaryDirectory();
+        var file = Path.Combine(directory.Path, "secrets.json");
+        var provider = new EphemeralDataProtectionProvider();
+        var staleReader = Store(file, provider);
+        var writer = Store(file, provider);
+
+        var reference = await writer.StoreAsync("fresh-reader", "fresh-secret");
+        var resolved = await staleReader.ResolveAsync(reference);
+
+        Assert.NotNull(resolved);
+        Assert.Equal("fresh-reader", resolved.Username);
+        Assert.Equal("fresh-secret", resolved.Password);
+    }
+
+    [Fact]
+    public async Task StoreAsync_PreservesSecretStoredByAnotherStoreInstance()
+    {
+        using var directory = new TemporaryDirectory();
+        var file = Path.Combine(directory.Path, "secrets.json");
+        var provider = new EphemeralDataProtectionProvider();
+        var firstWorker = Store(file, provider);
+        var secondWorker = Store(file, provider);
+
+        var firstReference = await firstWorker.StoreAsync("reader-one", "secret-one");
+        var secondReference = await secondWorker.StoreAsync("reader-two", "secret-two");
+
+        var restarted = Store(file, provider);
+        var owned = restarted.GetOwnedReferences();
+        Assert.Equal(2, owned.Count);
+        Assert.Contains(firstReference, owned);
+        Assert.Contains(secondReference, owned);
+        Assert.Equal("reader-one", (await restarted.ResolveAsync(firstReference))!.Username);
+        Assert.Equal("reader-two", (await restarted.ResolveAsync(secondReference))!.Username);
+    }
+
+    [Fact]
+    public async Task DeleteOwnedAsync_PreservesPeerSecretWrittenAfterThisInstanceLoaded()
+    {
+        using var directory = new TemporaryDirectory();
+        var file = Path.Combine(directory.Path, "secrets.json");
+        var provider = new EphemeralDataProtectionProvider();
+        var seed = Store(file, provider);
+        var firstReference = await seed.StoreAsync("reader-one", "secret-one");
+        var staleWorker = Store(file, provider);
+        var peerWorker = Store(file, provider);
+
+        var peerReference = await peerWorker.StoreAsync("reader-two", "secret-two");
+        await staleWorker.DeleteOwnedAsync(firstReference);
+
+        var restarted = Store(file, provider);
+        Assert.Null(await restarted.ResolveAsync(firstReference));
+        var peerSecret = await restarted.ResolveAsync(peerReference);
+        Assert.NotNull(peerSecret);
+        Assert.Equal("reader-two", peerSecret.Username);
+        Assert.Equal("secret-two", peerSecret.Password);
+    }
+
+    [Fact]
     public async Task DifferentKeyRing_FailsClosed()
     {
         using var directory = new TemporaryDirectory();
