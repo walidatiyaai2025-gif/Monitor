@@ -14,6 +14,11 @@ public sealed class SecretStoreOptions
 internal sealed class ProtectedFileConnectionSecretStore : IConnectionSecretStore, IRuntimeCredentialWriter, IOwnedConnectionSecretStore
 {
     private const string Prefix = "local:v1:";
+    private const int MaxEntries = 1024;
+    private const int MaxReferenceLength = 128;
+    private const int MaxProtectedPayloadLength = 16 * 1024;
+    private const int MaxUsernameLength = 128;
+    private const int MaxPasswordLength = 1024;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { WriteIndented = true };
     private readonly string _path;
     private readonly IDataProtector _protector;
@@ -73,19 +78,15 @@ internal sealed class ProtectedFileConnectionSecretStore : IConnectionSecretStor
     public ValueTask<ConnectionSecretReference> StoreAsync(string username, string password, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (!_credentialPolicy.AllowLocalOwnedCredentials)
-        {
-            return ValueTask.FromException<ConnectionSecretReference>(
-                new InvalidOperationException("Local SQL credential creation is disabled by deployment policy."));
-        }
+        EnsureLocalCredentialCreationAllowed();
+        ValidateCredentialBounds(username, password);
 
-        if (string.IsNullOrWhiteSpace(username) || username.Trim().Length > 128 || string.IsNullOrEmpty(password) || password.Length > 1024)
-            throw new ArgumentException("SQL credentials are outside the supported bounds.");
         var reference = new ConnectionSecretReference($"{Prefix}{Guid.NewGuid():N}");
         var plaintext = JsonSerializer.Serialize(new SecretPayload(username.Trim(), password), JsonOptions);
         var protectedPayload = _protector.CreateProtector(reference.Value).Protect(plaintext);
         lock (_gate)
         {
+            EnsureCapacityFor(reference.Value);
             var candidate = new Dictionary<string, string>(_entries, StringComparer.Ordinal) { [reference.Value] = protectedPayload };
             Persist(candidate);
             _entries = candidate;
@@ -96,16 +97,18 @@ internal sealed class ProtectedFileConnectionSecretStore : IConnectionSecretStor
     public ValueTask StoreAsync(ConnectionSecretReference reference, SqlLoginSecret secret, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (!reference.Value.StartsWith(Prefix, StringComparison.Ordinal))
-            return ValueTask.FromException(new InvalidOperationException("Only Monitor-owned local references are writable."));
-        if (!_credentialPolicy.AllowLocalOwnedCredentials)
-            return ValueTask.FromException(new InvalidOperationException("Local SQL credential creation is disabled by deployment policy."));
-        var plaintext = JsonSerializer.Serialize(new SecretPayload(secret.Username, secret.Password), JsonOptions);
+        ValidateOwnedReference(reference.Value);
+        EnsureLocalCredentialCreationAllowed();
+        ValidateCredentialBounds(secret.Username, secret.Password);
+
+        var plaintext = JsonSerializer.Serialize(new SecretPayload(secret.Username.Trim(), secret.Password), JsonOptions);
+        var protectedPayload = _protector.CreateProtector(reference.Value).Protect(plaintext);
         lock (_gate)
         {
+            EnsureCapacityFor(reference.Value);
             var candidate = new Dictionary<string, string>(_entries, StringComparer.Ordinal)
             {
-                [reference.Value] = _protector.CreateProtector(reference.Value).Protect(plaintext)
+                [reference.Value] = protectedPayload
             };
             Persist(candidate);
             _entries = candidate;
@@ -154,6 +157,7 @@ internal sealed class ProtectedFileConnectionSecretStore : IConnectionSecretStor
         {
             var envelope = JsonSerializer.Deserialize<SecretEnvelope>(File.ReadAllText(_path), JsonOptions);
             if (envelope?.Version != 1 || envelope.Entries is null) throw new InvalidOperationException();
+            ValidateEntries(envelope.Entries);
             return new(envelope.Entries, StringComparer.Ordinal);
         }
         catch (Exception exception) when (exception is JsonException or IOException or InvalidOperationException)
@@ -164,6 +168,7 @@ internal sealed class ProtectedFileConnectionSecretStore : IConnectionSecretStor
 
     private void Persist(Dictionary<string, string> entries)
     {
+        ValidateEntries(entries);
         var directory = Path.GetDirectoryName(_path)!;
         Directory.CreateDirectory(directory);
         var temporary = Path.Combine(directory, $".{Path.GetFileName(_path)}.{Guid.NewGuid():N}.tmp");
@@ -182,6 +187,59 @@ internal sealed class ProtectedFileConnectionSecretStore : IConnectionSecretStor
         finally
         {
             if (File.Exists(temporary)) File.Delete(temporary);
+        }
+    }
+
+    private void EnsureCapacityFor(string reference)
+    {
+        if (!_entries.ContainsKey(reference) && _entries.Count >= MaxEntries)
+        {
+            throw new InvalidOperationException("The protected SQL secret store reached its bounded entry limit.");
+        }
+    }
+
+    private void EnsureLocalCredentialCreationAllowed()
+    {
+        if (!_credentialPolicy.AllowLocalOwnedCredentials)
+        {
+            throw new InvalidOperationException("Local SQL credential creation is disabled by deployment policy.");
+        }
+    }
+
+    private static void ValidateCredentialBounds(string username, string password)
+    {
+        if (string.IsNullOrWhiteSpace(username) || username.Trim().Length > MaxUsernameLength ||
+            string.IsNullOrEmpty(password) || password.Length > MaxPasswordLength)
+        {
+            throw new ArgumentException("SQL credentials are outside the supported bounds.");
+        }
+    }
+
+    private static void ValidateEntries(IReadOnlyDictionary<string, string> entries)
+    {
+        if (entries.Count > MaxEntries)
+        {
+            throw new InvalidOperationException("The protected SQL secret store exceeds its bounded entry limit.");
+        }
+
+        foreach (var pair in entries)
+        {
+            ValidateOwnedReference(pair.Key);
+            if (string.IsNullOrWhiteSpace(pair.Value) || pair.Value.Length > MaxProtectedPayloadLength)
+            {
+                throw new InvalidOperationException("The protected SQL secret store contains an invalid bounded payload.");
+            }
+        }
+    }
+
+    private static void ValidateOwnedReference(string reference)
+    {
+        if (string.IsNullOrWhiteSpace(reference) ||
+            !reference.StartsWith(Prefix, StringComparison.Ordinal) ||
+            reference.Length > MaxReferenceLength ||
+            reference.Any(char.IsControl))
+        {
+            throw new InvalidOperationException("The protected SQL secret store contains an invalid Monitor-owned reference.");
         }
     }
 
