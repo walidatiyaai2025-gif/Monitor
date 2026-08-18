@@ -97,6 +97,7 @@ builder.Services.AddSingleton<IServerRegistrationRepository>(provider =>
     }
     return registrationStoreOptions.Mode == RegistrationStoreMode.InMemory ? new InMemoryServerRegistrationRepository() : new FileServerRegistrationRepository(ResolveRegistrationStorePath());
 });
+builder.Services.AddSingleton<ServerRegistrationMutationGate>();
 
 var operationalStoreOptions = builder.Configuration.GetSection(OperationalStoreOptions.SectionName).Get<OperationalStoreOptions>() ?? new();
 operationalStoreOptions.Validate();
@@ -160,6 +161,7 @@ builder.Services.AddSingleton<IServerConnectionTester, ServerConnectionTester>()
 builder.Services.AddSingleton<CredentialLifecycleService>();
 builder.Services.AddSingleton<ICredentialLifecycleService>(provider => new WriteAheadAuditedCredentialLifecycleService(
     provider.GetRequiredService<CredentialLifecycleService>(),
+    provider.GetRequiredService<ServerRegistrationMutationGate>(),
     provider.GetRequiredService<IAuditStore>()));
 builder.Services.AddSingleton<ICredentialReadinessService, CredentialReadinessService>();
 builder.Services.AddSingleton<IServerTargetLifecycleService, ServerTargetLifecycleService>();
@@ -216,7 +218,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
     options.AccessDeniedPath = "/access-denied";
     options.Cookie.Name = "Monitor.Auth";
     options.Cookie.HttpOnly = true;
-    options.Cookie.SameSite = SameSiteMode.Strict;
+    options.Cookie.SameSiteMode = SameSiteMode.Strict;
     options.Cookie.SecurePolicy = builder.Environment.IsDevelopment() ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.Always;
     options.SlidingExpiration = true;
     options.ExpireTimeSpan = TimeSpan.FromMinutes(webSecurityOptions.SessionIdleMinutes);
