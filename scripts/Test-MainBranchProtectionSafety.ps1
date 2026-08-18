@@ -174,7 +174,7 @@ try {
     $expectedChecks = @('build', 'protected-p0-pr-metadata', 'protected-p0-pr-commits') | Sort-Object
     for ($i = 0; $i -lt $expectedChecks.Count; $i++) {
         if ([string]$payloadChecks[$i].context -cne [string]$expectedChecks[$i]) {
-            throw "Protection payload check mismatch at index $i: $($payloadChecks[$i].context)."
+            throw "Protection payload check mismatch at index ${i}: $($payloadChecks[$i].context)."
         }
         if ([int64]$payloadChecks[$i].app_id -ne $global:MonitorActionsAppId) {
             throw "Protection payload provider mismatch for $($payloadChecks[$i].context)."
