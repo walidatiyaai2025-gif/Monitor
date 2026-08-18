@@ -152,12 +152,12 @@ public sealed class B800WriteSurfaceSecurityAcceptanceTests
         Assert.Contains("if (!TryActor(out var actor)) return Forbid();", enterprise, StringComparison.Ordinal);
         Assert.Contains("if (!TryActor(out var actor)) return Forbid();", collaboration, StringComparison.Ordinal);
 
-        var profile = Slice(enterprise, "public IActionResult UpdateServerProfile", "[HttpPost(\"/alerts/{id}/owner\")] ");
+        var profile = Slice(enterprise, "public IActionResult UpdateServerProfile", "[HttpPost(\"/alerts/{id}/owner\")]");
         var actorIndex = profile.IndexOf("TryActor(out var actor)", StringComparison.Ordinal);
         var mutationIndex = profile.IndexOf("_operatorMetadata.UpsertServer(metadata)", StringComparison.Ordinal);
         Assert.True(actorIndex >= 0 && mutationIndex > actorIndex, "Server operator metadata must not mutate before attributable actor validation.");
 
-        var resolve = Slice(collaboration, "public IActionResult ResolveWithNote", "[HttpPost(\"/alerts/{id}/reopen-with-reason\")] ");
+        var resolve = Slice(collaboration, "public IActionResult ResolveWithNote", "[HttpPost(\"/alerts/{id}/reopen-with-reason\")]");
         actorIndex = resolve.IndexOf("TryActor(out var actor)", StringComparison.Ordinal);
         mutationIndex = resolve.IndexOf("workflow.Resolve(id)", StringComparison.Ordinal);
         Assert.True(actorIndex >= 0 && mutationIndex > actorIndex, "Incident resolution must not mutate before attributable actor validation.");
