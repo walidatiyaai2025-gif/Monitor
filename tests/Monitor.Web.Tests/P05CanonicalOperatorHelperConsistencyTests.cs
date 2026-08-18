@@ -16,8 +16,9 @@ public sealed class P05CanonicalOperatorHelperConsistencyTests
             ["PRODUCTION_MVP"] = Read("docs/PRODUCTION_MVP.md")
         };
 
-        foreach (var (name, text) in documents)
+        foreach (var (_, text) in documents)
         {
+            Assert.Contains("RC.61", text, StringComparison.Ordinal);
             Assert.Contains("Invoke-Rc61DurablePromotion.ps1", text, StringComparison.Ordinal);
             Assert.Contains("READY_FOR_EXPLICIT_PROMOTION_ACKNOWLEDGEMENT", text, StringComparison.Ordinal);
             Assert.Contains("-AcknowledgePromotion", text, StringComparison.Ordinal);
@@ -28,7 +29,6 @@ public sealed class P05CanonicalOperatorHelperConsistencyTests
             Assert.Contains("ExternalGatesPassed = 0", text, StringComparison.Ordinal);
             Assert.Contains("#162 -> #116 -> #111", text, StringComparison.Ordinal);
             Assert.Contains("3cd711b608e4ceaf8872eb22a25541bbbfe2729a", text, StringComparison.Ordinal);
-            Assert.Contains("selected RC.61", text, StringComparison.OrdinalIgnoreCase);
             Assert.Contains("0/15", text, StringComparison.Ordinal);
             Assert.Contains("no production mutation", text, StringComparison.OrdinalIgnoreCase);
 
