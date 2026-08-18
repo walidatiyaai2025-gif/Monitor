@@ -10,6 +10,7 @@ permissions:
 
 jobs:
   guard:
+    name: protected-p0-pr-commits
     runs-on: ubuntu-24.04
     steps:
       - name: Reject protected P0 issue closing keywords in PR commit messages
