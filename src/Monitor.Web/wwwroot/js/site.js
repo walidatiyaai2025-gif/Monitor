@@ -82,6 +82,7 @@
       button.textContent = 'Refreshing…';
 
       let refreshed = 0;
+      let retainedStale = 0;
       let skipped = 0;
       let throttled = 0;
       let failed = 0;
@@ -115,8 +116,9 @@
           }
 
           const contentType = response.headers.get('content-type')?.toLowerCase() ?? '';
+          const isJson = contentType.includes('application/json');
           if (response.ok) {
-            if (contentType.includes('application/json')) {
+            if (isJson) {
               refreshed += 1;
             } else {
               failed += 1;
@@ -125,6 +127,8 @@
             skipped += 1;
           } else if (response.status === 429) {
             throttled += 1;
+          } else if (response.status === 503 && isJson) {
+            retainedStale += 1;
           } else {
             failed += 1;
           }
@@ -137,18 +141,18 @@
         const message = authorizationFailure === 403
           ? 'Administrator permission is required to refresh snapshots.'
           : 'Session expired or authentication is required before refreshing snapshots.';
-        status.textContent = `${message} Partial result · refreshed ${refreshed} · skipped ${skipped} · throttled ${throttled} · failed ${failed}`;
+        status.textContent = `${message} Partial result · refreshed ${refreshed} · stale retained ${retainedStale} · skipped ${skipped} · throttled ${throttled} · failed ${failed}`;
         button.textContent = 'Refresh unavailable';
         button.disabled = true;
         return;
       }
 
-      const result = `Done · refreshed ${refreshed} · skipped ${skipped} · throttled ${throttled} · failed ${failed}`;
+      const result = `Done · refreshed ${refreshed} · stale retained ${retainedStale} · skipped ${skipped} · throttled ${throttled} · failed ${failed}`;
       status.textContent = result;
       button.textContent = 'Refresh all again';
       button.disabled = false;
 
-      if (refreshed > 0) {
+      if (refreshed > 0 || retainedStale > 0) {
         window.sessionStorage.setItem('monitor.refreshAll.result', result);
         status.textContent = `${result} · updating intelligence…`;
         window.setTimeout(() => window.location.reload(), 900);
