@@ -72,6 +72,39 @@ public sealed class AbsoluteSessionCookieEvents(WebSecurityOptions options, Time
         await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
     }
 
+    public override Task RedirectToLogin(RedirectContext<CookieAuthenticationOptions> context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        if (IsAjaxRequest(context.Request))
+        {
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            return Task.CompletedTask;
+        }
+
+        return base.RedirectToLogin(context);
+    }
+
+    public override Task RedirectToAccessDenied(RedirectContext<CookieAuthenticationOptions> context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        if (IsAjaxRequest(context.Request))
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            return Task.CompletedTask;
+        }
+
+        return base.RedirectToAccessDenied(context);
+    }
+
+    internal static bool IsAjaxRequest(HttpRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        return string.Equals(
+            request.Headers["X-Requested-With"].ToString(),
+            "XMLHttpRequest",
+            StringComparison.OrdinalIgnoreCase);
+    }
+
     internal static bool IsExpired(ClaimsPrincipal? principal, DateTimeOffset now, WebSecurityOptions options)
     {
         var value = principal?.FindFirstValue(MonitorClaimTypes.SessionStartedUtc);
