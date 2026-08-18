@@ -6,10 +6,10 @@
   const sidebar = document.querySelector('[data-sidebar]');
   const navToggle = document.querySelector('[data-nav-toggle]');
   const phaseNames = [
-    'Snapshot cache active',
-    'Health state analyzing',
-    'Incident correlation',
-    'Estate view synchronized'
+    'Cached snapshot view',
+    'No SQL polling on navigation',
+    'Freshness labels update locally',
+    'Backend refresh is explicit'
   ];
 
   document.documentElement.classList.add('js-live');
