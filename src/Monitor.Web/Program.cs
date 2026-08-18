@@ -87,7 +87,7 @@ builder.Services.AddSingleton<IServerRegistrationRepository>(provider =>
 {
     if (haStateOptions.UseSharedRegistrations)
     {
-        var shared = new SharedServerRegistrationRepository(provider.GetRequiredService<ISharedStateDocumentStore>());
+        var shared = new AtomicSharedServerRegistrationRepository(provider.GetRequiredService<ISharedStateDocumentStore>());
         if (haStateOptions.ImportLocalRegistrationsWhenSharedEmpty)
         {
             var legacyPath = ResolveRegistrationStorePath();
