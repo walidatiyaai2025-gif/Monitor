@@ -1,0 +1,43 @@
+name: b800-094-responsive-focus-hook
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/b800-094-responsive-focus-hook.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: agent/b800-094-advanced-evidence-accessibility
+          fetch-depth: 0
+      - name: Add guarded focus-visible styling for scrollable evidence tables
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("src/Monitor.Web/wwwroot/css/portal.css")
+          text = path.read_text(encoding="utf-8")
+          old = ".recommendation-actions a:focus-visible,\n.report-card a:focus-visible {"
+          new = ".recommendation-actions a:focus-visible,\n.responsive-table:focus-visible,\n.report-card a:focus-visible {"
+          count = text.count(old)
+          if count != 1:
+              raise SystemExit(f"portal.css: expected exactly one focus-selector anchor, found {count}")
+          path.write_text(text.replace(old, new, 1), encoding="utf-8")
+          PY
+
+          git diff --check
+          git diff -- src/Monitor.Web/wwwroot/css/portal.css
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/Monitor.Web/wwwroot/css/portal.css
+          git commit -m "B800-094: show keyboard focus on responsive evidence tables"
+          git push origin HEAD:agent/b800-094-advanced-evidence-accessibility
