@@ -12,6 +12,7 @@ public sealed class P05WorkflowSupplyChainTests
     private const string ApprovedUbuntuRunner = "ubuntu-24.04";
     private const string ApprovedWindowsRunner = "windows-2025";
     private const string ApprovedNugetSource = "https://api.nuget.org/v3/index.json";
+    private const string RealSqlSerialCollectionsSwitch = "-- xUnit.ParallelizeTestCollections=false";
 
     private static readonly IReadOnlyDictionary<string, string> ApprovedPins =
         new Dictionary<string, string>(StringComparer.Ordinal)
@@ -382,6 +383,19 @@ public sealed class P05WorkflowSupplyChainTests
 
         Assert.Contains(ApprovedSqlServerImage, workflow, StringComparison.Ordinal);
         Assert.DoesNotContain("mcr.microsoft.com/mssql/server:2022-latest", workflow, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void RealSqlGate_SerializesMutableCollectionsWithoutChangingNormalCi()
+    {
+        var root = FindRepoRoot();
+        var realSql = File.ReadAllText(Path.Combine(root, ".github", "workflows", "real-sql-acceptance.yml"));
+        var normalCi = File.ReadAllText(Path.Combine(root, ".github", "workflows", "ci.yml"));
+
+        Assert.Contains("--filter \"Category=RealSql\"", realSql, StringComparison.Ordinal);
+        Assert.Contains(RealSqlSerialCollectionsSwitch, realSql, StringComparison.Ordinal);
+        Assert.Equal(1, Regex.Matches(realSql, Regex.Escape(RealSqlSerialCollectionsSwitch), RegexOptions.CultureInvariant).Count);
+        Assert.DoesNotContain(RealSqlSerialCollectionsSwitch, normalCi, StringComparison.Ordinal);
     }
 
     [Fact]
