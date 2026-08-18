@@ -358,18 +358,21 @@ public sealed class ApplicationReadinessService(
         var backup = backupService.GetReadiness();
         var sharedRequired = sharedStateOptions.Provider != SharedStateProviderKind.Disabled;
         var sharedReady = !sharedRequired || shared.SharedStorageReady;
-        var status = deployment.Ready && sharedReady
+        var credentialReady = deployment.Mode != DeploymentTopology.MultiNode || credentials.MultiNodeCredentialReady;
+        var status = deployment.Ready && sharedReady && credentialReady
             ? ApplicationReadinessStatus.Ready
             : ApplicationReadinessStatus.NotReady;
         var message = status == ApplicationReadinessStatus.Ready
             ? "Application control-plane readiness checks passed."
-            : "One or more control-plane readiness checks are not ready.";
+            : !credentialReady
+                ? "Credential readiness is not satisfied for the selected deployment topology."
+                : "One or more control-plane readiness checks are not ready.";
         return new(
             status,
             message,
             shared.Status,
             deployment.Ready,
-            credentials.MultiNodeCredentialReady,
+            credentialReady,
             backup.Ready,
             timeProvider.GetUtcNow(),
             shared.SchemaVersion,

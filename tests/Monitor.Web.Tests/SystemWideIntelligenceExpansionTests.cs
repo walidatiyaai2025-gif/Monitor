@@ -68,6 +68,72 @@ public sealed class SystemWideIntelligenceExpansionTests
     }
 
     [Fact]
+    public void Projection_MissingFocusedDomainEvidence_RemainsUnknownInsteadOfHealthyZero()
+    {
+        var result = EstateIntelligenceProjection.Build(1, [Server()], "/backups");
+        var backup = Assert.Single(result.Signals, signal => signal.Label == "BACKUP GAPS");
+
+        Assert.Equal("unknown", result.Severity);
+        Assert.Equal("Not collected", backup.Value);
+        Assert.Equal("unknown", backup.State);
+        Assert.Contains("evidence 0/1", backup.Detail, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Backup Health evidence is available for 0/1", result.NextAction, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Projection_GenericCrossDomainSignals_DoNotTurnMissingModulesIntoHealthyZeroes()
+    {
+        var result = EstateIntelligenceProjection.Build(1, [Server()], "/dashboard");
+
+        var backup = Assert.Single(result.Signals, signal => signal.Label == "BACKUP GAPS");
+        var memoryPerformance = Assert.Single(result.Signals, signal => signal.Label == "MEMORY / PERF");
+        var blockingJobs = Assert.Single(result.Signals, signal => signal.Label == "BLOCKING / JOBS");
+
+        Assert.Equal("Not collected", backup.Value);
+        Assert.Equal("unknown", backup.State);
+        Assert.Contains("Not collected", memoryPerformance.Value, StringComparison.Ordinal);
+        Assert.Equal("unknown", memoryPerformance.State);
+        Assert.Contains("Not collected", blockingJobs.Value, StringComparison.Ordinal);
+        Assert.Equal("unknown", blockingJobs.State);
+    }
+
+    [Fact]
+    public void Projection_PartialDomainCoverage_IsVisibleAndCannotClaimFocusedHealthyState()
+    {
+        var withBackupEvidence = Server(backups: new BackupHealthSnapshot(2, 0, DateTimeOffset.UtcNow.AddHours(-1)));
+        var withoutBackupEvidence = Server();
+
+        var result = EstateIntelligenceProjection.Build(2, [withBackupEvidence, withoutBackupEvidence], "/backups");
+        var backup = Assert.Single(result.Signals, signal => signal.Label == "BACKUP GAPS");
+
+        Assert.Equal("unknown", result.Severity);
+        Assert.Equal("0 · 1/2", backup.Value);
+        Assert.Equal("unknown", backup.State);
+        Assert.Contains("evidence 1/2", backup.Detail, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("1/2 observed target", result.NextAction, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Projection_CollectedZeroEvidence_RemainsARealZeroNotMissingEvidence()
+    {
+        var server = Server(
+            backups: new BackupHealthSnapshot(2, 0, DateTimeOffset.UtcNow.AddHours(-1)),
+            storage: new StorageHealthSnapshot(0, 0, 0));
+
+        var backupResult = EstateIntelligenceProjection.Build(1, [server], "/backups");
+        var backup = Assert.Single(backupResult.Signals, signal => signal.Label == "BACKUP GAPS");
+        Assert.Equal("healthy", backupResult.Severity);
+        Assert.Equal("0", backup.Value);
+        Assert.Equal("healthy", backup.State);
+
+        var storageResult = EstateIntelligenceProjection.Build(1, [server], "/storage");
+        var allocated = Assert.Single(storageResult.Signals, signal => signal.Label == "SQL ALLOCATED");
+        Assert.Equal("healthy", storageResult.Severity);
+        Assert.Equal("0 B", allocated.Value);
+        Assert.Equal("healthy", allocated.State);
+    }
+
+    [Fact]
     public void SharedLayout_RendersIntelligenceAndAdministratorRefreshFromServerSideRegistrations()
     {
         var layout = File.ReadAllText(Path.Combine(Root, "src", "Monitor.Web", "Views", "Shared", "_Layout.cshtml"));

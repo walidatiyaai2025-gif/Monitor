@@ -106,12 +106,15 @@ public sealed class SnapshotRefreshService(
 
             var result = await cache.RefreshAsync(registration, cancellationToken);
             observer?.Observe(result);
-            return new(
-                SnapshotRefreshStatus.Refreshed,
-                result.Freshness == SnapshotFreshness.Fresh
-                    ? "Snapshot refreshed."
-                    : "Refresh failed; retained stale snapshot returned.",
-                Freshness: result.Freshness);
+            return result.Freshness == SnapshotFreshness.Fresh
+                ? new(
+                    SnapshotRefreshStatus.Refreshed,
+                    "Snapshot refreshed.",
+                    Freshness: result.Freshness)
+                : new(
+                    SnapshotRefreshStatus.RetainedStale,
+                    "Refresh failed; retained stale snapshot returned.",
+                    Freshness: result.Freshness);
         }
         finally
         {
