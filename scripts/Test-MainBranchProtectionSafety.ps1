@@ -8,6 +8,10 @@ $helper = Join-Path $PSScriptRoot 'Set-MainBranchProtection.ps1'
 $global:MonitorProtectionApplied = $false
 $global:MonitorProtectionPutCount = 0
 $global:MonitorProtectionPayload = $null
+$global:MonitorCheckEvidenceMode = 'good'
+$global:MonitorMainHeadSha = '28e5cc7377b5abd964c53d14722040741b246561'
+$global:MonitorEvidenceHeadSha = 'fd3d3166911e7f1df258cc550f880fd07d4d179c'
+$global:MonitorActionsAppId = 15368
 
 function global:gh {
     $arguments = @($args | ForEach-Object { [string]$_ })
@@ -20,10 +24,11 @@ function global:gh {
 
     if ($joined -eq 'api repos/walidatiyaai2025-gif/Monitor/branches/main') {
         $global:LASTEXITCODE = 0
-        if ($global:MonitorProtectionApplied) {
-            return '{"name":"main","protected":true}'
-        }
-        return '{"name":"main","protected":false}'
+        return (@{
+            name = 'main'
+            protected = [bool]$global:MonitorProtectionApplied
+            commit = @{ sha = $global:MonitorMainHeadSha }
+        } | ConvertTo-Json -Compress)
     }
 
     if ($joined -eq 'api repos/walidatiyaai2025-gif/Monitor/branches/main/protection') {
@@ -33,7 +38,66 @@ function global:gh {
         }
 
         $global:LASTEXITCODE = 0
-        return '{"required_status_checks":{"strict":true,"contexts":["build","protected-p0-pr-metadata","protected-p0-pr-commits"]},"enforce_admins":{"enabled":true},"required_conversation_resolution":{"enabled":true},"allow_force_pushes":{"enabled":false},"allow_deletions":{"enabled":false}}'
+        return (@{
+            required_status_checks = @{
+                strict = $true
+                checks = @(
+                    @{ context = 'build'; app_id = $global:MonitorActionsAppId },
+                    @{ context = 'protected-p0-pr-metadata'; app_id = $global:MonitorActionsAppId },
+                    @{ context = 'protected-p0-pr-commits'; app_id = $global:MonitorActionsAppId }
+                )
+            }
+            enforce_admins = @{ enabled = $true }
+            required_conversation_resolution = @{ enabled = $true }
+            allow_force_pushes = @{ enabled = $false }
+            allow_deletions = @{ enabled = $false }
+        } | ConvertTo-Json -Depth 10 -Compress)
+    }
+
+    if ($joined -eq 'api -H Accept: application/vnd.github+json -H X-GitHub-Api-Version: 2022-11-28 repos/walidatiyaai2025-gif/Monitor/pulls?state=closed&base=main&sort=updated&direction=desc&per_page=20') {
+        $global:LASTEXITCODE = 0
+        $mergeSha = if ($global:MonitorCheckEvidenceMode -ceq 'main-head-mismatch') {
+            'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+        }
+        else {
+            $global:MonitorMainHeadSha
+        }
+
+        return (@(
+            @{
+                number = 354
+                merged_at = '2026-08-18T05:05:54Z'
+                merge_commit_sha = $mergeSha
+                head = @{
+                    sha = $global:MonitorEvidenceHeadSha
+                    repo = @{ id = 1329517438 }
+                }
+            }
+        ) | ConvertTo-Json -Depth 10 -Compress)
+    }
+
+    if ($joined -eq "api -H Accept: application/vnd.github+json -H X-GitHub-Api-Version: 2022-11-28 repos/walidatiyaai2025-gif/Monitor/commits/$($global:MonitorEvidenceHeadSha)/check-runs?per_page=100") {
+        $global:LASTEXITCODE = 0
+        $runs = @(
+            @{ id = 101; name = 'build'; status = 'completed'; conclusion = 'success'; app = @{ id = $global:MonitorActionsAppId } },
+            @{ id = 102; name = 'protected-p0-pr-metadata'; status = 'completed'; conclusion = 'success'; app = @{ id = $global:MonitorActionsAppId } },
+            @{ id = 103; name = 'protected-p0-pr-commits'; status = 'completed'; conclusion = 'success'; app = @{ id = $global:MonitorActionsAppId } }
+        )
+
+        if ($global:MonitorCheckEvidenceMode -ceq 'missing-check') {
+            $runs = @($runs | Where-Object { $_.name -cne 'protected-p0-pr-commits' })
+        }
+        elseif ($global:MonitorCheckEvidenceMode -ceq 'failed-check') {
+            $runs[1].conclusion = 'failure'
+        }
+        elseif ($global:MonitorCheckEvidenceMode -ceq 'ambiguous-provider') {
+            $runs += @{ id = 104; name = 'protected-p0-pr-metadata'; status = 'completed'; conclusion = 'success'; app = @{ id = 99999 } }
+        }
+
+        return (@{
+            total_count = $runs.Count
+            check_runs = $runs
+        } | ConvertTo-Json -Depth 10 -Compress)
     }
 
     if ($arguments -contains '--method' -and $arguments -contains 'PUT') {
@@ -68,6 +132,19 @@ try {
         throw 'Preview unexpectedly attempted branch-protection mutation.'
     }
 
+    $previewBindings = @($preview.RequiredCheckBindings | Sort-Object Context)
+    if ($previewBindings.Count -ne 3) {
+        throw "Preview did not expose exactly three provider-bound checks; observed $($previewBindings.Count)."
+    }
+    foreach ($binding in $previewBindings) {
+        if ([int64]$binding.AppId -ne $global:MonitorActionsAppId) {
+            throw "Preview binding for $($binding.Context) used unexpected app ID $($binding.AppId)."
+        }
+        if ([int]$binding.EvidencePullRequest -ne 354) {
+            throw "Preview binding for $($binding.Context) used unexpected evidence PR $($binding.EvidencePullRequest)."
+        }
+    }
+
     $applied = & $helper -AcknowledgeProtection
     if ($applied.Status -cne 'BRANCH_PROTECTION_APPLIED_AND_VERIFIED') {
         throw "Unexpected acknowledged status: $($applied.Status)"
@@ -82,10 +159,26 @@ try {
         throw "Expected exactly one protection PUT, observed $global:MonitorProtectionPutCount."
     }
 
+    $requiredStatusPropertyNames = @($global:MonitorProtectionPayload.required_status_checks.PSObject.Properties.Name)
+    if ($requiredStatusPropertyNames -contains 'contexts') {
+        throw 'Protection payload unexpectedly used legacy unbound contexts.'
+    }
+    if ($requiredStatusPropertyNames -notcontains 'checks') {
+        throw 'Protection payload did not include provider-bound checks.'
+    }
+
+    $payloadChecks = @($global:MonitorProtectionPayload.required_status_checks.checks | Sort-Object context)
+    if ($payloadChecks.Count -ne 3) {
+        throw "Protection payload required-check count mismatch: $($payloadChecks.Count)."
+    }
     $expectedChecks = @('build', 'protected-p0-pr-metadata', 'protected-p0-pr-commits') | Sort-Object
-    $payloadChecks = @($global:MonitorProtectionPayload.required_status_checks.contexts | ForEach-Object { [string]$_ }) | Sort-Object
-    if (($payloadChecks -join '|') -cne ($expectedChecks -join '|')) {
-        throw "Protection payload checks mismatch: $($payloadChecks -join ', ')"
+    for ($i = 0; $i -lt $expectedChecks.Count; $i++) {
+        if ([string]$payloadChecks[$i].context -cne [string]$expectedChecks[$i]) {
+            throw "Protection payload check mismatch at index ${i}: $($payloadChecks[$i].context)."
+        }
+        if ([int64]$payloadChecks[$i].app_id -ne $global:MonitorActionsAppId) {
+            throw "Protection payload provider mismatch for $($payloadChecks[$i].context)."
+        }
     }
     if ($global:MonitorProtectionPayload.required_status_checks.strict -ne $true) { throw 'strict was not true.' }
     if ($global:MonitorProtectionPayload.enforce_admins -ne $true) { throw 'enforce_admins was not true.' }
@@ -101,6 +194,26 @@ try {
         throw 'Already-protected path unexpectedly mutated protection again.'
     }
 
+    $global:MonitorProtectionApplied = $false
+    foreach ($mode in @('missing-check', 'failed-check', 'ambiguous-provider', 'main-head-mismatch')) {
+        $global:MonitorCheckEvidenceMode = $mode
+        $putsBefore = $global:MonitorProtectionPutCount
+        $failedClosed = $false
+        try {
+            & $helper -AcknowledgeProtection | Out-Null
+        }
+        catch {
+            $failedClosed = $true
+        }
+        if (-not $failedClosed) {
+            throw "Evidence mode '$mode' did not fail closed."
+        }
+        if ($global:MonitorProtectionPutCount -ne $putsBefore) {
+            throw "Evidence mode '$mode' attempted a branch-protection PUT before clean provider evidence."
+        }
+    }
+    $global:MonitorCheckEvidenceMode = 'good'
+
     $wrongRepositoryFailed = $false
     try {
         & $helper -Repository 'someone/else' | Out-Null
@@ -115,17 +228,28 @@ try {
     [pscustomobject]@{
         Status = 'PASS'
         PreviewNoMutation = $true
+        ProviderBindingsObserved = 3
         AcknowledgedSinglePut = ($global:MonitorProtectionPutCount -eq 1)
+        ProviderBoundPayload = $true
         ReadBackVerified = $true
         AlreadyProtectedNoMutation = $true
+        EvidenceFailClosedCases = 4
         RepositoryIdentityFailClosed = $true
         ExternalProductionGatesPassed = 0
     }
 }
 finally {
     Remove-Item Function:\global:gh -ErrorAction SilentlyContinue
-    Remove-Variable MonitorProtectionApplied -Scope Global -ErrorAction SilentlyContinue
-    Remove-Variable MonitorProtectionPutCount -Scope Global -ErrorAction SilentlyContinue
-    Remove-Variable MonitorProtectionPayload -Scope Global -ErrorAction SilentlyContinue
+    foreach ($name in @(
+        'MonitorProtectionApplied',
+        'MonitorProtectionPutCount',
+        'MonitorProtectionPayload',
+        'MonitorCheckEvidenceMode',
+        'MonitorMainHeadSha',
+        'MonitorEvidenceHeadSha',
+        'MonitorActionsAppId'
+    )) {
+        Remove-Variable $name -Scope Global -ErrorAction SilentlyContinue
+    }
     $global:LASTEXITCODE = 0
 }
