@@ -23,6 +23,8 @@ public sealed class IncidentNoteAtMostOnceTests
         Assert.Single(metadata.GetIncident(incidentId).Notes);
         Assert.Single(audit.Read(0, 100), item =>
             item.Action == "incident.note.write.request" && item.Outcome == "requested");
+        Assert.Single(audit.Read(0, 100), item =>
+            item.Action == "incident.note.write.commit" && item.Outcome == "armed");
         Assert.DoesNotContain(audit.Read(0, 100), item =>
             item.Action == "incident.note.request" && item.Outcome == "applied");
 
@@ -33,6 +35,8 @@ public sealed class IncidentNoteAtMostOnceTests
         Assert.Single(metadata.GetIncident(incidentId).Notes);
         Assert.Single(audit.Read(0, 100), item =>
             item.Action == "incident.note.write.request" && item.Outcome == "requested");
+        Assert.Single(audit.Read(0, 100), item =>
+            item.Action == "incident.note.write.commit" && item.Outcome == "armed");
     }
 
     private sealed class FixedTimeProvider(DateTimeOffset utcNow) : TimeProvider
