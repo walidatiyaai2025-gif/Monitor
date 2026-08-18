@@ -25,21 +25,33 @@ public sealed class CoordinatedIncidentNoteAuditStore : IAuditStore, IIncidentNo
     private readonly ISharedStateDocumentStore _sharedState;
     private readonly TimeProvider _timeProvider;
     private readonly bool _useSharedOperationalState;
+    private readonly IIncidentNoteRequestStateStore? _requestState;
 
     public CoordinatedIncidentNoteAuditStore(
         IAuditStore inner,
         ISharedStateDocumentStore sharedState,
         TimeProvider timeProvider,
-        bool useSharedOperationalState)
+        bool useSharedOperationalState,
+        IIncidentNoteRequestStateStore? requestState = null)
     {
         _inner = inner ?? throw new ArgumentNullException(nameof(inner));
         _sharedState = sharedState ?? throw new ArgumentNullException(nameof(sharedState));
         _timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
         _useSharedOperationalState = useSharedOperationalState;
+        _requestState = requestState;
     }
 
-    public void Append(string actor, string action, string target, string outcome) =>
+    public void Append(string actor, string action, string target, string outcome)
+    {
+        if (_requestState is not null &&
+            action == "incident.note.request" &&
+            outcome == "applied")
+        {
+            _requestState.MarkApplied(target);
+        }
+
         _inner.Append(actor, action, target, outcome);
+    }
 
     public IReadOnlyList<AuditEvent> Read(int offset, int limit) =>
         _inner.Read(offset, limit);
@@ -47,6 +59,16 @@ public sealed class CoordinatedIncidentNoteAuditStore : IAuditStore, IIncidentNo
     public IncidentNoteClaimResult TryClaimIncidentNote(string actor, string receiptTarget)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(receiptTarget);
+
+        if (_requestState is not null)
+        {
+            var claim = _requestState.TryClaim(receiptTarget);
+            if (claim == IncidentNoteClaimResult.Claimed)
+            {
+                _inner.Append(actor, "incident.note.write.commit", receiptTarget, "armed");
+            }
+            return claim;
+        }
 
         if (_useSharedOperationalState)
         {
