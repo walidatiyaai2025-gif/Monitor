@@ -253,6 +253,7 @@ jobs:
           --no-build
           --filter "Category=RealSql"
           --logger "console;verbosity=normal"
+          -- xUnit.ParallelizeTestCollections=false
 
       - name: SQL Server diagnostics on failure
         if: failure()
