@@ -109,7 +109,7 @@ public sealed class GovernancePruneStateTests
             metadata.AddIncidentNote(incidentId, "operator", "peer marker");
             metadata.AddIncidentNote(incidentId, "operator", "legacy marker");
             var notes = metadata.GetIncident(incidentId).Notes;
-            Assert.Equal(2, notes.Count);
+            Assert.Equal(2, notes.Count());
             var peerMarker = notes[0].Id.ToString("D");
             var legacyMarker = notes[1].Id.ToString("D");
 
