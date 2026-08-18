@@ -2,6 +2,7 @@
 
 | Feature | Milestone | Status | Notes |
 |---|---|---|---|
+| Programming closure — atomic shared-state execution guard | Closure / #423 | Implemented in PR #424 | Production SharedState Read/CAS now repeat the canonical schema-v1 fingerprint inside the same SERIALIZABLE transaction after held schema-row + document key/range locks; schema/version/DDL drift cannot interleave between authorization and document SQL; Real SQL regression uses the production lock helper; no schema migration/runtime DDL/external P0 mutation |
 | Programming closure — estate evidence truthfulness | Closure / #362 | Implemented in PR #363 | Estate Intelligence tracks per-domain evidence coverage; missing/partial Backups, SQL Agent, Memory, Blocking, Performance and Storage evidence stays `unknown`/`Not collected`; genuine collected zero remains zero; no navigation collection or synthetic healthy zero |
 | Programming closure — authenticated Global Refresh | Closure / #364 | Implemented in PR #363 | XHR cookie challenges return 401/403 instead of HTML redirects; client rejects redirects/non-JSON success, keeps antiforgery/same-origin semantics and stops on authentication/authorization failure |
 | Programming closure — stale refresh outcome | Closure / #365 | Implemented in PR #363 | Failed collection with retained stale cache is explicit `RetainedStale`, returns JSON 503, is preserved for continuity and counted separately from successful refresh |
