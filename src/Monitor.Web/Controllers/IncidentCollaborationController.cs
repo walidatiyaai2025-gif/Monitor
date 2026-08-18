@@ -67,7 +67,7 @@ public sealed class IncidentCollaborationController(
         metadata,
         audit,
         timeProvider,
-        pruneState: pruneState ?? GovernancePruneStateMigration.CreateTransient(audit, metadata));
+        pruneState: pruneState);
 
     private bool TryActor(out string actor)
     {
