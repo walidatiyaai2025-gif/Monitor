@@ -13,5 +13,8 @@
   </ItemGroup>
   <ItemGroup>
     <Content Update="appsettings.Development.json" CopyToPublishDirectory="Never" />
+    <None Update="Operations\Set-IisAlwaysWarm.ps1" CopyToPublishDirectory="PreserveNewest">
+      <Link>_operations\scripts\Set-IisAlwaysWarm.ps1</Link>
+    </None>
   </ItemGroup>
 </Project>
