@@ -70,7 +70,8 @@ jobs:
             'scripts/Test-Rc61DurablePromotionOperatorSafety.ps1',
             'scripts/Test-Rc61CutoverReadiness.ps1',
             'scripts/Test-Rc61CutoverReadinessSafety.ps1',
-            'scripts/Set-MainBranchProtection.ps1'
+            'scripts/Set-MainBranchProtection.ps1',
+            'scripts/Test-MainBranchProtectionSafety.ps1'
           )) {
             $tokens = $null
             $errors = $null
@@ -92,3 +93,6 @@ jobs:
       - name: Exercise RC.61 cutover readiness fail-closed runtime
         shell: pwsh
         run: ./scripts/Test-Rc61CutoverReadinessSafety.ps1
+      - name: Exercise main branch-protection fail-closed runtime
+        shell: pwsh
+        run: ./scripts/Test-MainBranchProtectionSafety.ps1
