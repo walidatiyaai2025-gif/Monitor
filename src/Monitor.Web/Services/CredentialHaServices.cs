@@ -47,7 +47,7 @@ public sealed class DataProtectionKeyStoreOptions
 public sealed class CredentialPolicyOptions
 {
     public const string SectionName = "CredentialPolicy";
-    public bool AllowLocalOwnedCredentials { get; set; } = true;
+    public bool AllowLocalOwnedCredentials { get; set; } = false;
 }
 
 internal interface IOwnedConnectionSecretStore
