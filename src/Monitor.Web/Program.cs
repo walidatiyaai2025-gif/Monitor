@@ -116,8 +116,9 @@ builder.Services.AddSingleton<IAuditStore>(provider =>
     var bounded = new PerformanceBoundedAuditStore(inner, performanceOptions);
     return new CoordinatedIncidentNoteAuditStore(
         bounded,
-        provider.GetRequiredService<IDistributedLeaseManager>(),
-        coordinationOptions);
+        provider.GetRequiredService<ISharedStateDocumentStore>(),
+        provider.GetRequiredService<TimeProvider>(),
+        haStateOptions.UseSharedOperationalState);
 });
 builder.Services.AddSingleton<IHealthIncidentRepository>(provider =>
 {
