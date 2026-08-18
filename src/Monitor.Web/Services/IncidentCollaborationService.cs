@@ -90,14 +90,19 @@ public sealed class IncidentCollaborationService(
         actor = EnterpriseOperatorValidation.NormalizeActor(actor);
         note = EnterpriseOperatorValidation.NormalizeNote(note);
         var receiptTarget = BuildReceiptTarget(incidentId, requestKey);
-        if (AuditAny(item => item.Action == "incident.note.request" && item.Target == receiptTarget && item.Outcome == "applied"))
-            return false;
+        var claimAudit = audit as IIncidentNoteClaimAuditStore;
 
-        if (AuditAny(item => item.Action == "incident.note.write.commit" && item.Target == receiptTarget && item.Outcome == "armed"))
-            throw new IncidentNoteRequestAmbiguousException();
+        if (claimAudit is null)
+        {
+            if (AuditAny(item => item.Action == "incident.note.request" && item.Target == receiptTarget && item.Outcome == "applied"))
+                return false;
+
+            if (AuditAny(item => item.Action == "incident.note.write.commit" && item.Target == receiptTarget && item.Outcome == "armed"))
+                throw new IncidentNoteRequestAmbiguousException();
+        }
 
         audit.Append(actor, "incident.note.write.request", receiptTarget, "requested");
-        if (audit is IIncidentNoteClaimAuditStore claimAudit)
+        if (claimAudit is not null)
         {
             var claim = claimAudit.TryClaimIncidentNote(actor, receiptTarget);
             if (claim == IncidentNoteClaimResult.AlreadyApplied)
