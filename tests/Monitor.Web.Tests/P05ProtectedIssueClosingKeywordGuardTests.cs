@@ -23,14 +23,16 @@ public sealed class P05ProtectedIssueClosingKeywordGuardTests
         Assert.Contains("bash -n scripts/Test-P0ProtectedIssueClosingKeywordSafety.sh", ci, StringComparison.Ordinal);
         Assert.Contains("bash scripts/Test-P0ProtectedIssueClosingKeywordSafety.sh", ci, StringComparison.Ordinal);
 
-        Assert.Contains("pull_request_target:", metadataWorkflow, StringComparison.Ordinal);
+        Assert.Contains("pull_request:", metadataWorkflow, StringComparison.Ordinal);
+        Assert.DoesNotContain("pull_request_target:", metadataWorkflow, StringComparison.Ordinal);
         Assert.Contains("types: [ opened, synchronize, reopened, edited ]", metadataWorkflow, StringComparison.Ordinal);
         Assert.Contains("permissions:\n  contents: read", metadataWorkflow, StringComparison.Ordinal);
-        Assert.Contains("persist-credentials: false", metadataWorkflow, StringComparison.Ordinal);
-        Assert.Contains("ref: main", metadataWorkflow, StringComparison.Ordinal);
         Assert.Contains("PR_TITLE: ${{ github.event.pull_request.title }}", metadataWorkflow, StringComparison.Ordinal);
         Assert.Contains("PR_BODY: ${{ github.event.pull_request.body }}", metadataWorkflow, StringComparison.Ordinal);
-        Assert.Contains("bash scripts/Test-P0ProtectedIssueClosingKeywords.sh", metadataWorkflow, StringComparison.Ordinal);
+        Assert.Contains("close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved", metadataWorkflow, StringComparison.Ordinal);
+        Assert.Contains("(111|116|162)", metadataWorkflow, StringComparison.Ordinal);
+        Assert.Contains("grep -Eiq", metadataWorkflow, StringComparison.Ordinal);
+        Assert.DoesNotContain("uses: actions/checkout@", metadataWorkflow, StringComparison.OrdinalIgnoreCase);
 
         Assert.Contains("close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved", guard, StringComparison.Ordinal);
         Assert.Contains("(111|116|162)", guard, StringComparison.Ordinal);
@@ -46,6 +48,7 @@ public sealed class P05ProtectedIssueClosingKeywordGuardTests
         Assert.DoesNotContain("gh issue close", guard, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("issues: write", ci, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("issues: write", metadataWorkflow, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("github.token", metadataWorkflow, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("secrets.", metadataWorkflow, StringComparison.OrdinalIgnoreCase);
     }
 
