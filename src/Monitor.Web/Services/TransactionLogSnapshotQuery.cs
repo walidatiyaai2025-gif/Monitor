@@ -184,7 +184,7 @@ internal sealed class TransactionLogSnapshotQuery(PerformanceScaleOptions? perfo
         }
         catch (SqlException exception)
         {
-            throw new SqlProbeException(SqlErrorClassifier.Classify(exception));
+            throw new SqlProbeException(SqlErrorClassifier.Classify(exception.Number));
         }
     }
 
