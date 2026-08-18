@@ -159,9 +159,14 @@ try {
         throw "Expected exactly one protection PUT, observed $global:MonitorProtectionPutCount."
     }
 
-    if ($null -ne $global:MonitorProtectionPayload.required_status_checks.contexts) {
+    $requiredStatusPropertyNames = @($global:MonitorProtectionPayload.required_status_checks.PSObject.Properties.Name)
+    if ($requiredStatusPropertyNames -contains 'contexts') {
         throw 'Protection payload unexpectedly used legacy unbound contexts.'
     }
+    if ($requiredStatusPropertyNames -notcontains 'checks') {
+        throw 'Protection payload did not include provider-bound checks.'
+    }
+
     $payloadChecks = @($global:MonitorProtectionPayload.required_status_checks.checks | Sort-Object context)
     if ($payloadChecks.Count -ne 3) {
         throw "Protection payload required-check count mismatch: $($payloadChecks.Count)."
