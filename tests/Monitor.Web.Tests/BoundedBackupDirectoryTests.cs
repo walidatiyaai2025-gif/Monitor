@@ -47,14 +47,13 @@ public sealed class BoundedBackupDirectoryTests
     }
 
     [Fact]
-    public void DirectoryPrune_LeavesExactlyNewestConfiguredFiles()
+    public void DirectoryPrune_LeavesExactlyConfiguredFiles_AndReadinessRemainsBounded()
     {
         using var directory = new TempDirectory();
         for (var index = 0; index < 250; index++)
         {
             var path = Path.Combine(directory.Path, $"monitor-backup-backup-{index:D5}.json");
             File.WriteAllText(path, "{}");
-            File.SetCreationTimeUtc(path, Epoch.UtcDateTime.AddSeconds(index));
             File.SetLastWriteTimeUtc(path, Epoch.UtcDateTime.AddSeconds(index));
         }
 
