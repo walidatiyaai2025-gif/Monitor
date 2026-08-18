@@ -12,10 +12,12 @@ public enum IncidentSlaBucket
     Resolved
 }
 
-public sealed class IncidentNoteRequestAmbiguousException : InvalidOperationException
+public sealed class IncidentNoteRequestAmbiguousException : ArgumentException
 {
     public IncidentNoteRequestAmbiguousException()
-        : base("A prior incident-note request with the same request key has an unresolved outcome. Verify the incident notes before submitting a new request.")
+        : base(
+            "A prior incident-note request with the same request key has an unresolved outcome. Verify the incident notes before submitting a new request.",
+            "requestKey")
     {
     }
 }
