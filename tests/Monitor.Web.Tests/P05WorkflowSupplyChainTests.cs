@@ -254,7 +254,7 @@ public sealed class P05WorkflowSupplyChainTests
         var configPath = Path.Combine(root, "nuget.config");
         Assert.True(File.Exists(configPath), "Repository nuget.config must define restore provenance.");
 
-        var document = XDocument.Load(File.ReadAllText(configPath));
+        var document = XDocument.Load(configPath, LoadOptions.None);
         var configuration = Assert.IsType<XElement>(document.Root);
         Assert.Equal("configuration", configuration.Name.LocalName);
 
