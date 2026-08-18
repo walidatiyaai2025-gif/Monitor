@@ -1,0 +1,88 @@
+name: b800-092-canonical-reconcile
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/b800-092-canonical-reconcile.yml
+
+permissions:
+  contents: write
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: agent/b800-092-write-surface-security-acceptance
+          fetch-depth: 0
+      - name: Reconcile B800-092 canonical documentation with guarded replacements
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              p = Path(path)
+              text = p.read_text(encoding="utf-8")
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{path}: expected exactly one guarded match, found {count}")
+              p.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+          batch = "docs/BATCH_800.md"
+          replace_once(
+              batch,
+              "- [x] B800-091 lock the completed B800-081..090 report tranche as one cross-layer acceptance contract: exact Viewer+ route templates + `Monitor.Read`, Admin Audit/Manifest `Monitor.Manage` overrides, global/contextual discoverability, no direct query/collector/refresh/`SqlConnection` dependency, and retained `Unavailable`/`NotEvaluated` truth language (`docs/work/B800-091.md`, PR #326).\n- [ ] B800-092..100 continue final role/antiforgery, no-fake-data, responsive/accessibility, canonical exact-head and closeout acceptance without adding unsupported production behavior.",
+              "- [x] B800-091 lock the completed B800-081..090 report tranche as one cross-layer acceptance contract: exact Viewer+ route templates + `Monitor.Read`, Admin Audit/Manifest `Monitor.Manage` overrides, global/contextual discoverability, no direct query/collector/refresh/`SqlConnection` dependency, and retained `Unavailable`/`NotEvaluated` truth language (`docs/work/B800-091.md`, PR #326 merged as `500d4da98508ef1a96f1c29451317ff800143fc7`).\n- [x] B800-092 lock every MVC POST behind controller-side antiforgery plus explicit authorization: login is the sole anonymous POST, logout remains authenticated, and every non-account mutation is deliberately mapped to `Monitor.Manage`, `Monitor.Operate` or `Monitor.Advisor` with future unknown POSTs failing CI (`docs/work/B800-092.md`, PR #327).\n- [ ] B800-093..100 continue no-fake-data, responsive/accessibility, canonical exact-head and final closeout acceptance without adding unsupported production behavior.")
+          replace_once(
+              batch,
+              "\n\n## Task program",
+              "\n\nB800-092 continues final acceptance without changing production. `B800WriteSurfaceSecurityAcceptanceTests` discovers every public MVC `HttpPost` action by reflection, requires `ValidateAntiForgeryToken` on every POST, permits anonymous mutation only for antiforgery-protected `/login`, keeps `/logout` authenticated, and locks every non-account mutation to the existing `Monitor.Manage` / `Monitor.Operate` / `Monitor.Advisor` policy matrix. Sensitive ConnectionLab/OperationalBackup/Governance/ServerConnections controllers remain class-level `Manage`, and any future POST outside the deliberate matrix fails CI. Implementation head `f5ef7b33ed0414ae36c721cf146164d717fb9e10` passed CI #2837 / `32084794120`; Real SQL and Windows were not selected because the slice changes tests/documentation only.\n\n## Task program")
+          replace_once(
+              batch,
+              "- B800-091 implementation head `7d6b58ba8383412cafeec1228f88e9bcae1a3eda` passed CI #2824 / `32083874505`, including full tests and repository safety tooling. Real SQL and Windows production-candidate were not selected because the slice changes tests/documentation only. Exact final post-canonical-reconciliation validation remains required.\n\n## Current B800-091 merge gate\n\nPR #326 is the current focused B800 slice and closes B800-091 only. B800-090 / PR #325 and the B800-081..090 reports/exports tranche are merged; B800-091 adds cross-layer acceptance coverage only. Before PR #326 is marked Ready or merged, every repository-selected required workflow must be Green on the same exact final reconciled head, the branch must remain current with `main`, review threads must remain resolved, and the effective diff must stay bounded to the B800-091 test/work-note plus canonical reconciliation. Real SQL/Windows are required only if repository path policy selects them. Issue #287 remains OPEN for B800-092..100 final acceptance/closeout work.",
+              "- B800-091 implementation head `7d6b58ba8383412cafeec1228f88e9bcae1a3eda` passed CI #2824 / `32083874505`; exact final reconciled head `4ec5bf5970c5d7f32fd05e995f05c13ff73b740e` passed CI #2831 / `32084089512`, Real SQL #369 / `32084089440`, and Windows production-candidate #526 / `32084089450`; PR #326 squash-merged as `500d4da98508ef1a96f1c29451317ff800143fc7`.\n- B800-092 implementation head `f5ef7b33ed0414ae36c721cf146164d717fb9e10` passed CI #2837 / `32084794120`, including full tests and repository safety tooling. Real SQL and Windows production-candidate were not selected because the slice changes tests/documentation only. Exact final post-canonical-reconciliation validation remains required.\n\n## Current B800-092 merge gate\n\nPR #327 is the current focused B800 slice and closes B800-092 only. B800-091 / PR #326 is merged; B800-092 adds write-surface role/antiforgery acceptance coverage only. Before PR #327 is marked Ready or merged, every repository-selected required workflow must be Green on the same exact final reconciled head, the branch must remain current with `main`, review threads must remain resolved, and the effective diff must stay bounded to the B800-092 test/work-note plus canonical reconciliation. Real SQL/Windows are required only if repository path policy selects them. Issue #287 remains OPEN for B800-093..100 final acceptance/closeout work.")
+
+          catalog = "docs/FEATURE_CATALOG.md"
+          replace_once(
+              catalog,
+              "| Functional operator screen wiring | BATCH-800 | In progress / PR #326 | Issue #287 remains OPEN. Evidence-backed production/report slices are merged through B800-090, including the complete B800-081..090 reports/exports tranche. PR #326 carries B800-091 test/documentation-only cross-layer reports acceptance coverage. B800-092..100 final acceptance/closeout remains pending; unsupported dimensions remain explicit and there is no RC.61/#116/#111 implication |",
+              "| Functional operator screen wiring | BATCH-800 | In progress / PR #327 | Issue #287 remains OPEN. Evidence-backed production/report slices are merged through B800-090 and B800-091 cross-layer report acceptance is merged. PR #327 carries B800-092 test/documentation-only write-surface role/antiforgery acceptance. B800-093..100 final acceptance/closeout remains pending; unsupported dimensions remain explicit and there is no RC.61/#116/#111 implication |")
+          replace_once(
+              catalog,
+              "| Reports tranche cross-layer acceptance contract | BATCH-800 / B800-091 | In validation / PR #326 | Test/documentation-only acceptance matrix locks the nine Viewer+ B800-081..090 routes to exact templates + `Monitor.Read`, keeps Audit/Manifest as `Monitor.Manage` negative controls, locks global/contextual discoverability, rejects direct query/collector/refresh/`SqlConnection` dependencies in report web/service layers, and retains visible `Unavailable`/`NotEvaluated` plus allocation-vs-capacity truth wording. Implementation head `7d6b58ba8383412cafeec1228f88e9bcae1a3eda` passed CI #2824 / `32083874505`; Real SQL and Windows were not selected because no production/runtime path changed |",
+              "| Reports tranche cross-layer acceptance contract | BATCH-800 / B800-091 | Complete / merged | Test/documentation-only acceptance matrix locks the nine Viewer+ B800-081..090 routes to exact templates + `Monitor.Read`, keeps Audit/Manifest as `Monitor.Manage` negative controls, locks global/contextual discoverability, rejects direct query/collector/refresh/`SqlConnection` dependencies in report web/service layers, and retains visible `Unavailable`/`NotEvaluated` plus allocation-vs-capacity truth wording. Exact final reconciled head `4ec5bf5970c5d7f32fd05e995f05c13ff73b740e` passed CI #2831 / `32084089512`, Real SQL #369 / `32084089440`, and Windows production-candidate #526 / `32084089450`; PR #326 squash-merged as `500d4da98508ef1a96f1c29451317ff800143fc7` |")
+          replace_once(
+              catalog,
+              "\n\n## BATCH-200 Enterprise Operations Expansion",
+              "\n| Write-surface role + antiforgery acceptance | BATCH-800 / B800-092 | In validation / PR #327 | Test/documentation-only reflection matrix discovers every public MVC POST, requires `ValidateAntiForgeryToken`, permits anonymous POST only for `/login`, requires authorization everywhere else, locks every non-account mutation to the deliberate `Manage`/`Operate`/`Advisor` policy map, and keeps sensitive administration controllers class-level `Manage`. Implementation head `f5ef7b33ed0414ae36c721cf146164d717fb9e10` passed CI #2837 / `32084794120`; Real SQL and Windows were not selected because no production/runtime path changed |\n\n## BATCH-200 Enterprise Operations Expansion")
+
+          status = "docs/STATUS.md"
+          replace_once(
+              status,
+              "PR #326 carries B800-091 as the first final-acceptance slice. The test/documentation-only `B800ReportTrancheAcceptanceTests` matrix locks all nine Viewer+ B800-081..090 route templates + `Monitor.Read`, preserves Audit/Manifest `Monitor.Manage` overrides, verifies global/contextual Reports discoverability, rejects direct query/collector/refresh/`SqlConnection` dependencies in report web/service layers, and locks the visible `Unavailable`/`NotEvaluated` and allocation-vs-capacity truth language. Implementation head `7d6b58ba8383412cafeec1228f88e9bcae1a3eda` passed CI #2824 / `32083874505`; Real SQL and Windows production-candidate were not selected because no production/runtime path changed.\n\n**Ready/merge for B800-091 requires all four canonical files reconciled and every repository-selected required workflow Green on the same exact final post-reconciliation head**, no unresolved review threads, branch current with `main`, and a diff bounded to the B800-091 test/work-note/canonical reconciliation. #287 remains OPEN for B800-092..100 final acceptance/closeout work.",
+              "B800-091 is complete and merged through PR #326 as `500d4da98508ef1a96f1c29451317ff800143fc7`. The test/documentation-only `B800ReportTrancheAcceptanceTests` matrix locks all nine Viewer+ B800-081..090 route templates + `Monitor.Read`, preserves Audit/Manifest `Monitor.Manage` overrides, verifies global/contextual Reports discoverability, rejects direct query/collector/refresh/`SqlConnection` dependencies in report web/service layers, and locks the visible `Unavailable`/`NotEvaluated` and allocation-vs-capacity truth language. Exact final reconciled head `4ec5bf5970c5d7f32fd05e995f05c13ff73b740e` passed CI #2831 / `32084089512`, Real SQL #369 / `32084089440`, and Windows production-candidate #526 / `32084089450`.\n\nPR #327 carries B800-092. The test/documentation-only `B800WriteSurfaceSecurityAcceptanceTests` reflection matrix discovers every public MVC POST, requires controller-side antiforgery on each, permits anonymous POST only for `/login`, keeps `/logout` authenticated, and locks every non-account mutation to the existing `Monitor.Manage` / `Monitor.Operate` / `Monitor.Advisor` tiers; sensitive administration controllers remain class-level `Manage`. Implementation head `f5ef7b33ed0414ae36c721cf146164d717fb9e10` passed CI #2837 / `32084794120`; Real SQL and Windows production-candidate were not selected because no production/runtime path changed.\n\n**Ready/merge for B800-092 requires all four canonical files reconciled and every repository-selected required workflow Green on the same exact final post-reconciliation head**, no unresolved review threads, branch current with `main`, and a diff bounded to the B800-092 test/work-note/canonical reconciliation. #287 remains OPEN for B800-093..100 final acceptance/closeout work.")
+
+          plan = "docs/IMPLEMENTATION_PLAN.md"
+          replace_once(
+              plan,
+              "- B800-091 adds no production behavior: `B800ReportTrancheAcceptanceTests` matrix-locks the nine Viewer+ report routes to exact templates + `Monitor.Read`, keeps Audit/Manifest `Monitor.Manage`, verifies global/contextual discoverability, rejects direct query/collector/refresh/`SqlConnection` dependencies, and preserves visible `Unavailable`/`NotEvaluated` plus allocation-vs-capacity truth wording;\n- B800-091 implementation head `7d6b58ba8383412cafeec1228f88e9bcae1a3eda` passed CI #2824 / `32083874505`; Real SQL and Windows production-candidate were not selected because no production/runtime path changed. Exact final post-canonical-reconciliation validation remains required.",
+              "- B800-091 is complete and merged through PR #326 as `500d4da98508ef1a96f1c29451317ff800143fc7`; exact final reconciled head `4ec5bf5970c5d7f32fd05e995f05c13ff73b740e` passed CI #2831 / `32084089512`, Real SQL #369 / `32084089440`, and Windows production-candidate #526 / `32084089450`;\n- B800-091 adds no production behavior: `B800ReportTrancheAcceptanceTests` matrix-locks report route/RBAC/discoverability/no-direct-collection truth;\n- B800-092 adds no production behavior: `B800WriteSurfaceSecurityAcceptanceTests` reflection-locks every MVC POST behind antiforgery, limits anonymous POST to login, keeps logout authenticated, requires named `Manage`/`Operate`/`Advisor` elevation for every non-account mutation, and fails CI for future unknown POSTs;\n- B800-092 implementation head `f5ef7b33ed0414ae36c721cf146164d717fb9e10` passed CI #2837 / `32084794120`; Real SQL and Windows production-candidate were not selected because no production/runtime path changed. Exact final post-canonical-reconciliation validation remains required.")
+          replace_once(
+              plan,
+              "Least privilege remains read-only: SQL Server 2022+ uses `VIEW SERVER PERFORMANCE STATE` (older supported versions `VIEW SERVER STATE`) plus `VIEW ANY DEFINITION` and existing narrow metadata grants; Agent history/activity adds only read-only `SELECT` on `msdb.dbo.sysjobhistory` and `msdb.dbo.sysjobactivity`, with no SQLAgent execution/operator role. B800-071/072/073/074/075/076/077/078/079/080/081/082/083/084/085/086/087/088/089/090/091 add no monitored-SQL permission or query path.\n\nPR #326 becomes eligible for Ready/merge only after `BATCH_800`, `FEATURE_CATALOG`, `STATUS` and this plan are reconciled on one exact head, every repository-selected required workflow is Green on that same head, review threads are resolved, the branch is current with `main`, and the effective diff remains bounded to B800-091 plus canonical reconciliation. Real SQL/Windows are required only if repository path policy selects them. Merging #326 closes B800-091 only; #287 remains OPEN for B800-092..100 final acceptance/closeout.",
+              "Least privilege remains read-only: SQL Server 2022+ uses `VIEW SERVER PERFORMANCE STATE` (older supported versions `VIEW SERVER STATE`) plus `VIEW ANY DEFINITION` and existing narrow metadata grants; Agent history/activity adds only read-only `SELECT` on `msdb.dbo.sysjobhistory` and `msdb.dbo.sysjobactivity`, with no SQLAgent execution/operator role. B800-071/072/073/074/075/076/077/078/079/080/081/082/083/084/085/086/087/088/089/090/091/092 add no monitored-SQL permission or query path.\n\nPR #327 becomes eligible for Ready/merge only after `BATCH_800`, `FEATURE_CATALOG`, `STATUS` and this plan are reconciled on one exact head, every repository-selected required workflow is Green on that same head, review threads are resolved, the branch is current with `main`, and the effective diff remains bounded to B800-092 plus canonical reconciliation. Real SQL/Windows are required only if repository path policy selects them. Merging #327 closes B800-092 only; #287 remains OPEN for B800-093..100 final acceptance/closeout.")
+
+          print("B800-092 canonical reconciliation completed with guarded one-match replacements.")
+          PY
+
+          git diff --check
+          git diff -- docs/BATCH_800.md docs/FEATURE_CATALOG.md docs/STATUS.md docs/IMPLEMENTATION_PLAN.md
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/BATCH_800.md docs/FEATURE_CATALOG.md docs/STATUS.md docs/IMPLEMENTATION_PLAN.md
+          git commit -m "B800-092: reconcile canonical tracking"
+          git push origin HEAD:agent/b800-092-write-surface-security-acceptance
