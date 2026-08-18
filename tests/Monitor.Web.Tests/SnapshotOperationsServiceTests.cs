@@ -52,10 +52,54 @@ public sealed class SnapshotOperationsServiceTests
         Assert.Null(service.Read(RegistrationId, "7d"));
     }
 
+    [Fact]
+    public async Task CollectionCycle_UnexpectedFailurePropagatesAndFinalizesSchedulerStatus()
+    {
+        var repository = new InMemoryServerRegistrationRepository();
+        repository.Upsert(new(RegistrationId, "SQL", new("host"), SqlAuthenticationMode.IntegratedSecurity, null, true, Now));
+        var status = new SchedulerStatusStore();
+        var cycle = new SnapshotCollectionCycle(
+            repository,
+            new UnexpectedFailureCache(),
+            new NoOpObserver(),
+            new SnapshotScheduleOptions { Enabled = true },
+            status: status,
+            timeProvider: new FixedTimeProvider(Now));
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => cycle.RunOnceAsync(CancellationToken.None));
+        var terminal = status.Get();
+
+        Assert.Equal("unexpected collection failure", exception.Message);
+        Assert.True(terminal.Enabled);
+        Assert.False(terminal.Running);
+        Assert.Equal(Now, terminal.LastStartedUtc);
+        Assert.Equal(Now, terminal.LastCompletedUtc);
+        Assert.Equal(1, terminal.Attempted);
+        Assert.Equal(0, terminal.Succeeded);
+        Assert.Equal(1, terminal.Failed);
+        Assert.Equal(0, terminal.SkippedBackoff);
+    }
+
     private static SnapshotCacheResult Result(DateTimeOffset collectedAt) => new(
         new(RegistrationId, "SQL", "17", "Enterprise", null, 100, 10, 10, collectedAt,
             new(1000, 200, 500, 85, false, false, "Available"), Blocking: new(2, 500), Performance: new(3, 1, 0)),
         SnapshotFreshness.Fresh, TimeSpan.Zero);
 
     private sealed class FixedTimeProvider(DateTimeOffset now) : TimeProvider { public override DateTimeOffset GetUtcNow() => now; }
+
+    private sealed class UnexpectedFailureCache : IServerHealthSnapshotCache
+    {
+        public SnapshotCacheResult? Peek(Guid registrationId) => null;
+
+        public Task<SnapshotCacheResult> GetAsync(ServerRegistration registration, CancellationToken cancellationToken = default) =>
+            RefreshAsync(registration, cancellationToken);
+
+        public Task<SnapshotCacheResult> RefreshAsync(ServerRegistration registration, CancellationToken cancellationToken = default) =>
+            Task.FromException<SnapshotCacheResult>(new InvalidOperationException("unexpected collection failure"));
+    }
+
+    private sealed class NoOpObserver : ISnapshotObserver
+    {
+        public void Observe(SnapshotCacheResult result) { }
+    }
 }
