@@ -365,6 +365,34 @@ internal sealed class SqlServerSharedStateSqlBackend : ISharedStateSqlBackend
         SELECT @SchemaVersion AS SchemaVersion;
         """;
 
+    private const string ReadExecutionLockSql = """
+        SET NOCOUNT ON;
+        DECLARE @LockedSchemaVersion int = NULL;
+        DECLARE @LockedDocumentVersion bigint = NULL;
+
+        SELECT @LockedSchemaVersion = SchemaVersion
+        FROM dbo.MonitorSharedStateSchema WITH (HOLDLOCK)
+        WHERE Id = 1;
+
+        SELECT @LockedDocumentVersion = Version
+        FROM dbo.MonitorSharedStateDocuments WITH (HOLDLOCK)
+        WHERE DocumentKey = @DocumentKey;
+        """;
+
+    private const string WriteExecutionLockSql = """
+        SET NOCOUNT ON;
+        DECLARE @LockedSchemaVersion int = NULL;
+        DECLARE @LockedDocumentVersion bigint = NULL;
+
+        SELECT @LockedSchemaVersion = SchemaVersion
+        FROM dbo.MonitorSharedStateSchema WITH (HOLDLOCK)
+        WHERE Id = 1;
+
+        SELECT @LockedDocumentVersion = Version
+        FROM dbo.MonitorSharedStateDocuments WITH (UPDLOCK, HOLDLOCK)
+        WHERE DocumentKey = @DocumentKey;
+        """;
+
     private const string ReadSql = """
         SET NOCOUNT ON;
         SELECT
@@ -383,8 +411,6 @@ internal sealed class SqlServerSharedStateSqlBackend : ISharedStateSqlBackend
     private const string CompareExchangeSql = """
         SET NOCOUNT ON;
         SET XACT_ABORT ON;
-        SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
-        BEGIN TRANSACTION;
 
         DECLARE @CurrentVersion bigint = NULL;
         DECLARE @Result TABLE
@@ -463,8 +489,6 @@ internal sealed class SqlServerSharedStateSqlBackend : ISharedStateSqlBackend
             WHERE DocumentKey = @DocumentKey;
         END;
 
-        COMMIT TRANSACTION;
-
         SELECT Applied, Version, PayloadJson, PayloadStorageBytes, UpdatedAtUtc
         FROM @Result;
         """;
@@ -476,18 +500,11 @@ internal sealed class SqlServerSharedStateSqlBackend : ISharedStateSqlBackend
     {
         await using var connection = new SqlConnection(connectionString);
         await connection.OpenAsync(cancellationToken);
-        await using var command = new SqlCommand(SchemaVersionSql, connection)
-        {
-            CommandTimeout = commandTimeoutSeconds
-        };
-        command.Parameters.Add(new SqlParameter("@SupportedSchemaVersion", SqlDbType.Int)
-        {
-            Value = SqlServerSharedStateDocumentStore.SupportedSchemaVersion
-        });
-        var value = await command.ExecuteScalarAsync(cancellationToken);
-        return value is null or DBNull
-            ? null
-            : Convert.ToInt32(value, System.Globalization.CultureInfo.InvariantCulture);
+        return await ReadSchemaVersionAsync(
+            connection,
+            transaction: null,
+            commandTimeoutSeconds,
+            cancellationToken);
     }
 
     public async Task<SharedStateDocument?> ReadAsync(
@@ -498,26 +515,51 @@ internal sealed class SqlServerSharedStateSqlBackend : ISharedStateSqlBackend
     {
         await using var connection = new SqlConnection(connectionString);
         await connection.OpenAsync(cancellationToken);
-        await using var command = new SqlCommand(ReadSql, connection)
+        await using var transaction = (SqlTransaction)await connection.BeginTransactionAsync(
+            IsolationLevel.Serializable,
+            cancellationToken);
+
+        await AcquireExecutionLockAsync(
+            connection,
+            transaction,
+            key,
+            write: false,
+            commandTimeoutSeconds,
+            cancellationToken);
+        await EnsureSupportedSchemaAsync(
+            connection,
+            transaction,
+            commandTimeoutSeconds,
+            cancellationToken);
+
+        SharedStateDocument? document;
+        await using (var command = new SqlCommand(ReadSql, connection, transaction)
         {
             CommandTimeout = commandTimeoutSeconds
-        };
-        command.Parameters.Add(new SqlParameter("@DocumentKey", SqlDbType.NVarChar, 128) { Value = key });
-        command.Parameters.Add(new SqlParameter("@MaximumTransportPayloadBytes", SqlDbType.BigInt) { Value = MaximumTransportPayloadBytes });
-
-        await using var reader = await command.ExecuteReaderAsync(CommandBehavior.SingleRow, cancellationToken);
-        if (!await reader.ReadAsync(cancellationToken))
+        })
         {
-            return null;
+            command.Parameters.Add(new SqlParameter("@DocumentKey", SqlDbType.NVarChar, 128) { Value = key });
+            command.Parameters.Add(new SqlParameter("@MaximumTransportPayloadBytes", SqlDbType.BigInt) { Value = MaximumTransportPayloadBytes });
+
+            await using var reader = await command.ExecuteReaderAsync(CommandBehavior.SingleRow, cancellationToken);
+            if (!await reader.ReadAsync(cancellationToken))
+            {
+                document = null;
+            }
+            else
+            {
+                document = ReadDocument(
+                    key,
+                    reader,
+                    versionOrdinal: 1,
+                    payloadOrdinal: 2,
+                    payloadStorageBytesOrdinal: 3,
+                    updatedOrdinal: 4);
+            }
         }
 
-        return ReadDocument(
-            key,
-            reader,
-            versionOrdinal: 1,
-            payloadOrdinal: 2,
-            payloadStorageBytesOrdinal: 3,
-            updatedOrdinal: 4);
+        await transaction.CommitAsync(cancellationToken);
+        return document;
     }
 
     public async Task<SharedStateWriteResult> CompareExchangeAsync(
@@ -530,39 +572,122 @@ internal sealed class SqlServerSharedStateSqlBackend : ISharedStateSqlBackend
     {
         await using var connection = new SqlConnection(connectionString);
         await connection.OpenAsync(cancellationToken);
-        await using var command = new SqlCommand(CompareExchangeSql, connection)
+        await using var transaction = (SqlTransaction)await connection.BeginTransactionAsync(
+            IsolationLevel.Serializable,
+            cancellationToken);
+
+        await AcquireExecutionLockAsync(
+            connection,
+            transaction,
+            key,
+            write: true,
+            commandTimeoutSeconds,
+            cancellationToken);
+        await EnsureSupportedSchemaAsync(
+            connection,
+            transaction,
+            commandTimeoutSeconds,
+            cancellationToken);
+
+        SharedStateWriteResult result;
+        await using (var command = new SqlCommand(CompareExchangeSql, connection, transaction)
+        {
+            CommandTimeout = commandTimeoutSeconds
+        })
+        {
+            command.Parameters.Add(new SqlParameter("@DocumentKey", SqlDbType.NVarChar, 128) { Value = key });
+            command.Parameters.Add(new SqlParameter("@ExpectedVersion", SqlDbType.BigInt) { Value = expectedVersion });
+            command.Parameters.Add(new SqlParameter("@PayloadJson", SqlDbType.NVarChar, -1) { Value = payloadJson });
+            command.Parameters.Add(new SqlParameter("@MaximumTransportPayloadBytes", SqlDbType.BigInt) { Value = MaximumTransportPayloadBytes });
+
+            await using var reader = await command.ExecuteReaderAsync(CommandBehavior.SingleRow, cancellationToken);
+            if (!await reader.ReadAsync(cancellationToken))
+            {
+                throw new InvalidOperationException("Shared-state compare/exchange returned no result.");
+            }
+
+            var applied = reader.GetBoolean(0);
+            if (reader.IsDBNull(1))
+            {
+                result = new SharedStateWriteResult(
+                    applied ? SharedStateWriteStatus.Applied : SharedStateWriteStatus.Conflict,
+                    null);
+            }
+            else
+            {
+                var document = ReadDocument(
+                    key,
+                    reader,
+                    versionOrdinal: 1,
+                    payloadOrdinal: 2,
+                    payloadStorageBytesOrdinal: 3,
+                    updatedOrdinal: 4);
+                result = new SharedStateWriteResult(
+                    applied ? SharedStateWriteStatus.Applied : SharedStateWriteStatus.Conflict,
+                    document);
+            }
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+        return result;
+    }
+
+    internal static async Task AcquireExecutionLockAsync(
+        SqlConnection connection,
+        SqlTransaction transaction,
+        string key,
+        bool write,
+        int commandTimeoutSeconds,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(connection);
+        ArgumentNullException.ThrowIfNull(transaction);
+
+        var sql = write ? WriteExecutionLockSql : ReadExecutionLockSql;
+        await using var command = new SqlCommand(sql, connection, transaction)
         {
             CommandTimeout = commandTimeoutSeconds
         };
         command.Parameters.Add(new SqlParameter("@DocumentKey", SqlDbType.NVarChar, 128) { Value = key });
-        command.Parameters.Add(new SqlParameter("@ExpectedVersion", SqlDbType.BigInt) { Value = expectedVersion });
-        command.Parameters.Add(new SqlParameter("@PayloadJson", SqlDbType.NVarChar, -1) { Value = payloadJson });
-        command.Parameters.Add(new SqlParameter("@MaximumTransportPayloadBytes", SqlDbType.BigInt) { Value = MaximumTransportPayloadBytes });
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
 
-        await using var reader = await command.ExecuteReaderAsync(CommandBehavior.SingleRow, cancellationToken);
-        if (!await reader.ReadAsync(cancellationToken))
+    private static async Task EnsureSupportedSchemaAsync(
+        SqlConnection connection,
+        SqlTransaction transaction,
+        int commandTimeoutSeconds,
+        CancellationToken cancellationToken)
+    {
+        var schemaVersion = await ReadSchemaVersionAsync(
+            connection,
+            transaction,
+            commandTimeoutSeconds,
+            cancellationToken);
+        if (schemaVersion != SqlServerSharedStateDocumentStore.SupportedSchemaVersion)
         {
-            throw new InvalidOperationException("Shared-state compare/exchange returned no result.");
+            throw new InvalidDataException("Shared-state schema is not supported for atomic document execution.");
         }
+    }
 
-        var applied = reader.GetBoolean(0);
-        if (reader.IsDBNull(1))
+    private static async Task<int?> ReadSchemaVersionAsync(
+        SqlConnection connection,
+        SqlTransaction? transaction,
+        int commandTimeoutSeconds,
+        CancellationToken cancellationToken)
+    {
+        await using var command = new SqlCommand(SchemaVersionSql, connection)
         {
-            return new SharedStateWriteResult(
-                applied ? SharedStateWriteStatus.Applied : SharedStateWriteStatus.Conflict,
-                null);
-        }
-
-        var document = ReadDocument(
-            key,
-            reader,
-            versionOrdinal: 1,
-            payloadOrdinal: 2,
-            payloadStorageBytesOrdinal: 3,
-            updatedOrdinal: 4);
-        return new SharedStateWriteResult(
-            applied ? SharedStateWriteStatus.Applied : SharedStateWriteStatus.Conflict,
-            document);
+            CommandTimeout = commandTimeoutSeconds,
+            Transaction = transaction
+        };
+        command.Parameters.Add(new SqlParameter("@SupportedSchemaVersion", SqlDbType.Int)
+        {
+            Value = SqlServerSharedStateDocumentStore.SupportedSchemaVersion
+        });
+        var value = await command.ExecuteScalarAsync(cancellationToken);
+        return value is null or DBNull
+            ? null
+            : Convert.ToInt32(value, System.Globalization.CultureInfo.InvariantCulture);
     }
 
     private static SharedStateDocument ReadDocument(
