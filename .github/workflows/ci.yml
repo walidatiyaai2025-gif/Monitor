@@ -53,6 +53,7 @@ jobs:
               raise SystemExit(f'unclosed reconciliation literal: {triple}')
           script = '\n'.join(script_lines) + '\n'
           script = script.replace('marker = "## Merge gate"', 'marker = "## Final merge gate"')
+          script = script.replace('"**State:** COMPLETE  "', '"**State:** COMPLETE"')
           exec(compile(script, 'b800-100-reconcile', 'exec'), {'__name__': '__main__'})
       - name: Restore canonical CI and commit reconciled state
         shell: bash
