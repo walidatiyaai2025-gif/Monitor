@@ -70,8 +70,7 @@ public sealed class WebsiteMonitoringController(
     IWebsiteProbeEngine probe,
     IWebsiteIncidentCoordinator incidentCoordinator,
     IWebsiteNotificationPlanner notificationPlanner,
-    IAuditStore audit,
-    TimeProvider timeProvider) : Controller
+    IAuditStore audit) : Controller
 {
     private const int MaxVisibleTargets = 100;
 
