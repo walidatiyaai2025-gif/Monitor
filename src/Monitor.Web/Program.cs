@@ -136,6 +136,11 @@ builder.Services.AddSingleton<IHealthIncidentRepository>(provider =>
             : new FileHealthIncidentRepository(Path.Combine(operationalRoot, "incidents.json"));
     return new TelemetryHealthIncidentRepository(inner, provider.GetRequiredService<IMonitorTelemetry>());
 });
+builder.Services.AddWebsiteMonitoringSubsystem(
+    builder.Configuration,
+    deploymentTopologyOptions,
+    haStateOptions.UseSharedOperationalState,
+    operationalRoot);
 builder.Services.AddSingleton<ISnapshotHistoryStore>(provider => haStateOptions.UseSharedOperationalState
     ? new SharedSnapshotHistoryStore(provider.GetRequiredService<ISharedStateDocumentStore>(), provider.GetRequiredService<TimeProvider>())
     : operationalRoot is null ? new InMemorySnapshotHistoryStore(provider.GetRequiredService<TimeProvider>()) : new FileSnapshotHistoryStore(Path.Combine(operationalRoot, "history.json"), provider.GetRequiredService<TimeProvider>()));
