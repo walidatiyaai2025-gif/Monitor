@@ -9,6 +9,7 @@ public sealed record WebsiteMonitoringTargetRow(
     WebsiteTargetDefinition Target,
     WebsiteProbeHistoryPoint? Latest,
     HealthIncident? ActiveIncident,
+    WebsiteCorrelationAssessment Correlation,
     double? Availability24Hours,
     int KnownChecks24Hours,
     int UnknownChecks24Hours);
@@ -31,6 +32,7 @@ public sealed class WebsiteTargetForm
     public int FailureConfirmationCount { get; set; } = 3;
     public int RecoveryConfirmationCount { get; set; } = 2;
     public string NotificationGroupIds { get; set; } = string.Empty;
+    public string LinkedRegistrationIds { get; set; } = string.Empty;
 }
 
 public sealed class WebsiteNotificationGroupForm
@@ -63,6 +65,8 @@ public sealed class WebsiteMonitoringController(
     IWebsiteNotificationGroupStore groups,
     IWebsiteNotificationOutbox outbox,
     IHealthIncidentRepository incidents,
+    IServerRegistrationRepository registrations,
+    IWebsiteDependencyCorrelationService correlation,
     IWebsiteProbeEngine probe,
     IWebsiteIncidentCoordinator incidentCoordinator,
     IWebsiteNotificationPlanner notificationPlanner,
@@ -74,13 +78,12 @@ public sealed class WebsiteMonitoringController(
     [HttpGet("/websites")]
     public IActionResult Index(Guid? editId = null)
     {
-        var now = timeProvider.GetUtcNow();
         var allIncidents = incidents.GetAll()
             .Where(item => item.Status != IncidentStatus.Resolved)
             .ToLookup(item => item.RegistrationId);
         var rows = targets.GetAll()
             .Take(MaxVisibleTargets)
-            .Select(target => BuildRow(target, allIncidents[target.Id], now))
+            .Select(target => BuildRow(target, allIncidents[target.Id]))
             .ToArray();
         var outboxItems = User.IsInRole(MonitorRoles.Administrator) ? outbox.Snapshot() : Array.Empty<WebsiteNotificationOutboxItem>();
         var editing = editId.HasValue ? targets.Get(editId.Value) : null;
@@ -111,6 +114,17 @@ public sealed class WebsiteMonitoringController(
             return RedirectToAction(nameof(Index), new { editId = form.Id });
         }
 
+        if (!TryParseLinkedRegistrations(form.LinkedRegistrationIds, out var linkedRegistrationIds, out var linkedError))
+        {
+            TempData["WebsiteError"] = linkedError;
+            return RedirectToAction(nameof(Index), new { editId = form.Id });
+        }
+        if (linkedRegistrationIds.Any(id => registrations.GetById(id) is null))
+        {
+            TempData["WebsiteError"] = "One or more linked server registration IDs do not exist.";
+            return RedirectToAction(nameof(Index), new { editId = form.Id });
+        }
+
         var target = new WebsiteTargetDefinition(
             form.Id is { } id && id != Guid.Empty ? id : Guid.NewGuid(),
             form.Name?.Trim() ?? string.Empty,
@@ -127,7 +141,8 @@ public sealed class WebsiteMonitoringController(
             form.SlowThresholdMilliseconds,
             form.FailureConfirmationCount,
             form.RecoveryConfirmationCount,
-            groupIds);
+            groupIds,
+            linkedRegistrationIds);
         var validation = WebsiteTargetValidator.Validate(target);
         if (!validation.IsValid)
         {
@@ -135,7 +150,7 @@ public sealed class WebsiteMonitoringController(
             return RedirectToAction(nameof(Index), new { editId = form.Id });
         }
 
-        audit.Append(actor, "website.target.upsert.requested", target.Id.ToString("D"), $"name={Bound(target.Name, 120)}; environment={target.Environment}");
+        audit.Append(actor, "website.target.upsert.requested", target.Id.ToString("D"), $"name={Bound(target.Name, 120)}; environment={target.Environment}; linkedDependencies={linkedRegistrationIds.Length}");
         targets.Upsert(target);
         audit.Append(actor, "website.target.upsert.completed", target.Id.ToString("D"), "Website target metadata saved; no probe executed by this action.");
         TempData["WebsiteSuccess"] = "Website target saved.";
@@ -233,7 +248,7 @@ public sealed class WebsiteMonitoringController(
         return RedirectToAction(nameof(Index));
     }
 
-    private WebsiteMonitoringTargetRow BuildRow(WebsiteTargetDefinition target, IEnumerable<HealthIncident> targetIncidents, DateTimeOffset now)
+    private WebsiteMonitoringTargetRow BuildRow(WebsiteTargetDefinition target, IEnumerable<HealthIncident> targetIncidents)
     {
         var points = history.Read(target.Id, TimeSpan.FromHours(24));
         var latest = points.LastOrDefault();
@@ -241,7 +256,7 @@ public sealed class WebsiteMonitoringController(
         var available = known.Count(point => point.State is WebsiteProbeState.Up or WebsiteProbeState.Degraded);
         double? availability = known.Length == 0 ? null : Math.Round(available * 100d / known.Length, 2);
         var active = targetIncidents.OrderByDescending(item => item.Severity).ThenByDescending(item => item.LastSeenUtc).FirstOrDefault();
-        return new WebsiteMonitoringTargetRow(target, latest, active, availability, known.Length, points.Count - known.Length);
+        return new WebsiteMonitoringTargetRow(target, latest, active, correlation.Assess(target, latest), availability, known.Length, points.Count - known.Length);
     }
 
     private static WebsiteTargetForm ToForm(WebsiteTargetDefinition target) => new()
@@ -261,7 +276,8 @@ public sealed class WebsiteMonitoringController(
         SlowThresholdMilliseconds = target.SlowThresholdMilliseconds,
         FailureConfirmationCount = target.FailureConfirmationCount,
         RecoveryConfirmationCount = target.RecoveryConfirmationCount,
-        NotificationGroupIds = string.Join(", ", target.NotificationGroupIds ?? Array.Empty<string>())
+        NotificationGroupIds = string.Join(", ", target.NotificationGroupIds ?? Array.Empty<string>()),
+        LinkedRegistrationIds = string.Join(", ", target.LinkedRegistrationIds ?? Array.Empty<Guid>())
     };
 
     private string? Actor() => string.IsNullOrWhiteSpace(User.Identity?.Name) ? null : User.Identity!.Name!.Trim();
@@ -282,5 +298,30 @@ public sealed class WebsiteMonitoringController(
         .Distinct(StringComparer.OrdinalIgnoreCase)
         .Take(WebsiteNotificationValidation.MaxRecipientsPerGroup)
         .ToArray();
+    private static bool TryParseLinkedRegistrations(string? value, out Guid[] ids, out string error)
+    {
+        var tokens = (value ?? string.Empty)
+            .Split([',', ';', '\r', '\n'], StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        if (tokens.Length > WebsiteTargetValidator.MaxLinkedRegistrations)
+        {
+            ids = [];
+            error = $"A target may link at most {WebsiteTargetValidator.MaxLinkedRegistrations} server registrations.";
+            return false;
+        }
+        var materialized = new List<Guid>(tokens.Length);
+        foreach (var token in tokens)
+        {
+            if (!Guid.TryParse(token, out var id) || id == Guid.Empty)
+            {
+                ids = [];
+                error = "Linked server registration IDs must be valid non-empty GUIDs.";
+                return false;
+            }
+            if (!materialized.Contains(id)) materialized.Add(id);
+        }
+        ids = materialized.ToArray();
+        error = string.Empty;
+        return true;
+    }
     private static string Bound(string value, int max) => value.Length <= max ? value : value[..max];
 }
