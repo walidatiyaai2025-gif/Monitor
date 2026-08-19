@@ -149,6 +149,7 @@ internal sealed class OperationalBackupService : IOperationalBackupService
     private readonly IOperationalRestoreWriter _restoreWriter;
     private readonly BackupStoreOptions _options;
     private readonly string _root;
+    private readonly string _leasePath;
     private readonly TimeProvider _timeProvider;
     private readonly object _fileGate = new();
 
@@ -170,6 +171,7 @@ internal sealed class OperationalBackupService : IOperationalBackupService
         _options = options;
         _options.Validate();
         _root = Path.GetFullPath(root);
+        _leasePath = $"{_root}.lock";
         _timeProvider = timeProvider;
     }
 
@@ -219,15 +221,13 @@ internal sealed class OperationalBackupService : IOperationalBackupService
             throw new InvalidOperationException("Operational backup exceeds the configured bundle size limit.");
         }
 
-        lock (_fileGate)
-        {
-            Directory.CreateDirectory(_root);
-            var path = PathFor(backupId);
-            WriteAtomic(path, bytes);
-            PruneLocked();
-            var file = new FileInfo(path);
-            return Task.FromResult(new BackupListItem(backupId, createdAt, file.Length));
-        }
+        using var lease = AcquireFileLease();
+        Directory.CreateDirectory(_root);
+        var path = PathFor(backupId);
+        WriteAtomic(path, bytes);
+        PruneLocked();
+        var file = new FileInfo(path);
+        return Task.FromResult(new BackupListItem(backupId, createdAt, file.Length));
     }
 
     public async Task<BackupValidationResult> ValidateAsync(string backupId, CancellationToken cancellationToken = default)
@@ -238,9 +238,8 @@ internal sealed class OperationalBackupService : IOperationalBackupService
             return new(BackupValidationStatus.Invalid, "Backup identifier is invalid.");
         }
 
-        string path;
-        lock (_fileGate) path = PathFor(normalized);
-
+        using var lease = AcquireFileLease();
+        var path = PathFor(normalized);
         try
         {
             await using var stream = new FileStream(
@@ -310,11 +309,8 @@ internal sealed class OperationalBackupService : IOperationalBackupService
 
     public BackupReadinessViewModel GetReadiness()
     {
-        BackupDirectoryScan backups;
-        lock (_fileGate)
-        {
-            backups = BoundedBackupDirectory.ScanReadiness(_root, RecentBackupLimit);
-        }
+        using var lease = AcquireFileLease();
+        var backups = BoundedBackupDirectory.ScanReadiness(_root, RecentBackupLimit);
 
         return new(
             _restoreWriter.IsSupported,
@@ -326,6 +322,14 @@ internal sealed class OperationalBackupService : IOperationalBackupService
             backups.RecentBackups.FirstOrDefault()?.CreatedAtUtc,
             _restoreWriter.RestartRequired,
             backups.RecentBackups);
+    }
+
+    private FileStream AcquireFileLease()
+    {
+        lock (_fileGate)
+        {
+            return CrossProcessFileLease.Acquire(_leasePath, "Operational backup store");
+        }
     }
 
     private IReadOnlyList<AuditEvent> ReadAllAudit()
