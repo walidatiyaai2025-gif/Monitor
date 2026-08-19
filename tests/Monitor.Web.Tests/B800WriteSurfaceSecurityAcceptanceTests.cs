@@ -192,7 +192,7 @@ public sealed class B800WriteSurfaceSecurityAcceptanceTests
         mutationIndex = advisor.IndexOf("_advisorRequests.RequestAsync(id, actor", StringComparison.Ordinal);
         Assert.True(actorIndex >= 0 && mutationIndex > actorIndex, "Advisor requests must be attributable before service execution.");
 
-        var websiteCheck = Slice(websites, "public async Task<IActionResult> CheckNow", "[Authorize(Policy = MonitorPolicies.Manage)]\n    [ValidateAntiForgeryToken]\n    [HttpPost(\"/websites/groups/save\")]");
+        var websiteCheck = Slice(websites, "public async Task<IActionResult> CheckNow", "[HttpPost(\"/websites/groups/save\")]");
         actorIndex = websiteCheck.IndexOf("var actor = Actor()", StringComparison.Ordinal);
         auditIndex = websiteCheck.IndexOf("audit.Append(actor, \"website.probe.manual.requested\"", StringComparison.Ordinal);
         mutationIndex = websiteCheck.IndexOf("probe.ProbeAsync", StringComparison.Ordinal);
