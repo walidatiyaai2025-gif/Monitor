@@ -289,6 +289,7 @@ internal sealed class CredentialLifecycleService(
     CredentialPolicyOptions? credentialPolicy = null) : ICredentialLifecycleService
 {
     private const string LocalPrefix = "local:v1:";
+    private readonly SemaphoreSlim _ownedSecretMutationGate = new(1, 1);
 
     public async Task<CredentialReplacementResult> ReplaceWithExternalReferenceAsync(
         Guid registrationId,
@@ -297,6 +298,7 @@ internal sealed class CredentialLifecycleService(
         CancellationToken cancellationToken = default)
     {
         actor = NormalizeActor(actor);
+        using var mutation = await OwnedSecretMutationLease.AcquireAsync(_ownedSecretMutationGate, cancellationToken);
         var registration = registrations.GetById(registrationId);
         if (registration is null)
         {
@@ -387,6 +389,7 @@ internal sealed class CredentialLifecycleService(
         CancellationToken cancellationToken = default)
     {
         actor = NormalizeActor(actor);
+        using var mutation = await OwnedSecretMutationLease.AcquireAsync(_ownedSecretMutationGate, cancellationToken);
         if (credentialPolicy?.AllowLocalOwnedCredentials != true)
         {
             Audit(actor, registrationId, "local-policy-disabled");
@@ -471,6 +474,7 @@ internal sealed class CredentialLifecycleService(
     public async Task<int> CleanupOrphanedOwnedSecretsAsync(string actor, CancellationToken cancellationToken = default)
     {
         actor = NormalizeActor(actor);
+        using var mutation = await OwnedSecretMutationLease.AcquireAsync(_ownedSecretMutationGate, cancellationToken);
         if (secrets is not IOwnedConnectionSecretStore owned)
         {
             audit.Append(actor, "credential.cleanup", "owned-secrets", "unsupported");
@@ -509,6 +513,23 @@ internal sealed class CredentialLifecycleService(
         }
 
         return actor.Trim();
+    }
+
+    private sealed class OwnedSecretMutationLease : IDisposable
+    {
+        private SemaphoreSlim? _gate;
+
+        private OwnedSecretMutationLease(SemaphoreSlim gate) => _gate = gate;
+
+        public static async Task<OwnedSecretMutationLease> AcquireAsync(
+            SemaphoreSlim gate,
+            CancellationToken cancellationToken)
+        {
+            await gate.WaitAsync(cancellationToken);
+            return new OwnedSecretMutationLease(gate);
+        }
+
+        public void Dispose() => Interlocked.Exchange(ref _gate, null)?.Release();
     }
 }
 
