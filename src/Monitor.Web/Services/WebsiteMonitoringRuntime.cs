@@ -95,10 +95,7 @@ public sealed class WebsiteMonitoringWorker(
     WebsiteMonitoringOptions options,
     IWebsiteTargetStore targets,
     IWebsiteScheduleStateStore schedule,
-    IWebsiteProbeEngine probe,
-    IWebsiteProbeHistoryStore history,
-    IWebsiteIncidentCoordinator incidentCoordinator,
-    IWebsiteNotificationPlanner notificationPlanner,
+    IWebsiteProbeExecutionService execution,
     TimeProvider timeProvider,
     ILogger<WebsiteMonitoringWorker> logger) : BackgroundService
 {
@@ -142,13 +139,19 @@ public sealed class WebsiteMonitoringWorker(
         if (claim is null) return;
 
         var completedAt = now;
+        var shouldCompleteScheduleClaim = true;
         try
         {
-            var result = await probe.ProbeAsync(target, cancellationToken);
+            var attempt = await execution.TryExecuteAsync(target, cancellationToken);
+            if (!attempt.Executed)
+            {
+                shouldCompleteScheduleClaim = false;
+                logger.LogDebug("Website probe {TargetId} deferred because another execution owns the target.", target.Id);
+                return;
+            }
+
+            var result = attempt.Result!;
             completedAt = result.CompletedAtUtc;
-            history.Append(result);
-            var observation = incidentCoordinator.Observe(target, result);
-            _ = notificationPlanner.Queue(target, result, observation);
             logger.LogDebug("Website probe {TargetId} completed with {RuleId}/{State} in {ElapsedMs} ms.",
                 target.Id, result.Classification.RuleId, result.Classification.State, result.Evidence.ElapsedMilliseconds);
         }
@@ -163,7 +166,7 @@ public sealed class WebsiteMonitoringWorker(
         }
         finally
         {
-            if (!schedule.Complete(claim, completedAt, interval))
+            if (shouldCompleteScheduleClaim && !schedule.Complete(claim, completedAt, interval))
                 logger.LogWarning("Website probe claim {TargetId}/{ClaimToken} could not be completed because ownership changed.", claim.TargetId, claim.Token);
         }
     }
