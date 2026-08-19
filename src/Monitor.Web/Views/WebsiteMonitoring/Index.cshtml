@@ -11,7 +11,7 @@
     var unknown = Model.Targets.Count(row => row.Latest is null || row.Latest.State == WebsiteProbeState.Unknown);
 }
 
-<partial name="_PortalPageHeader" model="@(new PortalPageHeaderViewModel("Website Monitoring", "Bounded DNS, TCP, TLS and HTTP application checks with evidence-led incidents and optional durable email delivery. Root-cause labels remain probable unless corroborated by dependency evidence.", "END-TO-END AVAILABILITY", "Incident center", Url.Action("Alerts", "Operations")))" />
+<partial name="_PortalPageHeader" model="@(new PortalPageHeaderViewModel("Website Monitoring", "Bounded DNS, TCP, TLS and HTTP application checks with evidence-led incidents and optional durable email delivery. Root-cause labels remain probable unless corroborated by linked dependency evidence.", "END-TO-END AVAILABILITY", "Incident center", Url.Action("Alerts", "Operations")))" />
 
 @if (TempData["WebsiteError"] is string error)
 {
@@ -63,7 +63,7 @@
     {
         <div class="table-scroll">
             <table class="data-table">
-                <thead><tr><th>Target</th><th>State</th><th>HTTP</th><th>Latency</th><th>24h availability</th><th>SSL</th><th>Incident / probable layer</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Target</th><th>State</th><th>HTTP</th><th>Latency</th><th>24h availability</th><th>SSL</th><th>Incident / probable layer</th><th>Dependency correlation</th><th>Actions</th></tr></thead>
                 <tbody>
                 @foreach (var row in Model.Targets)
                 {
@@ -85,6 +85,19 @@
                             else
                             {
                                 <span>No active incident</span><br /><small>@(row.Latest?.ProbableLayer ?? "No classification")</small>
+                            }
+                        </td>
+                        <td>
+                            <strong>@row.Correlation.Confidence</strong><br />
+                            <small>@row.Correlation.Summary</small>
+                            @if (row.Correlation.Signals.Count > 0)
+                            {
+                                <ul class="evidence-list">
+                                    @foreach (var signal in row.Correlation.Signals.Take(3))
+                                    {
+                                        <li><strong>@signal.RegistrationName</strong> · @signal.RuleId · @signal.Severity</li>
+                                    }
+                                </ul>
                             }
                         </td>
                         <td>
@@ -129,6 +142,7 @@
             <label><span>Failure confirmation</span><input type="number" name="FailureConfirmationCount" value="@Model.TargetForm.FailureConfirmationCount" min="1" max="10" /></label>
             <label><span>Recovery confirmation</span><input type="number" name="RecoveryConfirmationCount" value="@Model.TargetForm.RecoveryConfirmationCount" min="1" max="10" /></label>
             <label><span>Notification group IDs</span><input name="NotificationGroupIds" value="@Model.TargetForm.NotificationGroupIds" maxlength="1024" placeholder="web-team, network-team" /></label>
+            <label><span>Linked SQL/server registration IDs</span><textarea name="LinkedRegistrationIds" rows="2" maxlength="1024" placeholder="GUID, GUID">@Model.TargetForm.LinkedRegistrationIds</textarea><small>Optional. Used only to correlate active Monitor dependency incidents within ±10 minutes; correlation never proves root cause by itself.</small></label>
             <label><span><input type="checkbox" name="IsEnabled" value="true" checked="@Model.TargetForm.IsEnabled" /> Target enabled</span></label>
             <label><span><input type="checkbox" name="FollowRedirects" value="true" checked="@Model.TargetForm.FollowRedirects" /> Follow redirects</span></label>
             <div class="recommendation-filter-actions"><button class="primary-button" type="submit">Save target</button><a class="secondary-button" asp-action="Index">Clear</a></div>
