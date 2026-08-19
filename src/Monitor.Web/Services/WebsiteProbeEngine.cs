@@ -53,8 +53,7 @@ public interface IWebsiteHttpHopClient
 
 public sealed class PinnedWebsiteHttpHopClient(
     IWebsiteDnsResolver dnsResolver,
-    IWebsiteDestinationAuthorizer destinationAuthorizer,
-    TimeProvider timeProvider) : IWebsiteHttpHopClient
+    IWebsiteDestinationAuthorizer destinationAuthorizer) : IWebsiteHttpHopClient
 {
     private const int MaxResponseHeadersLengthKb = 32;
 
@@ -142,7 +141,7 @@ public sealed class PinnedWebsiteHttpHopClient(
                     tlsValid = policyErrors == SslPolicyErrors.None;
                     if (certificate is not null)
                     {
-                        using var certificate2 = certificate as X509Certificate2 ?? new X509Certificate2(certificate);
+                        using var certificate2 = new X509Certificate2(certificate);
                         certificateNotAfterUtc = new DateTimeOffset(certificate2.NotAfter.ToUniversalTime());
                         certificateSubject = Bound(certificate2.Subject, 200);
                         certificateIssuer = Bound(certificate2.Issuer, 200);
@@ -225,7 +224,7 @@ public sealed class PinnedWebsiteHttpHopClient(
     {
         if (string.IsNullOrWhiteSpace(charset)) return Encoding.UTF8;
         try { return Encoding.GetEncoding(charset.Trim(' ', '"', '\'')); }
-        catch (ArgumentException) { return Encoding.UTF8; }
+        catch (Exception exception) when (exception is ArgumentException or NotSupportedException) { return Encoding.UTF8; }
     }
 
     private static Uri? ResolveRedirect(Uri current, Uri? location)
@@ -331,7 +330,7 @@ public sealed class WebsiteProbeEngine(IWebsiteHttpHopClient hopClient, TimeProv
 
         var redirectExpected = string.IsNullOrWhiteSpace(target.ExpectedFinalHost) ||
             string.Equals(current.DnsSafeHost, target.ExpectedFinalHost.Trim(), StringComparison.OrdinalIgnoreCase);
-        var contentMatched = string.IsNullOrEmpty(target.ExpectedContentMarker)
+        bool? contentMatched = string.IsNullOrEmpty(target.ExpectedContentMarker)
             ? null
             : hop.BoundedBody?.Contains(target.ExpectedContentMarker, StringComparison.Ordinal) == true;
 
@@ -356,7 +355,7 @@ public sealed class WebsiteProbeEngine(IWebsiteHttpHopClient hopClient, TimeProv
 
         var certificateExpiring = hop.CertificateNotAfterUtc is DateTimeOffset notAfter &&
             notAfter <= completedAt.AddDays(CertificateExpiryWarningDays);
-        var statusExpected = hop.HttpStatusCode is int status
+        bool? statusExpected = hop.HttpStatusCode is int status
             ? status >= target.ExpectedStatusMin && status <= target.ExpectedStatusMax
             : null;
 
