@@ -49,6 +49,7 @@ public static class WebsiteMonitoringRegistration
             ? new InMemoryWebsiteCheckStateStore()
             : new FileWebsiteCheckStateStore(Path.Combine(operationalRoot, "website-check-state.json")));
         services.AddSingleton<IWebsiteIncidentCoordinator, WebsiteIncidentCoordinator>();
+        services.AddSingleton<IWebsiteDependencyCorrelationService, WebsiteDependencyCorrelationService>();
 
         services.AddSingleton<IWebsiteNotificationGroupStore>(_ => operationalRoot is null
             ? new InMemoryWebsiteNotificationGroupStore()
