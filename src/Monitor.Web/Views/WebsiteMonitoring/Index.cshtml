@@ -1,0 +1,161 @@
+@using Monitor.Web.Controllers
+@using Monitor.Web.Models
+@using Monitor.Web.Services
+@model WebsiteMonitoringPageViewModel
+@{
+    ViewData["Title"] = "Website Monitoring";
+    var canOperate = User.IsInRole(MonitorRoles.Operator) || User.IsInRole(MonitorRoles.Administrator);
+    var up = Model.Targets.Count(row => row.Latest?.State == WebsiteProbeState.Up);
+    var degraded = Model.Targets.Count(row => row.Latest?.State == WebsiteProbeState.Degraded);
+    var down = Model.Targets.Count(row => row.Latest?.State == WebsiteProbeState.Down);
+    var unknown = Model.Targets.Count(row => row.Latest is null || row.Latest.State == WebsiteProbeState.Unknown);
+}
+
+<partial name="_PortalPageHeader" model="@(new PortalPageHeaderViewModel("Website Monitoring", "Bounded DNS, TCP, TLS and HTTP application checks with evidence-led incidents and optional durable email delivery. Root-cause labels remain probable unless corroborated by dependency evidence.", "END-TO-END AVAILABILITY", "Incident center", Url.Action("Alerts", "Operations")))" />
+
+@if (TempData["WebsiteError"] is string error)
+{
+    <div class="validation-summary-errors" role="alert">@error</div>
+}
+@if (TempData["WebsiteSuccess"] is string success)
+{
+    <div class="portal-state state-healthy" role="status"><strong>@success</strong></div>
+}
+
+<section class="health-command-summary" aria-label="Website monitoring summary">
+    <article class="health-command-card hero state-@(down > 0 ? "critical" : degraded > 0 ? "warning" : "healthy")"><div><small>MONITORING</small><strong>@(Model.MonitoringEnabled ? "ON" : "OFF")</strong><span>@Model.Targets.Count bounded visible target(s)</span></div></article>
+    <article class="health-command-card state-@(down > 0 ? "critical" : "healthy")"><small>DOWN</small><strong>@down</strong><span>Confirmed latest probe state</span></article>
+    <article class="health-command-card state-@(degraded > 0 ? "warning" : "healthy")"><small>DEGRADED</small><strong>@degraded</strong><span>Slow or certificate lifecycle warning</span></article>
+    <article class="health-command-card state-healthy"><small>UP</small><strong>@up</strong><span>Configured contract satisfied</span></article>
+</section>
+
+<section class="glass-panel" aria-labelledby="website-runtime-title">
+    <div class="panel-heading">
+        <div><span class="eyebrow">RUNTIME SAFETY</span><h3 id="website-runtime-title">Activation state</h3></div>
+        <span class="snapshot-note">Unknown @unknown</span>
+    </div>
+    <div class="recommendation-context">
+        <span><small>Scheduled probes</small><strong>@(Model.MonitoringEnabled ? "Enabled" : "Disabled")</strong></span>
+        <span><small>Email delivery</small><strong>@(Model.NotificationsEnabled ? "Enabled" : "Disabled")</strong></span>
+        <span><small>Private host allowlist</small><strong>@Model.AllowedPrivateHostCount</strong></span>
+        @if (Model.IsAdministrator)
+        {
+            <span><small>Pending emails</small><strong>@Model.PendingEmails</strong></span>
+            <span><small>Dead letter</small><strong>@Model.DeadLetterEmails</strong></span>
+        }
+    </div>
+    @if (!Model.MonitoringEnabled)
+    {
+        <p class="recommendation-explanation">No scheduled or manual outbound website probe can run while <code>WebsiteMonitoring:Enabled</code> is false. Configuration can be prepared safely before activation.</p>
+    }
+</section>
+
+<section class="glass-panel" aria-labelledby="website-targets-title">
+    <div class="panel-heading">
+        <div><span class="eyebrow">CURRENT EVIDENCE</span><h3 id="website-targets-title">Website targets</h3></div>
+        <span class="snapshot-note">24-hour known availability excludes Unknown checks</span>
+    </div>
+    @if (Model.Targets.Count == 0)
+    {
+        <p class="recommendation-explanation">No website targets are registered yet.</p>
+    }
+    else
+    {
+        <div class="table-scroll">
+            <table class="data-table">
+                <thead><tr><th>Target</th><th>State</th><th>HTTP</th><th>Latency</th><th>24h availability</th><th>SSL</th><th>Incident / probable layer</th><th>Actions</th></tr></thead>
+                <tbody>
+                @foreach (var row in Model.Targets)
+                {
+                    var state = row.Latest?.State ?? WebsiteProbeState.Unknown;
+                    var certificateDays = row.Latest?.CertificateNotAfterUtc is DateTimeOffset expiry ? (int)Math.Floor((expiry - DateTimeOffset.UtcNow).TotalDays) : (int?)null;
+                    <tr>
+                        <td><strong>@row.Target.Name</strong><small>@row.Target.Environment · every @row.Target.IntervalSeconds s · @(row.Target.IsEnabled ? "enabled" : "paused")</small><br /><small>@row.Target.Url</small></td>
+                        <td><span class="severity severity-@(state == WebsiteProbeState.Down ? "critical" : state == WebsiteProbeState.Degraded ? "warning" : "info")">@state</span><br /><small>@(row.Latest?.RuleId ?? "No evidence yet")</small></td>
+                        <td>@(row.Latest?.HttpStatusCode?.ToString() ?? "—")</td>
+                        <td>@(row.Latest?.ElapsedMilliseconds is long ms ? $"{ms} ms" : "—")</td>
+                        <td>@(row.Availability24Hours is double availability ? $"{availability:0.00}%" : "—")<br /><small>@row.KnownChecks24Hours known / @row.UnknownChecks24Hours unknown</small></td>
+                        <td>@(certificateDays is int days ? $"{days} d" : "—")</td>
+                        <td>
+                            @if (row.ActiveIncident is not null)
+                            {
+                                <a asp-controller="Operations" asp-action="IncidentDetails" asp-route-id="@row.ActiveIncident.Id">@row.ActiveIncident.Severity · @row.ActiveIncident.RuleId</a><br />
+                                <small>@(row.Latest?.ProbableLayer ?? row.ActiveIncident.Title)</small>
+                            }
+                            else
+                            {
+                                <span>No active incident</span><br /><small>@(row.Latest?.ProbableLayer ?? "No classification")</small>
+                            }
+                        </td>
+                        <td>
+                            <div class="recommendation-actions">
+                                @if (canOperate)
+                                {
+                                    <form asp-action="CheckNow" asp-route-id="@row.Target.Id" method="post">@Html.AntiForgeryToken()<button class="secondary-button" type="submit" disabled="@(!Model.MonitoringEnabled)">Check now</button></form>
+                                }
+                                @if (Model.IsAdministrator)
+                                {
+                                    <a class="secondary-button" asp-action="Index" asp-route-editId="@row.Target.Id">Edit</a>
+                                    <form asp-action="Toggle" asp-route-id="@row.Target.Id" method="post">@Html.AntiForgeryToken()<button class="secondary-button" type="submit">@(row.Target.IsEnabled ? "Pause" : "Enable")</button></form>
+                                    <form asp-action="Delete" asp-route-id="@row.Target.Id" method="post" onsubmit="return confirm('Delete this website target? Retained evidence is not silently deleted.');">@Html.AntiForgeryToken()<button class="secondary-button" type="submit">Delete</button></form>
+                                }
+                            </div>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>
+
+@if (Model.IsAdministrator)
+{
+    <section class="glass-panel recommendation-filter-panel" aria-labelledby="website-target-form-title">
+        <div class="panel-heading"><div><span class="eyebrow">ADMINISTRATION</span><h3 id="website-target-form-title">@(Model.TargetForm.Id.HasValue ? "Edit website target" : "Add website target")</h3></div><span class="snapshot-note">HTTP/HTTPS only · bounded response inspection</span></div>
+        <form asp-action="SaveTarget" method="post" class="recommendation-filter-grid">
+            @Html.AntiForgeryToken()
+            @if (Model.TargetForm.Id.HasValue) { <input type="hidden" name="Id" value="@Model.TargetForm.Id" /> }
+            <label><span>Name</span><input name="Name" value="@Model.TargetForm.Name" maxlength="120" required /></label>
+            <label><span>URL</span><input name="Url" value="@Model.TargetForm.Url" maxlength="2048" required placeholder="https://portal.example/health" /></label>
+            <label><span>Environment</span><select name="Environment"><option selected="@(Model.TargetForm.Environment == "production")">production</option><option selected="@(Model.TargetForm.Environment == "staging")">staging</option><option selected="@(Model.TargetForm.Environment == "test")">test</option><option selected="@(Model.TargetForm.Environment == "development")">development</option></select></label>
+            <label><span>Interval seconds</span><input type="number" name="IntervalSeconds" value="@Model.TargetForm.IntervalSeconds" min="15" max="86400" /></label>
+            <label><span>Timeout seconds</span><input type="number" name="TimeoutSeconds" value="@Model.TargetForm.TimeoutSeconds" min="1" max="60" /></label>
+            <label><span>Expected HTTP min</span><input type="number" name="ExpectedStatusMin" value="@Model.TargetForm.ExpectedStatusMin" min="100" max="599" /></label>
+            <label><span>Expected HTTP max</span><input type="number" name="ExpectedStatusMax" value="@Model.TargetForm.ExpectedStatusMax" min="100" max="599" /></label>
+            <label><span>Content marker (optional)</span><input name="ExpectedContentMarker" value="@Model.TargetForm.ExpectedContentMarker" maxlength="256" /></label>
+            <label><span>Expected final host (optional)</span><input name="ExpectedFinalHost" value="@Model.TargetForm.ExpectedFinalHost" maxlength="253" /></label>
+            <label><span>Slow threshold ms</span><input type="number" name="SlowThresholdMilliseconds" value="@Model.TargetForm.SlowThresholdMilliseconds" min="100" max="120000" /></label>
+            <label><span>Failure confirmation</span><input type="number" name="FailureConfirmationCount" value="@Model.TargetForm.FailureConfirmationCount" min="1" max="10" /></label>
+            <label><span>Recovery confirmation</span><input type="number" name="RecoveryConfirmationCount" value="@Model.TargetForm.RecoveryConfirmationCount" min="1" max="10" /></label>
+            <label><span>Notification group IDs</span><input name="NotificationGroupIds" value="@Model.TargetForm.NotificationGroupIds" maxlength="1024" placeholder="web-team, network-team" /></label>
+            <label><span><input type="checkbox" name="IsEnabled" value="true" checked="@Model.TargetForm.IsEnabled" /> Target enabled</span></label>
+            <label><span><input type="checkbox" name="FollowRedirects" value="true" checked="@Model.TargetForm.FollowRedirects" /> Follow redirects</span></label>
+            <div class="recommendation-filter-actions"><button class="primary-button" type="submit">Save target</button><a class="secondary-button" asp-action="Index">Clear</a></div>
+        </form>
+    </section>
+
+    <section class="glass-panel recommendation-filter-panel" aria-labelledby="website-groups-title">
+        <div class="panel-heading"><div><span class="eyebrow">EMAIL ROUTING</span><h3 id="website-groups-title">Notification groups</h3></div><span class="snapshot-note">No SMTP password is stored here</span></div>
+        @if (Model.NotificationGroups.Count > 0)
+        {
+            <div class="recommendation-grid">
+                @foreach (var group in Model.NotificationGroups)
+                {
+                    <article class="recommendation-card">
+                        <strong>@group.Name</strong><p><code>@group.Id</code> · @group.Recipients.Count recipient(s) · @(group.IsEnabled ? "enabled" : "disabled")</p>
+                        <form asp-action="DeleteGroup" asp-route-id="@group.Id" method="post">@Html.AntiForgeryToken()<button class="secondary-button" type="submit">Delete group</button></form>
+                    </article>
+                }
+            </div>
+        }
+        <form asp-action="SaveGroup" method="post" class="recommendation-filter-grid">
+            @Html.AntiForgeryToken()
+            <label><span>Group ID</span><input name="Id" maxlength="80" required placeholder="web-team" /></label>
+            <label><span>Display name</span><input name="Name" maxlength="120" required placeholder="Web Application Team" /></label>
+            <label><span>Recipients</span><textarea name="Recipients" maxlength="12000" rows="3" required placeholder="person1@example.com, person2@example.com"></textarea></label>
+            <label><span><input type="checkbox" name="IsEnabled" value="true" checked /> Group enabled</span></label>
+            <div class="recommendation-filter-actions"><button class="primary-button" type="submit">Save group</button></div>
+        </form>
+    </section>
+}
