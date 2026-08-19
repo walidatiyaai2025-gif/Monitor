@@ -99,22 +99,21 @@ public static class WebsiteTargetValidator
 
 public static class WebsiteDestinationPolicy
 {
-    public static bool IsBlockedByDefault(IPAddress address)
+    public static bool IsAlwaysBlocked(IPAddress address)
     {
         ArgumentNullException.ThrowIfNull(address);
+        address = Normalize(address);
         if (IPAddress.IsLoopback(address)) return true;
 
         if (address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
         {
             var bytes = address.GetAddressBytes();
-            if (bytes.SequenceEqual(new byte[] { 0, 0, 0, 0 })) return true;
-            if (bytes[0] == 10) return true;
+            if (bytes[0] == 0) return true; // unspecified/current-network space
             if (bytes[0] == 127) return true;
-            if (bytes[0] == 169 && bytes[1] == 254) return true;
-            if (bytes[0] == 172 && bytes[1] is >= 16 and <= 31) return true;
-            if (bytes[0] == 192 && bytes[1] == 168) return true;
-            if (bytes[0] is >= 224 and <= 239) return true;
-            if (bytes[0] >= 240) return true;
+            if (bytes[0] == 169 && bytes[1] == 254) return true; // link local / common metadata path
+            if (bytes[0] is >= 224 and <= 239) return true; // multicast
+            if (bytes[0] >= 240) return true; // reserved/broadcast space
+            if (bytes.SequenceEqual(new byte[] { 100, 100, 100, 200 })) return true; // known metadata endpoint family
             return false;
         }
 
@@ -124,19 +123,46 @@ public static class WebsiteDestinationPolicy
             var bytes = address.GetAddressBytes();
             if (bytes[0] == 0xff) return true; // multicast
             if (bytes[0] == 0xfe && (bytes[1] & 0xc0) == 0x80) return true; // link local fe80::/10
-            if ((bytes[0] & 0xfe) == 0xfc) return true; // unique local fc00::/7
             return false;
         }
 
         return true;
     }
 
+    public static bool IsPrivateOrInternal(IPAddress address)
+    {
+        ArgumentNullException.ThrowIfNull(address);
+        address = Normalize(address);
+        if (address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+        {
+            var bytes = address.GetAddressBytes();
+            if (bytes[0] == 10) return true;
+            if (bytes[0] == 172 && bytes[1] is >= 16 and <= 31) return true;
+            if (bytes[0] == 192 && bytes[1] == 168) return true;
+            if (bytes[0] == 100 && bytes[1] is >= 64 and <= 127) return true; // shared address space 100.64/10
+            if (bytes[0] == 198 && bytes[1] is 18 or 19) return true; // benchmark/internal 198.18/15
+            return false;
+        }
+
+        if (address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6)
+        {
+            var bytes = address.GetAddressBytes();
+            return (bytes[0] & 0xfe) == 0xfc; // unique local fc00::/7
+        }
+
+        return true;
+    }
+
+    public static bool IsBlockedByDefault(IPAddress address) => IsAlwaysBlocked(address) || IsPrivateOrInternal(address);
+
     public static bool AllAddressesAllowedByDefault(IEnumerable<IPAddress> addresses)
     {
         ArgumentNullException.ThrowIfNull(addresses);
-        var materialized = addresses.ToArray();
+        var materialized = addresses.Select(Normalize).ToArray();
         return materialized.Length > 0 && materialized.All(address => !IsBlockedByDefault(address));
     }
+
+    private static IPAddress Normalize(IPAddress address) => address.IsIPv4MappedToIPv6 ? address.MapToIPv4() : address;
 }
 
 public sealed record WebsiteProbeEvidence(
