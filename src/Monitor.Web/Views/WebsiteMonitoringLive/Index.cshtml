@@ -1,0 +1,182 @@
+@using Monitor.Web.Controllers
+@using Monitor.Web.Models
+@using Monitor.Web.Services
+@model WebsiteMonitoringLivePageViewModel
+@{
+    ViewData["Title"] = "Website Monitoring Live";
+    var now = Model.RenderedAtUtc;
+    int Rank(WebsiteMonitoringTargetRow row) => (row.Latest?.State ?? WebsiteProbeState.Unknown) switch
+    {
+        WebsiteProbeState.Down => 0,
+        WebsiteProbeState.Degraded => 1,
+        WebsiteProbeState.Unknown => 2,
+        _ => 3
+    };
+    string StateClass(WebsiteProbeState state) => state switch
+    {
+        WebsiteProbeState.Up => "up",
+        WebsiteProbeState.Degraded => "degraded",
+        WebsiteProbeState.Down => "down",
+        _ => "unknown"
+    };
+    string Age(WebsiteProbeHistoryPoint? point)
+    {
+        if (point is null) return "no check";
+        var age = now - point.CompletedAtUtc;
+        if (age < TimeSpan.Zero) age = TimeSpan.Zero;
+        if (age.TotalSeconds < 60) return $"{Math.Max(0, (int)age.TotalSeconds)}s ago";
+        if (age.TotalMinutes < 60) return $"{(int)age.TotalMinutes}m ago";
+        return $"{(int)age.TotalHours}h ago";
+    }
+
+    var ordered = Model.Targets.OrderBy(Rank).ThenBy(row => row.Target.Name, StringComparer.OrdinalIgnoreCase).ToArray();
+    var topology = ordered.Take(8).ToArray();
+    var hiddenTopologyCount = Math.Max(0, ordered.Length - topology.Length);
+    var up = ordered.Count(row => row.Latest?.State == WebsiteProbeState.Up);
+    var degraded = ordered.Count(row => row.Latest?.State == WebsiteProbeState.Degraded);
+    var down = ordered.Count(row => row.Latest?.State == WebsiteProbeState.Down);
+    var unknown = ordered.Length - up - degraded - down;
+    var knownChecks = ordered.Sum(row => row.KnownChecks24Hours);
+    var weightedAvailable = ordered
+        .Where(row => row.Availability24Hours.HasValue && row.KnownChecks24Hours > 0)
+        .Sum(row => row.Availability24Hours!.Value * row.KnownChecks24Hours / 100d);
+    double? fleetAvailability = knownChecks == 0 ? null : Math.Round(weightedAvailable * 100d / knownChecks, 2);
+    var latestLatencies = ordered
+        .Where(row => row.Latest?.State is WebsiteProbeState.Up or WebsiteProbeState.Degraded)
+        .Select(row => row.Latest!.ElapsedMilliseconds)
+        .Where(value => value.HasValue)
+        .Select(value => value!.Value)
+        .ToArray();
+    long? averageLatency = latestLatencies.Length == 0 ? null : (long)Math.Round(latestLatencies.Average());
+    var tlsExpiring = ordered.Count(row => row.Latest?.CertificateNotAfterUtc is DateTimeOffset expiry && expiry <= now.AddDays(30));
+    var attention = ordered.FirstOrDefault(row => row.Latest?.State is WebsiteProbeState.Down or WebsiteProbeState.Degraded);
+}
+
+<link rel="stylesheet" href="~/css/website-monitoring.css" asp-append-version="true" />
+
+<div class="website-live-page" data-website-live>
+    <partial name="_PortalPageHeader" model="@(new PortalPageHeaderViewModel("Website Monitoring", "Live cached evidence for website availability, response time, TLS health and active incidents. The dashboard never starts a probe; scheduled checks remain owned by the Website Monitoring worker.", "APPLICATION AVAILABILITY", "Manage websites", Url.Action("Index", "WebsiteMonitoring")))" />
+
+    <div class="website-live-statusbar" role="status" aria-live="polite">
+        <span class="website-live-pill @(Model.MonitoringEnabled ? "is-live" : "is-off")"><i></i>@(Model.MonitoringEnabled ? "Monitoring active" : "Monitoring disabled")</span>
+        <span>Cached evidence · auto refresh 15s</span>
+        <span>@Model.Targets.Count target(s)</span>
+        @if (hiddenTopologyCount > 0) { <span>Topology shows highest-priority 8 · +@hiddenTopologyCount more below</span> }
+    </div>
+
+    <section class="website-command-grid" aria-label="Website estate live overview">
+        <article class="glass-panel website-map-panel">
+            <div class="panel-heading website-panel-heading">
+                <div><span class="eyebrow">WEBSITE ESTATE</span><h3>Live application map</h3></div>
+                <div class="website-legend" aria-label="State legend"><span class="up">● Up</span><span class="degraded">● Degraded</span><span class="down">● Down</span><span class="unknown">● Unknown</span></div>
+            </div>
+
+            <div class="website-radar" aria-label="Website monitoring topology">
+                <div class="website-radar-grid" aria-hidden="true"></div>
+                <div class="website-radar-sweep" aria-hidden="true"></div>
+                <div class="website-core">
+                    <div class="website-core-rings" aria-hidden="true"></div>
+                    <strong>WEB MONITOR</strong>
+                    <small>CACHED LIVE VIEW</small>
+                    <em><i></i>@up/@Model.Targets.Count up</em>
+                </div>
+
+                <div class="website-node-field">
+                    @foreach (var row in topology)
+                    {
+                        var state = row.Latest?.State ?? WebsiteProbeState.Unknown;
+                        <article class="website-node state-@StateClass(state)" title="@row.Target.Url">
+                            <span class="website-node-beacon" aria-hidden="true"></span>
+                            <span class="website-node-copy">
+                                <strong>@row.Target.Name</strong>
+                                <small>@(row.Latest?.RuleId ?? "No evidence yet")</small>
+                            </span>
+                            <span class="website-node-meta">
+                                <strong>@(row.Latest?.HttpStatusCode?.ToString() ?? "—")</strong>
+                                <small>@(row.Latest?.ElapsedMilliseconds is long ms ? $"{ms} ms" : Age(row.Latest))</small>
+                            </span>
+                        </article>
+                    }
+                </div>
+                <div class="website-radar-caption"><span>VISUALIZATION</span>latest retained probe evidence · no browser-triggered monitoring</div>
+            </div>
+        </article>
+
+        <aside class="glass-panel website-attention-panel state-@(attention?.Latest?.State == WebsiteProbeState.Down ? "down" : attention?.Latest?.State == WebsiteProbeState.Degraded ? "degraded" : "up")">
+            @if (attention is null)
+            {
+                <div class="website-attention-head"><div><span class="eyebrow">ATTENTION</span><h3>No active website issue</h3></div><span class="website-priority-badge healthy">HEALTHY</span></div>
+                <div class="website-attention-empty"><strong>@up</strong><span>target(s) currently UP</span><small>@unknown unknown target(s) remain outside outage counts until real evidence exists.</small></div>
+            }
+            else
+            {
+                var state = attention.Latest?.State ?? WebsiteProbeState.Unknown;
+                <div class="website-attention-head"><div><span class="eyebrow">NEEDS ATTENTION</span><h3>@attention.Target.Name</h3></div><span class="website-priority-badge @StateClass(state)">@state</span></div>
+                <div class="website-attention-rule">@(attention.Latest?.RuleId ?? "unknown")</div>
+                <h2>@(attention.Latest?.ProbableLayer ?? "Evidence requires review")</h2>
+                <div class="website-attention-meta">
+                    <div><small>HTTP</small><strong>@(attention.Latest?.HttpStatusCode?.ToString() ?? "—")</strong></div>
+                    <div><small>RESPONSE</small><strong>@(attention.Latest?.ElapsedMilliseconds is long ms ? $"{ms} ms" : "—")</strong></div>
+                    <div><small>LAST CHECK</small><strong>@Age(attention.Latest)</strong></div>
+                </div>
+                @if (attention.ActiveIncident is not null)
+                {
+                    <a class="website-attention-action" asp-controller="Operations" asp-action="IncidentDetails" asp-route-id="@attention.ActiveIncident.Id"><span>Open incident</span><strong>→</strong></a>
+                }
+                else
+                {
+                    <div class="website-attention-footnote">Failure confirmation may still be accumulating. No incident is invented before its configured threshold.</div>
+                }
+            }
+        </aside>
+    </section>
+
+    <section aria-labelledby="website-health-now">
+        <div class="command-section-heading"><div><span class="eyebrow">ESTATE HEALTH</span><h2 id="website-health-now">What matters now?</h2></div><span class="snapshot-note">@down down · @degraded degraded · @unknown unknown</span></div>
+        <div class="website-metric-grid">
+            <article class="website-metric-card"><small>TOTAL WEBSITES</small><strong>@Model.Targets.Count</strong><span>@up up now</span></article>
+            <article class="website-metric-card"><small>24H AVAILABILITY</small><strong>@(fleetAvailability is double value ? $"{value:0.00}%" : "—")</strong><span>@knownChecks known checks</span></article>
+            <article class="website-metric-card"><small>AVG RESPONSE</small><strong>@(averageLatency is long ms ? $"{ms} ms" : "—")</strong><span>latest UP/DEGRADED checks</span></article>
+            <article class="website-metric-card @(tlsExpiring > 0 ? "warning" : string.Empty)"><small>TLS EXPIRING ≤30D</small><strong>@tlsExpiring</strong><span>certificate lifecycle</span></article>
+        </div>
+    </section>
+
+    <section class="glass-panel website-fleet-panel" aria-labelledby="website-fleet-title">
+        <div class="panel-heading">
+            <div><span class="eyebrow">ALL TARGETS</span><h3 id="website-fleet-title">Website fleet</h3></div>
+            <span class="snapshot-note">Issues first · compact evidence</span>
+        </div>
+        @if (ordered.Length == 0)
+        {
+            <div class="website-empty-state"><strong>No website targets yet</strong><span>Add the first target from Manage websites.</span></div>
+        }
+        else
+        {
+            <div class="table-scroll">
+                <table class="data-table website-fleet-table">
+                    <thead><tr><th>Website</th><th>State</th><th>HTTP</th><th>Response</th><th>24h</th><th>TLS</th><th>Last check</th></tr></thead>
+                    <tbody>
+                    @foreach (var row in ordered)
+                    {
+                        var state = row.Latest?.State ?? WebsiteProbeState.Unknown;
+                        var certificateDays = row.Latest?.CertificateNotAfterUtc is DateTimeOffset expiry ? (int)Math.Floor((expiry - now).TotalDays) : (int?)null;
+                        <tr class="website-row state-@StateClass(state)">
+                            <td><strong>@row.Target.Name</strong><small>@row.Target.Environment · @(row.Target.IsEnabled ? "enabled" : "paused")</small></td>
+                            <td><span class="website-state-chip @StateClass(state)">@state</span><small>@(row.Latest?.RuleId ?? "No evidence")</small></td>
+                            <td>@(row.Latest?.HttpStatusCode?.ToString() ?? "—")</td>
+                            <td>@(row.Latest?.ElapsedMilliseconds is long ms ? $"{ms} ms" : "—")</td>
+                            <td>@(row.Availability24Hours is double availability ? $"{availability:0.00}%" : "—")</td>
+                            <td class="@(certificateDays is <= 30 ? "website-warning-text" : string.Empty)">@(certificateDays is int days ? $"{days} d" : "—")</td>
+                            <td>@Age(row.Latest)</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+</div>
+
+@section Scripts {
+    <script src="~/js/website-monitoring-live.js" asp-append-version="true"></script>
+}
