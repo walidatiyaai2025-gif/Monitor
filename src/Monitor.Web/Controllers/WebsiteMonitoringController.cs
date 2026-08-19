@@ -239,7 +239,7 @@ public sealed class WebsiteMonitoringController(
         var latest = points.LastOrDefault();
         var known = points.Where(point => point.State != WebsiteProbeState.Unknown).ToArray();
         var available = known.Count(point => point.State is WebsiteProbeState.Up or WebsiteProbeState.Degraded);
-        var availability = known.Length == 0 ? null : Math.Round(available * 100d / known.Length, 2);
+        double? availability = known.Length == 0 ? null : Math.Round(available * 100d / known.Length, 2);
         var active = targetIncidents.OrderByDescending(item => item.Severity).ThenByDescending(item => item.LastSeenUtc).FirstOrDefault();
         return new WebsiteMonitoringTargetRow(target, latest, active, availability, known.Length, points.Count - known.Length);
     }
