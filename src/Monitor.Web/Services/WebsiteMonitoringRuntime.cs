@@ -98,6 +98,7 @@ public sealed class WebsiteMonitoringWorker(
     IWebsiteProbeEngine probe,
     IWebsiteProbeHistoryStore history,
     IWebsiteIncidentCoordinator incidentCoordinator,
+    IWebsiteNotificationPlanner notificationPlanner,
     TimeProvider timeProvider,
     ILogger<WebsiteMonitoringWorker> logger) : BackgroundService
 {
@@ -146,7 +147,8 @@ public sealed class WebsiteMonitoringWorker(
             var result = await probe.ProbeAsync(target, cancellationToken);
             completedAt = result.CompletedAtUtc;
             history.Append(result);
-            incidentCoordinator.Observe(target, result);
+            var observation = incidentCoordinator.Observe(target, result);
+            _ = notificationPlanner.Queue(target, result, observation);
             logger.LogDebug("Website probe {TargetId} completed with {RuleId}/{State} in {ElapsedMs} ms.",
                 target.Id, result.Classification.RuleId, result.Classification.State, result.Evidence.ElapsedMilliseconds);
         }
