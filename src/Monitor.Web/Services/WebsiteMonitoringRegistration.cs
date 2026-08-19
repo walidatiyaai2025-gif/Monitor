@@ -6,6 +6,18 @@ public static class WebsiteMonitoringRegistration
         this IServiceCollection services,
         IConfiguration configuration,
         DeploymentTopologyOptions deploymentTopology,
+        bool useSharedOperationalState,
+        string? operationalRoot)
+    {
+        var coordination = configuration.GetSection(DistributedCoordinationOptions.SectionName).Get<DistributedCoordinationOptions>() ?? new();
+        coordination.Validate();
+        AddWebsiteMonitoringSubsystem(services, configuration, deploymentTopology, coordination, useSharedOperationalState, operationalRoot);
+    }
+
+    internal static void AddWebsiteMonitoringSubsystem(
+        this IServiceCollection services,
+        IConfiguration configuration,
+        DeploymentTopologyOptions deploymentTopology,
         DistributedCoordinationOptions coordination,
         bool useSharedOperationalState,
         string? operationalRoot)
