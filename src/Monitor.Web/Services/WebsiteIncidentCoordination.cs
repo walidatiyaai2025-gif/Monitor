@@ -106,16 +106,30 @@ public sealed class FileWebsiteCheckStateStore : IWebsiteCheckStateStore
     private sealed record StateEnvelope(int Version, WebsiteCheckState[]? States);
 }
 
+public enum WebsiteIncidentTransition
+{
+    None,
+    Opened,
+    Updated,
+    Reopened,
+    Recovered
+}
+
+public sealed record WebsiteIncidentObservation(WebsiteIncidentTransition Transition, HealthIncident? Incident)
+{
+    public static WebsiteIncidentObservation None { get; } = new(WebsiteIncidentTransition.None, null);
+}
+
 public interface IWebsiteIncidentCoordinator
 {
-    void Observe(WebsiteTargetDefinition target, WebsiteProbeResult result);
+    WebsiteIncidentObservation Observe(WebsiteTargetDefinition target, WebsiteProbeResult result);
 }
 
 public sealed class WebsiteIncidentCoordinator(
     IWebsiteCheckStateStore stateStore,
     IHealthIncidentRepository incidents) : IWebsiteIncidentCoordinator
 {
-    public void Observe(WebsiteTargetDefinition target, WebsiteProbeResult result)
+    public WebsiteIncidentObservation Observe(WebsiteTargetDefinition target, WebsiteProbeResult result)
     {
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(result);
@@ -124,27 +138,15 @@ public sealed class WebsiteIncidentCoordinator(
         var previous = stateStore.Get(target.Id) ?? new WebsiteCheckState(
             target.Id, WebsiteProbeState.Unknown, null, 0, 0, result.CompletedAtUtc, null, null);
 
-        switch (result.Classification.State)
+        return result.Classification.State switch
         {
-            case WebsiteProbeState.Down:
-            case WebsiteProbeState.Degraded:
-                ObserveFailure(target, result, previous);
-                break;
-            case WebsiteProbeState.Up:
-                ObserveSuccess(target, result, previous);
-                break;
-            default:
-                stateStore.Upsert(previous with
-                {
-                    LastState = WebsiteProbeState.Unknown,
-                    LastObservedAtUtc = result.CompletedAtUtc
-                });
-                incidents.Reconcile(target.Id, result.CompletedAtUtc, Array.Empty<HealthFinding>(), canResolve: false);
-                break;
-        }
+            WebsiteProbeState.Down or WebsiteProbeState.Degraded => ObserveFailure(target, result, previous),
+            WebsiteProbeState.Up => ObserveSuccess(target, result, previous),
+            _ => ObserveUnknown(target, result, previous)
+        };
     }
 
-    private void ObserveFailure(WebsiteTargetDefinition target, WebsiteProbeResult result, WebsiteCheckState previous)
+    private WebsiteIncidentObservation ObserveFailure(WebsiteTargetDefinition target, WebsiteProbeResult result, WebsiteCheckState previous)
     {
         var sameRule = string.Equals(previous.ActiveRuleId, result.Classification.RuleId, StringComparison.Ordinal);
         var continuesSameFailure = (previous.LastState is WebsiteProbeState.Down or WebsiteProbeState.Degraded) && sameRule;
@@ -166,9 +168,11 @@ public sealed class WebsiteIncidentCoordinator(
         if (!confirmed)
         {
             incidents.Reconcile(target.Id, result.CompletedAtUtc, Array.Empty<HealthFinding>(), canResolve: false);
-            return;
+            return WebsiteIncidentObservation.None;
         }
 
+        var incidentId = $"{target.Id:N}:{result.Classification.RuleId}";
+        var before = incidents.GetById(incidentId);
         var finding = new HealthFinding(
             target.Id,
             result.Classification.RuleId,
@@ -177,14 +181,27 @@ public sealed class WebsiteIncidentCoordinator(
             Evidence(result),
             result.CompletedAtUtc);
         incidents.Reconcile(target.Id, result.CompletedAtUtc, [finding], canResolve: true);
+        var after = incidents.GetById(incidentId);
+        if (after is null) return WebsiteIncidentObservation.None;
+
+        var transition = before switch
+        {
+            null => WebsiteIncidentTransition.Opened,
+            { Status: IncidentStatus.Resolved } when after.Status != IncidentStatus.Resolved => WebsiteIncidentTransition.Reopened,
+            _ => WebsiteIncidentTransition.Updated
+        };
+        return new WebsiteIncidentObservation(transition, after);
     }
 
-    private void ObserveSuccess(WebsiteTargetDefinition target, WebsiteProbeResult result, WebsiteCheckState previous)
+    private WebsiteIncidentObservation ObserveSuccess(WebsiteTargetDefinition target, WebsiteProbeResult result, WebsiteCheckState previous)
     {
         var successes = previous.LastState == WebsiteProbeState.Up
             ? Math.Min(10, previous.ConsecutiveSuccesses + 1)
             : 1;
         var recovered = successes >= target.RecoveryConfirmationCount;
+        var previousIncident = string.IsNullOrWhiteSpace(previous.ActiveRuleId)
+            ? null
+            : incidents.GetById($"{target.Id:N}:{previous.ActiveRuleId}");
 
         stateStore.Upsert(previous with
         {
@@ -197,6 +214,24 @@ public sealed class WebsiteIncidentCoordinator(
         });
 
         incidents.Reconcile(target.Id, result.CompletedAtUtc, Array.Empty<HealthFinding>(), canResolve: recovered);
+        if (!recovered || previousIncident is null || previousIncident.Status == IncidentStatus.Resolved)
+            return WebsiteIncidentObservation.None;
+
+        var resolved = incidents.GetById(previousIncident.Id);
+        return resolved is { Status: IncidentStatus.Resolved }
+            ? new WebsiteIncidentObservation(WebsiteIncidentTransition.Recovered, resolved)
+            : WebsiteIncidentObservation.None;
+    }
+
+    private WebsiteIncidentObservation ObserveUnknown(WebsiteTargetDefinition target, WebsiteProbeResult result, WebsiteCheckState previous)
+    {
+        stateStore.Upsert(previous with
+        {
+            LastState = WebsiteProbeState.Unknown,
+            LastObservedAtUtc = result.CompletedAtUtc
+        });
+        incidents.Reconcile(target.Id, result.CompletedAtUtc, Array.Empty<HealthFinding>(), canResolve: false);
+        return WebsiteIncidentObservation.None;
     }
 
     private static FindingSeverity Severity(WebsiteTargetDefinition target, WebsiteProbeState state)
