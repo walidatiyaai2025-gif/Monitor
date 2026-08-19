@@ -43,7 +43,14 @@ public sealed class B800WriteSurfaceSecurityAcceptanceTests
             [Key(typeof(OperationsController), nameof(OperationsController.AcknowledgeIncident))] = MonitorPolicies.Operate,
             [Key(typeof(OperationsController), nameof(OperationsController.ResolveIncident))] = MonitorPolicies.Operate,
             [Key(typeof(OperationsController), nameof(OperationsController.ReopenIncident))] = MonitorPolicies.Operate,
-            [Key(typeof(OperationsController), nameof(OperationsController.RequestAdvisor))] = MonitorPolicies.Advisor
+            [Key(typeof(OperationsController), nameof(OperationsController.RequestAdvisor))] = MonitorPolicies.Advisor,
+
+            [Key(typeof(WebsiteMonitoringController), nameof(WebsiteMonitoringController.SaveTarget))] = MonitorPolicies.Manage,
+            [Key(typeof(WebsiteMonitoringController), nameof(WebsiteMonitoringController.Toggle))] = MonitorPolicies.Manage,
+            [Key(typeof(WebsiteMonitoringController), nameof(WebsiteMonitoringController.Delete))] = MonitorPolicies.Manage,
+            [Key(typeof(WebsiteMonitoringController), nameof(WebsiteMonitoringController.CheckNow))] = MonitorPolicies.Operate,
+            [Key(typeof(WebsiteMonitoringController), nameof(WebsiteMonitoringController.SaveGroup))] = MonitorPolicies.Manage,
+            [Key(typeof(WebsiteMonitoringController), nameof(WebsiteMonitoringController.DeleteGroup))] = MonitorPolicies.Manage
         };
 
     [Fact]
@@ -147,13 +154,16 @@ public sealed class B800WriteSurfaceSecurityAcceptanceTests
         var enterprise = Read("src/Monitor.Web/Controllers/EnterpriseOperationsController.cs");
         var collaboration = Read("src/Monitor.Web/Controllers/IncidentCollaborationController.cs");
         var operations = Read("src/Monitor.Web/Controllers/OperationsController.cs");
+        var websites = Read("src/Monitor.Web/Controllers/WebsiteMonitoringController.cs");
 
         Assert.DoesNotContain("? \"unknown\"", enterprise, StringComparison.Ordinal);
         Assert.DoesNotContain("? \"unknown\"", collaboration, StringComparison.Ordinal);
         Assert.DoesNotContain("?? \"unknown\"", operations, StringComparison.Ordinal);
+        Assert.DoesNotContain("?? \"unknown\"", websites, StringComparison.Ordinal);
         Assert.Contains("if (!TryActor(out var actor)) return Forbid();", enterprise, StringComparison.Ordinal);
         Assert.Contains("if (!TryActor(out var actor)) return Forbid();", collaboration, StringComparison.Ordinal);
         Assert.Contains("if (!TryActor(out var actor)) return Forbid();", operations, StringComparison.Ordinal);
+        Assert.Contains("if (actor is null) return Forbid();", websites, StringComparison.Ordinal);
 
         var profile = Slice(enterprise, "public IActionResult UpdateServerProfile", "[HttpPost(\"/alerts/{id}/owner\")]");
         var actorIndex = profile.IndexOf("TryActor(out var actor)", StringComparison.Ordinal);
@@ -181,6 +191,12 @@ public sealed class B800WriteSurfaceSecurityAcceptanceTests
         actorIndex = advisor.IndexOf("TryActor(out var actor)", StringComparison.Ordinal);
         mutationIndex = advisor.IndexOf("_advisorRequests.RequestAsync(id, actor", StringComparison.Ordinal);
         Assert.True(actorIndex >= 0 && mutationIndex > actorIndex, "Advisor requests must be attributable before service execution.");
+
+        var websiteCheck = Slice(websites, "public async Task<IActionResult> CheckNow", "[Authorize(Policy = MonitorPolicies.Manage)]\n    [ValidateAntiForgeryToken]\n    [HttpPost(\"/websites/groups/save\")]");
+        actorIndex = websiteCheck.IndexOf("var actor = Actor()", StringComparison.Ordinal);
+        auditIndex = websiteCheck.IndexOf("audit.Append(actor, \"website.probe.manual.requested\"", StringComparison.Ordinal);
+        mutationIndex = websiteCheck.IndexOf("probe.ProbeAsync", StringComparison.Ordinal);
+        Assert.True(actorIndex >= 0 && auditIndex > actorIndex && mutationIndex > auditIndex, "Manual website probe must validate actor and append requested audit evidence before outbound collection starts.");
     }
 
     private static IReadOnlyList<PostAction> DiscoverPostActions() =>
