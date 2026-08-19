@@ -147,16 +147,16 @@ public sealed class WebsiteIncidentCoordinator(
     private void ObserveFailure(WebsiteTargetDefinition target, WebsiteProbeResult result, WebsiteCheckState previous)
     {
         var sameRule = string.Equals(previous.ActiveRuleId, result.Classification.RuleId, StringComparison.Ordinal);
-        var failures = previous.LastState is WebsiteProbeState.Down or WebsiteProbeState.Degraded && sameRule
+        var continuesSameFailure = (previous.LastState is WebsiteProbeState.Down or WebsiteProbeState.Degraded) && sameRule;
+        var failures = continuesSameFailure
             ? Math.Min(10, previous.ConsecutiveFailures + 1)
             : 1;
         var confirmed = failures >= target.FailureConfirmationCount;
-        var activeRule = confirmed ? result.Classification.RuleId : previous.ActiveRuleId;
 
         stateStore.Upsert(previous with
         {
             LastState = result.Classification.State,
-            ActiveRuleId = activeRule,
+            ActiveRuleId = result.Classification.RuleId,
             ConsecutiveFailures = failures,
             ConsecutiveSuccesses = 0,
             LastObservedAtUtc = result.CompletedAtUtc,
@@ -216,6 +216,8 @@ public sealed class WebsiteIncidentCoordinator(
         "tls.expiring" => $"Website certificate expiring: {targetName}",
         "http.4xx" => $"Website HTTP 4xx: {targetName}",
         "http.5xx" => $"Website HTTP 5xx: {targetName}",
+        "http.unexpected-status" => $"Website HTTP contract failed: {targetName}",
+        "redirect.unexpected" => $"Website redirect contract failed: {targetName}",
         "content.mismatch" => $"Website content contract failed: {targetName}",
         "performance.slow" => $"Website response is slow: {targetName}",
         _ => $"Website check failed: {targetName}"
