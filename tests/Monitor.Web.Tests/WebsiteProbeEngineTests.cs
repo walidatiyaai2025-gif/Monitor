@@ -73,7 +73,7 @@ public sealed class WebsiteProbeEngineTests
     public async Task Destination_policy_rejection_is_unknown_not_false_site_down()
     {
         var client = new QueueHopClient([
-            Hop("https://example.com/", null, destinationAllowed: false, dnsResolved: true,
+            Hop("https://example.com/health", null, destinationAllowed: false, dnsResolved: true,
                 failureReason: "Resolved destination is blocked by Website Monitoring outbound policy.")
         ]);
         var engine = new WebsiteProbeEngine(client, TimeProvider.System);
