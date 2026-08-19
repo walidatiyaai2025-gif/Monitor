@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using Monitor.Web.Models;
 
@@ -56,6 +57,52 @@ public static class OperationalStorePath
         }
 
         return root;
+    }
+}
+
+internal static class CrossProcessFileLease
+{
+    private static readonly TimeSpan AcquisitionTimeout = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan RetryDelay = TimeSpan.FromMilliseconds(25);
+
+    public static FileStream Acquire(string leasePath, string stateDescription)
+    {
+        if (string.IsNullOrWhiteSpace(leasePath))
+            throw new ArgumentException("Cross-process file lease path is required.", nameof(leasePath));
+        if (string.IsNullOrWhiteSpace(stateDescription))
+            throw new ArgumentException("Cross-process file lease description is required.", nameof(stateDescription));
+
+        var fullPath = Path.GetFullPath(leasePath);
+        var directory = Path.GetDirectoryName(fullPath)
+            ?? throw new InvalidOperationException("Cross-process file lease directory could not be resolved.");
+        Directory.CreateDirectory(directory);
+
+        var started = Stopwatch.GetTimestamp();
+        IOException? contention = null;
+        while (true)
+        {
+            try
+            {
+                return new FileStream(
+                    fullPath,
+                    FileMode.OpenOrCreate,
+                    FileAccess.ReadWrite,
+                    FileShare.None,
+                    bufferSize: 1,
+                    FileOptions.None);
+            }
+            catch (IOException exception)
+            {
+                contention = exception;
+                if (Stopwatch.GetElapsedTime(started) >= AcquisitionTimeout)
+                    break;
+                Thread.Sleep(RetryDelay);
+            }
+        }
+
+        throw new IOException(
+            $"{stateDescription} cross-process lease could not be acquired within the bounded timeout; refusing uncoordinated file-state access.",
+            contention);
     }
 }
 
@@ -163,13 +210,16 @@ public sealed class FileAuditStore : IAuditStore
     private const int MaxEvents = 1000;
     private readonly object _gate = new();
     private readonly string _path;
+    private readonly string _leasePath;
     private readonly TimeProvider _timeProvider;
     private List<AuditEvent> _events;
 
     public FileAuditStore(string path, TimeProvider timeProvider)
     {
         _path = Path.GetFullPath(path);
+        _leasePath = $"{_path}.lock";
         _timeProvider = timeProvider;
+        using var lease = AcquireLease();
         _events = Load(_path);
     }
 
@@ -179,7 +229,9 @@ public sealed class FileAuditStore : IAuditStore
 
         lock (_gate)
         {
-            var candidate = new List<AuditEvent>(_events)
+            using var lease = AcquireLease();
+            var current = Load(_path);
+            var candidate = new List<AuditEvent>(current)
             {
                 new(Guid.NewGuid(), _timeProvider.GetUtcNow(), Bound(actor, 100), Bound(action, 80), Bound(target, 160), Bound(outcome, 40))
             };
@@ -197,6 +249,8 @@ public sealed class FileAuditStore : IAuditStore
     {
         lock (_gate)
         {
+            using var lease = AcquireLease();
+            _events = Load(_path);
             return _events
                 .OrderByDescending(item => item.OccurredAtUtc)
                 .Skip(Math.Max(0, offset))
@@ -204,6 +258,9 @@ public sealed class FileAuditStore : IAuditStore
                 .ToArray();
         }
     }
+
+    private FileStream AcquireLease() =>
+        CrossProcessFileLease.Acquire(_leasePath, "Audit store");
 
     private void Persist(IReadOnlyList<AuditEvent> events) =>
         AtomicJsonFile.Save(_path, new AuditEnvelope(CurrentFormatVersion, events.ToArray()));
@@ -243,13 +300,16 @@ public sealed class FileSnapshotHistoryStore : ISnapshotHistoryStore
     private static readonly TimeSpan Retention = TimeSpan.FromHours(24);
     private readonly object _gate = new();
     private readonly string _path;
+    private readonly string _leasePath;
     private readonly TimeProvider _timeProvider;
     private List<SnapshotHistoryPoint> _points;
 
     public FileSnapshotHistoryStore(string path, TimeProvider timeProvider)
     {
         _path = Path.GetFullPath(path);
+        _leasePath = $"{_path}.lock";
         _timeProvider = timeProvider;
+        using var lease = AcquireLease();
         _points = Load(_path);
     }
 
@@ -268,8 +328,10 @@ public sealed class FileSnapshotHistoryStore : ISnapshotHistoryStore
 
         lock (_gate)
         {
+            using var lease = AcquireLease();
+            var current = Load(_path);
             var cutoff = _timeProvider.GetUtcNow() - Retention;
-            var candidate = _points.Where(item => item.CollectedAtUtc >= cutoff).ToList();
+            var candidate = current.Where(item => item.CollectedAtUtc >= cutoff).ToList();
             if (!candidate.Any(item => item.RegistrationId == point.RegistrationId && item.CollectedAtUtc == point.CollectedAtUtc))
             {
                 candidate.Add(point);
@@ -291,6 +353,8 @@ public sealed class FileSnapshotHistoryStore : ISnapshotHistoryStore
     {
         lock (_gate)
         {
+            using var lease = AcquireLease();
+            _points = Load(_path);
             var cutoff = _timeProvider.GetUtcNow() - window;
             return _points
                 .Where(item => item.RegistrationId == registrationId && item.CollectedAtUtc >= cutoff)
@@ -298,6 +362,9 @@ public sealed class FileSnapshotHistoryStore : ISnapshotHistoryStore
                 .ToArray();
         }
     }
+
+    private FileStream AcquireLease() =>
+        CrossProcessFileLease.Acquire(_leasePath, "Snapshot history store");
 
     private void Persist(IReadOnlyList<SnapshotHistoryPoint> points) =>
         AtomicJsonFile.Save(_path, new HistoryEnvelope(CurrentFormatVersion, points.ToArray()));
@@ -348,11 +415,14 @@ public sealed partial class FileHealthIncidentRepository : IHealthIncidentReposi
     private const int MaxEvidenceLength = 500;
     private readonly object _gate = new();
     private readonly string _path;
+    private readonly string _leasePath;
     private Dictionary<string, HealthIncident> _items;
 
     public FileHealthIncidentRepository(string path)
     {
         _path = Path.GetFullPath(path);
+        _leasePath = $"{_path}.lock";
+        using var lease = AcquireLease();
         _items = Load(_path);
     }
 
@@ -361,7 +431,8 @@ public sealed partial class FileHealthIncidentRepository : IHealthIncidentReposi
         var materialized = findings.ToArray();
         lock (_gate)
         {
-            var candidate = new Dictionary<string, HealthIncident>(_items, StringComparer.Ordinal);
+            using var lease = AcquireLease();
+            var candidate = new Dictionary<string, HealthIncident>(Load(_path), StringComparer.Ordinal);
             ApplyTo(candidate, materialized);
             Commit(candidate);
         }
@@ -376,7 +447,8 @@ public sealed partial class FileHealthIncidentRepository : IHealthIncidentReposi
         var active = activeFindings.ToArray();
         lock (_gate)
         {
-            var candidate = new Dictionary<string, HealthIncident>(_items, StringComparer.Ordinal);
+            using var lease = AcquireLease();
+            var candidate = new Dictionary<string, HealthIncident>(Load(_path), StringComparer.Ordinal);
             ApplyTo(candidate, active);
             if (canResolve)
             {
@@ -400,6 +472,8 @@ public sealed partial class FileHealthIncidentRepository : IHealthIncidentReposi
     {
         lock (_gate)
         {
+            using var lease = AcquireLease();
+            _items = Load(_path);
             return _items.Values
                 .OrderByDescending(item => item.Severity)
                 .ThenByDescending(item => item.LastSeenUtc)
@@ -411,6 +485,8 @@ public sealed partial class FileHealthIncidentRepository : IHealthIncidentReposi
     {
         lock (_gate)
         {
+            using var lease = AcquireLease();
+            _items = Load(_path);
             return _items.TryGetValue(id, out var value) ? value : null;
         }
     }
@@ -419,6 +495,8 @@ public sealed partial class FileHealthIncidentRepository : IHealthIncidentReposi
     {
         lock (_gate)
         {
+            using var lease = AcquireLease();
+            _items = Load(_path);
             if (!_items.TryGetValue(id, out var current) || current.Status != expected)
             {
                 return false;
@@ -432,6 +510,9 @@ public sealed partial class FileHealthIncidentRepository : IHealthIncidentReposi
             return true;
         }
     }
+
+    private FileStream AcquireLease() =>
+        CrossProcessFileLease.Acquire(_leasePath, "Health incident store");
 
     private void Commit(Dictionary<string, HealthIncident> candidate)
     {

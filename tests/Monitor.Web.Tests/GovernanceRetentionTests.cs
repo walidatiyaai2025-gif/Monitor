@@ -137,6 +137,50 @@ public sealed class GovernanceRetentionTests
         Assert.Empty(new IncidentCollaborationService(f.Metadata, f.Audit, f.Clock).QueryByAssignee([incident], null));
     }
 
+    [Fact]
+    public void StaleIncidentPruneReceipt_DoesNotHideIncidentReactivatedBeforeReceiptCommit()
+    {
+        var f = Fixture();
+        var incident = f.Incidents.AddResolved(f.Clock.UtcNow.AddDays(-40));
+        f.Metadata.AssignIncident(incident.Id, "LegacyOwner");
+        var reactivated = false;
+        f.Audit.BeforeAppend = (_, action, target, outcome) =>
+        {
+            if (reactivated || action != "governance.prune.incident" || target != incident.Id || outcome != "applied") return;
+            f.Incidents.Reactivate(incident.Id, f.Clock.UtcNow);
+            reactivated = true;
+        };
+
+        Assert.Equal(1, f.Service().Apply("admin"));
+        var current = f.Incidents.GetById(incident.Id)!;
+        var row = Assert.Single(new IncidentCollaborationService(f.Metadata, f.Audit, f.Clock).QueryByAssignee([current], null));
+
+        Assert.True(reactivated);
+        Assert.Equal(IncidentStatus.Open, current.Status);
+        Assert.Equal(incident.Id, row.Incident.Id);
+        Assert.False(f.Service().IsIncidentPruned(incident.Id));
+        Assert.Contains(f.Audit.Read(0, 100), item => item.Action == "governance.prune.incident" && item.Target == incident.Id && item.Outcome == "applied");
+    }
+
+    [Fact]
+    public void StaleIncidentPruneReceipt_DoesNotHideNewResolvedStateInsideConfiguredWindow()
+    {
+        var f = Fixture();
+        var options = new GovernanceRetentionOptions { ResolvedIncidentMetadataDays = 60 };
+        var incident = f.Incidents.AddResolved(f.Clock.UtcNow.AddDays(-80));
+        f.Metadata.AssignIncident(incident.Id, "LegacyOwner");
+        Assert.Equal(1, f.Service(options).Apply("admin"));
+
+        f.Incidents.Reactivate(incident.Id, f.Clock.UtcNow.AddDays(-40));
+        f.Incidents.SetStatus(incident.Id, IncidentStatus.Resolved);
+        var current = f.Incidents.GetById(incident.Id)!;
+        var rows = new IncidentCollaborationService(f.Metadata, f.Audit, f.Clock, options).QueryByAssignee([current], null);
+
+        Assert.Equal(IncidentStatus.Resolved, current.Status);
+        Assert.False(f.Service(options).IsIncidentPruned(incident.Id));
+        Assert.Single(rows);
+    }
+
     private static FixtureState Fixture()
     {
         var clock = new MutableTimeProvider(DateTimeOffset.Parse("2026-08-11T00:00:00Z"));
@@ -173,6 +217,23 @@ public sealed class GovernanceRetentionTests
             _items.Add(incident);
             return incident;
         }
+        public HealthIncident Reactivate(string id, DateTimeOffset seen)
+        {
+            var index = _items.FindIndex(item => item.Id == id);
+            if (index < 0) throw new InvalidOperationException("Incident was not found.");
+            var current = _items[index];
+            var updated = current with { LastSeenUtc = seen, Occurrences = current.Occurrences + 1, Status = IncidentStatus.Open };
+            _items[index] = updated;
+            return updated;
+        }
+        public HealthIncident SetStatus(string id, IncidentStatus status)
+        {
+            var index = _items.FindIndex(item => item.Id == id);
+            if (index < 0) throw new InvalidOperationException("Incident was not found.");
+            var updated = _items[index] with { Status = status };
+            _items[index] = updated;
+            return updated;
+        }
         public void Apply(IEnumerable<HealthFinding> findings) => throw new NotSupportedException();
         public void Reconcile(Guid registrationId, DateTimeOffset observedAtUtc, IEnumerable<HealthFinding> activeFindings, bool canResolve) => throw new NotSupportedException();
         public IReadOnlyList<HealthIncident> GetAll() => _items.ToArray();
@@ -183,7 +244,12 @@ public sealed class GovernanceRetentionTests
     private sealed class AuditStore(TimeProvider clock) : IAuditStore
     {
         private readonly List<AuditEvent> _items = [];
-        public void Append(string actor, string action, string target, string outcome) => _items.Add(new(Guid.NewGuid(), clock.GetUtcNow(), actor, action, target, outcome));
+        public Action<string, string, string, string>? BeforeAppend { get; set; }
+        public void Append(string actor, string action, string target, string outcome)
+        {
+            BeforeAppend?.Invoke(actor, action, target, outcome);
+            _items.Add(new(Guid.NewGuid(), clock.GetUtcNow(), actor, action, target, outcome));
+        }
         public IReadOnlyList<AuditEvent> Read(int offset, int limit) => _items.OrderByDescending(item => item.OccurredAtUtc).Skip(Math.Max(0, offset)).Take(Math.Clamp(limit, 1, 100)).ToArray();
     }
 

@@ -44,19 +44,15 @@ public sealed class GovernanceRetentionService(
     IOperatorMetadataStore metadata,
     IAuditStore audit,
     TimeProvider timeProvider,
-    GovernanceRetentionOptions? options = null) : IGovernanceRetentionService
+    GovernanceRetentionOptions? options = null,
+    IGovernancePruneStateStore? pruneState = null) : IGovernanceRetentionService
 {
-    private const int AuditScanLimit = 1000;
-    private const int AuditPageSize = 100;
     private readonly GovernanceRetentionOptions _options = Validate(options ?? new GovernanceRetentionOptions());
+    private readonly IGovernancePruneStateStore _pruneState = pruneState ?? new LazyLegacyGovernancePruneStateStore(audit, metadata);
 
     public GovernanceCleanupPlan DryRun()
     {
         var now = timeProvider.GetUtcNow();
-        var receiptIndex = ReadAuditWindow()
-            .Where(item => item.Action.StartsWith("governance.prune.", StringComparison.Ordinal) && item.Outcome == "applied")
-            .Select(item => $"{item.Action}:{item.Target}")
-            .ToHashSet(StringComparer.Ordinal);
         var activeRegistrationIds = registrations.GetAll().Select(item => item.Id).ToHashSet();
         var incidentById = incidents.GetAll().ToDictionary(item => item.Id, StringComparer.Ordinal);
         var candidates = new List<GovernanceCleanupCandidate>();
@@ -65,23 +61,24 @@ public sealed class GovernanceRetentionService(
         foreach (var server in operatorSnapshot.Servers)
         {
             var key = server.RegistrationId.ToString("D");
-            if (!activeRegistrationIds.Contains(server.RegistrationId) && !receiptIndex.Contains($"governance.prune.server:{key}"))
+            if (!activeRegistrationIds.Contains(server.RegistrationId) && !_pruneState.Contains(GovernancePruneKind.Server, key))
                 candidates.Add(new("server", key, "Operator metadata has no active registration."));
         }
 
-        var incidentCutoff = now.AddDays(-_options.ResolvedIncidentMetadataDays);
         var noteCutoff = now.AddDays(-_options.OperatorNoteRetentionDays);
         foreach (var item in operatorSnapshot.Incidents)
         {
-            var shouldPruneIncident = !incidentById.TryGetValue(item.IncidentId, out var incident) ||
-                incident.Status == IncidentStatus.Resolved && incident.LastSeenUtc < incidentCutoff;
-            if (shouldPruneIncident && !receiptIndex.Contains($"governance.prune.incident:{item.IncidentId}"))
+            incidentById.TryGetValue(item.IncidentId, out var incident);
+            if (IncidentRetentionPolicy.ShouldPruneOperatorMetadata(incident, now, _options.ResolvedIncidentMetadataDays) &&
+                !_pruneState.Contains(GovernancePruneKind.Incident, item.IncidentId))
+            {
                 candidates.Add(new("incident", item.IncidentId, "Incident metadata is orphaned or beyond resolved retention."));
+            }
 
             foreach (var note in item.Notes.Where(note => note.OccurredAtUtc < noteCutoff))
             {
                 var key = note.Id.ToString("D");
-                if (!receiptIndex.Contains($"governance.prune.note:{key}"))
+                if (!_pruneState.Contains(GovernancePruneKind.Note, key))
                     candidates.Add(new("note", key, "Operator note exceeded retention."));
             }
         }
@@ -96,9 +93,11 @@ public sealed class GovernanceRetentionService(
     public int Apply(string actor)
     {
         actor = EnterpriseOperatorValidation.NormalizeActor(actor);
+        _pruneState.Synchronize(metadata.Snapshot(), []);
         var plan = DryRun();
         foreach (var candidate in plan.Candidates)
         {
+            _pruneState.MarkPruned(Kind(candidate.Kind), candidate.Key);
             audit.Append(actor, $"governance.prune.{candidate.Kind}", SecurityInput.NormalizeAuditField(candidate.Key, 160), "applied");
         }
         audit.Append(actor, "governance.cleanup", "operator-metadata", $"applied:{plan.Candidates.Count}");
@@ -111,25 +110,21 @@ public sealed class GovernanceRetentionService(
     public bool IsIncidentPruned(string incidentId)
     {
         incidentId = EnterpriseOperatorValidation.NormalizeIncidentId(incidentId);
-        return HasReceipt("governance.prune.incident", incidentId);
+        var current = incidents.GetById(incidentId);
+        return IncidentRetentionPolicy.ShouldPruneOperatorMetadata(current, timeProvider.GetUtcNow(), _options.ResolvedIncidentMetadataDays) &&
+            _pruneState.Contains(GovernancePruneKind.Incident, incidentId);
     }
 
-    public bool IsNotePruned(Guid noteId) => noteId != Guid.Empty && HasReceipt("governance.prune.note", noteId.ToString("D"));
+    public bool IsNotePruned(Guid noteId) =>
+        noteId != Guid.Empty && _pruneState.Contains(GovernancePruneKind.Note, noteId.ToString("D"));
 
-    private bool HasReceipt(string action, string target) =>
-        ReadAuditWindow().Any(item => item.Action == action && item.Target == target && item.Outcome == "applied");
-
-    private IReadOnlyList<AuditEvent> ReadAuditWindow()
+    private static GovernancePruneKind Kind(string kind) => kind switch
     {
-        var events = new List<AuditEvent>(AuditScanLimit);
-        for (var offset = 0; offset < AuditScanLimit; offset += AuditPageSize)
-        {
-            var page = audit.Read(offset, AuditPageSize);
-            events.AddRange(page);
-            if (page.Count < AuditPageSize) break;
-        }
-        return events;
-    }
+        "server" => GovernancePruneKind.Server,
+        "incident" => GovernancePruneKind.Incident,
+        "note" => GovernancePruneKind.Note,
+        _ => throw new InvalidOperationException("Governance cleanup candidate kind is not supported.")
+    };
 
     private static GovernanceRetentionOptions Validate(GovernanceRetentionOptions options)
     {

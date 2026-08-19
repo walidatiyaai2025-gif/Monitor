@@ -43,18 +43,23 @@ public interface IIncidentCollaborationService
 public sealed class IncidentCollaborationService(
     IOperatorMetadataStore metadata,
     IAuditStore audit,
-    TimeProvider timeProvider) : IIncidentCollaborationService
+    TimeProvider timeProvider,
+    GovernanceRetentionOptions? retentionOptions = null,
+    IGovernancePruneStateStore? pruneState = null) : IIncidentCollaborationService
 {
     private const int MaxPageSize = 20;
     private static readonly TimeSpan AgingAfter = TimeSpan.FromMinutes(30);
     private static readonly TimeSpan BreachAfter = TimeSpan.FromHours(2);
+    private readonly GovernanceRetentionOptions _retentionOptions = ValidateRetentionOptions(retentionOptions ?? new GovernanceRetentionOptions());
+    private readonly IGovernancePruneStateStore _pruneState = pruneState ?? new LazyLegacyGovernancePruneStateStore(audit, metadata);
 
     public IReadOnlyList<IncidentCollaborationProjection> QueryByAssignee(IEnumerable<HealthIncident> incidents, string? assignee)
     {
         ArgumentNullException.ThrowIfNull(incidents);
         var normalized = EnterpriseOperatorValidation.NormalizeAssignee(assignee);
+        var now = timeProvider.GetUtcNow();
         return incidents
-            .Where(incident => !HasPruneReceipt("governance.prune.incident", incident.Id))
+            .Where(incident => !IsIncidentPruned(incident, now))
             .Select(incident => new IncidentCollaborationProjection(
                 incident,
                 metadata.GetIncident(incident.Id).Assignee,
@@ -71,7 +76,7 @@ public sealed class IncidentCollaborationService(
     {
         incidentId = EnterpriseOperatorValidation.NormalizeIncidentId(incidentId);
         return metadata.GetIncident(incidentId).Notes
-            .Where(note => !HasPruneReceipt("governance.prune.note", note.Id.ToString("D")))
+            .Where(note => !_pruneState.Contains(GovernancePruneKind.Note, note.Id.ToString("D")))
             .OrderByDescending(item => item.OccurredAtUtc)
             .ThenByDescending(item => item.Id)
             .Skip(Math.Max(0, offset))
@@ -85,14 +90,31 @@ public sealed class IncidentCollaborationService(
         actor = EnterpriseOperatorValidation.NormalizeActor(actor);
         note = EnterpriseOperatorValidation.NormalizeNote(note);
         var receiptTarget = BuildReceiptTarget(incidentId, requestKey);
-        if (AuditAny(item => item.Action == "incident.note.request" && item.Target == receiptTarget && item.Outcome == "applied"))
-            return false;
+        var claimAudit = audit as IIncidentNoteClaimAuditStore;
 
-        if (AuditAny(item => item.Action == "incident.note.write.commit" && item.Target == receiptTarget && item.Outcome == "armed"))
-            throw new IncidentNoteRequestAmbiguousException();
+        if (claimAudit is null)
+        {
+            if (AuditAny(item => item.Action == "incident.note.request" && item.Target == receiptTarget && item.Outcome == "applied"))
+                return false;
+
+            if (AuditAny(item => item.Action == "incident.note.write.commit" && item.Target == receiptTarget && item.Outcome == "armed"))
+                throw new IncidentNoteRequestAmbiguousException();
+        }
 
         audit.Append(actor, "incident.note.write.request", receiptTarget, "requested");
-        audit.Append(actor, "incident.note.write.commit", receiptTarget, "armed");
+        if (claimAudit is not null)
+        {
+            var claim = claimAudit.TryClaimIncidentNote(actor, receiptTarget);
+            if (claim == IncidentNoteClaimResult.AlreadyApplied)
+                return false;
+            if (claim == IncidentNoteClaimResult.Ambiguous)
+                throw new IncidentNoteRequestAmbiguousException();
+        }
+        else
+        {
+            audit.Append(actor, "incident.note.write.commit", receiptTarget, "armed");
+        }
+
         metadata.AddIncidentNote(incidentId, actor, note);
         audit.Append(actor, "incident.note.request", receiptTarget, "applied");
         return true;
@@ -147,8 +169,9 @@ public sealed class IncidentCollaborationService(
         audit.Append(actor, $"incident.{category.ToLowerInvariant()}.note", incidentId, "added");
     }
 
-    private bool HasPruneReceipt(string action, string target) =>
-        AuditAny(item => item.Action == action && item.Target == target && item.Outcome == "applied");
+    private bool IsIncidentPruned(HealthIncident incident, DateTimeOffset now) =>
+        IncidentRetentionPolicy.ShouldPruneOperatorMetadata(incident, now, _retentionOptions.ResolvedIncidentMetadataDays) &&
+        _pruneState.Contains(GovernancePruneKind.Incident, incident.Id);
 
     private bool AuditAny(Func<AuditEvent, bool> predicate)
     {
@@ -173,4 +196,10 @@ public sealed class IncidentCollaborationService(
     }
 
     private static string DisplayOwner(string? value) => string.IsNullOrWhiteSpace(value) ? "unassigned" : value;
+
+    private static GovernanceRetentionOptions ValidateRetentionOptions(GovernanceRetentionOptions options)
+    {
+        options.Validate();
+        return options;
+    }
 }

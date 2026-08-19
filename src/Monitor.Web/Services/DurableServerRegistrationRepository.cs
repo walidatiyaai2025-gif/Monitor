@@ -41,6 +41,7 @@ public sealed class FileServerRegistrationRepository : IServerRegistrationReposi
 
     private readonly object _gate = new();
     private readonly string _path;
+    private readonly string _leasePath;
     private readonly int _maxStoreFileBytes;
     private readonly Dictionary<Guid, ServerRegistration> _registrations;
 
@@ -62,7 +63,9 @@ public sealed class FileServerRegistrationRepository : IServerRegistrationReposi
         }
 
         _path = System.IO.Path.GetFullPath(path);
+        _leasePath = $"{_path}.lock";
         _maxStoreFileBytes = maxStoreFileBytes;
+        using var lease = CrossProcessFileLease.Acquire(_leasePath, "Server registration store");
         _registrations = Load(_path, _maxStoreFileBytes);
     }
 
@@ -70,6 +73,8 @@ public sealed class FileServerRegistrationRepository : IServerRegistrationReposi
     {
         lock (_gate)
         {
+            using var lease = CrossProcessFileLease.Acquire(_leasePath, "Server registration store");
+            ReloadFromDisk();
             return Ordered(_registrations.Values).ToArray();
         }
     }
@@ -78,6 +83,8 @@ public sealed class FileServerRegistrationRepository : IServerRegistrationReposi
     {
         lock (_gate)
         {
+            using var lease = CrossProcessFileLease.Acquire(_leasePath, "Server registration store");
+            ReloadFromDisk();
             return _registrations.TryGetValue(id, out var registration) ? registration : null;
         }
     }
@@ -88,6 +95,8 @@ public sealed class FileServerRegistrationRepository : IServerRegistrationReposi
 
         lock (_gate)
         {
+            using var lease = CrossProcessFileLease.Acquire(_leasePath, "Server registration store");
+            ReloadFromDisk();
             var hadPrevious = _registrations.TryGetValue(registration.Id, out var previous);
             _registrations[registration.Id] = registration;
             try
@@ -110,10 +119,96 @@ public sealed class FileServerRegistrationRepository : IServerRegistrationReposi
         }
     }
 
+    public ServerRegistrationFieldMutationResult TryReplaceSecretReference(
+        Guid id,
+        ConnectionSecretReference? expectedReference,
+        ConnectionSecretReference nextReference)
+    {
+        lock (_gate)
+        {
+            using var lease = CrossProcessFileLease.Acquire(_leasePath, "Server registration store");
+            ReloadFromDisk();
+            if (!_registrations.TryGetValue(id, out var current))
+            {
+                return new(ServerRegistrationFieldMutationStatus.NotFound, null);
+            }
+
+            if (!SecretReferencesEqual(current.SecretReference, expectedReference))
+            {
+                return new(ServerRegistrationFieldMutationStatus.Conflict, current);
+            }
+
+            if (SecretReferencesEqual(current.SecretReference, nextReference))
+            {
+                return new(ServerRegistrationFieldMutationStatus.Unchanged, current);
+            }
+
+            var updated = new ServerRegistration(
+                current.Id,
+                current.DisplayName,
+                current.Endpoint,
+                current.AuthenticationMode,
+                nextReference,
+                current.IsEnabled,
+                current.CreatedAtUtc);
+            _registrations[id] = updated;
+            try
+            {
+                Persist();
+                return new(ServerRegistrationFieldMutationStatus.Applied, updated);
+            }
+            catch
+            {
+                _registrations[id] = current;
+                throw;
+            }
+        }
+    }
+
+    public ServerRegistrationFieldMutationResult SetEnabled(Guid id, bool enabled)
+    {
+        lock (_gate)
+        {
+            using var lease = CrossProcessFileLease.Acquire(_leasePath, "Server registration store");
+            ReloadFromDisk();
+            if (!_registrations.TryGetValue(id, out var current))
+            {
+                return new(ServerRegistrationFieldMutationStatus.NotFound, null);
+            }
+
+            if (current.IsEnabled == enabled)
+            {
+                return new(ServerRegistrationFieldMutationStatus.Unchanged, current);
+            }
+
+            var updated = new ServerRegistration(
+                current.Id,
+                current.DisplayName,
+                current.Endpoint,
+                current.AuthenticationMode,
+                current.SecretReference,
+                enabled,
+                current.CreatedAtUtc);
+            _registrations[id] = updated;
+            try
+            {
+                Persist();
+                return new(ServerRegistrationFieldMutationStatus.Applied, updated);
+            }
+            catch
+            {
+                _registrations[id] = current;
+                throw;
+            }
+        }
+    }
+
     public bool Remove(Guid id)
     {
         lock (_gate)
         {
+            using var lease = CrossProcessFileLease.Acquire(_leasePath, "Server registration store");
+            ReloadFromDisk();
             if (!_registrations.Remove(id, out var previous))
             {
                 return false;
@@ -131,6 +226,21 @@ public sealed class FileServerRegistrationRepository : IServerRegistrationReposi
             }
         }
     }
+
+    private void ReloadFromDisk()
+    {
+        var latest = Load(_path, _maxStoreFileBytes);
+        _registrations.Clear();
+        foreach (var pair in latest)
+        {
+            _registrations.Add(pair.Key, pair.Value);
+        }
+    }
+
+    private static bool SecretReferencesEqual(
+        ConnectionSecretReference? left,
+        ConnectionSecretReference? right) =>
+        string.Equals(left?.Value, right?.Value, StringComparison.Ordinal);
 
     private void Persist()
     {

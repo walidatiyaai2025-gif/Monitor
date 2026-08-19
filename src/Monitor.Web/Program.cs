@@ -87,7 +87,7 @@ builder.Services.AddSingleton<IServerRegistrationRepository>(provider =>
 {
     if (haStateOptions.UseSharedRegistrations)
     {
-        var shared = new SharedServerRegistrationRepository(provider.GetRequiredService<ISharedStateDocumentStore>());
+        var shared = new AtomicSharedServerRegistrationRepository(provider.GetRequiredService<ISharedStateDocumentStore>());
         if (haStateOptions.ImportLocalRegistrationsWhenSharedEmpty)
         {
             var legacyPath = ResolveRegistrationStorePath();
@@ -97,6 +97,7 @@ builder.Services.AddSingleton<IServerRegistrationRepository>(provider =>
     }
     return registrationStoreOptions.Mode == RegistrationStoreMode.InMemory ? new InMemoryServerRegistrationRepository() : new FileServerRegistrationRepository(ResolveRegistrationStorePath());
 });
+builder.Services.AddSingleton<ServerRegistrationMutationGate>();
 
 var operationalStoreOptions = builder.Configuration.GetSection(OperationalStoreOptions.SectionName).Get<OperationalStoreOptions>() ?? new();
 operationalStoreOptions.Validate();
@@ -105,6 +106,12 @@ var operationalRoot = !haStateOptions.UseSharedOperationalState && operationalSt
     ? OperationalStorePath.ResolveOutsideWebRoot(operationalStoreOptions.RootPath, builder.Environment.ContentRootPath, builder.Environment.WebRootPath)
     : null;
 
+builder.Services.AddSingleton<IIncidentNoteRequestStateStore>(provider => haStateOptions.UseSharedOperationalState
+    ? new SharedIncidentNoteRequestStateStore(provider.GetRequiredService<ISharedStateDocumentStore>())
+    : operationalRoot is null
+        ? new InMemoryIncidentNoteRequestStateStore()
+        : new FileIncidentNoteRequestStateStore(operationalRoot));
+
 builder.Services.AddSingleton<IAuditStore>(provider =>
 {
     IAuditStore inner = haStateOptions.UseSharedOperationalState
@@ -112,7 +119,13 @@ builder.Services.AddSingleton<IAuditStore>(provider =>
         : operationalRoot is null
             ? new InMemoryAuditStore(provider.GetRequiredService<TimeProvider>())
             : new FileAuditStore(Path.Combine(operationalRoot, "audit.json"), provider.GetRequiredService<TimeProvider>());
-    return new PerformanceBoundedAuditStore(inner, performanceOptions);
+    var bounded = new PerformanceBoundedAuditStore(inner, performanceOptions);
+    return new CoordinatedIncidentNoteAuditStore(
+        bounded,
+        provider.GetRequiredService<ISharedStateDocumentStore>(),
+        provider.GetRequiredService<TimeProvider>(),
+        haStateOptions.UseSharedOperationalState,
+        provider.GetRequiredService<IIncidentNoteRequestStateStore>());
 });
 builder.Services.AddSingleton<IHealthIncidentRepository>(provider =>
 {
@@ -131,6 +144,19 @@ builder.Services.AddSingleton<IOperatorMetadataStore>(provider => haStateOptions
     : operationalRoot is null
         ? new InMemoryOperatorMetadataStore(provider.GetRequiredService<TimeProvider>())
         : new FileOperatorMetadataStore(Path.Combine(operationalRoot, "operator-metadata.json"), provider.GetRequiredService<TimeProvider>()));
+builder.Services.AddSingleton<IGovernancePruneStateStore>(provider =>
+{
+    IGovernancePruneStateStore store = haStateOptions.UseSharedOperationalState
+        ? new SharedGovernancePruneStateStore(provider.GetRequiredService<ISharedStateDocumentStore>())
+        : operationalRoot is null
+            ? new InMemoryGovernancePruneStateStore()
+            : new FileGovernancePruneStateStore(operationalRoot);
+    GovernancePruneStateMigration.MaterializeRetainedAuditReceipts(
+        store,
+        provider.GetRequiredService<IAuditStore>(),
+        provider.GetRequiredService<IOperatorMetadataStore>());
+    return store;
+});
 builder.Services.AddSingleton<ISafeCsvReportService, SafeCsvReportService>();
 builder.Services.AddSingleton<IRedactedDiagnosticsPackageService, RedactedDiagnosticsPackageService>();
 
@@ -157,12 +183,17 @@ builder.Services.AddSingleton<IConnectionSecretStore>(provider => new ProtectedF
 builder.Services.AddSingleton<IRuntimeCredentialWriter>(provider => (IRuntimeCredentialWriter)provider.GetRequiredService<IConnectionSecretStore>());
 builder.Services.AddSingleton<ISqlConnectionProbe, SqlConnectionProbe>();
 builder.Services.AddSingleton<IServerConnectionTester, ServerConnectionTester>();
-builder.Services.AddSingleton<CredentialLifecycleService>();
+builder.Services.AddSingleton<AtomicCredentialLifecycleService>();
 builder.Services.AddSingleton<ICredentialLifecycleService>(provider => new WriteAheadAuditedCredentialLifecycleService(
-    provider.GetRequiredService<CredentialLifecycleService>(),
+    provider.GetRequiredService<AtomicCredentialLifecycleService>(),
+    provider.GetRequiredService<ServerRegistrationMutationGate>(),
     provider.GetRequiredService<IAuditStore>()));
 builder.Services.AddSingleton<ICredentialReadinessService, CredentialReadinessService>();
-builder.Services.AddSingleton<IServerTargetLifecycleService, ServerTargetLifecycleService>();
+builder.Services.AddSingleton<IServerTargetLifecycleService>(provider => new ServerTargetLifecycleService(
+    provider.GetRequiredService<IServerRegistrationRepository>(),
+    provider.GetRequiredService<IServerHealthSnapshotCache>(),
+    provider.GetRequiredService<ServerRegistrationMutationGate>(),
+    provider.GetRequiredService<IAuditStore>()));
 builder.Services.AddSingleton<ISqlSnapshotQuery, GovernedSqlSnapshotQuery>();
 builder.Services.AddSingleton<SqlServerSnapshotCollector>();
 builder.Services.AddSingleton<ISqlServerSnapshotCollector>(provider => new TelemetrySqlServerSnapshotCollector(
@@ -232,6 +263,11 @@ builder.Services.AddAuthorization(options =>
 });
 
 var app = builder.Build();
+var incidentNoteRequestState = app.Services.GetRequiredService<IIncidentNoteRequestStateStore>();
+IncidentNoteRequestStateMigration.MaterializeRetainedAuditReceipts(
+    incidentNoteRequestState,
+    app.Services.GetRequiredService<IAuditStore>());
+_ = app.Services.GetRequiredService<IGovernancePruneStateStore>();
 var configuredRegistration = ConfiguredServerRegistrationLoader.Load(app.Configuration, app.Services.GetRequiredService<TimeProvider>());
 if (configuredRegistration is not null) app.Services.GetRequiredService<IServerRegistrationRepository>().Upsert(configuredRegistration);
 if (deploymentTopologyOptions.Mode == DeploymentTopology.MultiNode && !app.Services.GetRequiredService<ICredentialReadinessService>().Get().MultiNodeCredentialReady)
