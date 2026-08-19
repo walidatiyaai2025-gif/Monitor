@@ -26,7 +26,8 @@ public sealed record WebsiteTargetDefinition(
     int SlowThresholdMilliseconds = 3000,
     int FailureConfirmationCount = 3,
     int RecoveryConfirmationCount = 2,
-    IReadOnlyList<string>? NotificationGroupIds = null);
+    IReadOnlyList<string>? NotificationGroupIds = null,
+    IReadOnlyList<Guid>? LinkedRegistrationIds = null);
 
 public sealed record WebsiteTargetValidationResult(bool IsValid, IReadOnlyList<string> Errors)
 {
@@ -39,6 +40,7 @@ public static class WebsiteTargetValidator
     public const int MaxUrlLength = 2048;
     public const int MaxContentMarkerLength = 256;
     public const int MaxNotificationGroups = 16;
+    public const int MaxLinkedRegistrations = 16;
 
     public static WebsiteTargetValidationResult Validate(WebsiteTargetDefinition target)
     {
@@ -93,6 +95,11 @@ public static class WebsiteTargetValidator
         if (groups.Where(value => !string.IsNullOrWhiteSpace(value)).Distinct(StringComparer.OrdinalIgnoreCase).Count() != groups.Count)
             errors.Add("Notification group ids must be unique.");
 
+        var linkedRegistrations = target.LinkedRegistrationIds ?? Array.Empty<Guid>();
+        if (linkedRegistrations.Count > MaxLinkedRegistrations) errors.Add($"A target may link at most {MaxLinkedRegistrations} server registrations.");
+        if (linkedRegistrations.Any(id => id == Guid.Empty)) errors.Add("Linked server registration ids must be non-empty GUIDs.");
+        if (linkedRegistrations.Distinct().Count() != linkedRegistrations.Count) errors.Add("Linked server registration ids must be unique.");
+
         return errors.Count == 0 ? WebsiteTargetValidationResult.Success : new(false, errors);
     }
 }
@@ -108,12 +115,12 @@ public static class WebsiteDestinationPolicy
         if (address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
         {
             var bytes = address.GetAddressBytes();
-            if (bytes[0] == 0) return true; // unspecified/current-network space
+            if (bytes[0] == 0) return true;
             if (bytes[0] == 127) return true;
-            if (bytes[0] == 169 && bytes[1] == 254) return true; // link local / common metadata path
-            if (bytes[0] is >= 224 and <= 239) return true; // multicast
-            if (bytes[0] >= 240) return true; // reserved/broadcast space
-            if (bytes.SequenceEqual(new byte[] { 100, 100, 100, 200 })) return true; // known metadata endpoint family
+            if (bytes[0] == 169 && bytes[1] == 254) return true;
+            if (bytes[0] is >= 224 and <= 239) return true;
+            if (bytes[0] >= 240) return true;
+            if (bytes.SequenceEqual(new byte[] { 100, 100, 100, 200 })) return true;
             return false;
         }
 
@@ -121,8 +128,8 @@ public static class WebsiteDestinationPolicy
         {
             if (address.Equals(IPAddress.IPv6Any) || address.Equals(IPAddress.IPv6None) || address.Equals(IPAddress.IPv6Loopback)) return true;
             var bytes = address.GetAddressBytes();
-            if (bytes[0] == 0xff) return true; // multicast
-            if (bytes[0] == 0xfe && (bytes[1] & 0xc0) == 0x80) return true; // link local fe80::/10
+            if (bytes[0] == 0xff) return true;
+            if (bytes[0] == 0xfe && (bytes[1] & 0xc0) == 0x80) return true;
             return false;
         }
 
@@ -139,15 +146,15 @@ public static class WebsiteDestinationPolicy
             if (bytes[0] == 10) return true;
             if (bytes[0] == 172 && bytes[1] is >= 16 and <= 31) return true;
             if (bytes[0] == 192 && bytes[1] == 168) return true;
-            if (bytes[0] == 100 && bytes[1] is >= 64 and <= 127) return true; // shared address space 100.64/10
-            if (bytes[0] == 198 && bytes[1] is 18 or 19) return true; // benchmark/internal 198.18/15
+            if (bytes[0] == 100 && bytes[1] is >= 64 and <= 127) return true;
+            if (bytes[0] == 198 && bytes[1] is 18 or 19) return true;
             return false;
         }
 
         if (address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6)
         {
             var bytes = address.GetAddressBytes();
-            return (bytes[0] & 0xfe) == 0xfc; // unique local fc00::/7
+            return (bytes[0] & 0xfe) == 0xfc;
         }
 
         return true;
