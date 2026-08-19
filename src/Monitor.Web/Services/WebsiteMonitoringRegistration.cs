@@ -38,8 +38,8 @@ public static class WebsiteMonitoringRegistration
             throw new InvalidOperationException("Website email notifications cannot be enabled while Website Monitoring is disabled.");
         if (monitoring.Enabled && deploymentTopology.Mode == DeploymentTopology.MultiNode && !useSharedOperationalState)
             throw new InvalidOperationException("Website Monitoring MultiNode activation requires shared operational state.");
-        if (monitoring.Enabled && useSharedOperationalState && !coordination.Enabled)
-            throw new InvalidOperationException("Website Monitoring shared operational-state activation requires distributed coordination for per-target probe ownership.");
+        if (monitoring.Enabled && deploymentTopology.Mode == DeploymentTopology.MultiNode && !coordination.Enabled)
+            throw new InvalidOperationException("Website Monitoring MultiNode activation requires distributed coordination for per-target probe ownership.");
 
         services.AddSingleton(monitoring);
         services.AddSingleton(outbound);
