@@ -88,6 +88,10 @@ The workflow is fail-closed: `MONITOR_REQUIRE_REAL_SQL=1` means the RealSql test
 
 For P0.5 repository-side hardening, this workflow may also be required as an exact-head cross-platform regression gate even when the change does not alter SQL behavior. A Green P0.5 regression run preserves the already-proven real-engine contract; it does not create new production acceptance or replace the external Windows/IIS gates governed by #116.
 
+### Cross-process operational-backup regression replay — #461 / PR #462
+
+The #461 SingleNode operational-backup cross-process serialization closure changes no monitored-target SQL query, collector, permission grant, SQL credential behavior, or restore target contract. The PR nevertheless requests an exact-head `real-sql-acceptance` replay as a conservative cross-platform regression gate. Its result is implementation evidence only: it preserves the P0.4 real-engine contract and cannot satisfy or close RC.61 publication #162, trusted-IIS production acceptance #116, umbrella #111, or repository-admin branch-protection #353.
+
 ## P0.4 gate decision
 
 P0.4 can be closed only after the final PR head has both normal Release CI and `real-sql-acceptance` Green and the canonical P0 plan/status documents record those final run IDs. P0.5 production deployment remains a separate gate; this document proves the real SQL application journey and monitored-target permission contract, not deployment to a user-owned IIS production host.
