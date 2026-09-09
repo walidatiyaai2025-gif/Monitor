@@ -155,12 +155,12 @@ jobs:
           cat > "${notes_file}" <<EOF
           ## Monitor ${RELEASE_VERSION}
 
-          - Tag: `${RELEASE_TAG}`
-          - Release source commit: `${GITHUB_SHA}`
-          - Windows x64 package: `${ZIP_NAME}`
-          - Product SHA-256: `${PRODUCT_SHA256}`
-          - Companion checksum: `${CHECKSUM_NAME}`
-          - Package provenance: verified `production-candidate.yml` output from this exact tagged workflow run.
+          - Tag: ${RELEASE_TAG}
+          - Release source commit: ${GITHUB_SHA}
+          - Windows x64 package: ${ZIP_NAME}
+          - Product SHA-256: ${PRODUCT_SHA256}
+          - Companion checksum: ${CHECKSUM_NAME}
+          - Package provenance: verified production-candidate.yml output from this exact tagged workflow run.
 
           This GitHub Release publishes only the exact verified Windows x64 package and its canonical SHA-256 companion. Publication is artifact retention; it does not deploy IIS/SQL or prove external production acceptance.
           EOF
