@@ -30,6 +30,7 @@ Completed baseline:
 The compact live plan preserves the canonical evidence required by repository regression gates and must not replace it with abbreviated state:
 
 - BATCH-700 remains **50/50 COMPLETE**. Final PR #240 squash-merged as `fd33e79c6d19d7f9852417b9c35a11f91f21714c` from exact final head `0834db6b5d518fe5c52eec9b47c03e467929aa89`.
+- #116/#111 production acceptance remains independent of this repository/UI completion.
 - BATCH-800 remains **100/100 COMPLETE** only at **B800-100**.
 - **Umbrella:** Issue #287 — CLOSED / COMPLETED.
 - B800 final PR #335 squash-merged as `a6832d99f629cdbd3a93887199fe608a3ae474ec`; exact final head `4379dbc0e1b346cb51bebf8e7467823c58f2361c` passed CI `32093252549`, Real SQL `32093252670`, and Windows production-candidate `32093252563`.
