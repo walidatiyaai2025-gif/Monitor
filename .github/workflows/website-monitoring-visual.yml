@@ -49,7 +49,8 @@ jobs:
           mkdir -p "$HARNESS"
           cd "$HARNESS"
           npm init -y >/dev/null
-          npm install --save-exact playwright@1.55.0
+          npm install --save-exact playwright@1.63.0
+          npm audit --audit-level=high
           npx playwright install --with-deps chromium
           echo "NODE_PATH=$HARNESS/node_modules" >> "$GITHUB_ENV"
 
@@ -96,7 +97,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          dotnet run --project src/Monitor.Web/Monitor.Web.csproj --configuration Release --no-build > artifacts/website-monitoring-visual/application.log 2>&1 &
+          dotnet run --project src/Monitor.Web/Monitor.Web.csproj --configuration Release --no-build --no-launch-profile > artifacts/website-monitoring-visual/application.log 2>&1 &
           PID=$!
           cleanup() {
             if kill -0 "$PID" 2>/dev/null; then
