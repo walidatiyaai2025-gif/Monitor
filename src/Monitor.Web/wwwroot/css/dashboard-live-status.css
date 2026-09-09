@@ -214,6 +214,10 @@
   white-space: nowrap;
 }
 
+.database-live-server > div:not(.database-live-server-meta) strong {
+  color: var(--text-primary, #e8f2fb);
+}
+
 .database-live-server > div:not(.database-live-server-meta) span,
 .database-live-server-meta small {
   margin-top: 4px;
@@ -248,15 +252,14 @@
 .database-live-server.state-offline { color: #ff9a74; }
 .database-live-server.state-unknown { color: #9db1c5; }
 
+.database-live-server.state-healthy .database-live-server-meta span { color: #77f2b2; }
+.database-live-server.state-warning .database-live-server-meta span { color: #ffd36a; }
+.database-live-server.state-critical .database-live-server-meta span { color: #ff7c8d; }
+.database-live-server.state-offline .database-live-server-meta span { color: #ff9a74; }
+.database-live-server.state-unknown .database-live-server-meta span { color: #9db1c5; }
+
 .database-live-server.state-healthy .database-live-orb {
   animation: database-live-pulse 2.2s ease-in-out infinite;
-}
-
-.database-live-server > div,
-.database-live-server strong,
-.database-live-server small,
-.database-live-server span:not(.database-live-orb) {
-  color: initial;
 }
 
 .database-live-empty {
