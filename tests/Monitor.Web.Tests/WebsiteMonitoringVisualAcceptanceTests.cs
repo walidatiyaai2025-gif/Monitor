@@ -69,7 +69,9 @@ public sealed class WebsiteMonitoringVisualAcceptanceTests
         Assert.Contains("authenticated-browser-evidence", workflow, StringComparison.Ordinal);
         Assert.Contains("WebsiteMonitoring__Enabled=false", workflow, StringComparison.Ordinal);
         Assert.Contains("WebsiteNotifications__Enabled=false", workflow, StringComparison.Ordinal);
-        Assert.Contains("playwright@1.55.0", workflow, StringComparison.Ordinal);
+        Assert.Contains("playwright@1.63.0", workflow, StringComparison.Ordinal);
+        Assert.Contains("npm audit --audit-level=high", workflow, StringComparison.Ordinal);
+        Assert.Contains("--no-launch-profile", workflow, StringComparison.Ordinal);
         Assert.Contains("Upload WM7 browser evidence", workflow, StringComparison.Ordinal);
         Assert.DoesNotContain("WebsiteMonitoring__Enabled=true", workflow, StringComparison.Ordinal);
         Assert.DoesNotContain("WebsiteNotifications__Enabled=true", workflow, StringComparison.Ordinal);
