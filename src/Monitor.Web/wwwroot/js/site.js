@@ -296,11 +296,7 @@
     intervalSelect.appendChild(option);
   });
   intervalLabel.appendChild(intervalSelect);
-  const refreshButton = document.createElement('button');
-  refreshButton.type = 'button';
-  refreshButton.className = 'database-live-refresh';
-  refreshButton.textContent = 'Refresh status now';
-  controls.append(intervalLabel, refreshButton);
+  controls.append(intervalLabel);
   header.append(titleBlock, controls);
 
   const summary = document.createElement('div');
@@ -411,7 +407,6 @@
     if (inFlight || document.hidden) return;
     inFlight = true;
     panel.classList.add('is-refreshing');
-    refreshButton.disabled = true;
     status.textContent = 'Refreshing cached Dashboard evidence…';
 
     try {
@@ -439,7 +434,6 @@
     } finally {
       nextRefreshAt = Date.now() + intervalMinutes * 60_000;
       panel.classList.remove('is-refreshing');
-      refreshButton.disabled = false;
       inFlight = false;
     }
   };
@@ -466,7 +460,6 @@
     tick();
   });
 
-  refreshButton.addEventListener('click', () => void refreshEvidence());
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden && Date.now() >= nextRefreshAt) void refreshEvidence();
   });
