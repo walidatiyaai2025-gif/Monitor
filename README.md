@@ -4,11 +4,11 @@
 
 ## Current state
 
-M0 through M8 are verified. BATCH-100 through BATCH-700 are complete, representing **660 completed hardening/UI task IDs** across shared-state/HA foundations, encrypted credential/key management, backup/restore, observability, scale/security, production acceptance tooling, operator readiness and full visible portal/UI completion.
+M0 through M8 are verified. BATCH-100 through BATCH-800 are complete; BATCH-800/#287 is closed completed. These batches cover shared-state/HA foundations, encrypted credential/key management, backup/restore, observability, scale/security, production acceptance tooling, operator readiness and full visible portal/UI functional wiring.
 
 The active delivery gate is **P0.5 — First Production SingleNode**. P0.1 through P0.4 are COMPLETE. Repository-side P0.5 implementation, release hardening, cutover-readiness, branch-protection safety tooling and operator handoffs are complete; the selected cutover candidate remains **RC.61**.
 
-Live work selection is governed by exact GitHub state, `AGENTS.md` and `docs/CURRENT_EXECUTION_PLAN.md`. `docs/IMPLEMENTATION_PLAN.md` is historical implementation context unless a section is explicitly revalidated against current live state.
+Live work selection is governed by exact GitHub state, `AGENTS.md` and `docs/CURRENT_EXECUTION_PLAN.md`. `docs/IMPLEMENTATION_PLAN.md` is retained historical implementation context unless a section is explicitly revalidated against current live state; any legacy “canonical” or active-merge wording inside that historical file is non-authoritative and must not be used to reopen already-merged work.
 
 Three remaining execution boundaries remain intentionally open and separate:
 
