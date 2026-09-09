@@ -25,6 +25,17 @@ Completed baseline:
 - P0.5 repository packaging/deployment/evidence/session/finalization/recovery/release tooling complete;
 - PR #473 deterministic tagged-release-note identity complete/merged as `3a7e8daf9565d7cb75e8dc8111d6df7ae9e90c0d`, exact merged-main CI `34379131661` Green.
 
+## Canonical retained closeout evidence
+
+The compact live plan preserves the canonical evidence required by repository regression gates and must not replace it with abbreviated state:
+
+- BATCH-700 remains **50/50 COMPLETE**. Final PR #240 squash-merged as `fd33e79c6d19d7f9852417b9c35a11f91f21714c` from exact final head `0834db6b5d518fe5c52eec9b47c03e467929aa89`.
+- BATCH-800 remains **100/100 COMPLETE** only at **B800-100**.
+- **Umbrella:** Issue #287 — CLOSED / COMPLETED.
+- B800 final PR #335 squash-merged as `a6832d99f629cdbd3a93887199fe608a3ae474ec`; exact final head `4379dbc0e1b346cb51bebf8e7467823c58f2361c` passed CI `32093252549`, Real SQL `32093252670`, and Windows production-candidate `32093252563`.
+- Completed task accounting remains **760** for the canonical BATCH-800 closeout; later closeout/documentation PRs do not double-count that total.
+- The diagnostic truth boundary remains explicit for **TempDB**, **transaction-log**, **HA**, and **query regression** evidence: unsupported or not-evaluated domains cannot be represented as collected healthy evidence.
+
 Current lawful cloud-actionable line: **issue #476 / PR #477 — Dashboard configurable live database status**.
 
 Owner-closed optional line: **PR #472 — CLOSED UNMERGED BY OWNER DIRECTION**. Its recovered exact head passed its selected optional browser checks, but it is not part of `main`, not an active integration target, and must not be duplicated or revived without new authoritative scope.
@@ -92,9 +103,13 @@ No live `v0.1.0-rc.61` tag or GitHub Release exists. Repository CI/candidate evi
 
 ### #162 — OWNER_ONLY / OPEN / NOT PASS
 
-Durable RC.61 publication remains an explicit owner action. Follow `deploy/REMAINING_OWNER_EXTERNAL_GATES.md` exactly:
+Durable RC.61 publication remains an explicit owner action. The canonical operator-helper reconciliation is merge `3cd711b608e4ceaf8872eb22a25541bbbfe2729a` and the fail-closed order remains:
 
-`Invoke-Rc61DurablePromotion.ps1 preview -> explicit -AcknowledgePromotion -> one exact promotion run -> separately execute returned IndependentVerificationCommand -> Test-Rc61CutoverReadiness.ps1 with both exact run IDs -> independent tag/exact-two-assets/product-hash verification`.
+1. Preview with `Invoke-Rc61DurablePromotion.ps1` and require `READY_FOR_EXPLICIT_PROMOTION_ACKNOWLEDGEMENT`, **0/15** external gates, and **no production mutation**.
+2. After review execute `Invoke-Rc61DurablePromotion.ps1 -AcknowledgePromotion`. If the exact promotion result is ambiguous, timed out, or failed: **do not redispatch**.
+3. Require `PROMOTION_SUCCEEDED_INDEPENDENT_VERIFICATION_REQUIRED`, then separately execute the returned `IndependentVerificationCommand`; promotion must not self-satisfy independent verification.
+4. Run `Test-Rc61CutoverReadiness.ps1` with the two exact run IDs and require `ExternalGatesPassed = 0` plus **no production mutation** before any #116 work.
+5. Independently verify the tag, exact two release assets, and product SHA-256.
 
 ### #116 — EXTERNAL_ENVIRONMENT / OPEN / NOT PASS
 
