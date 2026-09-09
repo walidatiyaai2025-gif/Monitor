@@ -14,7 +14,7 @@ The authoritative executable owner/external handoff is `deploy/REMAINING_OWNER_E
 
 ## Current live implementation state — 2026-09-09
 
-Fresh base before the current integration line: `main@4d514daef24781724f24065accd95988b406d9e6`; exact-main push CI `34382598596` Green.
+Verified post-#477 integration base: `main@f3dc1b2234b2105d1331d2476f75e8b7b0f2761c`; exact-main push CI `34392925320` Green.
 
 Completed baseline:
 
@@ -23,7 +23,8 @@ Completed baseline:
 - P0.1 through P0.4 complete with real repository/Real-SQL evidence;
 - Website Monitoring #463/#466 complete through PR #467 -> PR #464;
 - P0.5 repository packaging/deployment/evidence/session/finalization/recovery/release tooling complete;
-- PR #473 deterministic tagged-release-note identity complete/merged as `3a7e8daf9565d7cb75e8dc8111d6df7ae9e90c0d`, exact merged-main CI `34379131661` Green.
+- PR #473 deterministic tagged-release-note identity complete/merged as `3a7e8daf9565d7cb75e8dc8111d6df7ae9e90c0d`, exact merged-main CI `34379131661` Green;
+- Dashboard live database status #476/#477 complete/merged as `f3dc1b2234b2105d1331d2476f75e8b7b0f2761c`, exact merged-main CI `34392925320` Green.
 
 ## Canonical retained closeout evidence
 
@@ -37,28 +38,39 @@ The compact live plan preserves the canonical evidence required by repository re
 - Completed task accounting remains **760** for the canonical BATCH-800 closeout; later closeout/documentation PRs do not double-count that total.
 - The diagnostic truth boundary remains explicit for **TempDB**, **transaction-log**, **HA**, and **query regression** evidence: unsupported or not-evaluated domains cannot be represented as collected healthy evidence.
 
-Current lawful cloud-actionable line: **issue #476 / PR #477 — Dashboard configurable live database status**.
+There is no open cloud-actionable product implementation line after #476/#477 closure in the post-merge audit. Historical branches do not create work by themselves.
 
 Owner-closed optional line: **PR #472 — CLOSED UNMERGED BY OWNER DIRECTION**. Its recovered exact head passed its selected optional browser checks, but it is not part of `main`, not an active integration target, and must not be duplicated or revived without new authoritative scope.
 
-## #476 / PR #477 implementation contract
+## #476 / PR #477 completion evidence
 
-PR #477 must add the Dashboard live database-status feature without creating a second monitored-SQL collection path.
+The Dashboard live database-status feature is integrated without creating a second monitored-SQL collection path.
 
-Required behavior:
+Final evidence:
 
-- inject a `Live Database Status` panel on `/dashboard` immediately after the existing truthful SQL-estate evidence surface;
-- derive per-server state, online/total database counts and freshness from already-rendered cached Dashboard evidence;
-- allow only 1/2/5/10/15/30-minute auto-refresh cadence, default 5 minutes, persisted client-side;
-- background refresh may perform authenticated `GET /dashboard` only;
-- browser code must never call monitored SQL, collectors or `/refresh-snapshot`;
+- exact final PR head `ac9499fe54000de8a8a38865bd47d062b5985d4f`;
+- exact base `main@4d514daef24781724f24065accd95988b406d9e6`, `behind_by=0` before merge;
+- zero unresolved review threads;
+- normal CI `34392461369` — success;
+- Real SQL `34392461363` — success;
+- Windows production-candidate `34392461390` — success;
+- protected-P0 commits `34392461395` — success;
+- protected-P0 metadata `34392461372` — success;
+- squash merge `f3dc1b2234b2105d1331d2476f75e8b7b0f2761c`;
+- exact merged-main push CI `34392925320` — success;
+- issue #476 closed completed.
+
+Integrated behavior:
+
+- injects a `Live Database Status` panel on `/dashboard` immediately after the existing truthful SQL-estate evidence surface;
+- derives per-server state, online/total database counts and freshness from already-rendered cached Dashboard evidence;
+- allows only 1/2/5/10/15/30-minute auto-refresh cadence, default 5 minutes, persisted client-side;
+- background refresh performs authenticated `GET /dashboard` only;
+- browser code never calls monitored SQL, collectors or `/refresh-snapshot`;
 - redirects, non-HTML responses and missing expected Dashboard evidence fail closed and retain the last displayed state;
 - overlapping refreshes are blocked and hidden tabs do not perform background network refresh;
-- responsive animation/status feedback is allowed only as client presentation and must honor `prefers-reduced-motion`;
-- existing fresh/stale/unavailable truth semantics and all P0/owner/external boundaries remain unchanged;
-- regression coverage must lock cached/read-only behavior, no-direct-SQL/no-refresh mutation and reduced-motion/accessibility contracts.
-
-`AGENTS.md` requires a material feature to update `docs/STATUS.md` and `docs/FEATURE_CATALOG.md` in the same PR. Those tracking updates belong to this single existing PR rather than a parallel documentation PR.
+- responsive animation/status feedback honors `prefers-reduced-motion`;
+- existing fresh/stale/unavailable truth semantics and all P0/owner/external boundaries remain unchanged.
 
 ## Integration and READY policy
 
@@ -72,9 +84,7 @@ A branch/PR is legitimate READY only when all of the following are true immediat
 6. owner-only/external acceptance is not simulated, inferred or converted to PASS;
 7. its diff contains only intended implementation/reconciliation scope and preserves unrelated legitimate work.
 
-For PR #477 the selected gate set is normal CI, Windows production-candidate, protected-P0 commit guard and protected-P0 metadata guard unless fresh repository workflow policy selects an additional gate. Real SQL is not implied by this browser/cache-only change unless live workflow selection actually requires it.
-
-After merge:
+After every future merge:
 
 - fetch exact `main`;
 - require exact-main CI Green;
@@ -145,12 +155,11 @@ Stable rules:
 
 ## Next legal actions
 
-1. Complete and integrate #476/#477 only after fresh exact-head READY evidence.
-2. Verify exact merged `main` and repair any integration regression before new work.
-3. Keep #472 closed unless new authoritative scope explicitly requires revival.
-4. Owner completes #162.
-5. After #162 only, execute real #116 acceptance.
-6. Close #111 only after #116.
-7. Repository admin applies and independently verifies #353.
+1. Keep #472 closed unless new authoritative scope explicitly requires revival.
+2. Owner completes #162.
+3. After #162 only, execute real #116 acceptance.
+4. Close #111 only after #116.
+5. Repository admin applies and independently verifies #353.
+6. If a new exact-main regression or legitimate live READY integration appears, repair/recover it before any unrelated new work.
 
 `VERIFIED_FINAL_COMPLETE` remains forbidden until every required owner/external closure rule is genuinely satisfied.

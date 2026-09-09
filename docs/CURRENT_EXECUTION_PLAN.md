@@ -17,14 +17,16 @@ Never revive a historical branch or create parallel work solely because an old i
 
 ## Live convergence state — 2026-09-09
 
-Fresh live base before current integration:
+Post-#477 verified integration snapshot:
 
 ```text
 Repository        walidatiyaai2025-gif/Monitor
 Repository ID     1329517438
-Observed main     4d514daef24781724f24065accd95988b406d9e6
-Main push CI      34382598596 — success
-Active PR         #477 / issue #476 — dashboard live database status
+Observed main     f3dc1b2234b2105d1331d2476f75e8b7b0f2761c
+Main push CI      34392925320 — success
+#476              CLOSED / COMPLETED
+PR #477           MERGED / squash f3dc1b2234b2105d1331d2476f75e8b7b0f2761c
+Open product PRs  0 at post-merge audit
 Owner-closed PR   #472 — optional browser verification, closed unmerged
 Open gate issues  #162, #353, #116, #111
 Releases          0
@@ -33,22 +35,29 @@ Rulesets          0
 main protected    false
 ```
 
-These values are audit evidence, not execution pins. Before merge or mutation, fetch fresh `main`, current PR head, branch currency, review state and exact workflows again.
+These values are audit evidence, not execution pins. Before any later mutation, fetch fresh `main`, current PR/issue state, branch currency and exact workflows again.
 
-## Current lawful cloud-actionable work — #476 / PR #477
+## #476 / PR #477 — COMPLETE / MERGED
 
-PR #477 is the single legitimate implementation line for the Dashboard configurable live database-status requirement. It must preserve the existing cached/read-only Dashboard architecture:
+The Dashboard configurable live database-status feature is integrated on `main`.
 
-- render database status from already-rendered cached Dashboard evidence;
-- background refresh may re-read authenticated `/dashboard` only;
-- no direct monitored-SQL, collector or `/refresh-snapshot` browser path;
-- bounded persisted cadence 1/2/5/10/15/30 minutes;
-- fail closed on redirect/non-HTML/missing evidence and retain last display;
-- prevent overlapping refreshes and skip hidden-tab background fetches;
-- honor `prefers-reduced-motion`;
-- preserve existing owner/external P0 gates.
+Closure evidence:
 
-AGENTS.md requires material features to update `docs/STATUS.md` and `docs/FEATURE_CATALOG.md` in the same PR. Exact-head merge acceptance requires current base, zero unresolved review threads, normal CI, Windows production-candidate, and both protected-P0 guards Green. Earlier-head results do not authorize a changed head.
+- exact final PR head: `ac9499fe54000de8a8a38865bd47d062b5985d4f`;
+- normal CI `34392461369` — success;
+- Real SQL `34392461363` — success;
+- Windows production-candidate `34392461390` — success;
+- protected-P0 metadata `34392461372` — success;
+- protected-P0 commits `34392461395` — success;
+- zero unresolved review threads immediately before merge;
+- branch current with exact base `4d514daef24781724f24065accd95988b406d9e6` (`behind_by=0`);
+- squash merge `f3dc1b2234b2105d1331d2476f75e8b7b0f2761c`;
+- exact merged-main push CI `34392925320` — success;
+- issue #476 closed completed by the merge.
+
+Integrated behavior remains bounded to truthful cached Dashboard evidence: browser refresh re-reads authenticated `/dashboard` only, never monitored SQL/collector/`/refresh-snapshot`; cadence is restricted to 1/2/5/10/15/30 minutes and persisted client-side; redirect/non-HTML/missing evidence fails closed; overlapping refreshes and hidden-tab polling are prevented; reduced-motion is honored.
+
+This merge does not satisfy or mutate #162, #116, #111 or #353.
 
 ## Owner-closed optional work — #472
 
@@ -56,9 +65,11 @@ PR #472 was optional authenticated browser verification for already-complete Web
 
 ## Repository baseline
 
-Required pre-#476 product/runtime repository-side code, tests, CI/security controls, Website Monitoring integration and P0.5 operator tooling are complete through current `main`. Existing historical branches are not active by themselves; only live PR/claim/defect evidence activates work.
+Required product/runtime repository-side code, tests, CI/security controls, Website Monitoring integration, Dashboard live database-status integration and P0.5 operator tooling are complete through `main@f3dc1b2234b2105d1331d2476f75e8b7b0f2761c`.
 
-Any exact-main regression or legitimate stale READY integration has priority over new feature work.
+Existing historical branches are not active by themselves; only live PR/claim/defect evidence activates work. Any future exact-main regression or legitimate stale READY integration has priority over new feature work.
+
+There is no additional cloud-actionable product implementation implied by the historical branch inventory or by already-closed issues.
 
 ## Remaining direct gates
 
