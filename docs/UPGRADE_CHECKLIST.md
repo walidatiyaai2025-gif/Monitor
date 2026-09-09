@@ -7,6 +7,8 @@ Use this checklist for every production Monitor upgrade. Do not replace the acti
 - [ ] Identify the exact source commit/tag and release artifact checksum.
 - [ ] Confirm the release CI passed Release build with warnings-as-errors and the full test suite.
 - [ ] Read `docs/STATUS.md`, `docs/DECISIONS.md` and release notes for persistence/configuration changes.
+- [ ] Verify the tagged GitHub Release notes record the same version/tag, release source commit, Windows x64 ZIP name and product SHA-256 as the selected release assets. Treat missing or mismatched notes as a release-integrity defect, not as permission to infer provenance from filenames.
+- [ ] Confirm GitHub Release publication is artifact retention only; production deployment and external acceptance require their own evidence.
 - [ ] Export/create an operational backup from Administrator Settings and record its opaque backup ID.
 - [ ] Back up deployment configuration separately. Do not copy secrets into the ticket/change record.
 - [ ] Confirm Data Protection key material is protected and recoverable according to the selected key-store mode.
