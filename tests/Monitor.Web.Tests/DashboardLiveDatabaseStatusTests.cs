@@ -41,6 +41,8 @@ public sealed class DashboardLiveDatabaseStatusTests
         Assert.Contains("@media (prefers-reduced-motion: reduce)", css, StringComparison.Ordinal);
         Assert.Contains("animation: none !important", css, StringComparison.Ordinal);
         Assert.Contains("transition: none !important", css, StringComparison.Ordinal);
+        Assert.Contains("var(--text-primary, #e8f2fb)", css, StringComparison.Ordinal);
+        Assert.DoesNotContain("color: initial;", css, StringComparison.Ordinal);
     }
 
     [Fact]
