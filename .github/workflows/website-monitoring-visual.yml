@@ -1,0 +1,135 @@
+name: website-monitoring-visual
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/website-monitoring-visual.yml'
+      - 'scripts/Test-WebsiteMonitoringVisual.cjs'
+      - 'src/Monitor.Web/Controllers/WebsiteMonitoringController.cs'
+      - 'src/Monitor.Web/Controllers/WebsiteMonitoringLiveController.cs'
+      - 'src/Monitor.Web/Views/WebsiteMonitoring/**'
+      - 'src/Monitor.Web/Views/WebsiteMonitoringLive/**'
+      - 'src/Monitor.Web/wwwroot/css/website-monitoring.css'
+      - 'src/Monitor.Web/wwwroot/js/website-monitoring-live.js'
+      - 'tests/Monitor.Web.Tests/WebsiteMonitoringVisualAcceptanceTests.cs'
+      - 'docs/WEBSITE_MONITORING_VISUAL_ACCEPTANCE.md'
+
+permissions:
+  contents: read
+
+jobs:
+  authenticated-browser-evidence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: '8.0.x'
+          global-json-file: global.json
+
+      - name: Restore and build
+        run: |
+          dotnet restore Monitor.sln
+          dotnet build Monitor.sln --configuration Release --no-restore --warnaserror
+
+      - name: Install isolated Chromium harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --version
+          npm --version
+          HARNESS="$RUNNER_TEMP/wm7-playwright"
+          mkdir -p "$HARNESS"
+          cd "$HARNESS"
+          npm init -y >/dev/null
+          npm install --save-exact playwright@1.55.0
+          npx playwright install --with-deps chromium
+          echo "NODE_PATH=$HARNESS/node_modules" >> "$GITHUB_ENV"
+
+      - name: Prepare ephemeral authenticated SingleNode runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/website-monitoring-visual
+          python3 - <<'PY'
+          import base64, hashlib, os, secrets
+          password = secrets.token_urlsafe(24)
+          salt = secrets.token_bytes(16)
+          iterations = 150000
+          digest = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, iterations, dklen=32)
+          print(f'::add-mask::{password}')
+          values = {
+              'MONITOR_VISUAL_ADMIN_USERNAME': 'VisualAdmin',
+              'MONITOR_VISUAL_ADMIN_PASSWORD': password,
+              'DevelopmentAdmin__Username': 'VisualAdmin',
+              'DevelopmentAdmin__Iterations': str(iterations),
+              'DevelopmentAdmin__SaltBase64': base64.b64encode(salt).decode('ascii'),
+              'DevelopmentAdmin__HashBase64': base64.b64encode(digest).decode('ascii'),
+          }
+          with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as handle:
+              for key, value in values.items():
+                  handle.write(f'{key}={value}\n')
+          PY
+          {
+            echo 'ASPNETCORE_ENVIRONMENT=Development'
+            echo 'ASPNETCORE_URLS=http://127.0.0.1:5087'
+            echo 'DemoData__Enabled=false'
+            echo 'WebsiteMonitoring__Enabled=false'
+            echo 'WebsiteNotifications__Enabled=false'
+            echo "RegistrationStore__Path=$RUNNER_TEMP/wm7-state/registrations.json"
+            echo "OperationalStore__RootPath=$RUNNER_TEMP/wm7-state/operational"
+            echo "SecretStore__Path=$RUNNER_TEMP/wm7-state/secrets.json"
+            echo "SecretStore__KeyRingPath=$RUNNER_TEMP/wm7-state/keyring"
+            echo "BackupStore__RootPath=$RUNNER_TEMP/wm7-state/backups"
+            echo 'MONITOR_VISUAL_BASE_URL=http://127.0.0.1:5087'
+            echo 'MONITOR_VISUAL_OUTPUT_DIR=artifacts/website-monitoring-visual'
+          } >> "$GITHUB_ENV"
+
+      - name: Start authenticated application without probes
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet run --project src/Monitor.Web/Monitor.Web.csproj --configuration Release --no-build > artifacts/website-monitoring-visual/application.log 2>&1 &
+          PID=$!
+          echo "MONITOR_VISUAL_PID=$PID" >> "$GITHUB_ENV"
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent --show-error http://127.0.0.1:5087/login >/dev/null; then
+              exit 0
+            fi
+            if ! kill -0 "$PID" 2>/dev/null; then
+              cat artifacts/website-monitoring-visual/application.log
+              exit 1
+            fi
+            sleep 1
+          done
+          cat artifacts/website-monitoring-visual/application.log
+          echo 'Visual acceptance application did not become ready.' >&2
+          exit 1
+
+      - name: Capture wide responsive and reduced-motion evidence
+        shell: bash
+        run: node scripts/Test-WebsiteMonitoringVisual.cjs
+
+      - name: Stop visual acceptance application
+        if: always()
+        shell: bash
+        run: |
+          if [ -n "${MONITOR_VISUAL_PID:-}" ] && kill -0 "$MONITOR_VISUAL_PID" 2>/dev/null; then
+            kill "$MONITOR_VISUAL_PID" || true
+            wait "$MONITOR_VISUAL_PID" 2>/dev/null || true
+          fi
+
+      - name: Upload WM7 browser evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: website-monitoring-visual-${{ github.sha }}
+          if-no-files-found: error
+          path: artifacts/website-monitoring-visual/
