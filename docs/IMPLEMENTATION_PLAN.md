@@ -8,307 +8,133 @@ This file is the **current repository implementation/convergence plan**. It is s
 4. `docs/CURRENT_EXECUTION_PLAN.md`;
 5. this file for the current implementation summary and dependency order.
 
-The complete pre-convergence implementation history that previously occupied this file is preserved unchanged at `docs/history/IMPLEMENTATION_PLAN_PRE_CONVERGENCE_2026-09-09.md`. Historical branch/PR instructions in that archive are evidence only and must not be executed unless they are revalidated against current live state.
+The complete pre-convergence implementation history is preserved unchanged at `docs/history/IMPLEMENTATION_PLAN_PRE_CONVERGENCE_2026-09-09.md`. Historical branch/PR instructions there are evidence only and must not be executed unless revalidated against current live state.
 
-The authoritative executable owner/external handoff is `deploy/REMAINING_OWNER_EXTERNAL_GATES.md`. That handoff is fail-closed and deliberately does **not** count any OWNER_ONLY or EXTERNAL gate as PASS without real retained evidence.
+The authoritative executable owner/external handoff is `deploy/REMAINING_OWNER_EXTERNAL_GATES.md`. It remains fail-closed and never counts an OWNER_ONLY or EXTERNAL gate as PASS without real retained evidence.
 
-## Current integrated state — 2026-09-09
+## Current live implementation state — 2026-09-09
 
-**Verified integration base before this documentation reconciliation:** `main@3a7e8daf9565d7cb75e8dc8111d6df7ae9e90c0d`.
+Fresh base before the current integration line: `main@4d514daef24781724f24065accd95988b406d9e6`; exact-main push CI `34382598596` Green.
 
-- M0 through M8 are verified.
-- BATCH-100 through BATCH-800 are complete in repository scope; BATCH-800/#287 is closed completed.
-- Website Monitoring #463/#466 is COMPLETE / MERGED through PR #467 -> PR #464. There is no remaining required Website Monitoring runtime implementation target.
-- PR #473 `Release: bind tagged artifacts to deterministic notes` is COMPLETE / MERGED as `3a7e8daf9565d7cb75e8dc8111d6df7ae9e90c0d` after a current-base reconciliation, zero unresolved review threads, exact-head Linux CI, Windows production-candidate and both protected-P0 guards Green. Exact merged-main push CI run `34379131661` is Green.
-- Draft PR #472 is an **optional browser-verification follow-up**, not a missing #463 implementation. It remains DRAFT / NOT READY: its branch is stale against current main and dedicated `website-monitoring-visual` run `34371076685` failed at authenticated browser acceptance. It must not be merged or used to reopen #463 unless its purpose remains lawful, it is reconciled to current main, its dedicated browser gate is repaired and Green, all selected exact-head gates are Green, and review state is clear.
-- No open issue is currently a verified repository `CODE_GAP` whose own Definition of Done can be satisfied solely by Cloud Work.
+Completed baseline:
+
+- M0 through M8 verified;
+- BATCH-100 through BATCH-800 complete in repository scope; #287 closed completed;
+- P0.1 through P0.4 complete with real repository/Real-SQL evidence;
+- Website Monitoring #463/#466 complete through PR #467 -> PR #464;
+- P0.5 repository packaging/deployment/evidence/session/finalization/recovery/release tooling complete;
+- PR #473 deterministic tagged-release-note identity complete/merged as `3a7e8daf9565d7cb75e8dc8111d6df7ae9e90c0d`, exact merged-main CI `34379131661` Green.
+
+Current lawful cloud-actionable line: **issue #476 / PR #477 — Dashboard configurable live database status**.
+
+Owner-closed optional line: **PR #472 — CLOSED UNMERGED BY OWNER DIRECTION**. Its recovered exact head passed its selected optional browser checks, but it is not part of `main`, not an active integration target, and must not be duplicated or revived without new authoritative scope.
+
+## #476 / PR #477 implementation contract
+
+PR #477 must add the Dashboard live database-status feature without creating a second monitored-SQL collection path.
+
+Required behavior:
+
+- inject a `Live Database Status` panel on `/dashboard` immediately after the existing truthful SQL-estate evidence surface;
+- derive per-server state, online/total database counts and freshness from already-rendered cached Dashboard evidence;
+- allow only 1/2/5/10/15/30-minute auto-refresh cadence, default 5 minutes, persisted client-side;
+- background refresh may perform authenticated `GET /dashboard` only;
+- browser code must never call monitored SQL, collectors or `/refresh-snapshot`;
+- redirects, non-HTML responses and missing expected Dashboard evidence fail closed and retain the last displayed state;
+- overlapping refreshes are blocked and hidden tabs do not perform background network refresh;
+- responsive animation/status feedback is allowed only as client presentation and must honor `prefers-reduced-motion`;
+- existing fresh/stale/unavailable truth semantics and all P0/owner/external boundaries remain unchanged;
+- regression coverage must lock cached/read-only behavior, no-direct-SQL/no-refresh mutation and reduced-motion/accessibility contracts.
+
+`AGENTS.md` requires a material feature to update `docs/STATUS.md` and `docs/FEATURE_CATALOG.md` in the same PR. Those tracking updates belong to this single existing PR rather than a parallel documentation PR.
 
 ## Integration and READY policy
 
 A branch/PR is legitimate READY only when all of the following are true immediately before merge:
 
-1. it represents existing committed product/repository scope rather than an unrelated nice-to-have;
-2. it does not duplicate implementation already merged or actively owned by another legitimate branch;
-3. its lawful base is identified and the branch is current with that base (`behind_by=0` or equivalent exact evidence);
-4. unresolved review threads are zero where GitHub exposes thread data;
-5. every selected exact-head gate is completed Green; earlier-head or pre-rebase evidence is not sufficient;
-6. owner-only/external acceptance is not being simulated, inferred or converted to PASS;
-7. its diff contains only the intended implementation/reconciliation scope and preserves unrelated legitimate work.
+1. it represents existing committed product/repository scope;
+2. it does not duplicate implementation already merged, owner-closed or actively owned elsewhere;
+3. its lawful base is identified and it is current with that base (`behind_by=0` or equivalent exact evidence);
+4. unresolved review threads are zero;
+5. every selected exact-head gate is completed Green; earlier-head evidence is insufficient after any commit;
+6. owner-only/external acceptance is not simulated, inferred or converted to PASS;
+7. its diff contains only intended implementation/reconciliation scope and preserves unrelated legitimate work.
 
-After every merge:
+For PR #477 the selected gate set is normal CI, Windows production-candidate, protected-P0 commit guard and protected-P0 metadata guard unless fresh repository workflow policy selects an additional gate. Real SQL is not implied by this browser/cache-only change unless live workflow selection actually requires it.
+
+After merge:
 
 - fetch exact `main`;
-- read/run the strongest exact-main verification available;
-- repair any integration-caused regression immediately on a current-main branch;
-- reconcile issue/PR/document state to what actually merged;
-- never claim external/owner-only completion from repository CI.
+- require exact-main CI Green;
+- reconcile issue/PR state to what actually merged;
+- repair any integration-caused regression immediately;
+- never infer owner/external completion from repository CI.
 
-## Current required dependency order
+## Selected RC.61 identity
 
-The remaining production dependency is strict:
-
-`#162 -> #116 -> #111`
-
-Expanded:
-
-`#162 OWNER_ONLY durable RC.61 publication + independent verification -> #116 EXTERNAL_ENVIRONMENT real trusted-IIS 15/15 acceptance -> #111 closure-only umbrella completion`
-
-Issue #353 is independent repository governance:
-
-`#353 OWNER_ONLY / REPOSITORY_ADMIN provider-bound main branch protection apply + independent read-back`
-
-No #116 production mutation may begin while #162 is open. #111 cannot close before #116. #353 does not satisfy any production acceptance gate.
-
-## P0.5 repository preparation — COMPLETE
-
-Repository-side P0.5 implementation is complete. The selected cutover candidate remains RC.61 unless #116 explicitly selects a later equivalently verified candidate.
-
-### Selected RC.61 identity
-
-- version: `0.1.0-rc.61`;
-- product: `Monitor-0.1.0-rc.61-win-x64.zip`;
-- companion checksum: `Monitor-0.1.0-rc.61-win-x64.zip.sha256`;
-- product SHA-256: `d0a71f8a5611621ee388a1109dedc76e1a6e70357404cb62c9c7aa188f49c3d5`;
-- source production-candidate run: `31667721306`;
-- Actions artifact ID: `9168574442`;
-- outer artifact digest: `sha256:1c499b9eb0bfc4245716c14718381b71352df8392aafe430cc415b375b93f382`;
-- source head: `e28158da67b36dfc5dbf8f4c38b5c43d99c7c728`;
-- tested merge: `158148d8bfd05f724014541bc7a0b1eab5dae1b5`;
-- release tag: `v0.1.0-rc.61`;
-- Acceptance Control Toolkit exact source: `b422eaaee53d931a62a43b3c36a53b68cd4f3e27`.
-
-Repository CI/candidate evidence is not production acceptance.
-
-### Durable promotion — #162 OWNER_ONLY / OPEN
-
-Repository implementation for preserving the exact existing RC.61 candidate is complete. Actual durable publication remains an explicit owner/operator action. The exact executable commands, prerequisites, expected outputs, evidence paths, abort behavior and STOP conditions live in `deploy/REMAINING_OWNER_EXTERNAL_GATES.md`.
-
-Preferred operator sequence remains exactly:
-
-`Invoke-Rc61DurablePromotion.ps1 preview -> explicit -AcknowledgePromotion -> exact captured promotion run -> separately execute returned IndependentVerificationCommand -> Test-Rc61CutoverReadiness.ps1 with the two exact run IDs`
-
-Preview:
-
-```powershell
-.\scripts\Invoke-Rc61DurablePromotion.ps1
+```text
+Version                    0.1.0-rc.61
+Tag                        v0.1.0-rc.61
+ZIP                        Monitor-0.1.0-rc.61-win-x64.zip
+Checksum                   Monitor-0.1.0-rc.61-win-x64.zip.sha256
+Product SHA-256            d0a71f8a5611621ee388a1109dedc76e1a6e70357404cb62c9c7aa188f49c3d5
+Source run                 31667721306
+Actions artifact ID        9168574442
+Outer artifact digest      sha256:1c499b9eb0bfc4245716c14718381b71352df8392aafe430cc415b375b93f382
+Source commit              e28158da67b36dfc5dbf8f4c38b5c43d99c7c728
+Tested merge               158148d8bfd05f724014541bc7a0b1eab5dae1b5
+Acceptance toolkit source  b422eaaee53d931a62a43b3c36a53b68cd4f3e27
 ```
 
-Require a clean fail-closed preview including:
+No live `v0.1.0-rc.61` tag or GitHub Release exists. Repository CI/candidate evidence is not durable publication or production acceptance.
 
-- `Status = READY_FOR_EXPLICIT_PROMOTION_ACKNOWLEDGEMENT`;
-- `WorkflowDispatchPerformed = False`;
-- `IndependentVerificationDispatched = False`;
-- `ProductionMutationPerformed = False`;
-- `MutatedGitHubState = False`.
+## Remaining direct gates
 
-Only after review:
+### #162 — OWNER_ONLY / OPEN / NOT PASS
 
-```powershell
-.\scripts\Invoke-Rc61DurablePromotion.ps1 -AcknowledgePromotion
+Durable RC.61 publication remains an explicit owner action. Follow `deploy/REMAINING_OWNER_EXTERNAL_GATES.md` exactly:
+
+`Invoke-Rc61DurablePromotion.ps1 preview -> explicit -AcknowledgePromotion -> one exact promotion run -> separately execute returned IndependentVerificationCommand -> Test-Rc61CutoverReadiness.ps1 with both exact run IDs -> independent tag/exact-two-assets/product-hash verification`.
+
+### #116 — EXTERNAL_ENVIRONMENT / OPEN / NOT PASS
+
+Production mutation is blocked while #162 remains open. After #162 really completes, use exact RC.61 bytes plus independently verified Acceptance Control Toolkit source `b422eaaee53d931a62a43b3c36a53b68cd4f3e27`, create one fresh 0/15 session and execute real trusted HTTPS/IIS/least-privilege/recycle/durability/backup/rollback acceptance. Final acceptance requires independently validated 15/15 evidence.
+
+### #111 — umbrella closure only / OPEN / NOT PASS
+
+No independent production action. Close only after #116 has genuine accepted external evidence.
+
+### #353 — OWNER_ONLY / REPOSITORY_ADMIN / OPEN / NOT PASS
+
+Repository helper/tests/docs are complete. Live `main.protected=false`, rulesets are empty, and the administration-gated protection endpoint is inaccessible to the connected integration. Exact provider-bound required checks, strict up-to-date checks, admin enforcement and conversation resolution must be applied by repository admin, with force pushes and deletion disabled, then independently read back.
+
+## Dependency and safety boundary
+
+```text
+#162 -> #116 -> #111
 ```
 
-The exact promotion run must finish with:
+#353 is independent repository governance.
 
-`Status = PROMOTION_SUCCEEDED_INDEPENDENT_VERIFICATION_REQUIRED`
+Stable rules:
 
-The helper must bind one exact promotion run. Ambiguity, timeout or failure is **do not redispatch**. The returned `IndependentVerificationCommand` must be executed separately; promotion cannot self-satisfy independent verification.
+- browser/navigation GETs are cache/control-plane only and never initiate monitored-SQL collection;
+- browser/UI code never connects directly to monitored SQL;
+- missing/stale/truncated/uncollected evidence remains explicit;
+- no autonomous remediation or AI-generated SQL execution;
+- credentials, full connection strings, secret material, arbitrary SQL text, client/table data and physical paths remain excluded according to existing contracts;
+- mutations retain POST + antiforgery + named authorization boundaries;
+- MultiNode remains fail-closed until its distributed prerequisites are genuinely satisfied;
+- repository CI, optional browser evidence, release tooling or documentation cannot manufacture OWNER_ONLY or EXTERNAL PASS.
 
-After the exact promotion run and separate verifier are both Green:
+## Next legal actions
 
-```powershell
-.\scripts\Test-Rc61CutoverReadiness.ps1 `
-  -PromotionRunId <PROMOTION_RUN_ID> `
-  -VerificationRunId <VERIFICATION_RUN_ID>
-```
+1. Complete and integrate #476/#477 only after fresh exact-head READY evidence.
+2. Verify exact merged `main` and repair any integration regression before new work.
+3. Keep #472 closed unless new authoritative scope explicitly requires revival.
+4. Owner completes #162.
+5. After #162 only, execute real #116 acceptance.
+6. Close #111 only after #116.
+7. Repository admin applies and independently verifies #353.
 
-Require `Status = READY_FOR_P0_5_PRE_CUTOVER_PREPARATION`, `DurableReleasePrerequisiteSatisfied = True`, `ExternalGatesPassed = 0`, `ProductionMutationPerformed = False`, and `MutatedGitHubState = False`. This is **0/15** production acceptance and performs **no production mutation**.
-
-The current operator-helper/production-guide reconciliation was completed through PR #343, squash-merged as `3cd711b608e4ceaf8872eb22a25541bbbfe2729a`.
-
-#162 remains OPEN until independent live evidence proves the approved tag, exactly the two approved durable assets and the approved product SHA-256 after both exact workflow runs succeed.
-
-### First Production SingleNode — #116 EXTERNAL_ENVIRONMENT / OPEN
-
-Only after #162 completes, the actual intended Windows/IIS environment must prove the real acceptance chain. `deploy/REMAINING_OWNER_EXTERNAL_GATES.md` is the executable authority and keeps the RC.61 product/deployment candidate separate from the later acceptance-control sidecar.
-
-Required real proof includes:
-
-- verified durable RC.61 bytes;
-- independently verified Acceptance Control Toolkit from exact source `b422eaaee53d931a62a43b3c36a53b68cd4f3e27`;
-- fresh immutable session with externally preserved session-manifest SHA-256;
-- trusted machine certificate and HTTPS binding;
-- intended application-pool identity;
-- candidate-bundled IIS prerequisite preflight;
-- reviewed PLAN ONLY deployment followed by explicit `-Apply`;
-- trusted HTTPS health/authentication;
-- approved least-privilege monitored SQL registration/Test/Refresh path;
-- IIS recycle durability for registration, protected credential and operational state;
-- backup/rollback/recovery rehearsal;
-- exact real 15/15 SHA-bound evidence;
-- explicit operator finalization;
-- independent evidence validation and human review.
-
-Repository workflows, Windows runner validation, synthetic 15/15 packs, release packaging, tag tooling or documentation do not satisfy #116.
-
-### P0 umbrella — #111 closure-only / OPEN
-
-#111 is not a fourth external acceptance gate. It has no independent production action and no separate PASS condition. It closes only after #116 is accepted under its real-environment Definition of Done and the finalized #116 evidence/session remains available for review. An incorrect or premature #111 closure must be reopened; no repository-only merge may auto-close or mark #111 complete.
-
-## Canonical completed baseline evidence retained for regression
-
-These facts remain in the active canonical plan because executable regression tests intentionally lock them against stale-state regressions.
-
-### BATCH-700 final portal/UI closeout
-
-- final merge: `fd33e79c6d19d7f9852417b9c35a11f91f21714c`;
-- exact final head: `0834db6b5d518fe5c52eec9b47c03e467929aa89`;
-- repository scope: 50/50 COMPLETE;
-- #116/#111 production acceptance remains independent of this repository/UI completion.
-
-### BATCH-800 final repository closeout
-
-**Umbrella:** Issue #287 — CLOSED / COMPLETED
-
-- final task: `B800-100`;
-- final merge: `a6832d99f629cdbd3a93887199fe608a3ae474ec`;
-- exact final head: `4379dbc0e1b346cb51bebf8e7467823c58f2361c`;
-- Linux CI: `32093252549`;
-- Real SQL: `32093252670`;
-- Windows production-candidate: `32093252563`;
-- completed B100+B200+B300+B400+B500+B600+B700+B800 task accounting: **760**.
-
-Diagnostic truth boundaries remain unchanged: bounded **TempDB**, **transaction-log** and **HA** evidence is available, while unsupported composite conclusions remain explicit; **query regression** remains a privacy-safe evidence contract with no live query-regression collection, SQL text or query-plan collection.
-
-## Release integrity
-
-### Package parity — COMPLETE
-
-`release.yml` delegates package construction to the verified Windows production-candidate workflow. Tagged/manual release packaging therefore shares the same build/test/publish/secret-free/smoke/package-validation path rather than using a weaker independent publish path.
-
-### Durable tagged release assets — COMPLETE
-
-For normal pushed version tags, the release workflow can publish only the already-verified same-run ZIP and companion checksum after checksum validation. It has no rebuild/repackage/clobber path and does not imply external production acceptance.
-
-### Deterministic tagged-release notes — PR #473 COMPLETE / MERGED
-
-PR #473 adds a deterministic release-note identity contract for **future normal tagged-release publication**:
-
-1. release notes are generated only after the downloaded product checksum has been verified;
-2. notes bind exact version, tag, release source commit, ZIP filename, product SHA-256, companion checksum and verified production-candidate provenance;
-3. new release creation uses the deterministic notes file rather than mutable/generated prose;
-4. if a release already exists, both the exact notes and exact approved assets must match; drift fails closed;
-5. regression coverage prohibits weakening the deterministic notes/asset contract.
-
-PR #473 did **not** create, publish, tag or mutate selected RC.61. It therefore does not satisfy #162 and changes no #116/#111 state.
-
-## Website Monitoring — #463/#466 COMPLETE / MERGED
-
-### Merged runtime contract
-
-The required Website Monitoring implementation is complete through PR #467 -> PR #464 and includes:
-
-- bounded target administration;
-- HTTP/HTTPS-only URL validation and credential-in-URL rejection;
-- fail-closed SSRF/private-destination authorization with re-resolution/re-authorization;
-- DNS/TCP/TLS/HTTP/status/redirect/content/latency/certificate evidence;
-- durable SingleNode target/history/schedule/check state;
-- existing-incident confirmation/recovery/reopen reconciliation;
-- bounded correlation without causal overclaim;
-- recipient groups;
-- SMTP environment-secret resolution;
-- durable outbox/retry/dead-letter behavior;
-- `/websites` management and cached live UI;
-- attributable audit, antiforgery and named role boundaries;
-- SharedState stores and CAS-backed ownership for HA paths;
-- one coordinated execution service with local single-flight and distributed per-target leases.
-
-Monitoring and notifications remain default-disabled. MultiNode remains fail-closed unless all existing SharedState/coordination prerequisites are satisfied.
-
-### Visual/browser evidence truth
-
-The merged product claims source/route responsive/accessibility acceptance, including reduced-motion and explicit 390px behavior. It does **not** claim a merged browser screenshot run.
-
-Draft PR #472 is optional verification work only. Current known state:
-
-- draft/open;
-- branch stale against integrated main;
-- no runtime implementation is required by the PR;
-- earlier normal CI and protected-P0 guards were Green;
-- dedicated `website-monitoring-visual` run `34371076685` failed at authenticated browser acceptance.
-
-Therefore #472 is not READY and is not a prerequisite for closed #463 or the P0 production chain. It may be repaired/reconsidered only as existing verification scope; it must not redefine completed runtime scope without an authoritative committed requirement.
-
-## Repository governance — #353 OWNER_ONLY / OPEN
-
-Repository-side branch-protection helper, safety tests and documentation are complete. Actual GitHub main protection remains an authenticated repository-admin action plus independent read-back. The exact current execution/read-back/rollback commands and STOP conditions are maintained in `deploy/REMAINING_OWNER_EXTERNAL_GATES.md`.
-
-Required live policy remains:
-
-- required provider-bound checks: `build`, `protected-p0-pr-metadata`, `protected-p0-pr-commits`;
-- one reviewed provider identity per required check;
-- strict/up-to-date checks enabled;
-- admin enforcement enabled;
-- conversation resolution required;
-- force pushes disabled;
-- branch deletion disabled;
-- no unrelated PR-review/restriction policy expansion.
-
-Do not close #353 from helper code, preview output, CI Green or merge evidence. Close only after actual application plus independent repository-admin read-back proves the exact live policy.
-
-## Completed implementation baselines
-
-The following are complete repository state and must not be reopened from historical branch instructions:
-
-- M0–M8 verified foundation;
-- BATCH-100..BATCH-800 complete repository scope;
-- BATCH-700 visible portal/UI completion;
-- BATCH-800 full functional operator wiring, Issue #287 CLOSED/COMPLETED;
-- real SQL gates P0.1–P0.4 complete;
-- selected-product-hash acceptance binding;
-- locked-session evidence-chain binding;
-- immutable Acceptance Control Toolkit provenance;
-- IIS bootstrap/fresh-host/PowerShell 7 prerequisite hardening;
-- clean IIS no-demo production/staging behavior;
-- GitHub Actions supply-chain/native Node 24 hardening;
-- durable release/promotion preflight and operator-helper implementation;
-- programming truthfulness/security/control closures through PR #369;
-- atomic SharedState execution guard #423/#424;
-- incident-note durability/replay/cross-process closures #445–#450;
-- core SingleNode file cross-process closure #451/#452;
-- operator metadata cross-process closure #459/#460;
-- Website Monitoring #463/#466 through #467/#464;
-- future normal tagged-release deterministic-notes hardening #473.
-
-Exact historical implementation/evidence details remain preserved in `docs/history/IMPLEMENTATION_PLAN_PRE_CONVERGENCE_2026-09-09.md` and the associated closed issues/PRs.
-
-## Stable safety/truth boundaries
-
-- Browser monitoring GETs remain cache/control-plane only and never initiate monitored SQL collection.
-- Browser/UI code never connects directly to monitored SQL.
-- Missing, stale, truncated, permission-limited or uncollected evidence remains explicit; it must not become synthetic zero/healthy/default truth.
-- No autonomous remediation or AI-generated SQL execution.
-- Credentials, full connection strings, current secret references, raw provider errors, arbitrary SQL text, client/table data and physical paths remain outside UI/audit/telemetry/exports/diagnostics/production evidence according to existing contracts.
-- Mutations require the existing POST + antiforgery + named authorization boundaries.
-- MultiNode stays fail-closed until its existing distributed prerequisites are genuinely satisfied.
-- Repository CI cannot manufacture RC.61 publication, trusted-IIS acceptance, branch-protection enforcement or any other owner/external PASS.
-- No new feature is added merely because it would be useful; work must trace to existing committed product/repository scope.
-
-## Current next legal actions
-
-1. Merge only branches that satisfy the READY policy above.
-2. Keep #472 DRAFT / NOT READY until its optional verification line is current, lawful and Green; do not treat it as required implementation.
-3. Owner completes #162 through explicit promotion + separate verification + independent tag/exact-two-assets/hash/readiness evidence.
-4. After #162 only, execute #116 on the actual trusted Windows/IIS/SQL environment and collect/review real 15/15 evidence.
-5. Close #111 only after #116; #111 is closure-only and cannot manufacture another external PASS.
-6. Repository admin applies and independently verifies #353 separately.
-
-## Definition of Done for the active production plan
-
-The active production plan is complete only when:
-
-- #162 has passed its explicit owner-operated durable-publication and independent-verification closure rule;
-- #116 has passed every real trusted-IIS/HTTPS/least-privilege/recycle/durability/backup/rollback 15/15 acceptance gate with reviewed evidence;
-- #111 is closed only after #116;
-- #353 is closed only after exact live repository-admin branch-protection apply/read-back;
-- every repository integration used current-base, zero-thread and exact-head Green evidence and exact-main post-merge verification;
-- no incomplete owner/external result is represented as repository completion.
+`VERIFIED_FINAL_COMPLETE` remains forbidden until every required owner/external closure rule is genuinely satisfied.
