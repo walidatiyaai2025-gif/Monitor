@@ -1,5 +1,12 @@
 # Feature Catalog
 
+## Website Monitoring — #463 / #466
+
+- **SingleNode foundation (WM-1..WM-5):** PR #464 / `feature/website-monitoring-foundation` implements bounded target administration, fail-closed outbound/SSRF authorization, DNS/TCP/TLS/HTTP/redirect/status/content/latency/certificate evidence, durable SingleNode scheduling/history/check state, existing-incident reconciliation, dependency correlation, recipient groups, SMTP environment-secret resolution, durable outbox/retry/dead-letter, and `/websites` plus cached live UI. Monitoring and notifications remain default-disabled.
+- **SharedState/HA closure (WM-6):** PR #467 / `task/website-monitoring-wm6` is stacked on #464 and adds bounded SharedState stores, CAS-backed scheduler/outbox ownership, one coordinated probe→history→incident→notification execution service, local single-flight, and distributed per-target leases for scheduled/manual checks. MultiNode requires both shared operational state and distributed coordination; platform-wide DeploymentReadiness remains authoritative.
+- **Acceptance:** actor identity and requested-audit evidence precede manual outbound execution; stale pre-WM-6 fail-closed expectations are reconciled; responsive/accessibility source acceptance includes reduced motion and explicit 390px behavior. Final docs-inclusive exact-head CI, Windows production-candidate, Real SQL, protected-P0 guards and zero unresolved review threads remain required before Ready/Merge.
+- **Boundary:** no RC.61 publication, production IIS/SQL mutation, real SMTP-provider acceptance or external P0 PASS is claimed. The production dependency remains `#162 -> #116 -> #111`.
+
 | Feature | Milestone | Status | Notes |
 |---|---|---|---|
 | SingleNode operator metadata cross-process lease | Closure / #459 | Implemented in PR #460; merge-gated | File-backed server + incident operator metadata share one stable `operator-metadata.json.lock`; reads and mutations reload validated authoritative disk state under the existing bounded `CrossProcessFileLease`, preventing stale reads and whole-envelope lost updates while preserving existing bounds, note retention and atomic-save behavior. Independent-instance regressions cover peer reads, cross-entity mutation preservation and peer-note preservation; pre-canonical head `f26b7f6a86b75713fe8ffed0ccdb401070a1b19f` passed Linux CI, Real SQL, Windows production-candidate and both protected-P0 guards; final exact-head repository gates remain required before merge |
