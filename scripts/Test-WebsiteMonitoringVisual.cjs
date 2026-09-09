@@ -24,25 +24,25 @@ async function assertPage(page) {
     const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'no-preference' });
     const page = await context.newPage();
     await page.goto(`${baseUrl}/login`, { waitUntil: 'networkidle' });
-    await page.getByLabel('Username').fill(username);
-    await page.getByLabel('Password').fill(password);
+    await page.getByLabel('Username', { exact: true }).fill(username);
+    await page.getByLabel('Password', { exact: true }).fill(password);
     await Promise.all([
       page.waitForLoadState('networkidle'),
       page.getByRole('button', { name: /Enter Command Center/ }).click()
     ]);
 
     await page.goto(`${baseUrl}/websites`, { waitUntil: 'networkidle' });
-    if (await page.getByText('No website targets are registered yet.').isVisible()) {
-      await page.getByLabel('Name').fill('Browser evidence target');
-      await page.getByLabel('URL').fill('https://example.invalid/health');
+    if (await page.getByText('No website targets are registered yet.', { exact: true }).isVisible()) {
+      await page.getByRole('textbox', { name: 'Name', exact: true }).fill('Browser evidence target');
+      await page.getByRole('textbox', { name: 'URL', exact: true }).fill('https://example.invalid/health');
       await Promise.all([
         page.waitForLoadState('networkidle'),
-        page.getByRole('button', { name: 'Save target' }).click()
+        page.getByRole('button', { name: 'Save target', exact: true }).click()
       ]);
     }
 
     await assertPage(page);
-    await page.getByText('Browser evidence target', { exact: true }).waitFor();
+    await page.getByText('Browser evidence target', { exact: true }).first().waitFor();
     await page.screenshot({ path: path.join(outputDir, 'website-monitoring-wide-1440.png'), fullPage: true });
 
     await page.setViewportSize({ width: 390, height: 844 });
