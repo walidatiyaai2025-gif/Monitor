@@ -17,7 +17,7 @@ Never revive a historical branch or create parallel work solely because the lega
 
 ## Live convergence snapshot — 2026-09-09
 
-Snapshot used to create this plan:
+Original snapshot used to create this plan:
 
 ```text
 Repository        walidatiyaai2025-gif/Monitor
@@ -32,15 +32,17 @@ Rulesets          0
 main protected    false
 ```
 
-The observed `main` value is a snapshot, not an execution pin. A later docs-only merge must not make an owner handoff unusable. Before any mutation, capture fresh remote `main`, require the operator checkout to equal that exact SHA, and then run the gate-specific fail-closed preflight.
+The observed values above are an audit snapshot, not execution pins. Fresh live revalidation on 2026-09-09 later observed `main@4d514daef24781724f24065accd95988b406d9e6` with exact-main push CI `34382598596` Green, no releases/tags/rulesets, `main.protected=false`, and the same four open gate issues. Live GitHub state also identifies PR #472 / `task/website-monitoring-wm7-browser-evidence` as one legitimate optional verification line. Before this tracking reconciliation, its exact head `fce84a2c6743061d6ff402d3e6ba1d9e66ac1db6` was current with `main` (`behind_by=0`), had zero unresolved review threads, and passed CI `34384824308`, browser workflow `34384824489`, protected-P0 commits `34384824328`, and protected-P0 metadata `34384824478`. Browser artifact `10117386057` was retained with digest `sha256:6fa8cdd0bb834d4907c0bfd8fe73c32d1068f118476ebc06bd0f8ad8b6dac697`.
+
+A later docs-only or verification-only commit must not make any owner handoff unusable. Before any mutation or merge, capture fresh remote `main`, exact branch head, review state and exact-head workflow evidence again.
 
 ## Repository-complete state
 
-Repository-side code, tests, CI/security controls, Website Monitoring integration, current canonical status/feature tracking and P0.5 operator tooling are complete through the live `main` snapshot above. There are no open pull requests.
+Required product/runtime repository-side code, tests, CI/security controls, Website Monitoring integration and P0.5 operator tooling are complete. PR #472 is optional authenticated browser/screenshot verification only; it does not reopen completed Website Monitoring runtime scope and is not a prerequisite for `#162 -> #116 -> #111`.
 
 Existing historical branches are not active work by themselves. A branch becomes active only when current live evidence ties it to an open PR, explicit current claim/lease, or a newly discovered unmerged defect. Squash-merged historical branches must not be re-integrated merely because their commit graph is divergent from `main`.
 
-Any future cloud-actionable regression on exact `main` has priority over new feature work and must be repaired on one lawful branch with exact-head validation before merge.
+Any cloud-actionable regression on exact `main`, or stale-but-legitimate READY integration such as an open branch whose tracking/evidence has drifted, has priority over new feature work and must be reconciled on that existing lawful line with exact-head validation before merge.
 
 ## Remaining direct gates
 
@@ -73,7 +75,7 @@ Execution must follow `deploy/REMAINING_OWNER_EXTERNAL_GATES.md`: preview -> exp
 
 State: **OPEN / NOT PASS**.
 
-Live read reports `main.protected=false`; repository rulesets are empty. Repository implementation is complete, but only an authenticated repository-admin application plus independent read-back of the exact provider-bound policy can pass this gate.
+Live public branch read reports `main.protected=false`; repository rulesets are empty. The administration-gated protection endpoint remains inaccessible to the connected integration. Repository implementation is complete, but only an authenticated repository-admin application plus independent read-back of the exact provider-bound policy can pass this gate.
 
 ### #116 — EXTERNAL_ENVIRONMENT — real trusted-IIS 15/15 acceptance
 
@@ -97,4 +99,4 @@ State: **OPEN / NOT PASS**.
 
 ## Completion rule
 
-`VERIFIED_FINAL_COMPLETE` is forbidden while any required owner-only or external gate lacks real evidence. Repository CI, synthetic acceptance, documentation, candidate packaging, a preview, a Green operator-tooling runtime, or a merged PR cannot manufacture owner/external PASS.
+`VERIFIED_FINAL_COMPLETE` is forbidden while any required owner-only or external gate lacks real evidence. Repository CI, synthetic acceptance, documentation, candidate packaging, a preview, a Green operator-tooling runtime, a Green optional browser-verification run, or a merged PR cannot manufacture owner/external PASS.
