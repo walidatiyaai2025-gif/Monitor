@@ -82,6 +82,10 @@ public sealed class WebsiteMonitoringVisualAcceptanceTests
 
         Assert.Contains("/login", browser, StringComparison.Ordinal);
         Assert.Contains("/websites", browser, StringComparison.Ordinal);
+        Assert.Contains("getByRole('textbox', { name: 'Name', exact: true })", browser, StringComparison.Ordinal);
+        Assert.Contains("getByRole('textbox', { name: 'URL', exact: true })", browser, StringComparison.Ordinal);
+        Assert.Contains("getByRole('button', { name: 'Save target', exact: true })", browser, StringComparison.Ordinal);
+        Assert.Contains("getByText('Browser evidence target', { exact: true }).first().waitFor()", browser, StringComparison.Ordinal);
         Assert.Contains("width: 1440", browser, StringComparison.Ordinal);
         Assert.Contains("width: 390", browser, StringComparison.Ordinal);
         Assert.Contains("reducedMotion: 'reduce'", browser, StringComparison.Ordinal);
