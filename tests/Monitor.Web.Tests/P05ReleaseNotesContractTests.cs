@@ -60,6 +60,24 @@ public sealed class P05ReleaseNotesContractTests
     }
 
     [Fact]
+    public void TaggedRelease_CreatePathRequiresProvenNotFoundRatherThanAmbiguousApiFailure()
+    {
+        var workflow = Read(".github/workflows/release.yml");
+
+        Assert.Contains("release_probe_error=\"${RUNNER_TEMP}/release-probe.err\"", workflow, StringComparison.Ordinal);
+        Assert.Contains("release_probe_exit=$?", workflow, StringComparison.Ordinal);
+        Assert.Contains("if [[ \"${release_probe_exit}\" -eq 0 ]]", workflow, StringComparison.Ordinal);
+        Assert.Contains("if ! grep -Eqi '(HTTP 404|Not Found)' \"${release_probe_error}\"; then", workflow, StringComparison.Ordinal);
+        Assert.Contains("Could not establish that the tagged GitHub Release is absent; refusing publication on ambiguous API state.", workflow, StringComparison.Ordinal);
+
+        var probeIndex = workflow.IndexOf("release_probe_error=\"${RUNNER_TEMP}/release-probe.err\"", StringComparison.Ordinal);
+        var absenceIndex = workflow.IndexOf("if ! grep -Eqi '(HTTP 404|Not Found)'", StringComparison.Ordinal);
+        var createIndex = workflow.IndexOf("gh release create", StringComparison.Ordinal);
+        Assert.True(probeIndex >= 0 && absenceIndex > probeIndex && createIndex > absenceIndex,
+            "Release creation must be reachable only after the release API has proven an actual not-found result.");
+    }
+
+    [Fact]
     public void TaggedRelease_DoesNotRebuildOrRepackageDuringPublication()
     {
         var workflow = Read(".github/workflows/release.yml");
