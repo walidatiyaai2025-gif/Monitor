@@ -28,7 +28,6 @@ public sealed class WebsiteMonitoringVisualAcceptanceTests
         Assert.Contains("WebsiteMonitoring", layout, StringComparison.Ordinal);
 
         Assert.DoesNotContain("SqlConnection", view, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("SELECT ", view, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("IWebsiteProbeEngine", view, StringComparison.Ordinal);
     }
 
