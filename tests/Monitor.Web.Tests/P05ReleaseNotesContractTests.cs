@@ -38,6 +38,28 @@ public sealed class P05ReleaseNotesContractTests
     }
 
     [Fact]
+    public void ExistingTaggedRelease_FailsClosedOnReleaseNoteDriftWithoutRewriting()
+    {
+        var workflow = Read(".github/workflows/release.yml");
+
+        Assert.Contains("existing_release_json=\"\"", workflow, StringComparison.Ordinal);
+        Assert.Contains("observed_notes=\"$(jq -r '.body // empty'", workflow, StringComparison.Ordinal);
+        Assert.Contains("if [[ \"${observed_notes}\" != \"${expected_notes}\" ]]", workflow, StringComparison.Ordinal);
+        Assert.Contains("Existing GitHub Release notes do not match the deterministic artifact-bound release identity; refusing mutation.", workflow, StringComparison.Ordinal);
+        Assert.Contains("Existing GitHub Release already matches the verified product ZIP/checksum and deterministic notes; leaving it immutable.", workflow, StringComparison.Ordinal);
+
+        var notesIndex = workflow.IndexOf("expected_notes=\"$(cat \"${notes_file}\")\"", StringComparison.Ordinal);
+        var existingReadIndex = workflow.IndexOf("existing_release_json=\"\"", StringComparison.Ordinal);
+        var existingVerifyIndex = workflow.IndexOf("verify_release_assets \"${RUNNER_TEMP}/existing-release\"", StringComparison.Ordinal);
+        var createIndex = workflow.IndexOf("gh release create", StringComparison.Ordinal);
+
+        Assert.True(notesIndex >= 0 && existingReadIndex > notesIndex,
+            "Existing release metadata must be checked against the same deterministic notes assembled for creation.");
+        Assert.True(existingVerifyIndex > existingReadIndex && createIndex > existingVerifyIndex,
+            "An existing release must be verified and returned without reaching the create path.");
+    }
+
+    [Fact]
     public void TaggedRelease_DoesNotRebuildOrRepackageDuringPublication()
     {
         var workflow = Read(".github/workflows/release.yml");
