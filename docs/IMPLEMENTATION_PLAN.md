@@ -14,14 +14,14 @@ The authoritative executable owner/external handoff is `deploy/REMAINING_OWNER_E
 
 ## Current integrated state — 2026-09-09
 
-**Verified integration base before this documentation reconciliation:** `main@3a7e8daf9565d7cb75e8dc8111d6df7ae9e90c0d`.
+**Fresh live base before this reconciliation:** `main@4d514daef24781724f24065accd95988b406d9e6`; exact-main push CI `34382598596` Green.
 
 - M0 through M8 are verified.
 - BATCH-100 through BATCH-800 are complete in repository scope; BATCH-800/#287 is closed completed.
 - Website Monitoring #463/#466 is COMPLETE / MERGED through PR #467 -> PR #464. There is no remaining required Website Monitoring runtime implementation target.
-- PR #473 `Release: bind tagged artifacts to deterministic notes` is COMPLETE / MERGED as `3a7e8daf9565d7cb75e8dc8111d6df7ae9e90c0d` after a current-base reconciliation, zero unresolved review threads, exact-head Linux CI, Windows production-candidate and both protected-P0 guards Green. Exact merged-main push CI run `34379131661` is Green.
-- Draft PR #472 is an **optional browser-verification follow-up**, not a missing #463 implementation. It remains DRAFT / NOT READY: its branch is stale against current main and dedicated `website-monitoring-visual` run `34371076685` failed at authenticated browser acceptance. It must not be merged or used to reopen #463 unless its purpose remains lawful, it is reconciled to current main, its dedicated browser gate is repaired and Green, all selected exact-head gates are Green, and review state is clear.
-- No open issue is currently a verified repository `CODE_GAP` whose own Definition of Done can be satisfied solely by Cloud Work.
+- PR #473 `Release: bind tagged artifacts to deterministic notes` is COMPLETE / MERGED as `3a7e8daf9565d7cb75e8dc8111d6df7ae9e90c0d`; exact merged-main push CI run `34379131661` is Green.
+- PR #472 is a legitimate **optional browser-verification follow-up**, not a missing #463 implementation. Recovery of its existing branch repaired the historical launch-profile, browser-install and selector failures rather than creating duplicate work. Before this canonical tracking reconciliation, exact head `fce84a2c6743061d6ff402d3e6ba1d9e66ac1db6` was current with `main` (`behind_by=0`), had zero unresolved review threads, and passed normal CI `34384824308`, `website-monitoring-visual` `34384824489`, protected-P0 commits `34384824328`, and protected-P0 metadata `34384824478`. Browser artifact `10117386057` was retained with digest `sha256:6fa8cdd0bb834d4907c0bfd8fe73c32d1068f118476ebc06bd0f8ad8b6dac697`. Because this reconciliation creates a later head, final merge still requires fresh exact-head evidence under the READY policy below.
+- No open issue is currently a verified repository `CODE_GAP` whose own Definition of Done can be satisfied solely by Cloud Work. The four open issues remain owner/external gates #162, #353, #116 and #111.
 
 ## Integration and READY policy
 
@@ -31,7 +31,7 @@ A branch/PR is legitimate READY only when all of the following are true immediat
 2. it does not duplicate implementation already merged or actively owned by another legitimate branch;
 3. its lawful base is identified and the branch is current with that base (`behind_by=0` or equivalent exact evidence);
 4. unresolved review threads are zero where GitHub exposes thread data;
-5. every selected exact-head gate is completed Green; earlier-head or pre-rebase evidence is not sufficient;
+5. every selected exact-head gate is completed Green; earlier-head or pre-reconciliation evidence is not sufficient;
 6. owner-only/external acceptance is not being simulated, inferred or converted to PASS;
 7. its diff contains only the intended implementation/reconciliation scope and preserves unrelated legitimate work.
 
@@ -226,17 +226,11 @@ Monitoring and notifications remain default-disabled. MultiNode remains fail-clo
 
 ### Visual/browser evidence truth
 
-The merged product claims source/route responsive/accessibility acceptance, including reduced-motion and explicit 390px behavior. It does **not** claim a merged browser screenshot run.
+The merged runtime already satisfies its required source/route responsive/accessibility contract; optional browser evidence does not redefine that closure.
 
-Draft PR #472 is optional verification work only. Current known state:
+PR #472 adds an authenticated Chromium harness using real `/login`, fail-closed monitoring/notification defaults, no outbound probe execution, 1440px/390px screenshots and reduced-motion validation. The historical failures were repaired on the existing branch. Recovery evidence immediately before this tracking reconciliation was exact head `fce84a2c6743061d6ff402d3e6ba1d9e66ac1db6`, current with `main`, zero review threads, Green CI `34384824308`, Green browser run `34384824489`, Green protected-P0 guards `34384824328` / `34384824478`, and retained browser artifact `10117386057` digest `sha256:6fa8cdd0bb834d4907c0bfd8fe73c32d1068f118476ebc06bd0f8ad8b6dac697`.
 
-- draft/open;
-- branch stale against integrated main;
-- no runtime implementation is required by the PR;
-- earlier normal CI and protected-P0 guards were Green;
-- dedicated `website-monitoring-visual` run `34371076685` failed at authenticated browser acceptance.
-
-Therefore #472 is not READY and is not a prerequisite for closed #463 or the P0 production chain. It may be repaired/reconsidered only as existing verification scope; it must not redefine completed runtime scope without an authoritative committed requirement.
+That recovery evidence proves the browser line can pass; it does not authorize a later changed head. Final integration must still satisfy the READY policy on the exact current head. Whether #472 is open or merged is always read from live GitHub state rather than inferred from this document.
 
 ## Repository governance — #353 OWNER_ONLY / OPEN
 
@@ -295,8 +289,8 @@ Exact historical implementation/evidence details remain preserved in `docs/histo
 
 ## Current next legal actions
 
-1. Merge only branches that satisfy the READY policy above.
-2. Keep #472 DRAFT / NOT READY until its optional verification line is current, lawful and Green; do not treat it as required implementation.
+1. Recover and integrate legitimate current work before creating duplicate implementation. For #472, require its current head to remain current with `main`, zero-thread and Green in normal CI, the dedicated browser workflow and both protected-P0 guards before merge.
+2. After any repository merge, verify exact `main` and exact-main CI and repair integration-caused regressions immediately.
 3. Owner completes #162 through explicit promotion + separate verification + independent tag/exact-two-assets/hash/readiness evidence.
 4. After #162 only, execute #116 on the actual trusted Windows/IIS/SQL environment and collect/review real 15/15 evidence.
 5. Close #111 only after #116; #111 is closure-only and cannot manufacture another external PASS.
