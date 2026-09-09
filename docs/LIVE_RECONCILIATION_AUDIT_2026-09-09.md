@@ -42,7 +42,9 @@ Classification: `DOC_GAP`. Do not execute legacy active-merge instructions from 
 
 README previously stopped its batch-completion summary at BATCH-700 even though BATCH-800 issue #287 is closed completed. This branch updates the summary to BATCH-100 through BATCH-800 and explicitly states that legacy “canonical”/active-merge wording inside `docs/IMPLEMENTATION_PLAN.md` is non-authoritative unless revalidated against live state.
 
-Classification before repair: `DOC_GAP`. Classification after this branch: repaired, pending PR gates/review/merge.
+The first PR-head CI run then exposed the same stale claim in executable regression coverage: `ReadmeCurrentStateTests.Readme_ReflectsCurrentBatchAndP05State` still required the obsolete BATCH-700 sentence. Build itself was clean; 1 of 1,564 tests failed for that stale assertion while the other 1,563 passed. The branch updates that existing regression to require BATCH-800/#287 completion and the current historical-plan authority wording rather than weakening/removing the check.
+
+Classification before repair: README `DOC_GAP` plus regression `CI_GAP`. Classification after this branch: repaired, pending exact-head PR gates/review/merge.
 
 ## Actual-code evidence sampled
 
