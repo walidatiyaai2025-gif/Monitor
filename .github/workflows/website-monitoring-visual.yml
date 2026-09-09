@@ -92,16 +92,25 @@ jobs:
             echo 'MONITOR_VISUAL_OUTPUT_DIR=artifacts/website-monitoring-visual'
           } >> "$GITHUB_ENV"
 
-      - name: Start authenticated application without probes
+      - name: Run authenticated browser acceptance without probes
         shell: bash
         run: |
           set -euo pipefail
           dotnet run --project src/Monitor.Web/Monitor.Web.csproj --configuration Release --no-build > artifacts/website-monitoring-visual/application.log 2>&1 &
           PID=$!
-          echo "MONITOR_VISUAL_PID=$PID" >> "$GITHUB_ENV"
+          cleanup() {
+            if kill -0 "$PID" 2>/dev/null; then
+              kill "$PID" || true
+              wait "$PID" 2>/dev/null || true
+            fi
+          }
+          trap cleanup EXIT
+
+          READY=0
           for attempt in $(seq 1 60); do
             if curl --fail --silent --show-error http://127.0.0.1:5087/login >/dev/null; then
-              exit 0
+              READY=1
+              break
             fi
             if ! kill -0 "$PID" 2>/dev/null; then
               cat artifacts/website-monitoring-visual/application.log
@@ -109,22 +118,13 @@ jobs:
             fi
             sleep 1
           done
-          cat artifacts/website-monitoring-visual/application.log
-          echo 'Visual acceptance application did not become ready.' >&2
-          exit 1
-
-      - name: Capture wide responsive and reduced-motion evidence
-        shell: bash
-        run: node scripts/Test-WebsiteMonitoringVisual.cjs
-
-      - name: Stop visual acceptance application
-        if: always()
-        shell: bash
-        run: |
-          if [ -n "${MONITOR_VISUAL_PID:-}" ] && kill -0 "$MONITOR_VISUAL_PID" 2>/dev/null; then
-            kill "$MONITOR_VISUAL_PID" || true
-            wait "$MONITOR_VISUAL_PID" 2>/dev/null || true
+          if [ "$READY" != '1' ]; then
+            cat artifacts/website-monitoring-visual/application.log
+            echo 'Visual acceptance application did not become ready.' >&2
+            exit 1
           fi
+
+          node scripts/Test-WebsiteMonitoringVisual.cjs
 
       - name: Upload WM7 browser evidence
         if: always()
