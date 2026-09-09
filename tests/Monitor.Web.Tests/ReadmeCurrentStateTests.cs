@@ -13,13 +13,19 @@ public sealed class ReadmeCurrentStateTests
 
         Assert.DoesNotContain("BATCH-100 is the active enterprise hardening program", readme, StringComparison.Ordinal);
         Assert.DoesNotContain("B100-001..070", readme, StringComparison.Ordinal);
+        Assert.DoesNotContain("complete through PR #219", readme, StringComparison.Ordinal);
         Assert.Contains("BATCH-100 through BATCH-700 are complete", readme, StringComparison.Ordinal);
         Assert.Contains("660 completed hardening/UI task IDs", readme, StringComparison.Ordinal);
         Assert.Contains("P0.1 through P0.4 are COMPLETE", readme, StringComparison.Ordinal);
         Assert.Contains("P0.5 — First Production SingleNode", readme, StringComparison.Ordinal);
-        Assert.Contains("#162 — durable RC.61 retention", readme, StringComparison.Ordinal);
+        Assert.Contains("docs/CURRENT_EXECUTION_PLAN.md", readme, StringComparison.Ordinal);
+        Assert.Contains("docs/IMPLEMENTATION_PLAN.md` is historical implementation context", readme, StringComparison.Ordinal);
+        Assert.Contains("#162 — OWNER_ONLY durable RC.61 retention", readme, StringComparison.Ordinal);
         Assert.Contains("verify-durable-release", readme, StringComparison.Ordinal);
-        Assert.Contains("#116 / #111 — real production acceptance", readme, StringComparison.Ordinal);
+        Assert.Contains("#353 — OWNER_ONLY / REPOSITORY_ADMIN main branch protection", readme, StringComparison.Ordinal);
+        Assert.Contains("#116 / #111 — EXTERNAL real production acceptance", readme, StringComparison.Ordinal);
+        Assert.Contains("#162 -> #116 -> #111", readme, StringComparison.Ordinal);
+        Assert.Contains("#353 is an independent repository-governance gate", readme, StringComparison.Ordinal);
         Assert.Contains("does **not** substitute for actual production acceptance", readme, StringComparison.Ordinal);
     }
 

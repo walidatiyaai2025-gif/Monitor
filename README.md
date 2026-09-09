@@ -6,14 +6,17 @@
 
 M0 through M8 are verified. BATCH-100 through BATCH-700 are complete, representing **660 completed hardening/UI task IDs** across shared-state/HA foundations, encrypted credential/key management, backup/restore, observability, scale/security, production acceptance tooling, operator readiness and full visible portal/UI completion.
 
-The active delivery gate is **P0.5 — First Production SingleNode**. P0.1 through P0.4 are COMPLETE. Repository-side P0.5 implementation and durable-release hardening are complete through PR #219, while the selected cutover candidate remains **RC.61**.
+The active delivery gate is **P0.5 — First Production SingleNode**. P0.1 through P0.4 are COMPLETE. Repository-side P0.5 implementation, release hardening, cutover-readiness, branch-protection safety tooling and operator handoffs are complete; the selected cutover candidate remains **RC.61**.
 
-Two acceptance boundaries remain intentionally open and separate:
+Live work selection is governed by exact GitHub state, `AGENTS.md` and `docs/CURRENT_EXECUTION_PLAN.md`. `docs/IMPLEMENTATION_PLAN.md` is historical implementation context unless a section is explicitly revalidated against current live state.
 
-- **#162 — durable RC.61 retention:** manually promote the exact existing candidate from `main`, then run the separate read-only `verify-durable-release` workflow and independently verify tag provenance, the exact two release assets and product SHA-256.
-- **#116 / #111 — real production acceptance:** deploy the exact selected candidate on the intended trusted-certificate Windows/IIS SingleNode host and complete the real 15/15 evidence, recycle/durability, least-privilege SQL, backup/rollback and explicit operator finalization. Umbrella #111 closes only after #116.
+Three remaining execution boundaries remain intentionally open and separate:
 
-Repository CI, candidate packaging or durable release publication/verification does **not** substitute for actual production acceptance.
+- **#162 — OWNER_ONLY durable RC.61 retention:** manually promote the exact existing candidate from `main`, then run the separate read-only `verify-durable-release` workflow and independently verify tag provenance, the exact two release assets and product SHA-256.
+- **#353 — OWNER_ONLY / REPOSITORY_ADMIN main branch protection:** apply and independently read back the exact provider-bound `main` protection policy. This is independent repository governance and does not satisfy any production acceptance gate.
+- **#116 / #111 — EXTERNAL real production acceptance:** only after #162 is complete, deploy the exact selected candidate on the intended trusted-certificate Windows/IIS SingleNode host and complete the real 15/15 evidence, recycle/durability, least-privilege SQL, backup/rollback and explicit operator finalization. Umbrella #111 closes only after #116.
+
+The strict production dependency is `#162 -> #116 -> #111`; #353 is an independent repository-governance gate. Repository CI, candidate packaging, durable release publication/verification or branch-protection tooling does **not** substitute for actual production acceptance.
 
 ## Run
 
