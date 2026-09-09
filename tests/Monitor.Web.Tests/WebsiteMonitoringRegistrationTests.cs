@@ -28,7 +28,7 @@ public sealed class WebsiteMonitoringRegistrationTests
     }
 
     [Fact]
-    public void MultiNode_activation_fails_closed_until_WM6()
+    public void MultiNode_activation_requires_shared_operational_state()
     {
         var configuration = Configuration(new Dictionary<string, string?>
         {
@@ -42,11 +42,11 @@ public sealed class WebsiteMonitoringRegistrationTests
             useSharedOperationalState: false,
             operationalRoot: null));
 
-        Assert.Contains("WM-6", error.Message, StringComparison.Ordinal);
+        Assert.Contains("shared operational state", error.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
-    public void Shared_operational_state_activation_fails_closed_until_WM6()
+    public void MultiNode_activation_requires_distributed_coordination_after_WM6()
     {
         var configuration = Configuration(new Dictionary<string, string?>
         {
@@ -56,11 +56,11 @@ public sealed class WebsiteMonitoringRegistrationTests
 
         var error = Assert.Throws<InvalidOperationException>(() => services.AddWebsiteMonitoringSubsystem(
             configuration,
-            new DeploymentTopologyOptions { Mode = DeploymentTopology.SingleNode },
+            new DeploymentTopologyOptions { Mode = DeploymentTopology.MultiNode },
             useSharedOperationalState: true,
             operationalRoot: null));
 
-        Assert.Contains("WM-6", error.Message, StringComparison.Ordinal);
+        Assert.Contains("distributed coordination", error.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

@@ -67,9 +67,7 @@ public sealed class WebsiteMonitoringController(
     IHealthIncidentRepository incidents,
     IServerRegistrationRepository registrations,
     IWebsiteDependencyCorrelationService correlation,
-    IWebsiteProbeEngine probe,
-    IWebsiteIncidentCoordinator incidentCoordinator,
-    IWebsiteNotificationPlanner notificationPlanner,
+    IWebsiteProbeExecutionService execution,
     IAuditStore audit) : Controller
 {
     private const int MaxVisibleTargets = 100;
@@ -201,10 +199,14 @@ public sealed class WebsiteMonitoringController(
         var target = targets.Get(id);
         if (target is null) return NotFound();
         audit.Append(actor, "website.probe.manual.requested", id.ToString("D"), $"host={new Uri(target.Url).DnsSafeHost}");
-        var result = await probe.ProbeAsync(target, cancellationToken);
-        history.Append(result);
-        var observation = incidentCoordinator.Observe(target, result);
-        _ = notificationPlanner.Queue(target, result, observation);
+        var attempt = await execution.TryExecuteAsync(target, cancellationToken);
+        if (!attempt.Executed)
+        {
+            audit.Append(actor, "website.probe.manual.deferred", id.ToString("D"), "A probe for this target is already owned by another worker.");
+            TempData["WebsiteError"] = "A check for this website is already running. No duplicate probe was started.";
+            return RedirectToAction(nameof(Index));
+        }
+        var result = attempt.Result!;
         audit.Append(actor, "website.probe.manual.completed", id.ToString("D"), $"rule={result.Classification.RuleId}; state={result.Classification.State}; http={result.Evidence.HttpStatusCode?.ToString() ?? "n/a"}");
         TempData["WebsiteSuccess"] = $"Check completed: {result.Classification.State} / {result.Classification.RuleId}.";
         return RedirectToAction(nameof(Index));

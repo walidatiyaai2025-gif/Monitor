@@ -195,7 +195,7 @@ public sealed class B800WriteSurfaceSecurityAcceptanceTests
         var websiteCheck = Slice(websites, "public async Task<IActionResult> CheckNow", "[HttpPost(\"/websites/groups/save\")]");
         actorIndex = websiteCheck.IndexOf("var actor = Actor()", StringComparison.Ordinal);
         auditIndex = websiteCheck.IndexOf("audit.Append(actor, \"website.probe.manual.requested\"", StringComparison.Ordinal);
-        mutationIndex = websiteCheck.IndexOf("probe.ProbeAsync", StringComparison.Ordinal);
+        mutationIndex = websiteCheck.IndexOf("execution.TryExecuteAsync", StringComparison.Ordinal);
         Assert.True(actorIndex >= 0 && auditIndex > actorIndex && mutationIndex > auditIndex, "Manual website probe must validate actor and append requested audit evidence before outbound collection starts.");
     }
 
