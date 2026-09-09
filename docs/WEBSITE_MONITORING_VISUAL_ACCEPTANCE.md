@@ -21,6 +21,18 @@ The browser acceptance requires all of the following:
 
 The checked-in `WebsiteMonitoringVisualAcceptanceTests` locks this workflow/script contract so ordinary CI fails if browser evidence is silently weakened, the exact runtime binding is lost, the dependency audit is removed, or the visual workflow starts enabling probes/notifications.
 
+## Recovered live evidence
+
+Before this canonical tracking reconciliation, exact branch head `fce84a2c6743061d6ff402d3e6ba1d9e66ac1db6` was current with `main@4d514daef24781724f24065accd95988b406d9e6` and passed all selected gates:
+
+- normal CI `34384824308`;
+- `website-monitoring-visual` `34384824489`;
+- protected-P0 commit guard `34384824328`;
+- protected-P0 metadata guard `34384824478`;
+- zero unresolved review threads.
+
+The Green browser run retained artifact `10117386057` with digest `sha256:6fa8cdd0bb834d4907c0bfd8fe73c32d1068f118476ebc06bd0f8ad8b6dac697`. Because this documentation reconciliation changes the PR head and this file participates in the visual workflow path filter, merge readiness still requires a **new exact-head** Green browser run plus all other selected exact-head gates; the evidence above is recovery provenance, not a substitute for final-head validation.
+
 ## Evidence boundary
 
 A Green workflow run plus its retained `website-monitoring-visual-<sha>` artifact is browser/screenshot evidence for this optional verification line. Source-level assertions alone are not considered browser evidence.
