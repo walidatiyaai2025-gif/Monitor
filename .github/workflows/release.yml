@@ -155,8 +155,14 @@ jobs:
           EOF
           expected_notes="$(cat "${notes_file}")"
 
+          release_probe_error="${RUNNER_TEMP}/release-probe.err"
           existing_release_json=""
-          if existing_release_json="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" 2>/dev/null)"; then
+          set +e
+          existing_release_json="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" 2>"${release_probe_error}")"
+          release_probe_exit=$?
+          set -e
+
+          if [[ "${release_probe_exit}" -eq 0 ]]; then
             observed_notes="$(jq -r '.body // empty' <<<"${existing_release_json}")"
             if [[ "${observed_notes}" != "${expected_notes}" ]]; then
               echo "Existing GitHub Release notes do not match the deterministic artifact-bound release identity; refusing mutation." >&2
@@ -165,6 +171,12 @@ jobs:
             verify_release_assets "${RUNNER_TEMP}/existing-release"
             echo "Existing GitHub Release already matches the verified product ZIP/checksum and deterministic notes; leaving it immutable."
             exit 0
+          fi
+
+          if ! grep -Eqi '(HTTP 404|Not Found)' "${release_probe_error}"; then
+            cat "${release_probe_error}" >&2
+            echo "Could not establish that the tagged GitHub Release is absent; refusing publication on ambiguous API state." >&2
+            exit 1
           fi
 
           release_flags=()
