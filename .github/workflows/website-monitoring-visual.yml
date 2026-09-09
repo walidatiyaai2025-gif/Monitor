@@ -43,15 +43,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          node --version
-          npm --version
+          EVIDENCE="$GITHUB_WORKSPACE/artifacts/website-monitoring-visual"
+          mkdir -p "$EVIDENCE"
+          node --version | tee "$EVIDENCE/node-version.txt"
+          npm --version | tee "$EVIDENCE/npm-version.txt"
           HARNESS="$RUNNER_TEMP/wm7-playwright"
           mkdir -p "$HARNESS"
           cd "$HARNESS"
           npm init -y >/dev/null
-          npm install --save-exact playwright@1.63.0
-          npm audit --audit-level=high
-          npx playwright install --with-deps chromium
+          npm install --save-exact playwright@1.63.0 2>&1 | tee "$EVIDENCE/npm-install.txt"
+          npm audit --audit-level=high 2>&1 | tee "$EVIDENCE/npm-audit.txt"
+          npx playwright install chromium 2>&1 | tee "$EVIDENCE/playwright-install.txt"
           echo "NODE_PATH=$HARNESS/node_modules" >> "$GITHUB_ENV"
 
       - name: Prepare ephemeral authenticated SingleNode runtime
