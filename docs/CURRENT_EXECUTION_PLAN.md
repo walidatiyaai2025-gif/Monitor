@@ -13,38 +13,38 @@ For every iteration, use this order:
 5. `docs/STATUS.md`, `docs/PRODUCTION_MVP.md`, `docs/FEATURE_CATALOG.md` and the relevant runbooks/handoffs;
 6. `docs/IMPLEMENTATION_PLAN.md` as historical implementation context only unless a section has been explicitly revalidated against current live state.
 
-Never revive a historical branch or create parallel work solely because the legacy implementation plan still describes an old merge gate.
+Never revive a historical branch or create parallel work solely because an old implementation plan, branch ref or Green CI run still exists.
 
-## Live convergence snapshot — 2026-09-09
+## Live convergence state — 2026-09-09
 
-Snapshot used to create this plan:
+Fresh live revalidation before this reconciliation:
 
 ```text
 Repository        walidatiyaai2025-gif/Monitor
 Repository ID     1329517438
-Observed main     ce3cf05cc22250d5bcc9543842cbe2af08c04b2f
-Main push CI      34359879616 — success
-Open PRs          0
+Observed main     4d514daef24781724f24065accd95988b406d9e6
+Main push CI      34382598596 — success
+Open PRs          0 after owner-directed closure of #472
 Open issues       #162, #353, #116, #111
 Releases          0
-RC.61 tag         absent
+Tags              0
 Rulesets          0
 main protected    false
 ```
 
-The observed `main` value is a snapshot, not an execution pin. A later docs-only merge must not make an owner handoff unusable. Before any mutation, capture fresh remote `main`, require the operator checkout to equal that exact SHA, and then run the gate-specific fail-closed preflight.
+These observed values are audit evidence, not execution pins. Before any future mutation or merge, fetch fresh remote `main`, current open work and exact workflow state again.
 
 ## Repository-complete state
 
-Repository-side code, tests, CI/security controls, Website Monitoring integration, current canonical status/feature tracking and P0.5 operator tooling are complete through the live `main` snapshot above. There are no open pull requests.
+Required product/runtime repository-side code, tests, CI/security controls, Website Monitoring integration and P0.5 operator tooling are complete through current `main`.
 
-Existing historical branches are not active work by themselves. A branch becomes active only when current live evidence ties it to an open PR, explicit current claim/lease, or a newly discovered unmerged defect. Squash-merged historical branches must not be re-integrated merely because their commit graph is divergent from `main`.
+PR #472 was an optional authenticated-browser verification follow-up. Its existing branch was recovered and exact head `fce84a2c6743061d6ff402d3e6ba1d9e66ac1db6` ultimately passed CI `34384824308`, browser `34384824489`, protected-P0 commits `34384824328` and protected-P0 metadata `34384824478` with zero unresolved review threads. The owner then explicitly directed **close without merge**. Therefore #472 is not an active merge target, its browser harness is not part of `main`, and its Green evidence does not reopen completed Website Monitoring or create a P0 prerequisite.
 
-Any future cloud-actionable regression on exact `main` has priority over new feature work and must be repaired on one lawful branch with exact-head validation before merge.
+Existing historical branches are not active work by themselves. A branch becomes active only when current live evidence ties it to an open PR, explicit current claim/lease, or a newly discovered unmerged defect. Owner-closed or squash-merged historical branches must not be re-integrated merely because their commit graphs diverge from `main`.
+
+Any future cloud-actionable regression on exact `main` has priority over new feature work and must be repaired on one lawful current-main branch with exact-head validation before merge.
 
 ## Remaining direct gates
-
-Only these direct execution gates remain:
 
 ### #162 — OWNER_ONLY — durable RC.61 release
 
@@ -65,21 +65,19 @@ Source commit              e28158da67b36dfc5dbf8f4c38b5c43d99c7c728
 Tested merge               158148d8bfd05f724014541bc7a0b1eab5dae1b5
 ```
 
-Live artifact recheck on 2026-09-09: artifact `9168574442` is still present, `expired=false`, and expires `2026-09-12T04:41:34Z`; no GitHub Release exists and `v0.1.0-rc.61` is absent.
-
-Execution must follow `deploy/REMAINING_OWNER_EXTERNAL_GATES.md`: preview -> explicit acknowledged promotion -> exact promotion run -> **separate** independent verifier -> exact run-ID readiness -> independent tag/assets/hash evidence.
+The source artifact remains the selected candidate, but no GitHub Release or `v0.1.0-rc.61` tag exists. Execution must follow `deploy/REMAINING_OWNER_EXTERNAL_GATES.md`: preview -> explicit acknowledged promotion -> one exact promotion run -> **separate** independent verifier -> exact run-ID readiness -> independent tag/assets/hash evidence.
 
 ### #353 — OWNER_ONLY / REPOSITORY_ADMIN — protect `main`
 
 State: **OPEN / NOT PASS**.
 
-Live read reports `main.protected=false`; repository rulesets are empty. Repository implementation is complete, but only an authenticated repository-admin application plus independent read-back of the exact provider-bound policy can pass this gate.
+Public live read reports `main.protected=false`; repository rulesets are empty, and the administration-gated protection endpoint is inaccessible to the connected integration. Repository-side helper/tests/docs are complete. Only authenticated repository-admin application plus independent read-back of the exact provider-bound policy can pass this gate.
 
 ### #116 — EXTERNAL_ENVIRONMENT — real trusted-IIS 15/15 acceptance
 
 State: **OPEN / NOT PASS / blocked before production mutation by #162**.
 
-Do not create or reuse production acceptance evidence as a substitute for actual execution. After #162 is really complete, use exact RC.61 product bytes plus the separately verified Acceptance Control Toolkit from commit `b422eaaee53d931a62a43b3c36a53b68cd4f3e27`, create one fresh 0/15 session, execute real trusted HTTPS/IIS/least-privilege/recycle/durability/backup/rollback checks, explicitly attest each gate, finalize and independently validate 15/15.
+After #162 really completes, use exact RC.61 product bytes plus the separately verified Acceptance Control Toolkit from commit `b422eaaee53d931a62a43b3c36a53b68cd4f3e27`, create one fresh 0/15 session, execute real trusted HTTPS/IIS/least-privilege/recycle/durability/backup/rollback checks, explicitly attest each gate, finalize and independently validate 15/15.
 
 ### #111 — umbrella closure only
 
@@ -97,4 +95,4 @@ State: **OPEN / NOT PASS**.
 
 ## Completion rule
 
-`VERIFIED_FINAL_COMPLETE` is forbidden while any required owner-only or external gate lacks real evidence. Repository CI, synthetic acceptance, documentation, candidate packaging, a preview, a Green operator-tooling runtime, or a merged PR cannot manufacture owner/external PASS.
+`VERIFIED_FINAL_COMPLETE` is forbidden while any required owner-only or external gate lacks real evidence. Repository CI, synthetic acceptance, documentation, optional browser evidence, candidate packaging, a preview or a merged PR cannot manufacture owner/external PASS.
