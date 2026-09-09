@@ -9,7 +9,7 @@ This is the **current live feature catalog**. Exact GitHub state, `AGENTS.md`, a
 | Core Monitor platform | M0–M8 | VERIFIED | Authentication, registration, bounded SQL snapshot/cache, health evidence, deterministic incidents/recommendations, scheduler, audit/RBAC/security, durable state and cache-only navigation contracts are implemented and regression-covered |
 | Enterprise operations baseline | BATCH-100..BATCH-600 | COMPLETE | HA/shared-state foundations, security, scale, production acceptance/recovery tooling and operator evidence orchestration are complete in repository scope |
 | Visible portal/UI completion | BATCH-700 | COMPLETE 50/50 | Final PR #240 squash-merged as `fd33e79c6d19d7f9852417b9c35a11f91f21714c`; exact final head `0834db6b5d518fe5c52eec9b47c03e467929aa89` passed selected CI/Real-SQL/Windows gates |
-| Functional operator wiring | BATCH-800 / #287 | COMPLETE 100/100 | PR #335 squash-merged as `a6832d99f629cdbd3a93887199fe608a3ae474ec`; exact head `4379dbc0e1b346cb51bebf8e7467823c58f2361c` passed CI `32093252549`, Real SQL `32093252670`, Windows `32093252563`; #287 closed completed |
+| Functional operator wiring | BATCH-800 / #287 | COMPLETE 100/100 at B800-100 | PR #335 squash-merged as `a6832d99f629cdbd3a93887199fe608a3ae474ec`; exact head `4379dbc0e1b346cb51bebf8e7467823c58f2361c` passed CI `32093252549`, Real SQL `32093252670`, Windows `32093252563`; Issue #287 CLOSED / COMPLETED |
 | Programming truthfulness/security closure | PR #363 / PR #369 | COMPLETE / MERGED | Missing evidence stays explicit, refresh/auth failures fail closed, credential and mutation controls are hardened, and synthetic health/readiness claims are rejected |
 | Shared-state atomic execution guard | #423 / PR #424 | COMPLETE / MERGED | Production SharedState read/CAS revalidates schema readiness inside the same serializable transaction; selected exact-head gates passed before merge |
 | Incident-note durability/replay | #445–#450 | COMPLETE / MERGED | Durable request identity, Applied replay authority and SingleNode cross-process mutation safety are implemented and regression-covered |
@@ -25,6 +25,14 @@ This is the **current live feature catalog**. Exact GitHub state, `AGENTS.md`, a
 | First Production SingleNode acceptance | #116 | EXTERNAL_ENVIRONMENT / OPEN / NOT PASS | Blocked before production mutation by #162. After #162, real trusted HTTPS/IIS/least-privilege/recycle/durability/backup/rollback evidence must reach independently validated 15/15 |
 | P0 umbrella completion | #111 | OPEN / NOT PASS | Closure-only after real #116 acceptance; no independent production gate/action |
 | Main branch protection | #353 | OWNER_ONLY / REPOSITORY_ADMIN / OPEN / NOT PASS | Repository helper/tests/docs complete; live `main.protected=false`, rulesets empty, admin protection read inaccessible to integration. Exact provider-bound policy must be applied and independently read back by repository admin |
+
+## Canonical retained closeout evidence
+
+The compact live catalog does not discard the canonical closeout invariants that regression gates depend on:
+
+- BATCH-700 remains 50/50 COMPLETE via merge `fd33e79c6d19d7f9852417b9c35a11f91f21714c` from exact final head `0834db6b5d518fe5c52eec9b47c03e467929aa89`.
+- BATCH-800 remains complete only at **B800-100**; Issue #287 CLOSED / COMPLETED; merge `a6832d99f629cdbd3a93887199fe608a3ae474ec`; exact head `4379dbc0e1b346cb51bebf8e7467823c58f2361c`; CI `32093252549`; Real SQL `32093252670`; Windows `32093252563`.
+- Diagnostic truth remains explicit for **TempDB**, **transaction-log**, **HA**, and **query regression** evidence: unsupported/not-evaluated domains cannot be presented as collected healthy evidence.
 
 ## Selected RC.61 identity
 
