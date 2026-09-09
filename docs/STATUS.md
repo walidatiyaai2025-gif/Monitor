@@ -4,14 +4,16 @@
 
 ## Current repository state — 2026-09-09
 
-Fresh convergence base:
+Post-#477 verified integration snapshot:
 
 ```text
 Repository        walidatiyaai2025-gif/Monitor
 Repository ID     1329517438
-Observed main     4d514daef24781724f24065accd95988b406d9e6
-Main push CI      34382598596 — success
-Active line       #476 / PR #477 dashboard live database status
+Observed main     f3dc1b2234b2105d1331d2476f75e8b7b0f2761c
+Main push CI      34392925320 — success
+#476              CLOSED / COMPLETED
+PR #477           MERGED / f3dc1b2234b2105d1331d2476f75e8b7b0f2761c
+Open product PRs  0 at post-merge audit
 Owner-closed      PR #472 optional browser verification — closed unmerged
 Open gate issues  #162, #353, #116, #111
 Releases          0
@@ -22,22 +24,25 @@ main protected    false
 
 The branch-protection administration endpoint remains inaccessible to the connected integration, so `main.protected=false` plus empty rulesets is not represented as a completed governance gate.
 
-## Current cloud-actionable integration — #476 / PR #477
+## Dashboard live database status — #476 / PR #477 COMPLETE / MERGED
 
-Issue #476 requests a configurable live database-status panel on `/dashboard` without creating a second SQL collection path. The existing PR #477 is the single legitimate implementation line.
+Issue #476 is closed completed and PR #477 is integrated on `main`.
 
-Its repository contract is:
+Exact closure evidence:
 
-- derive database online/total, state and freshness from already-rendered truthful cached Dashboard evidence;
-- background refresh re-reads authenticated `/dashboard` only;
-- never call monitored SQL, a collector or `/refresh-snapshot` from browser code;
-- allow only bounded 1/2/5/10/15/30-minute cadence, default 5 minutes, persisted client-side;
-- fail closed on redirect/non-HTML/missing expected Dashboard evidence and retain the last shown state;
-- avoid overlapping refreshes and skip background network refresh while the tab is hidden;
-- provide polished status/refresh motion while honoring `prefers-reduced-motion`;
-- preserve existing P0 and owner/external boundaries.
+- final PR head `ac9499fe54000de8a8a38865bd47d062b5985d4f`;
+- CI `34392461369` — success;
+- Real SQL `34392461363` — success;
+- Windows production-candidate `34392461390` — success;
+- protected-P0 commits `34392461395` — success;
+- protected-P0 metadata `34392461372` — success;
+- zero unresolved review threads and `behind_by=0` before merge;
+- squash merge `f3dc1b2234b2105d1331d2476f75e8b7b0f2761c`;
+- exact merged-main CI `34392925320` — success.
 
-This feature is not complete merely because an earlier PR head passed checks. Merge acceptance requires the **exact current PR head** to remain current with `main`, have zero unresolved review threads, and pass every selected exact-head workflow including normal CI, Windows production-candidate and both protected-P0 guards. Live GitHub state controls whether #476/#477 is pending or integrated.
+Integrated behavior derives per-server database state, online/total counts and freshness from already-rendered truthful cached Dashboard evidence. Background refresh re-reads authenticated `/dashboard` only; browser code never calls monitored SQL, collectors or `/refresh-snapshot`. Cadence is bounded to 1/2/5/10/15/30 minutes and persisted client-side. Redirect/non-HTML/missing evidence fails closed and retains the last display, overlapping refreshes are prevented, hidden-tab network refresh is skipped and `prefers-reduced-motion` is honored.
+
+This repository completion changes no #162/#116/#111/#353 state.
 
 ## Repository implementation baseline
 
@@ -53,6 +58,7 @@ This feature is not complete merely because an earlier PR head passed checks. Me
 - P0.5 repository packaging, immutable-session, selected-product-hash, acceptance-control-toolkit, deployment, rollback, release-integrity and explicit operator tooling: **REPOSITORY COMPLETE**.
 - PR #473 deterministic tagged-release-note identity: **COMPLETE / MERGED** as `3a7e8daf9565d7cb75e8dc8111d6df7ae9e90c0d`; exact merged-main CI `34379131661` Green.
 - Website Monitoring #463/#466: **COMPLETE / MERGED** through PR #467 -> PR #464.
+- Dashboard live database status #476/#477: **COMPLETE / MERGED** as `f3dc1b2234b2105d1331d2476f75e8b7b0f2761c`; exact merged-main CI `34392925320` Green.
 
 ## Optional Website Monitoring browser verification — PR #472 CLOSED UNMERGED
 
@@ -123,6 +129,6 @@ Repository helper/tests/docs are complete, but live main protection is unproven.
 
 ## Completion status
 
-**Repository baseline:** complete, with #476/#477 as the current lawful feature integration line until live GitHub proves it merged or closed.  
+**Repository product/runtime baseline:** complete through `main@f3dc1b2234b2105d1331d2476f75e8b7b0f2761c`; no additional cloud-actionable product implementation is implied by stale historical branches.  
 **Owner/external acceptance:** not complete.  
 **VERIFIED_FINAL_COMPLETE:** **FORBIDDEN** until #162, #116, #111 and #353 each satisfy their real closure rules.
