@@ -60,6 +60,31 @@ public sealed class WebsiteMonitoringVisualAcceptanceTests
         Assert.DoesNotContain("probe", js, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void Wm7BrowserEvidence_UsesRealLoginScreenshotsAndFailClosedDefaults()
+    {
+        var workflow = Read(".github/workflows/website-monitoring-visual.yml");
+        var browser = Read("scripts/Test-WebsiteMonitoringVisual.cjs");
+
+        Assert.Contains("authenticated-browser-evidence", workflow, StringComparison.Ordinal);
+        Assert.Contains("WebsiteMonitoring__Enabled=false", workflow, StringComparison.Ordinal);
+        Assert.Contains("WebsiteNotifications__Enabled=false", workflow, StringComparison.Ordinal);
+        Assert.Contains("playwright@1.55.0", workflow, StringComparison.Ordinal);
+        Assert.Contains("Upload WM7 browser evidence", workflow, StringComparison.Ordinal);
+        Assert.DoesNotContain("WebsiteMonitoring__Enabled=true", workflow, StringComparison.Ordinal);
+        Assert.DoesNotContain("WebsiteNotifications__Enabled=true", workflow, StringComparison.Ordinal);
+
+        Assert.Contains("/login", browser, StringComparison.Ordinal);
+        Assert.Contains("/websites", browser, StringComparison.Ordinal);
+        Assert.Contains("width: 1440", browser, StringComparison.Ordinal);
+        Assert.Contains("width: 390", browser, StringComparison.Ordinal);
+        Assert.Contains("reducedMotion: 'reduce'", browser, StringComparison.Ordinal);
+        Assert.Contains("screenshot", browser, StringComparison.Ordinal);
+        Assert.Contains("Website Monitoring must remain disabled", browser, StringComparison.Ordinal);
+        Assert.Contains("Check now must be disabled", browser, StringComparison.Ordinal);
+        Assert.DoesNotContain("/websites/{id:guid}/check", browser, StringComparison.Ordinal);
+    }
+
     private static string Read(string relative) => File.ReadAllText(Path.Combine(Root, relative));
 
     private static string FindRoot()
