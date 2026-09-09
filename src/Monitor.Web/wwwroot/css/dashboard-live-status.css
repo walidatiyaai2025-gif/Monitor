@@ -1,0 +1,341 @@
+.database-live-panel {
+  --database-live-progress: 0;
+  position: relative;
+  overflow: hidden;
+  margin-top: 18px;
+  padding: 22px;
+  isolation: isolate;
+}
+
+.database-live-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(49, 209, 255, .11), transparent 34%),
+    radial-gradient(circle at 92% 120%, rgba(104, 255, 181, .08), transparent 38%);
+  z-index: -2;
+}
+
+.database-live-panel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: .22;
+  background-image: linear-gradient(rgba(255, 255, 255, .025) 1px, transparent 1px);
+  background-size: 100% 6px;
+  z-index: -1;
+}
+
+.database-live-sweep {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -28%;
+  width: 22%;
+  opacity: 0;
+  pointer-events: none;
+  transform: skewX(-16deg);
+  background: linear-gradient(90deg, transparent, rgba(91, 224, 255, .16), transparent);
+}
+
+.database-live-panel.is-refreshing .database-live-sweep {
+  opacity: 1;
+  animation: database-live-sweep 1.2s linear infinite;
+}
+
+.database-live-panel.is-updated {
+  animation: database-live-confirm .8s ease-out;
+}
+
+.database-live-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.database-live-title h2 {
+  margin: 5px 0 6px;
+}
+
+.database-live-title p {
+  margin: 0;
+  max-width: 760px;
+  color: var(--text-muted, #91a5ba);
+}
+
+.database-live-controls {
+  display: flex;
+  align-items: end;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.database-live-controls label {
+  display: grid;
+  gap: 5px;
+  color: var(--text-muted, #91a5ba);
+  font-size: .75rem;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.database-live-controls select,
+.database-live-refresh {
+  min-height: 38px;
+  border: 1px solid rgba(126, 174, 209, .25);
+  border-radius: 10px;
+  background: rgba(4, 15, 28, .78);
+  color: inherit;
+  padding: 8px 12px;
+}
+
+.database-live-controls select:focus-visible,
+.database-live-refresh:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.database-live-refresh {
+  cursor: pointer;
+  font-weight: 700;
+  transition: transform .18s ease, border-color .18s ease, background .18s ease;
+}
+
+.database-live-refresh:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(126, 214, 255, .55);
+  background: rgba(10, 34, 56, .9);
+}
+
+.database-live-refresh:disabled {
+  cursor: wait;
+  opacity: .58;
+}
+
+.database-live-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.database-live-summary-card {
+  position: relative;
+  min-height: 88px;
+  padding: 14px 15px;
+  border: 1px solid rgba(117, 169, 205, .16);
+  border-radius: 14px;
+  background: rgba(5, 18, 31, .58);
+  overflow: hidden;
+}
+
+.database-live-summary-card::after {
+  content: "";
+  position: absolute;
+  inset: auto 12px 0;
+  height: 2px;
+  transform-origin: left center;
+  transform: scaleX(var(--database-live-progress));
+  background: linear-gradient(90deg, rgba(71, 220, 255, .28), rgba(106, 255, 183, .8));
+  transition: transform .5s linear;
+}
+
+.database-live-summary-card small {
+  display: block;
+  color: var(--text-muted, #91a5ba);
+  font-size: .72rem;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.database-live-summary-card strong {
+  display: block;
+  margin-top: 8px;
+  font-size: clamp(1.15rem, 2vw, 1.65rem);
+}
+
+.database-live-progress {
+  height: 3px;
+  margin: 16px 1px 14px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: rgba(142, 173, 199, .1);
+}
+
+.database-live-progress span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-origin: left center;
+  transform: scaleX(var(--database-live-progress));
+  background: linear-gradient(90deg, rgba(64, 208, 255, .7), rgba(116, 255, 188, .95));
+  transition: transform .5s linear;
+}
+
+.database-live-server-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.database-live-server {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  min-height: 70px;
+  padding: 11px 13px;
+  border: 1px solid rgba(126, 169, 199, .14);
+  border-radius: 13px;
+  background: rgba(3, 13, 24, .46);
+  transition: transform .2s ease, background .2s ease, border-color .2s ease;
+}
+
+.database-live-server:hover {
+  transform: translateY(-1px);
+  background: rgba(8, 26, 42, .62);
+}
+
+.database-live-server > div:not(.database-live-server-meta) {
+  min-width: 0;
+}
+
+.database-live-server > div:not(.database-live-server-meta) strong,
+.database-live-server > div:not(.database-live-server-meta) span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.database-live-server > div:not(.database-live-server-meta) span,
+.database-live-server-meta small {
+  margin-top: 4px;
+  color: var(--text-muted, #91a5ba);
+  font-size: .76rem;
+}
+
+.database-live-server-meta {
+  text-align: right;
+}
+
+.database-live-server-meta span {
+  display: block;
+  font-size: .7rem;
+  font-weight: 800;
+  letter-spacing: .07em;
+}
+
+.database-live-orb,
+.database-live-beacon {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 5px rgba(127, 164, 190, .08), 0 0 18px currentColor;
+}
+
+.database-live-server.state-healthy { color: #77f2b2; }
+.database-live-server.state-warning { color: #ffd36a; }
+.database-live-server.state-critical { color: #ff7c8d; }
+.database-live-server.state-offline { color: #ff9a74; }
+.database-live-server.state-unknown { color: #9db1c5; }
+
+.database-live-server.state-healthy .database-live-orb {
+  animation: database-live-pulse 2.2s ease-in-out infinite;
+}
+
+.database-live-server > div,
+.database-live-server strong,
+.database-live-server small,
+.database-live-server span:not(.database-live-orb) {
+  color: initial;
+}
+
+.database-live-empty {
+  grid-column: 1 / -1;
+  padding: 20px;
+  border: 1px dashed rgba(135, 173, 201, .22);
+  border-radius: 12px;
+  text-align: center;
+  color: var(--text-muted, #91a5ba);
+}
+
+.database-live-footer {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(126, 169, 199, .11);
+}
+
+.database-live-footer small {
+  color: var(--text-muted, #91a5ba);
+  text-align: right;
+}
+
+.database-live-beacon {
+  color: #75e8b0;
+  animation: database-live-pulse 2s ease-in-out infinite;
+}
+
+.database-live-panel.is-refreshing .database-live-beacon {
+  color: #62d8ff;
+  animation-duration: .75s;
+}
+
+@keyframes database-live-pulse {
+  0%, 100% { opacity: .72; transform: scale(.88); }
+  50% { opacity: 1; transform: scale(1.08); }
+}
+
+@keyframes database-live-sweep {
+  from { left: -28%; }
+  to { left: 112%; }
+}
+
+@keyframes database-live-confirm {
+  0% { box-shadow: 0 0 0 rgba(100, 255, 187, 0); }
+  35% { box-shadow: 0 0 34px rgba(100, 255, 187, .14); }
+  100% { box-shadow: 0 0 0 rgba(100, 255, 187, 0); }
+}
+
+@media (max-width: 900px) {
+  .database-live-header { flex-direction: column; }
+  .database-live-controls { width: 100%; justify-content: flex-start; }
+  .database-live-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .database-live-server-grid { grid-template-columns: 1fr; }
+  .database-live-footer { grid-template-columns: auto 1fr; }
+  .database-live-footer small { grid-column: 2; text-align: left; }
+}
+
+@media (max-width: 520px) {
+  .database-live-panel { padding: 16px; }
+  .database-live-summary { grid-template-columns: 1fr 1fr; }
+  .database-live-controls { align-items: stretch; }
+  .database-live-controls label,
+  .database-live-refresh { flex: 1 1 140px; }
+  .database-live-server { grid-template-columns: auto minmax(0, 1fr); }
+  .database-live-server-meta { grid-column: 2; text-align: left; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .database-live-panel *,
+  .database-live-panel *::before,
+  .database-live-panel *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+
+  .database-live-sweep { display: none; }
+}
