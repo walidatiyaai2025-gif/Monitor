@@ -43,8 +43,12 @@ This feature is not complete merely because an earlier PR head passed checks. Me
 
 - M0–M8: **VERIFIED**.
 - BATCH-100 through BATCH-800: **COMPLETE in repository scope**.
-- BATCH-700 UI closeout: **50/50 COMPLETE**; final PR #240 squash-merged as `fd33e79c6d19d7f9852417b9c35a11f91f21714c`.
-- BATCH-800 functional operator wiring: **100/100 COMPLETE**; Issue #287 closed completed and PR #335 squash-merged as `a6832d99f629cdbd3a93887199fe608a3ae474ec`; exact final head passed CI `32093252549`, Real SQL `32093252670`, and Windows `32093252563`.
+- BATCH-700 UI closeout: **50/50 COMPLETE**; final PR #240 squash-merged as `fd33e79c6d19d7f9852417b9c35a11f91f21714c`; exact final head `0834db6b5d518fe5c52eec9b47c03e467929aa89`.
+- BATCH-800 functional operator wiring: **100/100 COMPLETE** at **B800-100**.
+- **Umbrella:** #287 — CLOSED / COMPLETED.
+- B800 final PR #335 squash-merged as `a6832d99f629cdbd3a93887199fe608a3ae474ec`; exact final head `4379dbc0e1b346cb51bebf8e7467823c58f2361c` passed CI `32093252549`, Real SQL `32093252670`, and Windows production-candidate `32093252563`.
+- Completed task accounting remains **760** for the canonical BATCH-800 closeout; later closeout/documentation PRs do not double-count that task total.
+- Diagnostic truth boundary remains unchanged: **TempDB**, **transaction-log**, **HA**, and **query regression** evidence must distinguish collected evidence from unsupported/not-evaluated evidence and must never invent healthy values.
 - P0.1–P0.4: **COMPLETE** with real repository/Real-SQL evidence.
 - P0.5 repository packaging, immutable-session, selected-product-hash, acceptance-control-toolkit, deployment, rollback, release-integrity and explicit operator tooling: **REPOSITORY COMPLETE**.
 - PR #473 deterministic tagged-release-note identity: **COMPLETE / MERGED** as `3a7e8daf9565d7cb75e8dc8111d6df7ae9e90c0d`; exact merged-main CI `34379131661` Green.
@@ -78,7 +82,13 @@ No live GitHub Release or `v0.1.0-rc.61` tag exists. Repository CI cannot substi
 
 ### #162 — OWNER_ONLY durable RC.61 publication
 
-Repository implementation is complete; actual owner-operated publication is not. Follow `deploy/REMAINING_OWNER_EXTERNAL_GATES.md`: preview -> explicit `-AcknowledgePromotion` -> one exact promotion run -> separately execute returned independent verifier -> bind both exact run IDs through cutover readiness -> independently verify tag, exact two assets and product SHA-256.
+Repository implementation is complete; actual owner-operated publication is not. The canonical helper path remains bound to reconciliation merge `3cd711b608e4ceaf8872eb22a25541bbbfe2729a` and must preserve this fail-closed order:
+
+1. Preview with `Invoke-Rc61DurablePromotion.ps1` and require `READY_FOR_EXPLICIT_PROMOTION_ACKNOWLEDGEMENT` with **0/15** external gates and **no production mutation**.
+2. After review, execute `Invoke-Rc61DurablePromotion.ps1 -AcknowledgePromotion` and bind one exact run. On ambiguity, timeout, or failure: **do not redispatch**.
+3. Require `PROMOTION_SUCCEEDED_INDEPENDENT_VERIFICATION_REQUIRED`, then separately execute the returned `IndependentVerificationCommand`; promotion must not self-satisfy independent verification.
+4. Run `Test-Rc61CutoverReadiness.ps1` with the two exact run IDs and require `ExternalGatesPassed = 0` plus no production mutation before any #116 work.
+5. Independently verify the tag, exact two release assets, and product SHA-256.
 
 ### #116 — EXTERNAL_ENVIRONMENT real trusted-IIS 15/15 acceptance
 
