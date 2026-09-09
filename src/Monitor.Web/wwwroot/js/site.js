@@ -184,3 +184,291 @@
   tick();
   window.setInterval(tick, 1000);
 })();
+
+(() => {
+  const DASHBOARD_DATABASE_LIVE_STORAGE_KEY = 'monitor.dashboardDatabaseLive.refreshMinutes';
+  const DASHBOARD_DATABASE_LIVE_DEFAULT_MINUTES = 5;
+  const DASHBOARD_DATABASE_LIVE_INTERVALS = [1, 2, 5, 10, 15, 30];
+  const anchor = document.querySelector('.command-live-estate');
+  if (!anchor || document.querySelector('[data-database-live-panel]')) return;
+
+  const styleId = 'dashboard-live-status-styles';
+  if (!document.getElementById(styleId)) {
+    const stylesheet = document.createElement('link');
+    stylesheet.id = styleId;
+    stylesheet.rel = 'stylesheet';
+    stylesheet.href = '/css/dashboard-live-status.css';
+    document.head.appendChild(stylesheet);
+  }
+
+  const normalizeText = value => (value ?? '').replace(/\s+/g, ' ').trim();
+  const allowedStates = new Set(['healthy', 'warning', 'critical', 'offline', 'unknown']);
+
+  const parseInterval = value => {
+    const parsed = Number.parseInt(value ?? '', 10);
+    return DASHBOARD_DATABASE_LIVE_INTERVALS.includes(parsed)
+      ? parsed
+      : DASHBOARD_DATABASE_LIVE_DEFAULT_MINUTES;
+  };
+
+  const readStoredInterval = () => {
+    try {
+      return parseInterval(window.localStorage.getItem(DASHBOARD_DATABASE_LIVE_STORAGE_KEY));
+    } catch {
+      return DASHBOARD_DATABASE_LIVE_DEFAULT_MINUTES;
+    }
+  };
+
+  const storeInterval = value => {
+    try {
+      window.localStorage.setItem(DASHBOARD_DATABASE_LIVE_STORAGE_KEY, String(value));
+    } catch {
+      // Storage can be unavailable in hardened/private browser modes; the in-memory choice still works.
+    }
+  };
+
+  const databaseTotalsFrom = root => {
+    const databaseStat = Array.from(root.querySelectorAll('.command-live-stats > div'))
+      .find(item => normalizeText(item.querySelector('small')?.textContent).toLowerCase() === 'databases');
+    const value = normalizeText(databaseStat?.querySelector('strong')?.textContent);
+    const match = /^(\d+)\s*\/\s*(\d+)$/.exec(value);
+    return match
+      ? { online: Number.parseInt(match[1], 10), total: Number.parseInt(match[2], 10) }
+      : { online: 0, total: 0 };
+  };
+
+  const serverRowsFrom = root => Array.from(root.querySelectorAll('.command-server-row')).map(row => {
+    const stateToken = Array.from(row.querySelector('.health-orb')?.classList ?? [])
+      .find(token => token.startsWith('state-'))
+      ?.slice('state-'.length) ?? 'unknown';
+    const state = allowedStates.has(stateToken) ? stateToken : 'unknown';
+    const dbCell = Array.from(row.querySelectorAll(':scope > div'))
+      .find(cell => normalizeText(cell.querySelector('small')?.textContent).toLowerCase() === 'db');
+    const databaseText = normalizeText(dbCell?.querySelector('strong')?.textContent) || 'Not collected';
+    const age = normalizeText(row.querySelector('.server-age strong')?.textContent) || 'Not collected';
+    return {
+      name: normalizeText(row.querySelector('.server-main strong')?.textContent) || 'Unnamed server',
+      state,
+      databaseText,
+      age,
+      reporting: databaseText.toLowerCase() !== 'not collected'
+    };
+  });
+
+  const readEvidence = root => {
+    if (!root.querySelector('.command-live-estate')) throw new Error('Dashboard evidence marker is missing.');
+    return {
+      totals: databaseTotalsFrom(root),
+      servers: serverRowsFrom(root)
+    };
+  };
+
+  const panel = document.createElement('section');
+  panel.className = 'database-live-panel glass-panel';
+  panel.dataset.databaseLivePanel = '';
+  panel.setAttribute('aria-label', 'Live database status from cached dashboard evidence');
+
+  const header = document.createElement('div');
+  header.className = 'database-live-header';
+
+  const titleBlock = document.createElement('div');
+  titleBlock.className = 'database-live-title';
+  const eyebrow = document.createElement('span');
+  eyebrow.className = 'eyebrow';
+  eyebrow.textContent = 'LIVE DATABASE STATUS';
+  const title = document.createElement('h2');
+  title.textContent = 'Database estate pulse';
+  const subtitle = document.createElement('p');
+  subtitle.textContent = 'Cached dashboard evidence · no direct SQL polling from the browser.';
+  titleBlock.append(eyebrow, title, subtitle);
+
+  const controls = document.createElement('div');
+  controls.className = 'database-live-controls';
+  const intervalLabel = document.createElement('label');
+  intervalLabel.textContent = 'Refresh every';
+  const intervalSelect = document.createElement('select');
+  intervalSelect.dataset.databaseLiveInterval = '';
+  intervalSelect.setAttribute('aria-label', 'Database status refresh interval in minutes');
+  DASHBOARD_DATABASE_LIVE_INTERVALS.forEach(minutes => {
+    const option = document.createElement('option');
+    option.value = String(minutes);
+    option.textContent = `${minutes} min`;
+    intervalSelect.appendChild(option);
+  });
+  intervalLabel.appendChild(intervalSelect);
+  controls.append(intervalLabel);
+  header.append(titleBlock, controls);
+
+  const summary = document.createElement('div');
+  summary.className = 'database-live-summary';
+  const makeSummaryCard = (label, key) => {
+    const card = document.createElement('div');
+    card.className = 'database-live-summary-card';
+    const small = document.createElement('small');
+    small.textContent = label;
+    const strong = document.createElement('strong');
+    strong.dataset[key] = '';
+    strong.textContent = '—';
+    card.append(small, strong);
+    return card;
+  };
+  summary.append(
+    makeSummaryCard('Databases online', 'databaseLiveOnline'),
+    makeSummaryCard('Database evidence', 'databaseLiveTotal'),
+    makeSummaryCard('Servers reporting', 'databaseLiveReporting'),
+    makeSummaryCard('Next refresh', 'databaseLiveCountdown')
+  );
+
+  const progress = document.createElement('div');
+  progress.className = 'database-live-progress';
+  progress.setAttribute('aria-hidden', 'true');
+  const progressBar = document.createElement('span');
+  progress.appendChild(progressBar);
+
+  const serverGrid = document.createElement('div');
+  serverGrid.className = 'database-live-server-grid';
+  serverGrid.dataset.databaseLiveServers = '';
+
+  const footer = document.createElement('div');
+  footer.className = 'database-live-footer';
+  const statusBeacon = document.createElement('span');
+  statusBeacon.className = 'database-live-beacon';
+  statusBeacon.setAttribute('aria-hidden', 'true');
+  const status = document.createElement('span');
+  status.dataset.databaseLiveStatus = '';
+  status.setAttribute('role', 'status');
+  status.setAttribute('aria-live', 'polite');
+  status.textContent = 'Using the current cached Dashboard evidence.';
+  const policy = document.createElement('small');
+  policy.textContent = 'Background refresh reads /dashboard only and never starts monitored-SQL collection.';
+  footer.append(statusBeacon, status, policy);
+
+  const sweep = document.createElement('span');
+  sweep.className = 'database-live-sweep';
+  sweep.setAttribute('aria-hidden', 'true');
+
+  panel.append(sweep, header, summary, progress, serverGrid, footer);
+  anchor.insertAdjacentElement('afterend', panel);
+
+  const onlineValue = panel.querySelector('[data-database-live-online]');
+  const totalValue = panel.querySelector('[data-database-live-total]');
+  const reportingValue = panel.querySelector('[data-database-live-reporting]');
+  const countdownValue = panel.querySelector('[data-database-live-countdown]');
+
+  let intervalMinutes = readStoredInterval();
+  let nextRefreshAt = Date.now() + intervalMinutes * 60_000;
+  let inFlight = false;
+  intervalSelect.value = String(intervalMinutes);
+
+  const render = evidence => {
+    onlineValue.textContent = evidence.totals.total > 0
+      ? `${evidence.totals.online} / ${evidence.totals.total}`
+      : 'Not collected';
+    totalValue.textContent = evidence.totals.total > 0
+      ? `${Math.round((evidence.totals.online / evidence.totals.total) * 100)}% online`
+      : 'Awaiting evidence';
+    const reporting = evidence.servers.filter(server => server.reporting).length;
+    reportingValue.textContent = `${reporting} / ${evidence.servers.length}`;
+
+    serverGrid.replaceChildren();
+    if (evidence.servers.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'database-live-empty';
+      empty.textContent = 'No registered server evidence is available yet.';
+      serverGrid.appendChild(empty);
+      return;
+    }
+
+    evidence.servers.forEach(server => {
+      const card = document.createElement('article');
+      card.className = `database-live-server state-${server.state}`;
+      const orb = document.createElement('span');
+      orb.className = 'database-live-orb';
+      orb.setAttribute('aria-hidden', 'true');
+      const copy = document.createElement('div');
+      const name = document.createElement('strong');
+      name.textContent = server.name;
+      const database = document.createElement('span');
+      database.textContent = server.reporting ? `${server.databaseText} databases online` : 'Database evidence not collected';
+      copy.append(name, database);
+      const meta = document.createElement('div');
+      meta.className = 'database-live-server-meta';
+      const state = document.createElement('span');
+      state.textContent = server.state.toUpperCase();
+      const age = document.createElement('small');
+      age.textContent = `Snapshot ${server.age}`;
+      meta.append(state, age);
+      card.append(orb, copy, meta);
+      serverGrid.appendChild(card);
+    });
+  };
+
+  const refreshEvidence = async () => {
+    if (inFlight || document.hidden) return;
+    inFlight = true;
+    panel.classList.add('is-refreshing');
+    status.textContent = 'Refreshing cached Dashboard evidence…';
+
+    try {
+      const response = await fetch('/dashboard', {
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: {
+          'Accept': 'text/html',
+          'X-Requested-With': 'DashboardLiveStatus'
+        }
+      });
+      if (!response.ok || response.redirected) throw new Error('Dashboard refresh was rejected or redirected.');
+      const contentType = response.headers.get('content-type')?.toLowerCase() ?? '';
+      if (!contentType.includes('text/html')) throw new Error('Dashboard refresh did not return HTML.');
+      const html = await response.text();
+      const parsed = new DOMParser().parseFromString(html, 'text/html');
+      const evidence = readEvidence(parsed);
+      render(evidence);
+      const refreshedAt = new Date();
+      status.textContent = `Cached evidence refreshed at ${refreshedAt.toLocaleTimeString([], { hour12: false })}.`;
+      panel.classList.add('is-updated');
+      window.setTimeout(() => panel.classList.remove('is-updated'), 900);
+    } catch {
+      status.textContent = 'Refresh unavailable · retaining the last cached evidence shown.';
+    } finally {
+      nextRefreshAt = Date.now() + intervalMinutes * 60_000;
+      panel.classList.remove('is-refreshing');
+      inFlight = false;
+    }
+  };
+
+  const tick = () => {
+    const intervalMs = intervalMinutes * 60_000;
+    const remainingMs = Math.max(0, nextRefreshAt - Date.now());
+    const remainingSeconds = Math.ceil(remainingMs / 1000);
+    const minutes = Math.floor(remainingSeconds / 60);
+    const seconds = remainingSeconds % 60;
+    countdownValue.textContent = `${minutes}:${String(seconds).padStart(2, '0')}`;
+    const progressValue = Math.min(1, Math.max(0, 1 - (remainingMs / intervalMs)));
+    panel.style.setProperty('--database-live-progress', String(progressValue));
+
+    if (remainingMs <= 0 && !document.hidden) void refreshEvidence();
+  };
+
+  intervalSelect.addEventListener('change', () => {
+    intervalMinutes = parseInterval(intervalSelect.value);
+    intervalSelect.value = String(intervalMinutes);
+    storeInterval(intervalMinutes);
+    nextRefreshAt = Date.now() + intervalMinutes * 60_000;
+    status.textContent = `Auto refresh set to every ${intervalMinutes} minute${intervalMinutes === 1 ? '' : 's'}.`;
+    tick();
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && Date.now() >= nextRefreshAt) void refreshEvidence();
+  });
+
+  try {
+    render(readEvidence(document));
+  } catch {
+    status.textContent = 'Database status evidence is unavailable on this Dashboard view.';
+  }
+  tick();
+  window.setInterval(tick, 1000);
+})();
