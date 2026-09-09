@@ -14,21 +14,21 @@ The authoritative executable owner/external handoff is `deploy/REMAINING_OWNER_E
 
 ## Current integrated state — 2026-09-09
 
-**Verified integration base before this documentation reconciliation:** `main@3a7e8daf9565d7cb75e8dc8111d6df7ae9e90c0d`.
+**Fresh live base before this reconciliation:** `main@4d514daef24781724f24065accd95988b406d9e6`; exact-main push CI `34382598596` Green.
 
 - M0 through M8 are verified.
 - BATCH-100 through BATCH-800 are complete in repository scope; BATCH-800/#287 is closed completed.
 - Website Monitoring #463/#466 is COMPLETE / MERGED through PR #467 -> PR #464. There is no remaining required Website Monitoring runtime implementation target.
-- PR #473 `Release: bind tagged artifacts to deterministic notes` is COMPLETE / MERGED as `3a7e8daf9565d7cb75e8dc8111d6df7ae9e90c0d` after a current-base reconciliation, zero unresolved review threads, exact-head Linux CI, Windows production-candidate and both protected-P0 guards Green. Exact merged-main push CI run `34379131661` is Green.
-- Draft PR #472 is an **optional browser-verification follow-up**, not a missing #463 implementation. It remains DRAFT / NOT READY: its branch is stale against current main and dedicated `website-monitoring-visual` run `34371076685` failed at authenticated browser acceptance. It must not be merged or used to reopen #463 unless its purpose remains lawful, it is reconciled to current main, its dedicated browser gate is repaired and Green, all selected exact-head gates are Green, and review state is clear.
-- No open issue is currently a verified repository `CODE_GAP` whose own Definition of Done can be satisfied solely by Cloud Work.
+- PR #473 `Release: bind tagged artifacts to deterministic notes` is COMPLETE / MERGED as `3a7e8daf9565d7cb75e8dc8111d6df7ae9e90c0d`; exact merged-main push CI run `34379131661` is Green.
+- PR #472 was an **optional browser-verification follow-up**, not a missing #463 implementation. Recovery of its existing branch repaired historical CI/browser defects; exact head `fce84a2c6743061d6ff402d3e6ba1d9e66ac1db6` became current with `main`, had zero unresolved review threads, and passed normal CI `34384824308`, `website-monitoring-visual` `34384824489`, protected-P0 commits `34384824328`, and protected-P0 metadata `34384824478`. The owner then explicitly directed **close without merge**. Therefore the browser harness is not part of current `main`, #472 is not an active integration target, and the Green browser evidence is historical optional verification only.
+- No open issue is currently a verified repository `CODE_GAP` whose own Definition of Done can be satisfied solely by Cloud Work. The four open issues remain owner/external gates #162, #353, #116 and #111.
 
 ## Integration and READY policy
 
 A branch/PR is legitimate READY only when all of the following are true immediately before merge:
 
 1. it represents existing committed product/repository scope rather than an unrelated nice-to-have;
-2. it does not duplicate implementation already merged or actively owned by another legitimate branch;
+2. it does not duplicate implementation already merged, owner-closed or actively owned by another legitimate branch;
 3. its lawful base is identified and the branch is current with that base (`behind_by=0` or equivalent exact evidence);
 4. unresolved review threads are zero where GitHub exposes thread data;
 5. every selected exact-head gate is completed Green; earlier-head or pre-rebase evidence is not sufficient;
@@ -42,6 +42,8 @@ After every merge:
 - repair any integration-caused regression immediately on a current-main branch;
 - reconcile issue/PR/document state to what actually merged;
 - never claim external/owner-only completion from repository CI.
+
+Owner-closed work must not be reopened or re-created merely because its branch or Green CI remains available. A new authoritative requirement is required before reviving that scope.
 
 ## Current required dependency order
 
@@ -123,8 +125,6 @@ After the exact promotion run and separate verifier are both Green:
 
 Require `Status = READY_FOR_P0_5_PRE_CUTOVER_PREPARATION`, `DurableReleasePrerequisiteSatisfied = True`, `ExternalGatesPassed = 0`, `ProductionMutationPerformed = False`, and `MutatedGitHubState = False`. This is **0/15** production acceptance and performs **no production mutation**.
 
-The current operator-helper/production-guide reconciliation was completed through PR #343, squash-merged as `3cd711b608e4ceaf8872eb22a25541bbbfe2729a`.
-
 #162 remains OPEN until independent live evidence proves the approved tag, exactly the two approved durable assets and the approved product SHA-256 after both exact workflow runs succeed.
 
 ### First Production SingleNode — #116 EXTERNAL_ENVIRONMENT / OPEN
@@ -155,8 +155,6 @@ Repository workflows, Windows runner validation, synthetic 15/15 packs, release 
 #111 is not a fourth external acceptance gate. It has no independent production action and no separate PASS condition. It closes only after #116 is accepted under its real-environment Definition of Done and the finalized #116 evidence/session remains available for review. An incorrect or premature #111 closure must be reopened; no repository-only merge may auto-close or mark #111 complete.
 
 ## Canonical completed baseline evidence retained for regression
-
-These facts remain in the active canonical plan because executable regression tests intentionally lock them against stale-state regressions.
 
 ### BATCH-700 final portal/UI closeout
 
@@ -191,95 +189,23 @@ For normal pushed version tags, the release workflow can publish only the alread
 
 ### Deterministic tagged-release notes — PR #473 COMPLETE / MERGED
 
-PR #473 adds a deterministic release-note identity contract for **future normal tagged-release publication**:
-
-1. release notes are generated only after the downloaded product checksum has been verified;
-2. notes bind exact version, tag, release source commit, ZIP filename, product SHA-256, companion checksum and verified production-candidate provenance;
-3. new release creation uses the deterministic notes file rather than mutable/generated prose;
-4. if a release already exists, both the exact notes and exact approved assets must match; drift fails closed;
-5. regression coverage prohibits weakening the deterministic notes/asset contract.
-
-PR #473 did **not** create, publish, tag or mutate selected RC.61. It therefore does not satisfy #162 and changes no #116/#111 state.
+Future normal tagged-release publication uses deterministic notes bound to exact release/artifact identity. PR #473 did **not** create, publish, tag or mutate selected RC.61; it does not satisfy #162 and changes no #116/#111 state.
 
 ## Website Monitoring — #463/#466 COMPLETE / MERGED
 
-### Merged runtime contract
-
-The required Website Monitoring implementation is complete through PR #467 -> PR #464 and includes:
-
-- bounded target administration;
-- HTTP/HTTPS-only URL validation and credential-in-URL rejection;
-- fail-closed SSRF/private-destination authorization with re-resolution/re-authorization;
-- DNS/TCP/TLS/HTTP/status/redirect/content/latency/certificate evidence;
-- durable SingleNode target/history/schedule/check state;
-- existing-incident confirmation/recovery/reopen reconciliation;
-- bounded correlation without causal overclaim;
-- recipient groups;
-- SMTP environment-secret resolution;
-- durable outbox/retry/dead-letter behavior;
-- `/websites` management and cached live UI;
-- attributable audit, antiforgery and named role boundaries;
-- SharedState stores and CAS-backed ownership for HA paths;
-- one coordinated execution service with local single-flight and distributed per-target leases.
+The required Website Monitoring implementation is complete through PR #467 -> PR #464 and includes bounded target administration, fail-closed outbound authorization, DNS/TCP/TLS/HTTP evidence, durable target/history/scheduler/check state, incident reconciliation, bounded correlation, recipient groups, SMTP environment-secret resolution, durable notification outbox, authenticated management/cached-live UI, SharedState stores, CAS-backed ownership and distributed per-target coordination where required.
 
 Monitoring and notifications remain default-disabled. MultiNode remains fail-closed unless all existing SharedState/coordination prerequisites are satisfied.
 
-### Visual/browser evidence truth
+### Optional browser evidence truth
 
-The merged product claims source/route responsive/accessibility acceptance, including reduced-motion and explicit 390px behavior. It does **not** claim a merged browser screenshot run.
-
-Draft PR #472 is optional verification work only. Current known state:
-
-- draft/open;
-- branch stale against integrated main;
-- no runtime implementation is required by the PR;
-- earlier normal CI and protected-P0 guards were Green;
-- dedicated `website-monitoring-visual` run `34371076685` failed at authenticated browser acceptance.
-
-Therefore #472 is not READY and is not a prerequisite for closed #463 or the P0 production chain. It may be repaired/reconsidered only as existing verification scope; it must not redefine completed runtime scope without an authoritative committed requirement.
+PR #472 introduced an optional Chromium/Playwright verification proposal. Its recovered exact head passed all selected verification gates and retained a browser artifact, but the owner explicitly closed the PR **without merge**. Consequently current `main` does not include the browser workflow/script/doc/test from #472, and no screenshot/browser run is claimed as merged product evidence. That closure does not make Website Monitoring incomplete.
 
 ## Repository governance — #353 OWNER_ONLY / OPEN
 
-Repository-side branch-protection helper, safety tests and documentation are complete. Actual GitHub main protection remains an authenticated repository-admin action plus independent read-back. The exact current execution/read-back/rollback commands and STOP conditions are maintained in `deploy/REMAINING_OWNER_EXTERNAL_GATES.md`.
-
-Required live policy remains:
-
-- required provider-bound checks: `build`, `protected-p0-pr-metadata`, `protected-p0-pr-commits`;
-- one reviewed provider identity per required check;
-- strict/up-to-date checks enabled;
-- admin enforcement enabled;
-- conversation resolution required;
-- force pushes disabled;
-- branch deletion disabled;
-- no unrelated PR-review/restriction policy expansion.
+Repository-side branch-protection helper, safety tests and documentation are complete. Actual GitHub main protection remains an authenticated repository-admin action plus independent read-back. Required live policy remains provider-bound `build`, `protected-p0-pr-metadata`, `protected-p0-pr-commits`, strict/up-to-date checks, admin enforcement and conversation resolution enabled, force pushes and branch deletion disabled, with no unrelated PR-review/restriction expansion.
 
 Do not close #353 from helper code, preview output, CI Green or merge evidence. Close only after actual application plus independent repository-admin read-back proves the exact live policy.
-
-## Completed implementation baselines
-
-The following are complete repository state and must not be reopened from historical branch instructions:
-
-- M0–M8 verified foundation;
-- BATCH-100..BATCH-800 complete repository scope;
-- BATCH-700 visible portal/UI completion;
-- BATCH-800 full functional operator wiring, Issue #287 CLOSED/COMPLETED;
-- real SQL gates P0.1–P0.4 complete;
-- selected-product-hash acceptance binding;
-- locked-session evidence-chain binding;
-- immutable Acceptance Control Toolkit provenance;
-- IIS bootstrap/fresh-host/PowerShell 7 prerequisite hardening;
-- clean IIS no-demo production/staging behavior;
-- GitHub Actions supply-chain/native Node 24 hardening;
-- durable release/promotion preflight and operator-helper implementation;
-- programming truthfulness/security/control closures through PR #369;
-- atomic SharedState execution guard #423/#424;
-- incident-note durability/replay/cross-process closures #445–#450;
-- core SingleNode file cross-process closure #451/#452;
-- operator metadata cross-process closure #459/#460;
-- Website Monitoring #463/#466 through #467/#464;
-- future normal tagged-release deterministic-notes hardening #473.
-
-Exact historical implementation/evidence details remain preserved in `docs/history/IMPLEMENTATION_PLAN_PRE_CONVERGENCE_2026-09-09.md` and the associated closed issues/PRs.
 
 ## Stable safety/truth boundaries
 
@@ -291,12 +217,11 @@ Exact historical implementation/evidence details remain preserved in `docs/histo
 - Mutations require the existing POST + antiforgery + named authorization boundaries.
 - MultiNode stays fail-closed until its existing distributed prerequisites are genuinely satisfied.
 - Repository CI cannot manufacture RC.61 publication, trusted-IIS acceptance, branch-protection enforcement or any other owner/external PASS.
-- No new feature is added merely because it would be useful; work must trace to existing committed product/repository scope.
 
 ## Current next legal actions
 
-1. Merge only branches that satisfy the READY policy above.
-2. Keep #472 DRAFT / NOT READY until its optional verification line is current, lawful and Green; do not treat it as required implementation.
+1. Keep owner-closed #472 closed unless new authoritative scope explicitly reopens it; do not duplicate its optional browser harness.
+2. Repair any future exact-main regression or legitimate stale READY integration before new feature work.
 3. Owner completes #162 through explicit promotion + separate verification + independent tag/exact-two-assets/hash/readiness evidence.
 4. After #162 only, execute #116 on the actual trusted Windows/IIS/SQL environment and collect/review real 15/15 evidence.
 5. Close #111 only after #116; #111 is closure-only and cannot manufacture another external PASS.
