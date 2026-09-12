@@ -42,6 +42,14 @@ public sealed record SqlServerEndpoint
     public bool Encrypt { get; }
     public bool TrustServerCertificate { get; }
 
+    public override string ToString() => Port.HasValue
+        ? $"{Host},{Port.Value}"
+        : InstanceName is not null
+            ? $"{Host}\\{InstanceName}"
+            : Host;
+
+    public static implicit operator string(SqlServerEndpoint endpoint) => endpoint?.ToString() ?? string.Empty;
+
     private static string NormalizeHost(string value)
     {
         var normalized = RequireText(value, "host", 255);
