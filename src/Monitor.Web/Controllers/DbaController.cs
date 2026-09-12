@@ -5,12 +5,25 @@ using Monitor.Web.Services;
 namespace Monitor.Web.Controllers;
 
 [Authorize(Policy = MonitorPolicies.Read)]
-public sealed class DbaController(
-    IDbaCommandCenterService commandCenter,
-    IAuditStore audit) : Controller
+public sealed class DbaController : Controller
 {
+    private readonly IDbaCommandCenterService _commandCenter;
+    private readonly IAuditStore _audit;
+
+    public DbaController(
+        IServerRegistrationRepository registrations,
+        IServerHealthSnapshotCache snapshots,
+        IServiceProvider services,
+        IAuditStore audit,
+        TimeProvider timeProvider)
+    {
+        var secretStore = services.GetRequiredService<IConnectionSecretStore>();
+        _commandCenter = new DbaCommandCenterService(registrations, snapshots, secretStore, timeProvider);
+        _audit = audit;
+    }
+
     [HttpGet("/dba")]
-    public IActionResult Index() => View(commandCenter.GetCached());
+    public IActionResult Index() => View(_commandCenter.GetCached());
 
     [HttpPost("/dba/{id:guid}/inspect")]
     [ValidateAntiForgeryToken]
@@ -20,9 +33,9 @@ public sealed class DbaController(
         var actor = User.Identity?.Name;
         if (string.IsNullOrWhiteSpace(actor)) return Forbid();
 
-        audit.Append(actor, "dba.inspect.request", id.ToString("D"), "requested");
-        var result = await commandCenter.InspectAsync(id, cancellationToken);
-        audit.Append(actor, "dba.inspect", id.ToString("D"), result.Success ? "completed" : "unavailable");
+        _audit.Append(actor, "dba.inspect.request", id.ToString("D"), "requested");
+        var result = await _commandCenter.InspectAsync(id, cancellationToken);
+        _audit.Append(actor, "dba.inspect", id.ToString("D"), result.Success ? "completed" : "unavailable");
         TempData["DbaInspection"] = result.Message;
         TempData["DbaInspectionStatus"] = result.Success ? "success" : "warning";
         return RedirectToAction(nameof(Index), new { server = id.ToString("D") });
@@ -33,7 +46,7 @@ public sealed class DbaController(
     {
         try
         {
-            var plan = commandCenter.BuildBackupManagementPlan(id, database);
+            var plan = _commandCenter.BuildBackupManagementPlan(id, database);
             Response.Headers.CacheControl = "no-store, max-age=0";
             Response.Headers.Pragma = "no-cache";
             Response.Headers["X-Content-Type-Options"] = "nosniff";
@@ -49,7 +62,7 @@ public sealed class DbaController(
     public IActionResult Summary()
     {
         Response.Headers.CacheControl = "no-store, max-age=0";
-        var model = commandCenter.GetCached();
+        var model = _commandCenter.GetCached();
         return Json(new
         {
             generatedAtUtc = model.GeneratedAtUtc,
