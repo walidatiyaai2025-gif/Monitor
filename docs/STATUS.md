@@ -64,15 +64,13 @@ Repository and Real-SQL CI evidence cannot substitute for the required real prod
 
 ### #353 — OWNER_ONLY / REPOSITORY_ADMIN branch protection — OPEN / NOT PASS
 
-Live repository metadata still reports `main.protected=false`. The connected integration has no administration permission to apply/read back the required policy. Required provider-bound checks are:
+Live repository metadata still reports `main.protected=false`. The connected integration has no administration permission to apply/read back the required policy. Issue #353 intentionally requires exactly these provider-bound checks:
 
-- `ci / build`
-- `production-candidate / windows-singlenode-candidate`
-- `real-sql-acceptance / real-sql-2022`
-- `protected-p0-pr-metadata / policy`
-- `protected-p0-pr-commits / policy`
+- `build`
+- `protected-p0-pr-metadata`
+- `protected-p0-pr-commits`
 
-Strict up-to-date checks, admin enforcement and conversation resolution must be enabled; force-push and deletion must be disabled; independent admin read-back is required.
+Real SQL and Windows production-candidate are separate acceptance gates and are intentionally not additional branch-protection contexts. Strict up-to-date checks, admin enforcement and conversation resolution must be enabled; force-push and deletion must be disabled; independent admin read-back is required.
 
 ## Dependency order
 
