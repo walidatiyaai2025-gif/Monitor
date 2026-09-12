@@ -1,140 +1,94 @@
 # Current Execution Plan
 
-This file is the live execution authority for work selection. Historical implementation detail remains in `docs/IMPLEMENTATION_PLAN.md`, but stale historical PR/branch wording there must **not** be interpreted as an active queue.
+This file is the live execution authority for work selection. Always fetch exact GitHub state before mutation; historical plans, branches, artifacts and Green runs are evidence only and must never reopen completed work by themselves.
 
-## Authority order
+## Live reconciliation — 2026-09-12
 
-For every iteration, use this order:
-
-1. exact live GitHub `main` and repository identity;
-2. `AGENTS.md`;
-3. live open PRs/issues, current branches/claims and exact workflow/check results;
-4. this file;
-5. `docs/STATUS.md`, `docs/PRODUCTION_MVP.md`, `docs/FEATURE_CATALOG.md` and the relevant runbooks/handoffs;
-6. `docs/IMPLEMENTATION_PLAN.md` as historical implementation context only unless a section has been explicitly revalidated against current live state.
-
-Never revive a historical branch or create parallel work solely because an old implementation plan, branch ref or Green CI run still exists.
-
-## Active feature work — 2026-09-12
-
-Fresh work-start audit observed `main@2a172f553087a6658700b7a1f32d7b7f0c9650d3`, zero open product PRs, and only the protected P0/external gates #111, #116, #162 and #353 open. New work therefore proceeds on `feature/dba-command-center` without mutating those protected gates.
-
-Current branch scope requested by the owner:
-
-- expert DBA Command Center with explicit deep inspection of query CPU/logical I/O, active memory grants, per-database resource/memory/backup state and missing-index evidence;
-- evidence-based DBA recommendations with visible investigation/fix SQL and validation SQL, never autonomous execution;
-- review-only one-database/all-databases backup-management plans;
-- authenticated read-only `/api/dba/summary` for a simple Flutter DBA dashboard and what/when/where action list;
-- `apps/monitor_dba_flutter` mobile companion that preserves the web/SQL trust boundary;
-- visible first-install Windows wizard for service installation, production admin credential derivation, port configuration and readiness validation;
-- Admin > Monitor Upgrades staged-package workflow plus host-side checksum/backup/swap/readiness/rollback executor;
-- explicit navigation/buttons; no hidden operational action.
-
-State: **IMPLEMENTED ON FEATURE BRANCH / VALIDATION AND PR CONVERGENCE IN PROGRESS**. Do not represent this feature as integrated or production-accepted until exact-head CI and normal merge evidence exist. Normal `/dba` GET and mobile summary access remain cache/control-plane only; only the visible authorized `Run DBA inspection` POST may open the bounded server-side diagnostic SQL connection.
-
-Canonical design/safety contract: `docs/DBA_COMMAND_CENTER.md`.
-
-## Live convergence state — 2026-09-09
-
-Post-#477 verified integration snapshot:
+Work-start evidence for this reconciliation:
 
 ```text
-Repository        walidatiyaai2025-gif/Monitor
-Repository ID     1329517438
-Observed main     f3dc1b2234b2105d1331d2476f75e8b7b0f2761c
-Main push CI      34392925320 — success
-#476              CLOSED / COMPLETED
-PR #477           MERGED / squash f3dc1b2234b2105d1331d2476f75e8b7b0f2761c
-Open product PRs  0 at post-merge audit
-Owner-closed PR   #472 — optional browser verification, closed unmerged
-Open gate issues  #162, #353, #116, #111
-Releases          0
-Tags              0
-Rulesets          0
-main protected    false
+Repository                 walidatiyaai2025-gif/Monitor
+Observed main              c3e847397243c44fdf5b8a78b114086ea1b133b2
+DBA feature merge          0cc2087aa9da887046986d413ab46df2bcbab735 (#479)
+Open product PRs           0
+Open required gate issues  #111, #116, #162, #353
+GitHub Releases            0
+Tags                       0
+main protected             false
 ```
 
-These values are audit evidence, not execution pins. Before any later mutation, fetch fresh `main`, current PR/issue state, branch currency and exact workflows again.
+PR #479 is **COMPLETE / MERGED**. The DBA Command Center, explicit Advanced DBA analysis, Flutter DBA dashboard, first-install wizard and Admin > Monitor Upgrades path are integrated. Exact PR-head CI, Real SQL Server 2022 acceptance, Windows production-candidate and both protected-P0 guards passed before merge. Do not recreate this feature on another branch.
 
-## #476 / PR #477 — COMPLETE / MERGED
+## Repository-side product state
 
-The Dashboard configurable live database-status feature is integrated on `main`.
+All currently requested application implementation is integrated. No open product PR or known exact-main product regression remains from the DBA/installer/mobile/upgrade scope.
 
-Closure evidence:
+The remaining work is release/governance/production acceptance. Repository tooling must make those gates executable and fail closed, but repository CI is not allowed to manufacture owner/external PASS.
 
-- exact final PR head: `ac9499fe54000de8a8a38865bd47d062b5985d4f`;
-- normal CI `34392461369` — success;
-- Real SQL `34392461363` — success;
-- Windows production-candidate `34392461390` — success;
-- protected-P0 metadata `34392461372` — success;
-- protected-P0 commits `34392461395` — success;
-- zero unresolved review threads immediately before merge;
-- branch current with exact base `4d514daef24781724f24065accd95988b406d9e6` (`behind_by=0`);
-- squash merge `f3dc1b2234b2105d1331d2476f75e8b7b0f2761c`;
-- exact merged-main push CI `34392925320` — success;
-- issue #476 closed completed by the merge.
+## Selected release candidate
 
-Integrated behavior remains bounded to truthful cached Dashboard evidence: browser refresh re-reads authenticated `/dashboard` only, never monitored SQL/collector/`/refresh-snapshot`; cadence is restricted to 1/2/5/10/15/30 minutes and persisted client-side; redirect/non-HTML/missing evidence fails closed; overlapping refreshes and hidden-tab polling are prevented; reduced-motion is honored.
+Canonical identity: `docs/SELECTED_RELEASE_CANDIDATE.md`.
 
-This merge does not satisfy or mutate #162, #116, #111 or #353.
+RC.61 is historical only because Actions artifact `9168574442` expired at `2026-09-12T04:41:36Z`. It is forbidden to recreate different bytes under `v0.1.0-rc.61` or pretend the expired artifact remains promotable.
 
-## Owner-closed optional work — #472
+The currently selected candidate is:
 
-PR #472 was optional authenticated browser verification for already-complete Website Monitoring. Its recovered exact head ultimately passed selected CI/browser/guard gates, but the owner explicitly directed **close without merge**. It is not an active merge target, its browser harness is not part of `main`, and its Green evidence does not reopen Website Monitoring or create a P0 prerequisite. Do not duplicate or revive it without new authoritative scope.
+```text
+Version             0.1.0-rc.854
+Tag                 v0.1.0-rc.854
+Product ZIP         Monitor-0.1.0-rc.854-win-x64.zip
+Product SHA-256     b0370b3efa984393d833958850734c67c69b78bfe32e4b47c844ddb10f0f27b7
+Source run          34710820438
+Artifact ID         10303396821
+Artifact expiry     2026-10-12T18:18:29Z
+Source PR           #479
+Source head         ef7209cbf099da65330887508ab4380a8b4196d2
+Tested merge        e1d0daedf8b2209934a1bcd01bff5d46229df20a
+Integrated merge    0cc2087aa9da887046986d413ab46df2bcbab735
+```
 
-## Repository baseline
+Use `scripts/Invoke-SelectedDurablePromotion.ps1`. Preview must verify the live source run, unexpired artifact, nested product SHA-256 and embedded release manifest, and must make no production mutation. Actual durable publication requires explicit `-AcknowledgePromotion` and must uniquely bind one promotion workflow run. Failure or ambiguity is fail-closed; never auto-redispatch.
 
-Required product/runtime repository-side code, tests, CI/security controls, Website Monitoring integration, Dashboard live database-status integration and P0.5 operator tooling are complete through `main@f3dc1b2234b2105d1331d2476f75e8b7b0f2761c`.
+## Remaining required gates
 
-Existing historical branches are not active by themselves; only live PR/claim/defect evidence activates work. Any future exact-main regression or legitimate stale READY integration has priority over new feature work.
-
-There is no additional cloud-actionable product implementation implied by the historical branch inventory or by already-closed issues.
-
-## Remaining direct gates
-
-### #162 — OWNER_ONLY — durable RC.61 release
+### #162 — OWNER_ONLY — durable publication
 
 State: **OPEN / NOT PASS**.
 
-```text
-Version                    0.1.0-rc.61
-Tag                        v0.1.0-rc.61
-ZIP                        Monitor-0.1.0-rc.61-win-x64.zip
-Checksum                   Monitor-0.1.0-rc.61-win-x64.zip.sha256
-Product SHA-256            d0a71f8a5611621ee388a1109dedc76e1a6e70357404cb62c9c7aa188f49c3d5
-Source run                 31667721306
-Actions artifact ID        9168574442
-Outer artifact digest      sha256:1c499b9eb0bfc4245716c14718381b71352df8392aafe430cc415b375b93f382
-Source commit              e28158da67b36dfc5dbf8f4c38b5c43d99c7c728
-Tested merge               158148d8bfd05f724014541bc7a0b1eab5dae1b5
-```
+Repository-side selection/preflight/promotion tooling is complete. The connected automation does not expose GitHub Actions workflow dispatch, so actual promotion must be explicitly initiated by the repository owner. Publish only the exact selected rc.854 bytes and then run a separate independent durable-release verifier. Record exact promotion/verifier run IDs and independently read back tag, release assets and hash.
 
-No GitHub Release or `v0.1.0-rc.61` tag exists. Follow `deploy/REMAINING_OWNER_EXTERNAL_GATES.md`: preview -> explicit acknowledged promotion -> exact promotion run -> **separate** independent verifier -> exact run-ID readiness -> independent tag/assets/hash evidence.
+### #116 — EXTERNAL_ENVIRONMENT — real production acceptance
+
+State: **OPEN / NOT PASS** and blocked from production mutation until #162 genuinely passes.
+
+After durable publication, execute the real trusted HTTPS/IIS/least-privilege/recycle/durability/backup/rollback acceptance against exact product SHA-256 `b0370b3e...f0f27b7`. A fresh acceptance session starts at 0/15 and closes only with genuine 15/15 external evidence and independent validation.
+
+### #111 — umbrella closure
+
+State: **OPEN / NOT PASS**. No independent repository action remains. Close only after genuine #116 acceptance, including the required real least-privilege production operator evidence.
 
 ### #353 — OWNER_ONLY / REPOSITORY_ADMIN — protect `main`
 
 State: **OPEN / NOT PASS**.
 
-Live public read reports `main.protected=false`; repository rulesets are empty and the administration-gated protection endpoint is inaccessible to the connected integration. Only authenticated repository-admin application plus independent read-back of the exact provider-bound policy can pass this gate.
+The connected GitHub integration cannot read or mutate the administration-gated protection endpoint; live repository metadata still reports `main.protected=false`. Required provider-bound checks remain:
 
-### #116 — EXTERNAL_ENVIRONMENT — real trusted-IIS 15/15 acceptance
+- `ci / build`
+- `production-candidate / windows-singlenode-candidate`
+- `real-sql-acceptance / real-sql-2022`
+- `protected-p0-pr-metadata / policy`
+- `protected-p0-pr-commits / policy`
 
-State: **OPEN / NOT PASS / blocked before production mutation by #162**.
+Strict up-to-date checks, admin enforcement and conversation resolution must be enabled; force pushes and deletion must be disabled; independent repository-admin read-back is required.
 
-After #162 really completes, use exact RC.61 product bytes plus separately verified Acceptance Control Toolkit source `b422eaaee53d931a62a43b3c36a53b68cd4f3e27`, create one fresh 0/15 session and execute real trusted HTTPS/IIS/least-privilege/recycle/durability/backup/rollback acceptance, then independently validate 15/15.
-
-### #111 — umbrella closure only
-
-State: **OPEN / NOT PASS**. It closes only after #116 has real accepted external evidence.
-
-## Required dependency order
+## Dependency order
 
 ```text
 #162 -> #116 -> #111
 ```
 
-#353 is independent repository governance.
+#353 is independent governance.
 
 ## Completion rule
 
-`VERIFIED_FINAL_COMPLETE` is forbidden while any required owner-only or external gate lacks real evidence. Repository CI, optional browser evidence, documentation, candidate packaging, a preview or a merged feature PR cannot manufacture owner/external PASS.
+Repository-side/cloud-actionable work is complete when the selected-candidate reconciliation change is integrated and exact-head/main CI is Green. `VERIFIED_FINAL_COMPLETE` remains forbidden while any of #162, #116, #111 or #353 lacks genuine owner/external evidence.
