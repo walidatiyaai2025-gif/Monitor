@@ -63,6 +63,7 @@
                     @Html.AntiForgeryToken()
                     <button class="primary-button" type="submit" @(server.IsEnabled ? null : "disabled")>Run DBA inspection</button>
                 </form>
+                <a class="primary-button" asp-controller="DbaAdvanced" asp-action="Index" asp-route-id="@server.RegistrationId">Advanced DBA analysis</a>
                 <form method="post" asp-controller="Operations" asp-action="RefreshServer" asp-route-id="@server.RegistrationId">
                     @Html.AntiForgeryToken()
                     <button class="secondary-button" type="submit" @(server.IsEnabled ? null : "disabled")>Refresh base snapshot</button>
