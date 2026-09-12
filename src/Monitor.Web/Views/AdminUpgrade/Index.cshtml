@@ -1,0 +1,88 @@
+@model Monitor.Web.Services.UpgradeDashboardViewModel
+@using Monitor.Web.Models
+@{
+    ViewData["Title"] = "Monitor Upgrades";
+    var message = TempData["UpgradeMessage"] as string;
+    var status = TempData["UpgradeStatus"] as string ?? "warning";
+}
+
+<partial name="_PortalPageHeader" model="@(new PortalPageHeaderViewModel(
+    "ADMINISTRATION",
+    "Monitor Upgrades",
+    "Stage a checksum-verified release package from the admin area, then explicitly queue it for the host updater. Existing data is not replaced by the web process.",
+    "Back to dashboard",
+    "Operations",
+    "Dashboard"))" />
+
+@if (!string.IsNullOrWhiteSpace(message))
+{
+    <div class="data-banner @status">@message</div>
+}
+
+<section class="glass-panel" style="margin-bottom:1rem">
+    <span class="eyebrow">SAFE UPDATE CONTRACT</span>
+    <h2>Upload → verify → stage → request safe apply</h2>
+    <p>The browser never overwrites the running application. A separate host updater must verify SHA-256 again, back up the current install, stop the service, swap the release, start Monitor, health-check it and roll back automatically on failure.</p>
+    <dl class="definition-grid">
+        <div><dt>Package limit</dt><dd>@(Model.MaxUploadBytes / 1024 / 1024) MB</dd></div>
+        <div><dt>Package store</dt><dd><code>@Model.StagingRoot</code></dd></div>
+        <div><dt>Required manifest</dt><dd><code>monitor-upgrade-manifest.json</code></dd></div>
+        <div><dt>Integrity</dt><dd>Operator-provided SHA-256 + host re-verification</dd></div>
+    </dl>
+</section>
+
+<div class="health-command-grid">
+    <section class="glass-panel health-command-card">
+        <span class="eyebrow">STEP 1</span>
+        <h2>Stage release package</h2>
+        <p>Select the release ZIP and paste the published SHA-256. Unsafe paths, invalid manifests and checksum mismatches are rejected.</p>
+        <form method="post" enctype="multipart/form-data" asp-controller="AdminUpgrade" asp-action="Stage" class="form-stack">
+            @Html.AntiForgeryToken()
+            <label for="package">Monitor upgrade ZIP</label>
+            <input id="package" name="package" type="file" accept=".zip,application/zip" required />
+            <label for="sha256">Expected SHA-256</label>
+            <input id="sha256" name="sha256" type="text" minlength="64" maxlength="64" autocomplete="off" spellcheck="false" placeholder="64 hexadecimal characters" required />
+            <button class="primary-button" type="submit">Upload, verify and stage</button>
+        </form>
+    </section>
+
+    <section class="glass-panel health-command-card">
+        <span class="eyebrow">STEP 2</span>
+        <h2>Staged package</h2>
+        @if (Model.Staged is null)
+        {
+            <p>No package is staged.</p>
+        }
+        else
+        {
+            <dl class="definition-grid">
+                <div><dt>Version</dt><dd>@Model.Staged.Version</dd></div>
+                <div><dt>Original file</dt><dd>@Model.Staged.FileName</dd></div>
+                <div><dt>Size</dt><dd>@((Model.Staged.SizeBytes / 1024m / 1024m).ToString("N1")) MB</dd></div>
+                <div><dt>Staged UTC</dt><dd>@Model.Staged.StagedAtUtc.ToString("u")</dd></div>
+                <div style="grid-column:1/-1"><dt>SHA-256</dt><dd><code style="overflow-wrap:anywhere">@Model.Staged.Sha256</code></dd></div>
+            </dl>
+            <form method="post" asp-controller="AdminUpgrade" asp-action="RequestApply">
+                @Html.AntiForgeryToken()
+                <button class="primary-button" type="submit">Request safe apply</button>
+            </form>
+        }
+    </section>
+</div>
+
+<section class="glass-panel" style="margin-top:1rem">
+    <span class="eyebrow">UPDATER STATUS</span>
+    <h2>Host-side apply and rollback</h2>
+    <div class="health-command-grid">
+        <div>
+            <h3>Pending request</h3>
+            @if (Model.Pending is null) { <p>None.</p> }
+            else { <p><strong>@Model.Pending.Package.Version</strong> requested by @Model.Pending.RequestedBy at @Model.Pending.RequestedAtUtc.ToString("u").</p> }
+        </div>
+        <div>
+            <h3>Last result</h3>
+            @if (Model.LastResult is null) { <p>No updater result has been recorded yet.</p> }
+            else { <p><strong>@Model.LastResult.Status</strong> · @Model.LastResult.Version · @Model.LastResult.CompletedAtUtc.ToString("u")<br />@Model.LastResult.Message</p> }
+        </div>
+    </div>
+</section>
