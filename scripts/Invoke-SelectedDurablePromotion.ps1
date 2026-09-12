@@ -8,9 +8,11 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 # Selected replacement candidate. RC.61 is historical only: its Actions artifact expired on 2026-09-12.
+$ExpectedRepositoryId = 1329517438
 $SourceRunId = '34710820438'
 $SourceArtifactId = '10303396821'
 $SourceArtifactName = 'Monitor-0.1.0-rc.854-win-x64'
+$OuterArtifactDigest = 'sha256:e1f0b7facc756758a13653c3ad2bfa5a4af9107b02e14f4682aaaabb286f01e3'
 $SourceHeadSha = 'ef7209cbf099da65330887508ab4380a8b4196d2'
 $TestedMergeSha = 'e1d0daedf8b2209934a1bcd01bff5d46229df20a'
 $SourcePrNumber = '479'
@@ -19,7 +21,7 @@ $TagName = 'v0.1.0-rc.854'
 $ProductZip = 'Monitor-0.1.0-rc.854-win-x64.zip'
 $ChecksumFile = "$ProductZip.sha256"
 $ProductSha256 = 'b0370b3efa984393d833958850734c67c69b78bfe32e4b47c844ddb10f0f27b7'
-$ArtifactExpiresAtUtc = [DateTimeOffset]::Parse('2026-10-12T18:18:29Z')
+$ArtifactExpiresAtUtc = [DateTimeOffset]::Parse('2026-10-12T18:22:15Z')
 $PromotionWorkflow = 'promote-existing-candidate.yml'
 
 function Invoke-GhJson {
@@ -40,21 +42,36 @@ if (-not (Get-Command gh -ErrorAction SilentlyContinue)) { throw 'GitHub CLI (gh
 & gh auth status | Out-Null
 if ($LASTEXITCODE -ne 0) { throw 'GitHub CLI is not authenticated.' }
 
-$run = Invoke-GhJson @('api', "repos/$Repository/actions/runs/$SourceRunId")
-Assert-Equal 'source workflow conclusion' $run.conclusion 'success'
-Assert-Equal 'source workflow head SHA' $run.head_sha $SourceHeadSha
+$repo = Invoke-GhJson -Arguments @('api', "repos/$Repository")
+Assert-Equal 'repository full name' $repo.full_name $Repository
+Assert-Equal 'repository id' $repo.id $ExpectedRepositoryId
+Assert-Equal 'default branch' $repo.default_branch 'main'
 
-$artifact = Invoke-GhJson @('api', "repos/$Repository/actions/artifacts/$SourceArtifactId")
+$run = Invoke-GhJson -Arguments @('api', "repos/$Repository/actions/runs/$SourceRunId")
+Assert-Equal 'source workflow status' $run.status 'completed'
+Assert-Equal 'source workflow conclusion' $run.conclusion 'success'
+Assert-Equal 'source workflow path' $run.path '.github/workflows/production-candidate.yml'
+Assert-Equal 'source workflow head SHA' $run.head_sha $SourceHeadSha
+Assert-Equal 'source workflow repository id' $run.repository.id $ExpectedRepositoryId
+Assert-Equal 'source workflow head repository id' $run.head_repository.id $ExpectedRepositoryId
+
+$artifact = Invoke-GhJson -Arguments @('api', "repos/$Repository/actions/artifacts/$SourceArtifactId")
+Assert-Equal 'artifact id' $artifact.id $SourceArtifactId
 Assert-Equal 'artifact name' $artifact.name $SourceArtifactName
+Assert-Equal 'artifact workflow run id' $artifact.workflow_run.id $SourceRunId
+Assert-Equal 'artifact workflow head SHA' $artifact.workflow_run.head_sha $SourceHeadSha
+Assert-Equal 'artifact workflow repository id' $artifact.workflow_run.repository_id $ExpectedRepositoryId
+Assert-Equal 'artifact workflow head repository id' $artifact.workflow_run.head_repository_id $ExpectedRepositoryId
+Assert-Equal 'outer artifact digest' $artifact.digest $OuterArtifactDigest
 if ([bool]$artifact.expired) { throw "Selected artifact $SourceArtifactId is expired. Select and verify a newer production-candidate; never fall back to RC.61." }
 $liveExpiry = [DateTimeOffset]::Parse([string]$artifact.expires_at)
 if ($liveExpiry -ne $ArtifactExpiresAtUtc) { throw "Artifact expiry changed from the locked selection. Expected $ArtifactExpiresAtUtc; observed $liveExpiry." }
 if ([DateTimeOffset]::UtcNow -ge $ArtifactExpiresAtUtc) { throw "Selected artifact expired at $ArtifactExpiresAtUtc." }
 
 # Promotion must be immutable. Existing tag or release requires independent reconciliation, never overwrite.
-$existingTag = & gh api "repos/$Repository/git/ref/tags/$TagName" 2>$null
+$null = & gh api "repos/$Repository/git/ref/tags/$TagName" 2>$null
 if ($LASTEXITCODE -eq 0) { throw "Tag $TagName already exists. Do not overwrite or redispatch." }
-$existingRelease = & gh api "repos/$Repository/releases/tags/$TagName" 2>$null
+$null = & gh api "repos/$Repository/releases/tags/$TagName" 2>$null
 if ($LASTEXITCODE -eq 0) { throw "Release $TagName already exists. Do not overwrite or redispatch." }
 
 $work = Join-Path ([IO.Path]::GetTempPath()) ("monitor-selected-promotion-" + [Guid]::NewGuid().ToString('N'))
@@ -89,6 +106,7 @@ try {
         SourceRunId = $SourceRunId
         ArtifactId = $SourceArtifactId
         ArtifactName = $SourceArtifactName
+        OuterArtifactDigest = $OuterArtifactDigest
         ArtifactExpiresAtUtc = $ArtifactExpiresAtUtc.UtcDateTime.ToString('o')
         SourceHeadSha = $SourceHeadSha
         TestedMergeSha = $TestedMergeSha
@@ -105,22 +123,24 @@ try {
         Write-Host 'READY_FOR_EXPLICIT_PROMOTION_ACKNOWLEDGEMENT'
         Write-Host 'No tag, release, deployment, database, IIS, or production mutation was performed.'
         Write-Host 'Review the tuple above, then rerun with -AcknowledgePromotion.'
-        exit 0
+        return
     }
 
     $dispatchStarted = [DateTimeOffset]::UtcNow
     & gh workflow run $PromotionWorkflow --repo $Repository --ref main `
+        -f "candidate_version=$Version" `
         -f "source_run_id=$SourceRunId" `
         -f "source_artifact_id=$SourceArtifactId" `
+        -f "expected_outer_artifact_digest=$OuterArtifactDigest" `
+        -f "expected_product_sha256=$ProductSha256" `
+        -f "source_commit=$SourceHeadSha" `
         -f "tested_merge_commit=$TestedMergeSha" `
-        -f "product_sha256=$ProductSha256" `
-        -f "tag_name=$TagName" `
-        -f 'prerelease=true' `
-        -f 'acknowledge_promotion=PROMOTE'
+        -f "release_tag=$TagName" `
+        -f 'acknowledge_promotion=true'
     if ($LASTEXITCODE -ne 0) { throw 'Promotion workflow dispatch failed. Do not retry until the failure is understood.' }
 
     Start-Sleep -Seconds 4
-    $runs = Invoke-GhJson @('run','list','--repo',$Repository,'--workflow',$PromotionWorkflow,'--event','workflow_dispatch','--limit','10','--json','databaseId,createdAt,status,conclusion')
+    $runs = Invoke-GhJson -Arguments @('run','list','--repo',$Repository,'--workflow',$PromotionWorkflow,'--event','workflow_dispatch','--limit','10','--json','databaseId,createdAt,status,conclusion')
     $matches = @($runs | Where-Object { [DateTimeOffset]::Parse([string]$_.createdAt) -ge $dispatchStarted.AddSeconds(-2) })
     if ($matches.Count -ne 1) { throw "Expected exactly one promotion run after dispatch; observed $($matches.Count). Do not redispatch." }
     $promotionRunId = [string]$matches[0].databaseId
@@ -128,17 +148,21 @@ try {
     & gh run watch $promotionRunId --repo $Repository --exit-status
     if ($LASTEXITCODE -ne 0) { throw "Promotion run $promotionRunId failed. Do not redispatch automatically." }
 
-    $tag = Invoke-GhJson @('api', "repos/$Repository/git/ref/tags/$TagName")
-    $release = Invoke-GhJson @('api', "repos/$Repository/releases/tags/$TagName")
+    $tag = Invoke-GhJson -Arguments @('api', "repos/$Repository/git/ref/tags/$TagName")
+    $release = Invoke-GhJson -Arguments @('api', "repos/$Repository/releases/tags/$TagName")
     Assert-Equal 'published tag target' $tag.object.sha $TestedMergeSha
     if (-not [bool]$release.prerelease) { throw 'Published release is not marked prerelease.' }
     $assetNames = @($release.assets | ForEach-Object { [string]$_.name })
-    foreach ($required in @($ProductZip, $ChecksumFile)) {
-        if ($assetNames -notcontains $required) { throw "Published release is missing required asset $required." }
+    $expectedAssets = @($ProductZip, $ChecksumFile) | Sort-Object
+    $observedAssets = @($assetNames | Sort-Object)
+    if ($observedAssets.Count -ne 2 -or ($observedAssets -join '|') -cne ($expectedAssets -join '|')) {
+        throw "Published release assets are not exactly the selected ZIP/checksum pair: $($observedAssets -join ', ')."
     }
 
+    $independentCommand = "gh workflow run verify-durable-release.yml --repo $Repository --ref main -f release_version=$Version -f release_tag=$TagName -f expected_commit=$TestedMergeSha -f expected_product_sha256=$ProductSha256"
     Write-Host "PROMOTION_SUCCEEDED_INDEPENDENT_VERIFICATION_REQUIRED run=$promotionRunId tag=$TagName sha=$ProductSha256"
-    Write-Host 'Do not begin production acceptance until a separate durable-release verifier passes and its exact run ID is recorded.'
+    Write-Host "IndependentVerificationCommand=$independentCommand"
+    Write-Host 'Do not begin production acceptance until that separate durable-release verifier passes and its exact run ID is recorded.'
 }
 finally {
     Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue
