@@ -37,16 +37,17 @@ Checksum                   Monitor-0.1.0-rc.854-win-x64.zip.sha256
 Product SHA-256            b0370b3efa984393d833958850734c67c69b78bfe32e4b47c844ddb10f0f27b7
 Source run                 34710820438
 Actions artifact ID        10303396821
-Artifact expires           2026-10-12T18:18:29Z
+Outer artifact digest      sha256:e1f0b7facc756758a13653c3ad2bfa5a4af9107b02e14f4682aaaabb286f01e3
+Artifact expires           2026-10-12T18:22:15Z
 Source PR                  #479
 Source head                ef7209cbf099da65330887508ab4380a8b4196d2
 Tested PR merge            e1d0daedf8b2209934a1bcd01bff5d46229df20a
 Integrated main merge      0cc2087aa9da887046986d413ab46df2bcbab735
 ```
 
-The Actions artifact was independently downloaded and inspected. The nested ZIP SHA-256 matched the checksum, and `_operations/release-manifest.json` matched version/source/tested-merge/runtime/deployment identity.
+The Actions artifact was independently downloaded and inspected. The live artifact metadata matched the locked run/head/repository identity and outer digest; the nested ZIP SHA-256 matched the checksum, and `_operations/release-manifest.json` matched version/source/tested-merge/runtime/deployment identity.
 
-Use `scripts/Invoke-SelectedDurablePromotion.ps1` for the owner handoff. It verifies the live successful source run, exact non-expired artifact, exact nested product hash, checksum and embedded release manifest before allowing an explicitly acknowledged promotion. Preview does not mutate production. Ambiguity/failure/expiration is fail-closed and automatic redispatch is forbidden.
+Use `scripts/Invoke-SelectedDurablePromotion.ps1` for the owner handoff. It verifies the live successful source run, exact non-expired artifact, exact outer digest, nested product hash, checksum and embedded release manifest before allowing an explicitly acknowledged promotion. Preview does not mutate production. Ambiguity/failure/expiration is fail-closed and automatic redispatch is forbidden.
 
 ## Remaining required gates — all genuine external/owner gates
 
@@ -87,7 +88,7 @@ Real SQL and Windows production-candidate are separate acceptance gates and are 
 - no autonomous tuning, index creation, session killing, cache clearing, SQL configuration mutation, backup execution or restore execution from recommendations;
 - secrets, credentials and arbitrary sensitive SQL/data are not exposed in client evidence;
 - write actions remain named-authorization + POST + antiforgery bounded;
-- release identity is immutable and selected by exact run/artifact/hash/manifest evidence;
+- release identity is immutable and selected by exact run/artifact/digest/hash/manifest evidence;
 - repository CI cannot manufacture OWNER_ONLY or EXTERNAL_ENVIRONMENT PASS.
 
 ## Completion status
