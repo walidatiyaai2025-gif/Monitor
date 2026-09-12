@@ -71,15 +71,13 @@ State: **OPEN / NOT PASS**. No independent repository action remains. Close only
 
 State: **OPEN / NOT PASS**.
 
-The connected GitHub integration cannot read or mutate the administration-gated protection endpoint; live repository metadata still reports `main.protected=false`. Required provider-bound checks remain:
+The connected GitHub integration cannot read or mutate the administration-gated protection endpoint; live repository metadata still reports `main.protected=false`. Issue #353 intentionally requires exactly these provider-bound checks:
 
-- `ci / build`
-- `production-candidate / windows-singlenode-candidate`
-- `real-sql-acceptance / real-sql-2022`
-- `protected-p0-pr-metadata / policy`
-- `protected-p0-pr-commits / policy`
+- `build`
+- `protected-p0-pr-metadata`
+- `protected-p0-pr-commits`
 
-Strict up-to-date checks, admin enforcement and conversation resolution must be enabled; force pushes and deletion must be disabled; independent repository-admin read-back is required.
+Real SQL and Windows production-candidate remain separate acceptance gates and are intentionally **not** additional branch-protection contexts. Strict up-to-date checks, admin enforcement and conversation resolution must be enabled; force pushes and deletion must be disabled; independent repository-admin read-back is required.
 
 ## Dependency order
 
