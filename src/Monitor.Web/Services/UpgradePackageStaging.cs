@@ -36,6 +36,7 @@ public sealed record UpgradeStageResult(bool Success, string Message, UpgradePac
 internal sealed class UpgradePackageStaging
 {
     internal const long MaxUploadBytes = 250L * 1024 * 1024;
+    private const long MaxExpandedBytes = 1024L * 1024 * 1024;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { WriteIndented = true };
     private readonly string _root;
     private readonly TimeProvider _timeProvider;
@@ -128,7 +129,18 @@ internal sealed class UpgradePackageStaging
         var package = ReadJson<UpgradePackageInfo>(Path.Combine(_root, "staged-upgrade.json"));
         if (package is null || !File.Exists(package.PackagePath))
             return new(false, "No valid staged package is available.");
-        var actual = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(package.PackagePath)));
+
+        string actual;
+        try
+        {
+            using var stream = new FileStream(package.PackagePath, FileMode.Open, FileAccess.Read, FileShare.Read, 128 * 1024, FileOptions.SequentialScan);
+            actual = Convert.ToHexString(SHA256.HashData(stream));
+        }
+        catch (IOException)
+        {
+            return new(false, "The staged package cannot be read. Restage the package before applying.");
+        }
+
         if (!string.Equals(actual, package.Sha256, StringComparison.OrdinalIgnoreCase))
             return new(false, "The staged package checksum changed. Restage the package before applying.");
 
@@ -150,19 +162,31 @@ internal sealed class UpgradePackageStaging
             throw new InvalidDataException("Upgrade package has an invalid entry count.");
 
         ZipArchiveEntry? manifestEntry = null;
+        var hasApplicationPayload = false;
+        long expandedBytes = 0;
         foreach (var entry in archive.Entries)
         {
             var name = entry.FullName.Replace('\\', '/');
-            if (string.IsNullOrWhiteSpace(name) || name.StartsWith('/') || name.Contains("../", StringComparison.Ordinal) || Path.IsPathRooted(name))
+            var segments = name.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            if (string.IsNullOrWhiteSpace(name) || name.StartsWith('/') || Path.IsPathRooted(name) || segments.Any(segment => segment == ".."))
                 throw new InvalidDataException("Upgrade package contains an unsafe archive path.");
+
+            expandedBytes = checked(expandedBytes + entry.Length);
+            if (expandedBytes > MaxExpandedBytes)
+                throw new InvalidDataException("Upgrade package expands beyond the supported safety limit.");
+
             if (string.Equals(name, "monitor-upgrade-manifest.json", StringComparison.OrdinalIgnoreCase))
                 manifestEntry = entry;
+            if (name.StartsWith("app/", StringComparison.OrdinalIgnoreCase) && !name.EndsWith('/'))
+                hasApplicationPayload = true;
         }
 
         if (manifestEntry is null)
             throw new InvalidDataException("Upgrade package must contain monitor-upgrade-manifest.json at its root.");
         if (manifestEntry.Length > 64 * 1024)
             throw new InvalidDataException("Upgrade manifest is too large.");
+        if (!hasApplicationPayload)
+            throw new InvalidDataException("Upgrade package must contain an app/ application payload.");
 
         using var stream = manifestEntry.Open();
         var manifest = JsonSerializer.Deserialize<MonitorUpgradeManifest>(stream, JsonOptions);
