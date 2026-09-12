@@ -15,6 +15,7 @@ public sealed class DbaCommandCenterAcceptanceTests
 
         Assert.Contains("[HttpGet(\"/dba\")]", controller, StringComparison.Ordinal);
         Assert.Contains("Run DBA inspection", view, StringComparison.Ordinal);
+        Assert.Contains("Advanced DBA analysis", view, StringComparison.Ordinal);
         Assert.Contains("Refresh base snapshot", view, StringComparison.Ordinal);
         Assert.Contains("Backup plan - all databases", view, StringComparison.Ordinal);
         Assert.Contains("DBA recommendations and fix queries", view, StringComparison.Ordinal);
@@ -45,30 +46,64 @@ public sealed class DbaCommandCenterAcceptanceTests
     }
 
     [Fact]
+    public void AdvancedInspection_CoversWaitsMemoryClerksTempDbPlanCacheRequestsAndConfiguration()
+    {
+        var service = Read("src/Monitor.Web/Services/DbaAdvancedDiagnostics.cs");
+        var controller = Read("src/Monitor.Web/Controllers/DbaAdvancedController.cs");
+        var view = Read("src/Monitor.Web/Views/Dba/Advanced.cshtml");
+
+        Assert.Contains("sys.dm_os_wait_stats", service, StringComparison.Ordinal);
+        Assert.Contains("sys.dm_os_memory_clerks", service, StringComparison.Ordinal);
+        Assert.Contains("tempdb.sys.dm_db_file_space_usage", service, StringComparison.Ordinal);
+        Assert.Contains("sys.dm_exec_requests", service, StringComparison.Ordinal);
+        Assert.Contains("sys.dm_exec_cached_plans", service, StringComparison.Ordinal);
+        Assert.Contains("max server memory (MB)", service, StringComparison.Ordinal);
+        Assert.Contains("max degree of parallelism", service, StringComparison.Ordinal);
+        Assert.Contains("cost threshold for parallelism", service, StringComparison.Ordinal);
+        Assert.Contains("optimize for ad hoc workloads", service, StringComparison.Ordinal);
+        Assert.Contains("[HttpPost(\"/dba/advanced/{id:guid}/inspect\")]", controller, StringComparison.Ordinal);
+        Assert.Contains("ValidateAntiForgeryToken", controller, StringComparison.Ordinal);
+        Assert.Contains("Run advanced DBA inspection", view, StringComparison.Ordinal);
+        Assert.Contains("Wait analysis", view, StringComparison.Ordinal);
+        Assert.Contains("Memory clerks", view, StringComparison.Ordinal);
+        Assert.Contains("TempDB capacity and growth", view, StringComparison.Ordinal);
+        Assert.Contains("Active expensive requests", view, StringComparison.Ordinal);
+        Assert.Contains("SQL configuration review", view, StringComparison.Ordinal);
+        Assert.Contains("Advanced DBA recommendations", view, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Recommendations_AreEvidenceBasedReviewOnlyAndProvideValidationSql()
     {
         var service = Read("src/Monitor.Web/Services/DbaCommandCenter.cs");
+        var advanced = Read("src/Monitor.Web/Services/DbaAdvancedDiagnostics.cs");
         var view = Read("src/Monitor.Web/Views/Dba/Index.cshtml");
+        var advancedView = Read("src/Monitor.Web/Views/Dba/Advanced.cshtml");
 
         Assert.Contains("Evidence", service, StringComparison.Ordinal);
         Assert.Contains("Recommendation", service, StringComparison.Ordinal);
         Assert.Contains("FixSql", service, StringComparison.Ordinal);
         Assert.Contains("ValidationSql", service, StringComparison.Ordinal);
         Assert.Contains("REVIEW ONLY - NEVER AUTO-EXECUTE", service, StringComparison.Ordinal);
+        Assert.Contains("REVIEW ONLY - NEVER AUTO-EXECUTE", advanced, StringComparison.Ordinal);
         Assert.Contains("Fix / investigation SQL", view, StringComparison.Ordinal);
         Assert.Contains("Validation SQL", view, StringComparison.Ordinal);
+        Assert.Contains("Investigation / fix SQL", advancedView, StringComparison.Ordinal);
         Assert.Contains("never executed by Monitor", view, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("does not change SQL Server configuration", advancedView, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
     public void QueryText_IsBoundedAndLiteralRedactedBeforeRetention()
     {
         var service = Read("src/Monitor.Web/Services/DbaCommandCenter.cs");
+        var advanced = Read("src/Monitor.Web/Services/DbaAdvancedDiagnostics.cs");
 
         Assert.Contains("SanitizeQueryText", service, StringComparison.Ordinal);
         Assert.Contains("StringLiteral.Replace", service, StringComparison.Ordinal);
         Assert.Contains("NumericLiteral.Replace", service, StringComparison.Ordinal);
         Assert.Contains("value.Length <= 600", service, StringComparison.Ordinal);
+        Assert.Contains("DbaCommandCenterService.SanitizeQueryText", advanced, StringComparison.Ordinal);
     }
 
     [Fact]
