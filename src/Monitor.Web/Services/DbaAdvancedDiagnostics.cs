@@ -42,7 +42,7 @@ public sealed record DbaAdvancedViewModel(
     DbaAdvancedSnapshot? Snapshot,
     IReadOnlyList<DbaAdvancedRecommendation> Recommendations);
 
-public sealed class DbaAdvancedDiagnosticsService(
+internal sealed class DbaAdvancedDiagnosticsService(
     IServerRegistrationRepository registrations,
     IConnectionSecretStore secretStore,
     TimeProvider timeProvider)
