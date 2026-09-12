@@ -15,6 +15,25 @@ For every iteration, use this order:
 
 Never revive a historical branch or create parallel work solely because an old implementation plan, branch ref or Green CI run still exists.
 
+## Active feature work — 2026-09-12
+
+Fresh work-start audit observed `main@2a172f553087a6658700b7a1f32d7b7f0c9650d3`, zero open product PRs, and only the protected P0/external gates #111, #116, #162 and #353 open. New work therefore proceeds on `feature/dba-command-center` without mutating those protected gates.
+
+Current branch scope requested by the owner:
+
+- expert DBA Command Center with explicit deep inspection of query CPU/logical I/O, active memory grants, per-database resource/memory/backup state and missing-index evidence;
+- evidence-based DBA recommendations with visible investigation/fix SQL and validation SQL, never autonomous execution;
+- review-only one-database/all-databases backup-management plans;
+- authenticated read-only `/api/dba/summary` for a simple Flutter DBA dashboard and what/when/where action list;
+- `apps/monitor_dba_flutter` mobile companion that preserves the web/SQL trust boundary;
+- visible first-install Windows wizard for service installation, production admin credential derivation, port configuration and readiness validation;
+- Admin > Monitor Upgrades staged-package workflow plus host-side checksum/backup/swap/readiness/rollback executor;
+- explicit navigation/buttons; no hidden operational action.
+
+State: **IMPLEMENTED ON FEATURE BRANCH / VALIDATION AND PR CONVERGENCE IN PROGRESS**. Do not represent this feature as integrated or production-accepted until exact-head CI and normal merge evidence exist. Normal `/dba` GET and mobile summary access remain cache/control-plane only; only the visible authorized `Run DBA inspection` POST may open the bounded server-side diagnostic SQL connection.
+
+Canonical design/safety contract: `docs/DBA_COMMAND_CENTER.md`.
+
 ## Live convergence state — 2026-09-09
 
 Post-#477 verified integration snapshot:

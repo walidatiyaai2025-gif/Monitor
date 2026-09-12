@@ -2,6 +2,25 @@
 
 **Live-state authority:** exact GitHub `main` and current PR/issue/workflow evidence first, then `AGENTS.md` and `docs/CURRENT_EXECUTION_PLAN.md`. Historical implementation detail must not reopen merged or owner-closed work. The full status ledger that preceded this reconciliation is preserved byte-for-byte at `docs/history/STATUS_PRE_OWNER_CLOSURE_RECONCILIATION_2026-09-09.md`.
 
+## Active feature branch — DBA Command Center — 2026-09-12
+
+Work-start live audit observed `main@2a172f553087a6658700b7a1f32d7b7f0c9650d3`, no open product PRs, and only protected/external issues #111/#116/#162/#353. Owner-requested DBA/installer/mobile/upgrade work is isolated on `feature/dba-command-center`; protected P0 gates remain untouched.
+
+Repository implementation currently present on the branch:
+
+- explicit `/dba` command center with cached server evidence plus authorized/audited deep server-side DMV inspection;
+- bounded top-query CPU/read/write evidence with SQL literals redacted before retention;
+- active memory-grant, per-database data/log/buffer-pool/recovery/full-backup and missing-index evidence;
+- DBA recommendations with evidence, review-only fix/investigation SQL and validation SQL;
+- one-database or all-databases backup-management plan generation;
+- authenticated read-only `/api/dba/summary` for a native Flutter companion;
+- `apps/monitor_dba_flutter` simple DBA dashboard with SQL-instance usage, backup gaps, recommendations and what/when/where to-do items;
+- first-install Windows wizard that uses the existing Windows Service hosting model and production PBKDF2 credential contract;
+- Admin > Monitor Upgrades staging UI, strict ZIP/SHA-256 validation, and separate host updater with pre-swap backup, readiness check and rollback attempt;
+- visible navigation/buttons for DBA Command Center and Monitor Upgrades.
+
+**Current state:** IMPLEMENTED ON FEATURE BRANCH / CI AND PR CONVERGENCE PENDING. No merge, production deployment, installer-host validation or external acceptance is claimed by this section. Canonical feature contract: `docs/DBA_COMMAND_CENTER.md`.
+
 ## Current repository state — 2026-09-09
 
 Post-#477 verified integration snapshot:
@@ -129,6 +148,6 @@ Repository helper/tests/docs are complete, but live main protection is unproven.
 
 ## Completion status
 
-**Repository product/runtime baseline:** complete through `main@f3dc1b2234b2105d1331d2476f75e8b7b0f2761c`; no additional cloud-actionable product implementation is implied by stale historical branches.  
+**Repository product/runtime baseline:** complete through the previously verified integrated baseline; owner-requested DBA Command Center work is currently isolated on `feature/dba-command-center` pending exact-head CI and merge.  
 **Owner/external acceptance:** not complete.  
 **VERIFIED_FINAL_COMPLETE:** **FORBIDDEN** until #162, #116, #111 and #353 each satisfy their real closure rules.

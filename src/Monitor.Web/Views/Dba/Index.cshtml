@@ -1,0 +1,214 @@
+@model Monitor.Web.Services.DbaCommandCenterViewModel
+@using Monitor.Web.Models
+@{
+    ViewData["Title"] = "DBA Command Center";
+    var inspectionMessage = TempData["DbaInspection"] as string;
+    var inspectionStatus = TempData["DbaInspectionStatus"] as string ?? "warning";
+}
+<link rel="stylesheet" href="~/css/dba-command-center.css" asp-append-version="true" />
+
+<partial name="_PortalPageHeader" model="@(new PortalPageHeaderViewModel(
+    "DBA OPERATIONS",
+    "DBA Command Center",
+    "Trace SQL Server performance from one explicit surface: query CPU and reads, memory grants, per-database memory and size, waits, I/O, blocking, backups, index candidates, recommendations and DBA work plans.",
+    "Back to dashboard",
+    "Operations",
+    "Dashboard"))" />
+
+@if (!string.IsNullOrWhiteSpace(inspectionMessage))
+{
+    <div class="data-banner dba-banner @inspectionStatus">@inspectionMessage</div>
+}
+
+<section class="dba-boundary glass-panel">
+    <div>
+        <span class="eyebrow">CONTROL BOUNDARY</span>
+        <h2>Nothing is hidden and nothing tunes SQL automatically</h2>
+        <p>Opening this page reads cached Monitor evidence only. <strong>Run DBA inspection</strong> is the only action below that opens a new server-side SQL diagnostic session. Fix SQL is shown for DBA review and is never executed by Monitor.</p>
+    </div>
+    <div class="dba-boundary-badges">
+        <span>Cache-only GET</span><span>Audited inspection</span><span>Review-only fixes</span>
+    </div>
+</section>
+
+<section class="dba-kpi-grid" aria-label="DBA command summary">
+    <article class="dba-kpi"><span>SQL instances</span><strong>@Model.Servers.Count</strong><small>registered targets</small></article>
+    <article class="dba-kpi"><span>Critical / high</span><strong>@Model.CriticalOrHighRecommendations</strong><small>recommendations</small></article>
+    <article class="dba-kpi"><span>Query hotspots</span><strong>@Model.QueryHotspots</strong><small>latest explicit inspections</small></article>
+    <article class="dba-kpi"><span>DBA to-do</span><strong>@Model.OpenTodoItems</strong><small>what / when / where</small></article>
+</section>
+
+@if (Model.Servers.Count == 0)
+{
+    <section class="glass-panel empty-state">
+        <h2>No SQL Server is registered</h2>
+        <p>Add a monitored SQL Server from Connections first. The DBA Command Center never accepts ad-hoc browser connection strings.</p>
+        <a class="primary-button" asp-controller="Connections" asp-action="Index">Open Connections</a>
+    </section>
+}
+
+@foreach (var server in Model.Servers)
+{
+    var snapshot = server.BaseSnapshot;
+    var diagnostic = server.Diagnostics;
+    <section class="dba-server" id="server-@server.RegistrationId">
+        <header class="dba-server-header">
+            <div>
+                <span class="eyebrow">SQL INSTANCE</span>
+                <h2>@server.DisplayName</h2>
+                <p>@server.Endpoint</p>
+            </div>
+            <div class="dba-action-row">
+                <form method="post" asp-controller="Dba" asp-action="Inspect" asp-route-id="@server.RegistrationId">
+                    @Html.AntiForgeryToken()
+                    <button class="primary-button" type="submit" @(server.IsEnabled ? null : "disabled")>Run DBA inspection</button>
+                </form>
+                <a class="primary-button" asp-controller="DbaAdvanced" asp-action="Index" asp-route-id="@server.RegistrationId">Advanced DBA analysis</a>
+                <form method="post" asp-controller="Operations" asp-action="RefreshServer" asp-route-id="@server.RegistrationId">
+                    @Html.AntiForgeryToken()
+                    <button class="secondary-button" type="submit" @(server.IsEnabled ? null : "disabled")>Refresh base snapshot</button>
+                </form>
+                <a class="secondary-button" asp-controller="Dba" asp-action="BackupPlan" asp-route-id="@server.RegistrationId">Backup plan - all databases</a>
+                <a class="secondary-button" asp-controller="Operations" asp-action="ServerDetails" asp-route-id="@server.RegistrationId">Open server</a>
+            </div>
+        </header>
+
+        @if (!server.IsEnabled)
+        {
+            <div class="data-banner warning">Monitoring is disabled for this registration. Inspection and refresh are unavailable until it is enabled.</div>
+        }
+
+        <div class="dba-section-grid">
+            <article class="glass-panel">
+                <div class="dba-panel-title"><h3>Instance health</h3><span>@(snapshot?.CollectedAtUtc.ToString("u") ?? "No base snapshot")</span></div>
+                <dl class="definition-grid dba-definitions">
+                    <div><dt>SQL version</dt><dd>@(snapshot?.ProductVersion ?? "Unavailable")</dd></div>
+                    <div><dt>Edition</dt><dd>@(snapshot?.Edition ?? "Unavailable")</dd></div>
+                    <div><dt>Databases</dt><dd>@(snapshot is null ? "Unavailable" : $"{snapshot.DatabaseOnline}/{snapshot.DatabaseTotal} online")</dd></div>
+                    <div><dt>SQL memory</dt><dd>@(snapshot?.Memory is null ? "Unavailable" : $"{snapshot.Memory.SqlProcessMemoryUtilizationPercent}%")</dd></div>
+                    <div><dt>OS available memory</dt><dd>@(snapshot?.Memory is null ? "Unavailable" : $"{snapshot.Memory.AvailablePhysicalMemoryKb / 1024m:N0} MB")</dd></div>
+                    <div><dt>Memory grants pending</dt><dd>@(snapshot?.Memory?.MemoryGrantsPending?.ToString("N0") ?? "Unavailable")</dd></div>
+                    <div><dt>Blocked requests</dt><dd>@(snapshot?.Blocking?.BlockedRequests.ToString("N0") ?? "Unavailable")</dd></div>
+                    <div><dt>Runnable tasks</dt><dd>@(snapshot?.Performance?.RunnableTasks.ToString("N0") ?? "Unavailable")</dd></div>
+                    <div><dt>Pending I/O</dt><dd>@(snapshot?.Performance?.PendingIoRequests.ToString("N0") ?? "Unavailable")</dd></div>
+                    <div><dt>Latest full backup</dt><dd>@(snapshot?.Backups?.LastFullBackupAtUtc?.ToString("u") ?? "Unavailable")</dd></div>
+                </dl>
+            </article>
+
+            <article class="glass-panel">
+                <div class="dba-panel-title"><h3>Inspection status</h3><span>@(diagnostic?.CollectedAtUtc.ToString("u") ?? "Not run")</span></div>
+                @if (diagnostic is null)
+                {
+                    <p>No deep DBA inspection is cached. Press <strong>Run DBA inspection</strong> to collect bounded DMV evidence.</p>
+                }
+                else
+                {
+                    <dl class="definition-grid dba-definitions">
+                        <div><dt>State</dt><dd>@(diagnostic.IsAvailable ? "Available" : "Unavailable")</dd></div>
+                        <div><dt>Query hotspots</dt><dd>@diagnostic.QueryHotspots.Count</dd></div>
+                        <div><dt>Active memory grants</dt><dd>@diagnostic.MemoryGrants.Count</dd></div>
+                        <div><dt>Database rows</dt><dd>@diagnostic.Databases.Count</dd></div>
+                        <div><dt>Index candidates</dt><dd>@diagnostic.MissingIndexes.Count</dd></div>
+                    </dl>
+                    <p class="muted">@diagnostic.StatusMessage</p>
+                }
+            </article>
+        </div>
+
+        <section class="glass-panel dba-table-panel">
+            <div class="dba-panel-title"><h3>Per-database resources</h3><span>size + buffer pool + recovery + backup</span></div>
+            @if (diagnostic?.Databases.Count > 0)
+            {
+                <div class="table-scroll"><table class="data-table">
+                    <thead><tr><th>Database</th><th>State</th><th>Recovery</th><th>Data MB</th><th>Log MB</th><th>Buffer pool MB</th><th>Last full backup</th><th>Action</th></tr></thead>
+                    <tbody>
+                    @foreach (var database in diagnostic.Databases)
+                    {
+                        <tr>
+                            <td><strong>@database.DatabaseName</strong></td><td>@database.State</td><td>@database.RecoveryModel</td>
+                            <td>@database.DataSizeMb.ToString("N1")</td><td>@database.LogSizeMb.ToString("N1")</td><td>@database.BufferPoolMb.ToString("N1")</td>
+                            <td class="@(database.FullBackupOverdue ? "dba-danger" : null)">@(database.LastFullBackupAtUtc?.ToString("u") ?? "Not observed")</td>
+                            <td><a class="table-action" asp-controller="Dba" asp-action="BackupPlan" asp-route-id="@server.RegistrationId" asp-route-database="@database.DatabaseName">Backup plan</a></td>
+                        </tr>
+                    }
+                    </tbody>
+                </table></div>
+            }
+            else { <p class="muted">Run DBA inspection to populate per-database memory and resource statistics.</p> }
+        </section>
+
+        <section class="glass-panel dba-table-panel">
+            <div class="dba-panel-title"><h3>Top query consumers</h3><span>cumulative CPU, elapsed time and logical I/O</span></div>
+            @if (diagnostic?.QueryHotspots.Count > 0)
+            {
+                <div class="table-scroll"><table class="data-table">
+                    <thead><tr><th>DB</th><th>Hash</th><th>Executions</th><th>Total CPU ms</th><th>Avg CPU ms</th><th>Elapsed ms</th><th>Reads</th><th>Writes</th><th>Sanitized query</th></tr></thead>
+                    <tbody>
+                    @foreach (var query in diagnostic.QueryHotspots)
+                    {
+                        <tr><td>@query.DatabaseName</td><td><code>@query.QueryHash</code></td><td>@query.ExecutionCount.ToString("N0")</td><td>@query.TotalCpuMs.ToString("N0")</td><td>@query.AverageCpuMs.ToString("N0")</td><td>@query.TotalElapsedMs.ToString("N0")</td><td>@query.LogicalReads.ToString("N0")</td><td>@query.LogicalWrites.ToString("N0")</td><td class="dba-query-text">@query.QuerySnippet</td></tr>
+                    }
+                    </tbody>
+                </table></div>
+            }
+            else { <p class="muted">No cached query-hotspot evidence. Query literals are redacted before Monitor retains the snippet.</p> }
+        </section>
+
+        <div class="dba-section-grid">
+            <section class="glass-panel dba-table-panel">
+                <div class="dba-panel-title"><h3>Active memory grants</h3><span>requested vs granted vs used</span></div>
+                @if (diagnostic?.MemoryGrants.Count > 0)
+                {
+                    <div class="table-scroll"><table class="data-table">
+                        <thead><tr><th>Session</th><th>DB</th><th>Requested MB</th><th>Granted MB</th><th>Used MB</th><th>Wait ms</th></tr></thead>
+                        <tbody>@foreach (var grant in diagnostic.MemoryGrants) { <tr><td>@grant.SessionId</td><td>@grant.DatabaseName</td><td>@((grant.RequestedKb / 1024m).ToString("N1"))</td><td>@((grant.GrantedKb / 1024m).ToString("N1"))</td><td>@((grant.UsedKb / 1024m).ToString("N1"))</td><td>@grant.WaitTimeMs.ToString("N0")</td></tr> }</tbody>
+                    </table></div>
+                }
+                else { <p class="muted">No active grants captured, or deep inspection has not run.</p> }
+            </section>
+
+            <section class="glass-panel dba-table-panel">
+                <div class="dba-panel-title"><h3>Missing-index candidates</h3><span>advisory DMV evidence only</span></div>
+                @if (diagnostic?.MissingIndexes.Count > 0)
+                {
+                    <div class="dba-index-list">
+                    @foreach (var index in diagnostic.MissingIndexes.Take(8))
+                    {
+                        <article><strong>@index.DatabaseName.@index.SchemaName.@index.TableName</strong><span>Score @index.Score.ToString("N1") · Impact @index.AverageImpact.ToString("N1")% · Seeks @index.UserSeeks.ToString("N0")</span><pre>@index.ReviewSql</pre></article>
+                    }
+                    </div>
+                }
+                else { <p class="muted">No candidates captured. Monitor never creates indexes automatically.</p> }
+            </section>
+        </div>
+
+        <section class="glass-panel dba-recommendations">
+            <div class="dba-panel-title"><h3>DBA recommendations and fix queries</h3><span>evidence → action → validation</span></div>
+            @if (server.Recommendations.Count > 0)
+            {
+                @foreach (var recommendation in server.Recommendations)
+                {
+                    <article class="dba-recommendation">
+                        <div class="dba-rec-head"><span class="dba-severity @recommendation.Severity.ToLowerInvariant()">@recommendation.Severity</span><span>@recommendation.Category</span><strong>@recommendation.Title</strong></div>
+                        <p><b>Evidence:</b> @recommendation.Evidence</p>
+                        <p><b>DBA action:</b> @recommendation.Recommendation</p>
+                        <div class="dba-sql-grid"><div><label>Fix / investigation SQL</label><pre>@recommendation.FixSql</pre></div><div><label>Validation SQL</label><pre>@recommendation.ValidationSql</pre></div></div>
+                        <small>@recommendation.Safety</small>
+                    </article>
+                }
+            }
+            else { <p class="muted">No recommendation is currently derived from the cached evidence.</p> }
+        </section>
+
+        <section class="glass-panel dba-table-panel">
+            <div class="dba-panel-title"><h3>DBA to-do list</h3><span>what · when · where · why</span></div>
+            @if (server.TodoItems.Count > 0)
+            {
+                <div class="table-scroll"><table class="data-table"><thead><tr><th>Priority</th><th>What</th><th>When</th><th>Where</th><th>Why</th></tr></thead><tbody>
+                @foreach (var todo in server.TodoItems) { <tr><td><strong>@todo.Priority</strong></td><td>@todo.What</td><td>@todo.When</td><td>@todo.Where</td><td>@todo.Reason</td></tr> }
+                </tbody></table></div>
+            }
+            else { <p class="muted">No DBA action is currently derived from cached evidence.</p> }
+        </section>
+    </section>
+}

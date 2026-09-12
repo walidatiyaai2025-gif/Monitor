@@ -36,6 +36,12 @@ public sealed class B800WriteSurfaceSecurityAcceptanceTests
 
             [Key(typeof(GovernanceController), nameof(GovernanceController.Apply))] = MonitorPolicies.Manage,
 
+            [Key(typeof(AdminUpgradeController), nameof(AdminUpgradeController.Stage))] = MonitorPolicies.Manage,
+            [Key(typeof(AdminUpgradeController), nameof(AdminUpgradeController.RequestApply))] = MonitorPolicies.Manage,
+
+            [Key(typeof(DbaController), nameof(DbaController.Inspect))] = MonitorPolicies.Operate,
+            [Key(typeof(DbaAdvancedController), nameof(DbaAdvancedController.Inspect))] = MonitorPolicies.Operate,
+
             [Key(typeof(ServerConnectionsController), nameof(ServerConnectionsController.TestConnection))] = MonitorPolicies.Manage,
             [Key(typeof(ServerConnectionsController), nameof(ServerConnectionsController.RefreshSnapshot))] = MonitorPolicies.Manage,
 
@@ -123,7 +129,8 @@ public sealed class B800WriteSurfaceSecurityAcceptanceTests
             typeof(ConnectionLabController),
             typeof(OperationalBackupController),
             typeof(GovernanceController),
-            typeof(ServerConnectionsController)
+            typeof(ServerConnectionsController),
+            typeof(AdminUpgradeController)
         })
         {
             var policies = controller.GetCustomAttributes<AuthorizeAttribute>(inherit: true).Select(attribute => attribute.Policy).ToArray();

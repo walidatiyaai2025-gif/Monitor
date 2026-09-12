@@ -1,0 +1,129 @@
+@model Monitor.Web.Services.DbaAdvancedViewModel
+@{
+    ViewData["Title"] = "Advanced DBA Inspection";
+    var message = TempData["DbaAdvancedInspection"] as string;
+    var status = TempData["DbaAdvancedInspectionStatus"] as string ?? "warning";
+    var snapshot = Model.Snapshot;
+}
+<link rel="stylesheet" href="~/css/dba-command-center.css" asp-append-version="true" />
+
+<partial name="_PortalPageHeader" model="@(new PortalPageHeaderViewModel(
+    "ADVANCED DBA TRIAGE",
+    $"{Model.DisplayName} - Advanced Inspection",
+    "Deep DBA triage for waits, memory clerks and plan cache, TempDB capacity, active expensive requests, and key SQL Server configuration. Collection runs only when you press the inspection button.",
+    "Back to DBA Command Center",
+    "DBA Operations",
+    "Dba"))" />
+
+@if (!string.IsNullOrWhiteSpace(message))
+{
+    <div class="data-banner @status">@message</div>
+}
+
+<section class="dba-boundary glass-panel">
+    <div>
+        <span class="eyebrow">EXPLICIT DBA ACTION</span>
+        <h2>No automatic tuning</h2>
+        <p>This page is cache-only until you press <strong>Run advanced DBA inspection</strong>. Recommendations are evidence-driven and every SQL statement is review-only; Monitor does not change SQL Server configuration, kill sessions, resize TempDB or clear plan cache automatically.</p>
+    </div>
+    <div class="dba-action-row">
+        <form method="post" asp-controller="DbaAdvanced" asp-action="Inspect" asp-route-id="@Model.RegistrationId">
+            @Html.AntiForgeryToken()
+            <button class="primary-button" type="submit">Run advanced DBA inspection</button>
+        </form>
+        <a class="secondary-button" asp-controller="Dba" asp-action="Index" asp-fragment="server-@Model.RegistrationId">Back to DBA Command Center</a>
+    </div>
+</section>
+
+<section class="glass-panel">
+    <div class="dba-panel-title"><h3>Inspection status</h3><span>@(snapshot?.CollectedAtUtc.ToString("u") ?? "Not run")</span></div>
+    <dl class="definition-grid dba-definitions">
+        <div><dt>SQL instance</dt><dd>@Model.DisplayName</dd></div>
+        <div><dt>Endpoint</dt><dd>@Model.Endpoint</dd></div>
+        <div><dt>State</dt><dd>@(snapshot is null ? "Not collected" : snapshot.IsAvailable ? "Available" : "Unavailable")</dd></div>
+        <div><dt>Top waits</dt><dd>@(snapshot?.Waits.Count.ToString("N0") ?? "Not collected")</dd></div>
+        <div><dt>Memory clerks</dt><dd>@(snapshot?.MemoryClerks.Count.ToString("N0") ?? "Not collected")</dd></div>
+        <div><dt>Active requests</dt><dd>@(snapshot?.ActiveRequests.Count.ToString("N0") ?? "Not collected")</dd></div>
+        <div><dt>Plan cache</dt><dd>@(snapshot is null ? "Not collected" : $"{snapshot.PlanCacheMb:N1} MB")</dd></div>
+        <div><dt>Single-use plans</dt><dd>@(snapshot is null ? "Not collected" : $"{snapshot.SingleUsePlanCount:N0} / {snapshot.SingleUsePlanCacheMb:N1} MB")</dd></div>
+    </dl>
+    @if (snapshot is not null) { <p class="muted">@snapshot.StatusMessage</p> }
+</section>
+
+<section class="glass-panel dba-table-panel">
+    <div class="dba-panel-title"><h3>Wait analysis</h3><span>filtered server waits; correlate before tuning</span></div>
+    @if (snapshot?.Waits.Count > 0)
+    {
+        <div class="table-scroll"><table class="data-table">
+            <thead><tr><th>Wait type</th><th>Tasks</th><th>Wait ms</th><th>Signal ms</th><th>Resource share</th></tr></thead>
+            <tbody>@foreach (var wait in snapshot.Waits) { <tr><td><strong>@wait.WaitType</strong></td><td>@wait.WaitingTasks.ToString("N0")</td><td>@wait.WaitTimeMs.ToString("N0")</td><td>@wait.SignalWaitMs.ToString("N0")</td><td>@wait.ResourceWaitPercent.ToString("N1")%</td></tr> }</tbody>
+        </table></div>
+    }
+    else { <p class="muted">No advanced wait evidence is cached.</p> }
+</section>
+
+<div class="dba-section-grid">
+    <section class="glass-panel dba-table-panel">
+        <div class="dba-panel-title"><h3>Memory clerks</h3><span>where SQL memory is allocated</span></div>
+        @if (snapshot?.MemoryClerks.Count > 0)
+        {
+            <div class="table-scroll"><table class="data-table"><thead><tr><th>Clerk</th><th>Memory MB</th></tr></thead><tbody>
+                @foreach (var clerk in snapshot.MemoryClerks) { <tr><td>@clerk.ClerkType</td><td>@clerk.MemoryMb.ToString("N1")</td></tr> }
+            </tbody></table></div>
+        }
+        else { <p class="muted">No memory-clerk evidence is cached.</p> }
+    </section>
+
+    <section class="glass-panel dba-table-panel">
+        <div class="dba-panel-title"><h3>SQL configuration review</h3><span>configured vs in-use</span></div>
+        @if (snapshot?.Configuration.Count > 0)
+        {
+            <div class="table-scroll"><table class="data-table"><thead><tr><th>Setting</th><th>Configured</th><th>In use</th><th>DBA guidance</th></tr></thead><tbody>
+                @foreach (var setting in snapshot.Configuration) { <tr><td><strong>@setting.Name</strong></td><td>@setting.ConfiguredValue.ToString("N0")</td><td>@setting.InUseValue.ToString("N0")</td><td>@setting.Recommendation</td></tr> }
+            </tbody></table></div>
+        }
+        else { <p class="muted">No configuration evidence is cached.</p> }
+    </section>
+</div>
+
+<section class="glass-panel dba-table-panel">
+    <div class="dba-panel-title"><h3>TempDB capacity and growth</h3><span>size · used · free · growth</span></div>
+    @if (snapshot?.TempDbFiles.Count > 0)
+    {
+        <div class="table-scroll"><table class="data-table">
+            <thead><tr><th>File</th><th>Type</th><th>Size MB</th><th>Used MB</th><th>Free MB</th><th>Growth</th></tr></thead>
+            <tbody>@foreach (var file in snapshot.TempDbFiles) { <tr><td>@file.LogicalName</td><td>@file.FileType</td><td>@file.SizeMb.ToString("N1")</td><td>@file.UsedMb.ToString("N1")</td><td>@file.FreeMb.ToString("N1")</td><td>@file.GrowthMb.ToString("N1") @(file.IsPercentGrowth ? "%" : "MB")</td></tr> }</tbody>
+        </table></div>
+    }
+    else { <p class="muted">No TempDB evidence is cached.</p> }
+</section>
+
+<section class="glass-panel dba-table-panel">
+    <div class="dba-panel-title"><h3>Active expensive requests</h3><span>elapsed · CPU · reads · writes · blocking · waits</span></div>
+    @if (snapshot?.ActiveRequests.Count > 0)
+    {
+        <div class="table-scroll"><table class="data-table">
+            <thead><tr><th>Session</th><th>DB</th><th>Status</th><th>Command</th><th>Elapsed ms</th><th>CPU ms</th><th>Reads</th><th>Writes</th><th>Wait</th><th>Blocker</th><th>Sanitized query</th></tr></thead>
+            <tbody>@foreach (var request in snapshot.ActiveRequests) { <tr><td>@request.SessionId</td><td>@request.DatabaseName</td><td>@request.Status</td><td>@request.Command</td><td>@request.ElapsedMs.ToString("N0")</td><td>@request.CpuMs.ToString("N0")</td><td>@request.LogicalReads.ToString("N0")</td><td>@request.Writes.ToString("N0")</td><td>@request.WaitType</td><td>@request.BlockingSessionId</td><td class="dba-query-text">@request.QuerySnippet</td></tr> }</tbody>
+        </table></div>
+    }
+    else { <p class="muted">No active user request was captured, or advanced inspection has not run.</p> }
+</section>
+
+<section class="glass-panel dba-recommendations">
+    <div class="dba-panel-title"><h3>Advanced DBA recommendations</h3><span>evidence → action → SQL → validation</span></div>
+    @if (Model.Recommendations.Count > 0)
+    {
+        @foreach (var recommendation in Model.Recommendations)
+        {
+            <article class="dba-recommendation">
+                <div class="dba-rec-head"><span class="dba-severity @recommendation.Severity.ToLowerInvariant()">@recommendation.Severity</span><span>@recommendation.Category</span><strong>@recommendation.Title</strong></div>
+                <p><b>Evidence:</b> @recommendation.Evidence</p>
+                <p><b>DBA action:</b> @recommendation.Action</p>
+                <div class="dba-sql-grid"><div><label>Investigation / fix SQL</label><pre>@recommendation.InvestigationOrFixSql</pre></div><div><label>Validation SQL</label><pre>@recommendation.ValidationSql</pre></div></div>
+                <small>@recommendation.Safety</small>
+            </article>
+        }
+    }
+    else { <p class="muted">No advanced recommendation is currently derived from cached evidence.</p> }
+</section>
