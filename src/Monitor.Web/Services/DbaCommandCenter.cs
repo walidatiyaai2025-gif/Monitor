@@ -278,7 +278,7 @@ internal sealed class DbaCommandCenterService(
         {
             while (await reader.ReadAsync(cancellationToken))
             {
-                var lastFull = reader.IsDBNull(6) ? null : new DateTimeOffset(DateTime.SpecifyKind(reader.GetDateTime(6), DateTimeKind.Utc));
+                DateTimeOffset? lastFull = reader.IsDBNull(6) ? null : new DateTimeOffset(DateTime.SpecifyKind(reader.GetDateTime(6), DateTimeKind.Utc));
                 databases.Add(new(
                     Safe(reader, 0, "unknown"), Safe(reader, 1, "UNKNOWN"), Safe(reader, 2, "UNKNOWN"), reader.GetDecimal(3), reader.GetDecimal(4), reader.GetDecimal(5), lastFull,
                     !lastFull.HasValue || timeProvider.GetUtcNow() - lastFull.Value > TimeSpan.FromHours(24)));
