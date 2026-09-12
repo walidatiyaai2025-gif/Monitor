@@ -50,8 +50,8 @@ function Test-Health {
 
 function Assert-SafePackage {
     param([string]$ZipPath,[string]$ExpectedHash)
-    $resolved = (Resolve-Path -LiteralPath $ZipPath).Path
-    $stagedRoot = [IO.Path]::GetFullPath((Join-Path $StateRoot 'staged'))
+    $resolved = [IO.Path]::GetFullPath((Resolve-Path -LiteralPath $ZipPath).Path)
+    $stagedRoot = [IO.Path]::GetFullPath((Join-Path $StateRoot 'staged')).TrimEnd('\','/') + [IO.Path]::DirectorySeparatorChar
     if (-not $resolved.StartsWith($stagedRoot,[StringComparison]::OrdinalIgnoreCase)) {
         throw 'Pending package is outside the approved staged package root.'
     }
@@ -64,11 +64,15 @@ function Assert-SafePackage {
         if ($archive.Entries.Count -eq 0 -or $archive.Entries.Count -gt 5000) { throw 'Upgrade archive entry count is invalid.' }
         $manifest = $null
         $hasAppPayload = $false
+        [long]$expandedBytes = 0
         foreach ($entry in $archive.Entries) {
             $name = $entry.FullName.Replace('\','/')
-            if ([string]::IsNullOrWhiteSpace($name) -or $name.StartsWith('/') -or $name.Contains('../') -or [IO.Path]::IsPathRooted($name)) {
+            $segments = @($name.Split('/') | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+            if ([string]::IsNullOrWhiteSpace($name) -or $name.StartsWith('/') -or [IO.Path]::IsPathRooted($name) -or ($segments -contains '..')) {
                 throw "Unsafe archive entry: $name"
             }
+            $expandedBytes += [long]$entry.Length
+            if ($expandedBytes -gt 1GB) { throw 'Upgrade archive expands beyond the supported safety limit.' }
             if ($name -ieq 'monitor-upgrade-manifest.json') { $manifest = $entry }
             if ($name.StartsWith('app/',[StringComparison]::OrdinalIgnoreCase) -and -not $name.EndsWith('/')) { $hasAppPayload = $true }
         }
@@ -86,7 +90,8 @@ $version = [string]$pending.package.version
 $packagePath = [string]$pending.package.packagePath
 $expectedHash = [string]$pending.package.sha256
 if ([string]::IsNullOrWhiteSpace($version) -or [string]::IsNullOrWhiteSpace($packagePath) -or [string]::IsNullOrWhiteSpace($expectedHash)) {
-    Write-ResultFile -Version ($version ?? 'unknown') -Status 'Rejected' -Message 'Pending upgrade request is invalid.'
+    $safeVersion = if ([string]::IsNullOrWhiteSpace($version)) { 'unknown' } else { $version }
+    Write-ResultFile -Version $safeVersion -Status 'Rejected' -Message 'Pending upgrade request is invalid.'
     throw 'Pending upgrade request is invalid.'
 }
 
