@@ -21,6 +21,19 @@ Integrated DBA/operations capability includes:
 
 Exact PR #479 source head `ef7209cbf099da65330887508ab4380a8b4196d2` passed normal CI `34710820477`, Real SQL Server 2022 acceptance `34710820497`, production-candidate `34710820438`, protected-P0 metadata `34710820492` and protected-P0 commits `34710820496`, with zero unresolved review threads before merge.
 
+## Retained repository closeout evidence
+
+Historical repository closeout evidence remains canonical and is deliberately retained while later release work continues:
+
+- BATCH-700 UI closeout: **50/50 COMPLETE**; final merge `fd33e79c6d19d7f9852417b9c35a11f91f21714c`; exact final head `0834db6b5d518fe5c52eec9b47c03e467929aa89`.
+- BATCH-800 functional operator wiring: **COMPLETE** at **B800-100**.
+- **Umbrella:** #287 — CLOSED / COMPLETED.
+- B800 final merge `a6832d99f629cdbd3a93887199fe608a3ae474ec`; exact final head `4379dbc0e1b346cb51bebf8e7467823c58f2361c`.
+- B800 exact-head validation: CI `32093252549`, Real SQL `32093252670`, Windows production-candidate `32093252563`.
+- Canonical completed-task accounting remains **760**; later reconciliation/release PRs do not double-count that closeout total.
+- Diagnostic truth boundary remains explicit: **TempDB**, **transaction-log**, **HA**, and **query regression** evidence must distinguish collected evidence from unsupported / not-evaluated evidence and must never manufacture healthy or zero values.
+- BATCH-800 repository closeout is independent from the remaining production sequence `#162 -> #116 -> #111`.
+
 ## Selected production candidate
 
 Canonical authority: `docs/SELECTED_RELEASE_CANDIDATE.md`.
@@ -47,7 +60,7 @@ Integrated main merge      0cc2087aa9da887046986d413ab46df2bcbab735
 
 The Actions artifact was independently downloaded and inspected. The live artifact metadata matched the locked run/head/repository identity and outer digest; the nested ZIP SHA-256 matched the checksum, and `_operations/release-manifest.json` matched version/source/tested-merge/runtime/deployment identity.
 
-Use `scripts/Invoke-SelectedDurablePromotion.ps1` for the owner handoff. It verifies the live successful source run, exact non-expired artifact, exact outer digest, nested product hash, checksum and embedded release manifest before allowing an explicitly acknowledged promotion. Preview does not mutate production. Ambiguity/failure/expiration is fail-closed and automatic redispatch is forbidden.
+Use `scripts/Invoke-SelectedDurablePromotion.ps1` for the owner handoff. It verifies the live successful source run, exact non-expired artifact, exact outer digest, nested product hash, checksum and embedded release manifest before allowing an explicitly acknowledged promotion. Preview does not mutate production. It prints `READY_FOR_EXPLICIT_PROMOTION_ACKNOWLEDGEMENT`; actual publication requires `-AcknowledgePromotion`; success requires a separate `IndependentVerificationCommand` / `verify-durable-release.yml` run. Ambiguity/failure/expiration is fail-closed: **do not redispatch**. Release preview and selection remain **0/15** external production gates with `ExternalGatesPassed = 0` and **no production mutation**.
 
 ## Remaining required gates — all genuine external/owner gates
 
@@ -57,11 +70,11 @@ No GitHub Release or selected tag exists yet. Repository-side tooling is complet
 
 ### #116 — EXTERNAL_ENVIRONMENT production acceptance — OPEN / NOT PASS
 
-Blocked from production mutation until #162 genuinely passes. Then run fresh real trusted HTTPS/IIS/least-privilege/recycle/durability/backup/rollback acceptance against exact selected rc.854 bytes. A new session begins at 0/15 and requires genuine 15/15 external evidence plus independent validation.
+Blocked from production mutation until #162 genuinely passes. Then run fresh real trusted HTTPS/IIS/least-privilege/recycle/durability/backup/rollback acceptance against exact selected rc.854 bytes. A new session begins at **0/15** and requires genuine **15/15** external evidence plus independent validation.
 
 ### #111 — umbrella/real least-privilege closure — OPEN / NOT PASS
 
-Repository and Real-SQL CI evidence cannot substitute for the required real production operator/estate evidence. Close only after #116 is genuinely accepted and the required least-privilege production evidence is recorded without committing credentials.
+Repository and Real-SQL CI evidence cannot substitute for the required real production operator/estate evidence. Close only after #116 is genuinely accepted and the required real production least-privilege evidence is recorded without committing credentials.
 
 ### #353 — OWNER_ONLY / REPOSITORY_ADMIN branch protection — OPEN / NOT PASS
 
