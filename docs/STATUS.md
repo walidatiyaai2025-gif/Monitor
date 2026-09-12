@@ -4,7 +4,7 @@
 
 ## Current status — 2026-09-12
 
-Repository/application work requested by the owner is integrated. The DBA Command Center scope from PR #479 is on `main` via merge `0cc2087aa9da887046986d413ab46df2bcbab735`, followed by documentation reconciliation `c3e847397243c44fdf5b8a78b114086ea1b133b2` at this work-start snapshot.
+Repository/application work requested by the owner is integrated. The DBA Command Center scope from PR #479 is on `main` via merge `0cc2087aa9da887046986d413ab46df2bcbab735`, which was also the exact observed `main` at this reconciliation work start.
 
 Integrated DBA/operations capability includes:
 
