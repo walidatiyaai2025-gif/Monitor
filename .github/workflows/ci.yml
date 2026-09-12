@@ -70,6 +70,7 @@ jobs:
             'scripts/Test-Rc61DurablePromotionOperatorSafety.ps1',
             'scripts/Test-Rc61CutoverReadiness.ps1',
             'scripts/Test-Rc61CutoverReadinessSafety.ps1',
+            'scripts/Invoke-SelectedDurablePromotion.ps1',
             'scripts/Set-MainBranchProtection.ps1',
             'scripts/Test-MainBranchProtectionSafety.ps1'
           )) {
