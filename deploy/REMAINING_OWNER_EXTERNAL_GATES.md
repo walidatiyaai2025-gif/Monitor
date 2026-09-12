@@ -19,14 +19,15 @@ Product SHA-256            b0370b3efa984393d833958850734c67c69b78bfe32e4b47c844d
 Source Actions run         34710820438
 Source artifact ID         10303396821
 Source artifact name       Monitor-0.1.0-rc.854-win-x64
-Artifact expires           2026-10-12T18:18:29Z
+Outer artifact digest      sha256:e1f0b7facc756758a13653c3ad2bfa5a4af9107b02e14f4682aaaabb286f01e3
+Artifact expires           2026-10-12T18:22:15Z
 Source PR                  #479
 Source head                ef7209cbf099da65330887508ab4380a8b4196d2
 Tested PR merge            e1d0daedf8b2209934a1bcd01bff5d46229df20a
 Integrated main merge      0cc2087aa9da887046986d413ab46df2bcbab735
 ```
 
-The product ZIP, companion checksum and embedded `_operations/release-manifest.json` were independently inspected during selection. The computed product SHA-256 matched the locked value above.
+The live artifact API and independently downloaded product matched run/head/repository identity, exact outer digest, product ZIP SHA-256, companion checksum and embedded `_operations/release-manifest.json`.
 
 Dependency order:
 
@@ -68,19 +69,13 @@ The connected automation can inspect Actions evidence but cannot dispatch workfl
 pwsh ./scripts/Invoke-SelectedDurablePromotion.ps1
 ```
 
-Require:
+Require the exact rc.854 tuple above, `ExternalGatesPassed = 0`, `ProductionMutationPerformed = False`, and:
 
 ```text
-State                       SELECTED_CANDIDATE_VERIFIED
-Version                     0.1.0-rc.854
-Tag                         v0.1.0-rc.854
-ProductSha256               b0370b3efa984393d833958850734c67c69b78bfe32e4b47c844ddb10f0f27b7
-ExternalGatesPassed         0
-ProductionMutationPerformed False
 READY_FOR_EXPLICIT_PROMOTION_ACKNOWLEDGEMENT
 ```
 
-The helper live-checks the successful source run, exact artifact identity, unexpired status, nested product hash, checksum and embedded release manifest. If any field differs, **STOP**.
+The helper live-checks repository identity, successful production-candidate source run, exact artifact ID/name/run/head/repository IDs, outer artifact digest, non-expired status/expiry, nested product hash/checksum and embedded release manifest. Any drift is **STOP**.
 
 ### Step 1 — explicit acknowledged promotion
 
@@ -90,13 +85,27 @@ Only after reviewing Step 0:
 pwsh ./scripts/Invoke-SelectedDurablePromotion.ps1 -AcknowledgePromotion
 ```
 
-The helper dispatches `.github/workflows/promote-existing-candidate.yml` with the exact tuple above, binds exactly one post-dispatch run, watches it to completion, and independently reads back the immutable tag/release assets. Ambiguity, failure or an unexpected pre-existing tag/release is **STOP / DO NOT REDISPATCH**.
+The helper dispatches `.github/workflows/promote-existing-candidate.yml` from `main` with the workflow's exact live contract:
 
-Capture the exact successful promotion run ID.
+```text
+candidate_version               0.1.0-rc.854
+source_run_id                   34710820438
+source_artifact_id              10303396821
+expected_outer_artifact_digest  sha256:e1f0b7facc756758a13653c3ad2bfa5a4af9107b02e14f4682aaaabb286f01e3
+expected_product_sha256         b0370b3efa984393d833958850734c67c69b78bfe32e4b47c844ddb10f0f27b7
+source_commit                   ef7209cbf099da65330887508ab4380a8b4196d2
+tested_merge_commit             e1d0daedf8b2209934a1bcd01bff5d46229df20a
+release_tag                     v0.1.0-rc.854
+acknowledge_promotion           true
+```
+
+It binds exactly one post-dispatch run, watches it to completion and reads back immutable tag/release identity. Ambiguity, failure, expiry or unexpected pre-existing durable state is **STOP / DO NOT REDISPATCH**.
+
+Capture the exact successful promotion run ID and the returned `IndependentVerificationCommand`.
 
 ### Step 2 — separate independent durable-release verifier
 
-This must be a separate action after promotion succeeds:
+This must be a separate action after promotion succeeds. Execute the exact returned command, equivalent to:
 
 ```powershell
 gh workflow run verify-durable-release.yml --repo walidatiyaai2025-gif/Monitor --ref main `
@@ -141,11 +150,11 @@ After #162 passes, use exact durable rc.854 bytes and the embedded acceptance-co
 
 Required rules:
 
-- exact selected product SHA-256 must remain `b0370b3efa984393d833958850734c67c69b78bfe32e4b47c844ddb10f0f27b7`;
+- exact selected product SHA-256 remains `b0370b3efa984393d833958850734c67c69b78bfe32e4b47c844ddb10f0f27b7`;
 - no credentials/secrets are committed to GitHub;
-- each gate is backed by real external evidence, not CI substitution;
-- one acceptance session must reach genuine 15/15;
-- independent validation must pass before #116 closes.
+- each gate uses real external evidence, not CI substitution;
+- one acceptance session reaches genuine 15/15;
+- independent validation passes before #116 closes.
 
 ---
 
@@ -194,15 +203,7 @@ gh api "repos/$repo/branches/main"
 gh api "repos/$repo/branches/main/protection"
 ```
 
-Close #353 only when independent admin evidence proves:
-
-- `protected=true`;
-- `required_status_checks.strict=true`;
-- exact required check set is only the three contexts above with the reviewed GitHub App provider identity;
-- `enforce_admins.enabled=true`;
-- `required_conversation_resolution.enabled=true`;
-- `allow_force_pushes.enabled=false`;
-- `allow_deletions.enabled=false`.
+Close #353 only when independent admin evidence proves `protected=true`, strict required checks, exact provider-bound three-check set above, admin enforcement and conversation resolution enabled, and force pushes/deletion disabled.
 
 ---
 
