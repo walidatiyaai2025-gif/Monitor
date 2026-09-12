@@ -46,7 +46,7 @@ public sealed class DbaController : Controller
     {
         try
         {
-            var plan = _commandCenter.BuildBackupManagementPlan(id, database);
+            var plan = DbaBackupPlanFormatter.Build(_commandCenter.GetCached(), id, database);
             Response.Headers.CacheControl = "no-store, max-age=0";
             Response.Headers.Pragma = "no-cache";
             Response.Headers["X-Content-Type-Options"] = "nosniff";
