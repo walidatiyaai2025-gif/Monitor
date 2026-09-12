@@ -14,17 +14,18 @@ Tag                        v0.1.0-rc.854
 ZIP                        Monitor-0.1.0-rc.854-win-x64.zip
 Checksum                   Monitor-0.1.0-rc.854-win-x64.zip.sha256
 Product SHA-256            b0370b3efa984393d833958850734c67c69b78bfe32e4b47c844ddb10f0f27b7
-Source workflow run         34710820438
-Actions artifact ID         10303396821
-Artifact name               Monitor-0.1.0-rc.854-win-x64
-Artifact expires            2026-10-12T18:18:29Z
-Source PR                   #479
-Source head                 ef7209cbf099da65330887508ab4380a8b4196d2
-Tested PR merge             e1d0daedf8b2209934a1bcd01bff5d46229df20a
-Integrated main merge       0cc2087aa9da887046986d413ab46df2bcbab735
+Source workflow run        34710820438
+Actions artifact ID        10303396821
+Artifact name              Monitor-0.1.0-rc.854-win-x64
+Outer artifact digest      sha256:e1f0b7facc756758a13653c3ad2bfa5a4af9107b02e14f4682aaaabb286f01e3
+Artifact expires           2026-10-12T18:22:15Z
+Source PR                  #479
+Source head                ef7209cbf099da65330887508ab4380a8b4196d2
+Tested PR merge            e1d0daedf8b2209934a1bcd01bff5d46229df20a
+Integrated main merge      0cc2087aa9da887046986d413ab46df2bcbab735
 ```
 
-Independent repository-side inspection verified the downloaded Actions artifact, nested product ZIP, checksum file and embedded `_operations/release-manifest.json`. The computed product SHA-256 matched the checksum above. The embedded manifest identifies version `0.1.0-rc.854`, runtime `win-x64`, deployment mode `SingleNode`, source head `ef7209cb...`, and tested merge `e1d0daed...`.
+Independent repository-side inspection verified the downloaded Actions artifact, nested product ZIP, checksum file and embedded `_operations/release-manifest.json`. The computed product SHA-256 matched the checksum above. The live artifact API also matched the locked outer digest and exact source run/head/repository identity. The embedded manifest identifies version `0.1.0-rc.854`, runtime `win-x64`, deployment mode `SingleNode`, source head `ef7209cb...`, and tested merge `e1d0daed...`.
 
 ## Validation already passed
 
@@ -57,9 +58,9 @@ After reviewing the exact tuple, the repository owner may explicitly dispatch pr
 pwsh ./scripts/Invoke-SelectedDurablePromotion.ps1 -AcknowledgePromotion
 ```
 
-The helper fails closed when the artifact is expired, the source run is not successful, any identity/hash/manifest field differs, the immutable tag/release already exists, dispatch cannot be uniquely bound to one workflow run, or promotion fails. Never auto-redispatch an ambiguous or failed promotion.
+The helper fails closed when the artifact is expired, the source run is not successful, repository/source-run/artifact/digest identity differs, any nested product hash/checksum/manifest field differs, the immutable tag/release already exists, dispatch cannot be uniquely bound to one workflow run, or promotion fails. Never auto-redispatch an ambiguous or failed promotion.
 
-Promotion uses `.github/workflows/promote-existing-candidate.yml`; it must publish immutable prerelease tag `v0.1.0-rc.854` at tested merge `e1d0daed...` with exactly the selected ZIP/checksum bytes. A separate durable-release verification must then pass before production acceptance begins.
+Promotion uses `.github/workflows/promote-existing-candidate.yml` with its live input contract: `candidate_version`, `source_run_id`, `source_artifact_id`, `expected_outer_artifact_digest`, `expected_product_sha256`, `source_commit`, `tested_merge_commit`, `release_tag`, and explicit boolean `acknowledge_promotion=true`. It must publish immutable prerelease tag `v0.1.0-rc.854` at tested merge `e1d0daed...` with exactly the selected ZIP/checksum bytes. A separate `verify-durable-release.yml` run must then pass before production acceptance begins.
 
 ## Remaining owner/external gates
 
