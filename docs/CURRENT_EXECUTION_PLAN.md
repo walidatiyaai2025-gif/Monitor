@@ -40,14 +40,15 @@ Product ZIP         Monitor-0.1.0-rc.854-win-x64.zip
 Product SHA-256     b0370b3efa984393d833958850734c67c69b78bfe32e4b47c844ddb10f0f27b7
 Source run          34710820438
 Artifact ID         10303396821
-Artifact expiry     2026-10-12T18:18:29Z
+Outer digest        sha256:e1f0b7facc756758a13653c3ad2bfa5a4af9107b02e14f4682aaaabb286f01e3
+Artifact expiry     2026-10-12T18:22:15Z
 Source PR           #479
 Source head         ef7209cbf099da65330887508ab4380a8b4196d2
 Tested merge        e1d0daedf8b2209934a1bcd01bff5d46229df20a
 Integrated merge    0cc2087aa9da887046986d413ab46df2bcbab735
 ```
 
-Use `scripts/Invoke-SelectedDurablePromotion.ps1`. Preview must verify the live source run, unexpired artifact, nested product SHA-256 and embedded release manifest, and must make no production mutation. Actual durable publication requires explicit `-AcknowledgePromotion` and must uniquely bind one promotion workflow run. Failure or ambiguity is fail-closed; never auto-redispatch.
+Use `scripts/Invoke-SelectedDurablePromotion.ps1`. Preview must verify the live source run, unexpired artifact, exact outer digest, nested product SHA-256 and embedded release manifest, and must make no production mutation. Actual durable publication requires explicit `-AcknowledgePromotion` and must uniquely bind one promotion workflow run. Failure or ambiguity is fail-closed; never auto-redispatch.
 
 ## Remaining required gates
 
