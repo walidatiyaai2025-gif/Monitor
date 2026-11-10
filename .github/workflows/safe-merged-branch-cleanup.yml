@@ -1,0 +1,52 @@
+name: Safe merged branch cleanup
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - .github/workflows/safe-merged-branch-cleanup.yml
+      - scripts/cleanup_merged_branches.py
+  push:
+    branches: [ main ]
+    paths:
+      - .github/workflows/safe-merged-branch-cleanup.yml
+      - scripts/cleanup_merged_branches.py
+  workflow_dispatch:
+
+concurrency:
+  group: monitor-safe-merged-branch-cleanup
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Compile cleanup script
+        run: python3 -m py_compile scripts/cleanup_merged_branches.py
+      - name: Audit candidates without modifying branches
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/cleanup_merged_branches.py
+
+  apply:
+    if: github.event_name != 'pull_request' && github.repository == 'walidatiyaai2025-gif/Monitor' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Compile cleanup script
+        run: python3 -m py_compile scripts/cleanup_merged_branches.py
+      - name: Delete only branches with exact merged-PR proof
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/cleanup_merged_branches.py --apply
