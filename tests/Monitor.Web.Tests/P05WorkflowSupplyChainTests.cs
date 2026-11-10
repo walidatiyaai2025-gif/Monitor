@@ -48,14 +48,18 @@ public sealed class P05WorkflowSupplyChainTests
             ["ci.yml"] = 1,
             ["promote-existing-candidate.yml"] = 2,
             ["real-sql-acceptance.yml"] = 1,
-            ["release.yml"] = 2
+            ["release.yml"] = 2,
+            ["safe-merged-branch-audit.yml"] = 1,
+            ["safe-merged-branch-cleanup.yml"] = 1
         };
 
     private static readonly string[] LinuxCheckoutWorkflows =
     {
         "ci.yml",
         "promote-existing-candidate.yml",
-        "real-sql-acceptance.yml"
+        "real-sql-acceptance.yml",
+        "safe-merged-branch-audit.yml",
+        "safe-merged-branch-cleanup.yml"
     };
 
     private static readonly string[] ActiveWorkflows =
@@ -64,13 +68,16 @@ public sealed class P05WorkflowSupplyChainTests
         "production-candidate.yml",
         "promote-existing-candidate.yml",
         "real-sql-acceptance.yml",
-        "release.yml"
+        "release.yml",
+        "safe-merged-branch-audit.yml",
+        "safe-merged-branch-cleanup.yml"
     };
 
     private static readonly string[] ApprovedWriteCapableWorkflows =
     {
         "promote-existing-candidate.yml",
-        "release.yml"
+        "release.yml",
+        "safe-merged-branch-cleanup.yml"
     };
 
     private static readonly string[] SolutionProjectPaths =
@@ -216,6 +223,30 @@ public sealed class P05WorkflowSupplyChainTests
         Assert.Contains("- name: Validate source run and artifact metadata\n        shell: bash\n        env:\n          GH_TOKEN: ${{ github.token }}", promotion.Replace("\r\n", "\n", StringComparison.Ordinal), StringComparison.Ordinal);
         Assert.Contains("- name: Publish or verify immutable durable release\n        shell: bash\n        env:\n          GH_TOKEN: ${{ github.token }}", promotion.Replace("\r\n", "\n", StringComparison.Ordinal), StringComparison.Ordinal);
         Assert.Contains("github-token: ${{ github.token }}", promotion, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SafeMergedBranchCleanup_UsesWriteOnlyAfterExactMainPush()
+    {
+        var root = FindRepoRoot();
+        var workflowsRoot = Path.Combine(root, ".github", "workflows");
+        var cleanup = File.ReadAllText(Path.Combine(workflowsRoot, "safe-merged-branch-cleanup.yml"))
+            .Replace("\r\n", "\n", StringComparison.Ordinal);
+        var audit = File.ReadAllText(Path.Combine(workflowsRoot, "safe-merged-branch-audit.yml"))
+            .Replace("\r\n", "\n", StringComparison.Ordinal);
+
+        Assert.Contains("on:\n  push:\n    branches: [ main ]", cleanup, StringComparison.Ordinal);
+        Assert.DoesNotContain("pull_request:", cleanup, StringComparison.Ordinal);
+        Assert.DoesNotContain("workflow_dispatch:", cleanup, StringComparison.Ordinal);
+        Assert.DoesNotContain("pull_request_target:", cleanup, StringComparison.Ordinal);
+        Assert.Contains("permissions:\n  contents: read", cleanup, StringComparison.Ordinal);
+        Assert.Contains("    permissions:\n      contents: write", cleanup, StringComparison.Ordinal);
+        Assert.Contains("github.repository == 'walidatiyaai2025-gif/Monitor' && github.ref == 'refs/heads/main'", cleanup, StringComparison.Ordinal);
+        Assert.Contains("python3 scripts/cleanup_merged_branches.py --apply", cleanup, StringComparison.Ordinal);
+        Assert.Contains("GH_TOKEN: " + "$" + "{{ github.token }}", cleanup, StringComparison.Ordinal);
+        Assert.Contains("  pull_request:\n    branches: [ main ]", audit, StringComparison.Ordinal);
+        Assert.DoesNotContain("contents: write", audit, StringComparison.Ordinal);
+        Assert.Contains("python3 scripts/cleanup_merged_branches.py\n", audit, StringComparison.Ordinal);
     }
 
     [Fact]
