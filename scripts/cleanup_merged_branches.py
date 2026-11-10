@@ -8,6 +8,7 @@ import argparse
 import json
 import os
 import sys
+import time
 from urllib.error import HTTPError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
@@ -99,7 +100,7 @@ def main():
     active = {
         pr["head"]["ref"]
         for pr in open_prs
-        if pr.get("head", {}).get("repo", {}).get("full_name") == REPO
+        if ((pr.get("head") or {}).get("repo") or {}).get("full_name") == REPO
     }
     proven = set()
     for pr in closed:
@@ -157,6 +158,8 @@ def main():
         request(f"/repos/{REPO}/git/refs/heads/{quote(name, safe='/')}", method="DELETE")
         deleted.append(name)
         print(f"DELETED {name}", flush=True)
+        # Respect GitHub's secondary rate limits for ref mutations.
+        time.sleep(1.1)
 
     remaining = {b["name"] for b in pages(f"/repos/{REPO}/branches", size=100)}
     unexpectedly_remaining = [b for b in deleted if b in remaining]
